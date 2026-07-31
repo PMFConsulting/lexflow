@@ -185,7 +185,17 @@ export function Formulario({
   const anterior = passoAnterior(n, { tipoCliente: tipo, representadoPorProcurador });
   const passo = PASSOS.find((p) => p.n === n)!;
 
-  const enviar = (fd: FormData) => {
+  /**
+   * `onSubmit` com `preventDefault`, e não `action={}`.
+   *
+   * O React 19 faz reset ao formulário depois de correr uma Server Action
+   * passada em `action`. Num formulário destes, um dígito errado no NIF
+   * apagava os outros dezanove campos. Assim o DOM fica intacto e o cliente
+   * corrige só o que está errado.
+   */
+  const enviar = (ev: React.FormEvent<HTMLFormElement>) => {
+    ev.preventDefault();
+    const fd = new FormData(ev.currentTarget);
     setMensagem(null);
     transicao(async () => {
       const r =
@@ -218,7 +228,7 @@ export function Formulario({
   };
 
   return (
-    <form action={enviar} className="flex flex-col gap-6">
+    <form onSubmit={enviar} className="flex flex-col gap-6">
       <header>
         <p className="text-2xs font-mono tracking-[0.16em] text-muted-foreground uppercase">
           Passo {String(n).padStart(2, "0")} de 07
