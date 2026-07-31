@@ -1,6 +1,12 @@
 # Decisão de arquitetura — assinatura digital (passo 7)
 
-Pedido em `docs/BRIEF.md` §2. Estado: **proposta, à espera de aprovação.**
+Pedido em `docs/BRIEF.md` §2. Estado: **recomendação confirmada; decisão de âmbito por tomar.**
+
+> **Contexto que os screenshots vieram acrescentar:** o passo 7 do formulário atual é só uma
+> "Declaração Final" com um checkbox e o botão Submeter — **não há assinatura nenhuma hoje**
+> (divergência D1 em `docs/CAMPOS.md`). Isto não é migrar uma funcionalidade, é construir uma.
+> Num contexto de POC, é a primeira candidata a ficar para depois: a declaração de veracidade,
+> gravada com data/hora de servidor e IP, cobre o mesmo terreno probatório a custo quase zero.
 
 ## Recomendação: construir in-house na v1 (`signature_pad` + `pdf-lib`)
 

@@ -5,8 +5,11 @@ Plataforma interna para centralizar os processos de uma sociedade de advogados.
 
 ## Estado
 
-**Fase 0 — Análise.** Ainda sem código: o plano de execução exige aprovação da análise antes
-do scaffold. Ver `CLAUDE.md` para o estado detalhado.
+**Fase 0 — Análise, concluída.** Os 7 screenshots do formulário atual estão lidos e o inventário
+de campos está validado contra as imagens. Ainda sem código: o plano exige aprovação da análise
+antes do scaffold.
+
+O projeto está enquadrado como **POC** — infraestrutura a €0/mês e âmbito cortado. Ver `CLAUDE.md`.
 
 ## Documentação
 

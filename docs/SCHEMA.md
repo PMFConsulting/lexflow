@@ -1,8 +1,12 @@
 # Proposta de schema Drizzle
 
 > **Estado: proposta, à espera de aprovação.** Nada disto está em `src/db/` — a Fase 0 não
-> escreve código. Os nomes de coluna dependem das respostas às ambiguidades de
-> `docs/CAMPOS.md` e da validação contra os screenshots.
+> escreve código.
+>
+> **Revisto depois de ler os 7 screenshots.** As secções abaixo já refletem o formulário real
+> (nacionalidades multi-valor, morada com freguesia/concelho/distrito, documento de identificação
+> no passo 2, preferências de contacto no passo 5). As divergências entre o brief e o formulário
+> estão em `docs/CAMPOS.md` §D — vale a pena lê-las antes desta página.
 
 Ficheiros previstos: `src/db/schema/` com um módulo por domínio (`organizacao.ts`,
 `processo.ts`, `seccoes.ts`, `documentos.ts`, `auditoria.ts`, `legal.ts`) reexportados por
@@ -55,9 +59,7 @@ export const estadoProcesso  = pgEnum('estado_processo', [
 export const nivelRisco      = pgEnum('nivel_risco', ['baixo', 'medio', 'elevado'])
 export const papelUtilizador = pgEnum('papel_utilizador', ['admin', 'socio', 'advogado', 'assistente'])
 export const tipoDocId       = pgEnum('tipo_doc_id', ['cc', 'passaporte', 'titulo_residencia'])
-export const estadoCivil     = pgEnum('estado_civil', [
-  'solteiro', 'casado', 'uniao_facto', 'divorciado', 'viuvo', 'separado_judicialmente',
-]) // ← ambiguidade A4
+// estado_civil eliminado: não existe no formulário real (divergência D6)
 export const regimeIva       = pgEnum('regime_iva', [
   'normal', 'isento_art53', 'isento_art9', 'misto',
 ]) // ← ambiguidade A8
@@ -66,9 +68,14 @@ export const tipoDocumento   = pgEnum('tipo_documento', [
   'procuracao', 'ata_designacao', 'comprovativo_rcbe', 'outro',
 ])
 export const finalidade      = pgEnum('finalidade_consentimento', [
-  'servico_juridico', 'obrigacoes_legais', 'faturacao', 'marketing',
-  'termos_condicoes', 'proposta',
-]) // ← ambiguidade A11 pode reduzir isto
+  'newsletter', 'convites_iniciativas',   // os únicos consentimentos reais (D2/A11)
+  'declaracao_veracidade',                // passo 7 atual
+  'termos_condicoes', 'proposta',         // novos, se o passo 7 do brief avançar
+])
+export const origemContacto  = pgEnum('origem_contacto', [
+  'recomendacao', 'pesquisa_online', 'evento_conferencia', 'outro',
+])
+export const titularNacionalidade = pgEnum('titular_nacionalidade', ['cliente', 'representante'])
 export const tipoAssinatura  = pgEnum('tipo_assinatura', ['simples', 'avancada', 'qualificada'])
 ```
 
@@ -148,40 +155,76 @@ export const processoOnboarding = pgTable('processo_onboarding', {
 
 Todas seguem o mesmo padrão — `processoId` único, `extra jsonb`, timestamps:
 
+A morada repete-se em quatro sítios (cliente, representante, faturação e, mais tarde, sede da
+empresa). Fica como conjunto de colunas reutilizável, não como tabela — é sempre 1:1 e nunca se
+pesquisa por ela isoladamente:
+
+```ts
+// src/db/schema/_morada.ts — os 7 campos que o formulário real usa
+export const morada = {
+  morada: text('morada').notNull(),
+  pais: char('pais', { length: 2 }).notNull(),
+  localidade: text('localidade').notNull(),
+  codigoPostal: text('codigo_postal').notNull(),
+  freguesia: text('freguesia').notNull(),
+  concelho: text('concelho').notNull(),
+  distrito: text('distrito').notNull(),
+}
+```
+
 ```ts
 export const dadosIdentificacao = pgTable('dados_identificacao', {
   id: id(),
   processoId: uuid('processo_id').notNull().unique().references(() => processoOnboarding.id),
   nome: text('nome').notNull(),
-  dataNascimento: date('data_nascimento'),
-  nacionalidade: char('nacionalidade', { length: 2 }),
-  naturalidade: text('naturalidade'),
-  estadoCivil: estadoCivil('estado_civil'),
-  profissao: text('profissao'),
-  docTipo: tipoDocId('doc_tipo').notNull(),
+  profissao: text('profissao').notNull(),
+  entidadePatronal: text('entidade_patronal').notNull(),   // "N/A" se não se aplicar
+  dataNascimento: date('data_nascimento').notNull(),
+  telefone: text('telefone').notNull(),
+  email: text('email').notNull(),
+  ...morada,
+  extra, ...timestamps,
+}, (t) => [index('identificacao_nome').on(t.nome)])
+
+// Nacionalidade é multi-valor no formulário (chips). Tabela própria, polimórfica pelo titular.
+export const nacionalidade = pgTable('nacionalidade', {
+  id: id(),
+  processoId: uuid('processo_id').notNull().references(() => processoOnboarding.id),
+  titular: titularNacionalidade('titular').notNull(),      // 'cliente' | 'representante'
+  pais: char('pais', { length: 2 }).notNull(),
+  ...timestamps,
+}, (t) => [uniqueIndex('nacionalidade_unica').on(t.processoId, t.titular, t.pais)])
+
+export const dadosFiscais = pgTable('dados_fiscais', {
+  id: id(),
+  processoId: uuid('processo_id').notNull().unique().references(() => processoOnboarding.id),
+  nifPortugues: boolean('nif_portugues').notNull(),
+  resideEmPortugal: boolean('reside_em_portugal').notNull(),
+  nif: text('nif').notNull(),                    // mod-11 só se nifPortugues
+  docTipo: tipoDocId('doc_tipo').notNull(),      // o doc de ID vive aqui, não no passo 1 (D3)
   docNumero: text('doc_numero').notNull(),
   docValidade: date('doc_validade').notNull(),
-  docPaisEmissor: char('doc_pais_emissor', { length: 2 }).notNull(),
-  moradaVia: text('morada_via').notNull(),
-  moradaNumero: text('morada_numero'),
-  codigoPostal: text('codigo_postal').notNull(),
-  localidade: text('localidade').notNull(),
-  pais: char('pais', { length: 2 }).notNull(),
-  email: text('email').notNull(),
-  telemovel: text('telemovel').notNull(),
-  representadoPorProcurador: boolean('representado_por_procurador').notNull().default(false), // ← A1
   extra, ...timestamps,
-}, (t) => [index('identificacao_nome').on(t.nome), index('identificacao_doc').on(t.docNumero)])
+}, (t) => [index('fiscais_nif').on(t.nif), index('fiscais_doc_validade').on(t.docValidade)])
 ```
 
-As restantes com a mesma forma: `dados_fiscais`, `representante_legal`, `declaracao_ppe`,
-`consentimento_rgpd`, `dados_faturacao`, `fecho_proposta` — colunas conforme `docs/CAMPOS.md`.
+`dados_fiscais.nif` leva índice próprio: é um dos três campos da pesquisa global.
+`doc_validade` também: alimenta o alerta dos 60 dias no painel.
 
-**Filhas 1:N:** `residencia_fiscal_adicional` (jurisdição + TIN) e `beneficiario_efetivo`
-(nome, NIF, percentagem, natureza do controlo). São listas dinâmicas, não JSONB — porque o
-brief pede filtrar por PPE e pesquisar por NIF, e isso inclui o NIF de um beneficiário efetivo.
+**As restantes com a mesma forma**, conforme `docs/CAMPOS.md`:
 
-**`dados_fiscais.nif`** leva índice próprio: é um dos três campos da pesquisa global.
+| Tabela | Passo | Notas |
+|---|---|---|
+| `representante_legal` | 3 | `e_representante` como interruptor, `relacao`, dados pessoais, `...morada`, bloco fiscal próprio |
+| `declaracao_ppe` | 4 | `e_ppe`, `e_relacionado_ppe` + campos de detalhe (A16) |
+| `relacao_negocio` | 4 | `servicos` e `origem_fundos`, ambos obrigatórios |
+| `preferencias_contacto` | 5 | `origem_contacto`, `origem_detalhe`, `newsletter`, `convites_iniciativas`, `convites_nome`, `convites_email` |
+| `dados_faturacao` | 6 | `igual_ao_cliente`, nome, NIF, `...morada`, email + bloco "Ao cuidado de" (`ac_*`) |
+| `fecho_proposta` | 7 | hoje só `declaracao_veracidade`; cresce se D1 avançar |
+
+**Filhas 1:N:** `nacionalidade`, `email_newsletter` e `area_interesse` (passo 5, ambas chips).
+`residencia_fiscal_adicional` e `beneficiario_efetivo` ficam no schema mas sem UI até haver
+screenshots do percurso Empresa (A18/A19).
 
 ---
 
