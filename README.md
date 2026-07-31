@@ -31,6 +31,7 @@ que tocam a base de dados é que precisam dele.
 | [`docs/CAMPOS.md`](docs/CAMPOS.md) | Inventário campo a campo dos 7 passos + 15 ambiguidades por decidir |
 | [`docs/SCHEMA.md`](docs/SCHEMA.md) | Proposta de schema Drizzle, auditoria encadeada, RLS, pesquisa |
 | [`docs/DECISAO-ASSINATURA.md`](docs/DECISAO-ASSINATURA.md) | In-house vs. DocuSeal — recomendação e prós/contras |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Do zero até `poc.terlicalabs.com` no ar — domínio, servidor, Coolify, DNS |
 | [`CLAUDE.md`](CLAUDE.md) | Decisões de arquitetura e comandos |
 
 ## Em falta

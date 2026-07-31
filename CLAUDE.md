@@ -38,23 +38,30 @@ cadeia de hashes da auditoria com 8 testes e script de verificação · seeds co
 
 Os segredos são preenchidos por ti — não passam por aqui.
 
-## Infraestrutura da POC — €0/mês
+## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
-| Camada | Escolha | Plano | Limite relevante |
-|---|---|---|---|
-| Postgres + Storage | **Supabase** | free | 500 MB BD, 1 GB ficheiros; pausa após 7 dias sem uso |
-| Alojamento | **Vercel** | Hobby | ⚠ Hobby proíbe uso comercial — ver nota |
-| Email | **Resend** | free | 3.000/mês, 100/dia |
-| Assinatura | não aplicável na POC | — | ver `docs/DECISAO-ASSINATURA.md` |
+Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
-**Porquê Supabase e não Neon:** ambos têm free tier de Postgres, mas o Neon não tem storage —
-obrigaria a uma segunda conta (R2 ou UploadThing) para os documentos de identificação. Um
-serviço em vez de dois, ao mesmo preço: zero. Usamos o Supabase só como Postgres + Storage;
-o auth continua a ser Better Auth, como o §1 do brief manda.
+| Camada | Escolha | Custo |
+|---|---|---|
+| Domínio | `terlicalabs.com` na Cloudflare Registrar | ~10 €/ano |
+| Servidor | Hetzner CX22 (2 vCPU, 4 GB) | ~4,5 €/mês |
+| PaaS | Coolify, auto-alojado | grátis |
+| Postgres | no próprio servidor, via Coolify | grátis |
+| Email | Resend | grátis (3.000/mês) |
+| Assinatura | fora do âmbito da POC | ver `docs/DECISAO-ASSINATURA.md` |
 
-**Nota sobre o Vercel Hobby:** o plano gratuito exclui uso comercial. Enquanto for POC interna
-sem faturação é defensável; no dia em que a sociedade a usar a sério, são 20 €/mês de Pro.
-Sinalizo agora para não ser surpresa depois.
+**Endereço desta POC:** `poc.terlicalabs.com`. O apex `terlicalabs.com` é o site da Terlica
+Labs, onde se pedem projetos, e vive noutro repositório — mesmo servidor, outro projeto no
+Coolify.
+
+**Porquê não a Vercel:** o plano Hobby proíbe uso comercial, e estes são projetos para
+clientes. O Pro são 20 €/mês, por projeto de conta. O VPS é um custo fixo que não cresce com
+o número de clientes.
+
+**Porquê não o Supabase:** o plano gratuito suspende o projeto ao fim de 7 dias sem uso —
+exatamente o padrão de uma POC mostrada de duas em duas semanas. Com Postgres no próprio
+servidor, o problema desaparece e poupa-se uma conta.
 
 ## Corte de âmbito da POC — a validar
 
@@ -95,6 +102,9 @@ altera o que se constrói à volta.
 | D13 | Pesquisa full-text por trigger e não por coluna gerada: `unaccent` não é immutable e as fontes (nome, NIF) estão noutras tabelas | migração `0001` |
 | D14 | Sessões de 8 horas — um dia de trabalho, não um mês | `src/lib/auth.ts` |
 | D15 | Os `id` são gerados na aplicação (`uuidv7`), não pela base de dados — o Postgres só tem `uuidv7()` nativo na v18. Consequência prática: qualquer INSERT em SQL cru tem de indicar o `id` | `src/db/schema/_comum.ts` |
+| D16 | Alojamento em VPS próprio (Hetzner CX22) com Coolify, em vez de Vercel — o plano Hobby proíbe uso comercial e o Pro são 20 €/mês. Custo fixo ~4,5 €/mês para POCs ilimitadas | `docs/DEPLOY.md` |
+| D17 | Postgres no próprio servidor em vez de Supabase — elimina a suspensão do plano gratuito ao fim de 7 dias sem uso, que é o padrão de uma POC mostrada de duas em duas semanas | `docs/DEPLOY.md` |
+| D18 | `output: "standalone"` e imagem Docker em três estágios; as migrações correm no arranque do contentor e, se falharem, ele não sobe | `Dockerfile` |
 
 ## Decisões em aberto
 

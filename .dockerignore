@@ -1,0 +1,22 @@
+node_modules
+.next
+.git
+.github
+.vscode
+.idea
+.claude
+
+# Segredos nunca entram na imagem — vão pelas variáveis do Coolify.
+.env
+.env.*
+!.env.example
+
+# Não servem para nada dentro do contentor
+docs
+*.md
+!README.md
+coverage
+test-results
+playwright-report
+Dockerfile
+.dockerignore
