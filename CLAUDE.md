@@ -13,14 +13,30 @@ o primeiro troço.
 
 | Fase | Estado |
 |---|---|
-| 0 — Análise | **concluída** — 7 screenshots lidos, campos inventariados, 7 divergências e 7 ambiguidades por fechar |
-| 1 — Fundações | por iniciar, à espera de aprovação |
+| 0 — Análise | **concluída** — 7 screenshots lidos, campos inventariados, 7 divergências registadas |
+| 1 — Fundações | **concluída** — falta aplicar as migrações a uma base de dados real |
 | 2 — Fluxo de onboarding | por iniciar |
 | 3 — Back-office | por iniciar |
 | 4 — Fecho (PDF, assinatura, emails) | fora do âmbito da POC |
 
-**Não escrever código antes da Fase 0 estar aprovada.** Ainda não há `src/`, `package.json`
-nem migrações — é intencional.
+### O que ficou feito na Fase 1
+
+Next.js 16 + TypeScript strict + Tailwind 4 + shadcn/ui · tokens do §3 aplicados
+(`src/app/globals.css`) com as três famílias tipográficas · layout do back-office com sidebar
+em tinta · componentes do vocabulário visual (`Carimbo`, `Carimbos`, `Ref`, `EstadoBadge`,
+`RiscoBadge`) · schema Drizzle completo, 27 tabelas · três migrações, incluindo pesquisa
+full-text pt com `unaccent` e a imutabilidade da auditoria · Better Auth com email+password e
+sessões em BD · validações PT (NIF mod-11, IBAN mod-97, código postal, telefone) com 21 testes ·
+cadeia de hashes da auditoria com 8 testes e script de verificação · seeds com guard de ambiente.
+
+`pnpm build` limpo, `pnpm typecheck` limpo, 29 testes verdes, sem scroll horizontal a 360px.
+
+### O que falta para fechar a Fase 1
+
+1. Criar o projeto Supabase (plano gratuito) e copiar `.env.example` para `.env`.
+2. `pnpm db:migrate` e `pnpm db:seed`.
+
+Os segredos são preenchidos por ti — não passam por aqui.
 
 ## Infraestrutura da POC — €0/mês
 
@@ -74,6 +90,10 @@ altera o que se constrói à volta.
 | D8 | Morada como conjunto de colunas reutilizável (7 campos: morada, país, localidade, CP, freguesia, concelho, distrito), repetido em cliente/representante/faturação | `docs/SCHEMA.md` |
 | D9 | Nacionalidade em tabela 1:N — o formulário aceita várias por titular | `docs/SCHEMA.md` |
 | D10 | Supabase free como Postgres + Storage; Better Auth mantém-se como auth | este ficheiro |
+| D11 | `env()` e `db()` são preguiçosos, não constantes de módulo — o `next build` não precisa de base de dados, e falhar o build por falta de um segredo de runtime é mau negócio | `src/env.ts` |
+| D12 | `prepare: false` na ligação Postgres — o pooler do Supabase em modo transaction é pgBouncer e não suporta prepared statements | `src/db/index.ts` |
+| D13 | Pesquisa full-text por trigger e não por coluna gerada: `unaccent` não é immutable e as fontes (nome, NIF) estão noutras tabelas | migração `0001` |
+| D14 | Sessões de 8 horas — um dia de trabalho, não um mês | `src/lib/auth.ts` |
 
 ## Decisões em aberto
 
@@ -86,11 +106,16 @@ altera o que se constrói à volta.
 - **D4 do inventário** — sem IBAN nem condições de pagamento no passo 6. Confirmar se é para
   acrescentar.
 - **Retenção e expurgo aos 7 anos** — desenho em `docs/SCHEMA.md`, precisa de validação jurídica.
-- **Dependências fora do §1**: `uuidv7`. `signature_pad` deixa de ser precisa na POC.
+- **Dependências fora do §1**: `uuidv7` (o Postgres só tem `uuidv7()` nativo na v18), `dotenv`,
+  `tsx` e `server-only` (utilitários de build). `signature_pad` deixa de ser precisa na POC.
+- **`REVOKE` da auditoria não morde no Supabase por omissão**: o utilizador da aplicação é
+  também o owner da tabela, e o owner contorna o `REVOKE`. Só as `RULE` protegem. Criar um papel
+  `app_user` separado do owner é o passo que fecha isto na passagem a produção — a migração
+  `0002` já o aplica se o papel existir.
+- **Componente `form` do shadcn**: não existe no preset `radix-nova` instalado. Na Fase 2
+  escreve-se um wrapper fino sobre React Hook Form em vez de o importar.
 
 ## Comandos
-
-Ainda não há scaffold. Previstos para a Fase 1:
 
 ```bash
 pnpm dev                  # servidor de desenvolvimento

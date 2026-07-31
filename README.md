@@ -5,11 +5,23 @@ Plataforma interna para centralizar os processos de uma sociedade de advogados.
 
 ## Estado
 
-**Fase 0 — Análise, concluída.** Os 7 screenshots do formulário atual estão lidos e o inventário
-de campos está validado contra as imagens. Ainda sem código: o plano exige aprovação da análise
-antes do scaffold.
+**Fase 1 — Fundações, concluída.** Scaffold, tokens de design, schema com 27 tabelas, migrações,
+autenticação e validações portuguesas testadas. Falta ligar a uma base de dados real.
 
 O projeto está enquadrado como **POC** — infraestrutura a €0/mês e âmbito cortado. Ver `CLAUDE.md`.
+
+## Arrancar
+
+```bash
+pnpm install
+cp .env.example .env    # preenche com o teu projeto Supabase
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
+```
+
+Sem `.env` o `pnpm build`, o `pnpm test` e o `pnpm typecheck` correm à mesma — só as operações
+que tocam a base de dados é que precisam dele.
 
 ## Documentação
 
