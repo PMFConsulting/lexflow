@@ -15,8 +15,13 @@ Um servidor, vários projetos, custo fixo.
 
 Tudo na mesma máquina. Cada projeto novo é um subdomínio novo, sem voltar ao DNS.
 
-**Custo total:** ~10 €/ano de domínio + ~4,5 €/mês de servidor. Cerca de **65 €/ano**,
-independentemente de quantas POCs correm lá dentro.
+**Custo total:** ~10 €/ano de domínio + o VPS. Na Hostinger KVM 1 fica entre **70 e 105 €/ano**
+conforme o compromisso — e não sobe com o número de POCs lá dentro.
+
+Duas ressalvas sobre a Hostinger: o preço baixo é com compromisso de 12 ou 24 meses, e a
+**renovação sobe bastante** depois disso. Marca no calendário a data da renovação, e nessa
+altura compara com a Hetzner (~4,5 €/mês por 2 vCPU e 4 GB, se entretanto resolveres o
+registo) ou a OVH (~6–7 €/mês).
 
 ---
 
@@ -28,28 +33,62 @@ independentemente de quantas POCs correm lá dentro.
 
 ## 2. Servidor
 
-- [ ] Conta na [Hetzner Cloud](https://console.hetzner.cloud)
-- [ ] Novo servidor: **CX22** (2 vCPU, 4 GB RAM, 40 GB) — ~4,5 €/mês
-- [ ] Imagem: **Ubuntu 24.04**
-- [ ] Localização: **Falkenstein** ou **Nuremberga** (~40 ms para Lisboa)
-- [ ] **Adicionar a chave SSH no momento da criação** — evita palavra-passe por email
-- [ ] Anotar o IPv4 da máquina
+**Hostinger VPS KVM 1** — 1 vCPU, 4 GB RAM, 50 GB NVMe.
 
-Não escolhas menos de 4 GB. O `next build` de duas aplicações mais o Postgres não
-cabem em 2 GB, e a falha aparece a meio de uma compilação, não no arranque.
+- [ ] Plano **KVM 1**
+- [ ] Sistema: **Ubuntu 24.04**
+- [ ] Localização: **Países Baixos** ou **França**
+- [ ] Chave SSH adicionada no arranque, não palavra-passe
+- [ ] Anotar o IPv4
+
+Porquê a Hostinger: o registo não exige VAT ID, está em português e aceita pagamento
+local. E é empresa **lituana** — europeia, fora do alcance do Cloud Act, o que num sistema
+que guarda documentos de identificação e declarações de PPE não é detalhe. Por isso também
+o datacenter fica na UE.
+
+**O mínimo é 4 GB de RAM.** Não é folga, é o mínimo: o Coolify ocupa ~1–1,5 GB, o Postgres
+~200 MB, e um `next build` chega a picos de 1,5–2 GB. Com 1 vCPU as compilações demoram
+alguns minutos — irrelevante numa POC.
+
+### Swap: 2 GB de seguro barato
+
+Com 4 GB e builds a picar, vale sempre a pena:
+
+```bash
+fallocate -l 2G /swapfile && chmod 600 /swapfile
+mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+```
+
+Sem isto, uma compilação que estoire a memória é morta pelo kernel a meio, e o erro nos
+logs não diz "falta de RAM" — diz apenas que o processo terminou.
+
+**Quando trocar de máquina:** se começares a servir tráfego real, ou se tiveres três ou
+mais projetos a compilar no mesmo dia. Aí é subir para 2 vCPU.
 
 ## 3. Firewall
 
-Na consola da Hetzner, **Firewalls → Create**, aplicada ao servidor:
+A Hostinger não tem firewall de rede como a Hetzner, por isso é no próprio servidor:
 
-| Porta | Origem | Porquê |
-|---|---|---|
-| 22 | o teu IP, se for fixo | SSH |
-| 80 | qualquer | HTTP e desafios do Let's Encrypt |
-| 443 | qualquer | HTTPS |
-| 8000 | o teu IP | painel do Coolify, **só até ao passo 6** |
+```bash
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 8000/tcp   # painel do Coolify, remover no passo 6
+ufw enable
+```
 
-O Postgres (5432) **nunca** aparece aqui. Fica na rede interna do Docker.
+**Atenção a uma armadilha que engana muita gente:** o Docker escreve regras diretamente no
+iptables e **passa ao lado do ufw**. Um contentor com porta publicada fica acessível a
+partir da internet mesmo com o ufw a dizer `deny`.
+
+Ou seja, o que protege o Postgres **não é a firewall** — é não lhe publicar porta nenhuma.
+O ufw aqui protege os serviços do próprio sistema; o Postgres protege-se ficando só na
+rede interna do Docker, como no passo 8.
+
+No passo 6, quando o painel tiver domínio: `ufw delete allow 8000/tcp`.
 
 ## 4. Coolify
 
@@ -86,7 +125,7 @@ Podes ligá-lo mais tarde, projeto a projeto, depois de os certificados existire
 
 - [ ] Coolify → **Settings → Instance Domain** → `https://coolify.terlicalabs.com`
 - [ ] Confirmar que abre com HTTPS
-- [ ] **Fechar a porta 8000** na firewall da Hetzner
+- [ ] Fechar a porta: `ufw delete allow 8000/tcp`
 
 ## 7. Ligar o GitHub
 

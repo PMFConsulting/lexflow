@@ -45,7 +45,7 @@ Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
 | Camada | Escolha | Custo |
 |---|---|---|
 | Domínio | `terlicalabs.com` na Cloudflare Registrar | ~10 €/ano |
-| Servidor | Hetzner CX22 (2 vCPU, 4 GB) | ~4,5 €/mês |
+| Servidor | Hostinger VPS KVM 1 (1 vCPU, 4 GB), Ubuntu 24.04 na UE | ~5–8 €/mês |
 | PaaS | Coolify, auto-alojado | grátis |
 | Postgres | no próprio servidor, via Coolify | grátis |
 | Email | Resend | grátis (3.000/mês) |
@@ -102,7 +102,8 @@ altera o que se constrói à volta.
 | D13 | Pesquisa full-text por trigger e não por coluna gerada: `unaccent` não é immutable e as fontes (nome, NIF) estão noutras tabelas | migração `0001` |
 | D14 | Sessões de 8 horas — um dia de trabalho, não um mês | `src/lib/auth.ts` |
 | D15 | Os `id` são gerados na aplicação (`uuidv7`), não pela base de dados — o Postgres só tem `uuidv7()` nativo na v18. Consequência prática: qualquer INSERT em SQL cru tem de indicar o `id` | `src/db/schema/_comum.ts` |
-| D16 | Alojamento em VPS próprio (Hetzner CX22) com Coolify, em vez de Vercel — o plano Hobby proíbe uso comercial e o Pro são 20 €/mês. Custo fixo ~4,5 €/mês para POCs ilimitadas | `docs/DEPLOY.md` |
+| D16 | Alojamento em VPS próprio com Coolify, em vez de Vercel — o plano Hobby proíbe uso comercial e o Pro são 20 €/mês. Custo fixo para POCs ilimitadas | `docs/DEPLOY.md` |
+| D16b | Fornecedor: Hostinger (a Hetzner exigia VAT ID). Empresa da UE com datacenter na UE — para um sistema que guarda documentos de identificação e declarações de PPE, um fornecedor americano traria exposição ao Cloud Act mesmo com datacenter europeu | `docs/DEPLOY.md` |
 | D17 | Postgres no próprio servidor em vez de Supabase — elimina a suspensão do plano gratuito ao fim de 7 dias sem uso, que é o padrão de uma POC mostrada de duas em duas semanas | `docs/DEPLOY.md` |
 | D18 | `output: "standalone"` e imagem Docker em três estágios; as migrações correm no arranque do contentor e, se falharem, ele não sobe | `Dockerfile` |
 
