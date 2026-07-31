@@ -1,0 +1,6 @@
+# Esta pasta existe para o Next servir ficheiros estáticos.
+#
+# O ficheiro só está aqui porque o git não versiona pastas vazias, e o
+# Dockerfile faz COPY de /app/public. Sem isto, a compilação passa na máquina
+# de quem tem a pasta local e falha a partir de um clone limpo — que é o caso
+# do servidor de deploy.
