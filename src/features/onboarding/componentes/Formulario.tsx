@@ -198,10 +198,13 @@ export function Formulario({
     const fd = new FormData(ev.currentTarget);
     setMensagem(null);
     transicao(async () => {
-      const r =
-        n === 7 && fd.get("_acao") === "submeter"
-          ? await submeter(token)
-          : await guardarPasso(token, n, carga(n, fd));
+      // No passo 7 são dois momentos: gravar a declaração e só depois submeter.
+      // O `submeter` lê a declaração da base de dados — se não a gravarmos
+      // primeiro, o cliente fica preso num erro que não consegue resolver.
+      let r = await guardarPasso(token, n, carga(n, fd));
+      if (r.ok && n === 7 && fd.get("_acao") === "submeter") {
+        r = await submeter(token);
+      }
 
       if (!r.ok) {
         setErros(r.erros);
@@ -217,7 +220,7 @@ export function Formulario({
       }
 
       setErros({});
-      if (n === 7 && fd.get("_acao") === "submeter") {
+      if (n === 7) {
         router.push(`/onboarding/${token}/submetido`);
       } else if (r.proximo) {
         router.push(`/onboarding/${token}/passo/${r.proximo}`);
