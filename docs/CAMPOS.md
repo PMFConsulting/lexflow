@@ -1,227 +1,256 @@
 # Inventário de campos — fluxo de onboarding
 
-> **⚠️ Estado: PROVISÓRIO.** Este inventário foi derivado do texto de `docs/BRIEF.md` §5,
-> **não** dos screenshots — a pasta `docs/onboarding-screens/` está vazia. O brief diz
-> explicitamente "a imagem manda nos detalhes". Cada linha aqui é uma proposta a validar
-> contra a imagem correspondente antes de virar schema.
->
-> Coluna **V?**: `—` = por validar contra o screenshot · `✓` = confirmado na imagem.
+**Fonte:** os 7 screenshots em `docs/onboarding-screens/`, lidos e transcritos campo a campo.
+**Estado:** validado contra as imagens. Onde a imagem e o `docs/BRIEF.md` §5 discordam, **manda a
+imagem** — e a divergência fica registada na secção D no fim.
 
-Legenda de obrigatoriedade: **O** obrigatório · **Op** opcional · **C** condicional (a condição
-está na coluna própria).
+Legenda: **O** obrigatório (asterisco no ecrã) · **Op** opcional · **C** condicional.
+`⚠` = campo que aparece duplicado no screenshot (ver **D0**).
 
 ---
 
-## Passo 1 — Identificação do cliente
+## D — Divergências entre o brief e o formulário real
 
-Tabela: `dados_identificacao` (1:1 com `processo_onboarding`), exceto onde indicado.
+Isto é o mais importante deste documento. Sete divergências, três delas de âmbito.
 
-| Campo | Tipo | Obr. | Validação | Condicional | Coluna | V? |
-|---|---|---|---|---|---|---|
-| Tipo de cliente | enum `particular \| empresa` | O | — | **ramifica todo o fluxo** | `processo_onboarding.tipo_cliente` | — |
-| Nome completo / Denominação social | text | O | 2–200 car. | label muda com o tipo | `nome` | — |
-| Data de nascimento | date | C | passado; ver ambiguidade A3 | só `particular` | `data_nascimento` | — |
-| Nacionalidade | char(2) ISO 3166-1 | O | país existente | — | `nacionalidade` | — |
-| Naturalidade | text | C | — | só `particular` | `naturalidade` | — |
-| Estado civil | enum | C | ver ambiguidade A4 | só `particular` | `estado_civil` | — |
-| Profissão | text | C | — | só `particular` | `profissao` | — |
-| Tipo de documento de ID | enum `cc \| passaporte \| titulo_residencia` | O | — | — | `doc_tipo` | — |
-| Número do documento | text | O | ver ambiguidade A5 | — | `doc_numero` | — |
-| Validade do documento | date | O | futuro; **aviso se < 3 meses** | — | `doc_validade` | — |
-| País emissor | char(2) ISO | O | país existente | — | `doc_pais_emissor` | — |
-| Morada — via pública | text | O | — | — | `morada_via` | — |
-| Morada — nº / andar | text | Op | — | ver ambiguidade A6 | `morada_numero` | — |
-| Código postal | text | O | `NNNN-NNN` se PT | formato varia com país | `codigo_postal` | — |
-| Localidade | text | O | — | — | `localidade` | — |
-| País da morada | char(2) ISO | O | país existente | — | `pais` | — |
-| Email | text | O | RFC 5322 básico | — | `email` | — |
-| Telemóvel | text | O | E.164, com indicativo | — | `telemovel` | — |
-
-**Uploads** → `documento`
-
-| Documento | Obr. | Tipo | Notas |
-|---|---|---|---|
-| Documento de ID — frente | O | `id_frente` | PDF/JPG/PNG |
-| Documento de ID — verso | C | `id_verso` | não aplicável a passaporte? → ambiguidade A7 |
-
----
-
-## Passo 2 — Identificação fiscal
-
-Tabela: `dados_fiscais` + `residencia_fiscal_adicional` (1:N).
-
-| Campo | Tipo | Obr. | Validação | Condicional | Coluna | V? |
-|---|---|---|---|---|---|---|
-| NIF / NIPC | char(9) | O | **mod-11**, prefixo ∈ {1,2,3,5,6,8,9} | — | `nif` | — |
-| País de residência fiscal | char(2) ISO | O | país existente | — | `pais_residencia_fiscal` | — |
-| Residências fiscais adicionais | lista dinâmica | Op | ≥0 entradas | CRS/FATCA | tabela `residencia_fiscal_adicional` | — |
-| ↳ Jurisdição | char(2) ISO | O | ≠ país principal, sem repetidos | por entrada | `.jurisdicao` | — |
-| ↳ TIN | text | O | formato varia por jurisdição | por entrada | `.tin` | — |
-| CAE | char(5) | C | 5 dígitos | só `empresa` | `cae` | — |
-| Código da certidão permanente | text | C | `XXXX-XXXX-XXXX` | só `empresa` | `codigo_certidao_permanente` | — |
-| Regime de IVA | enum | C | ver ambiguidade A8 | só `empresa` | `regime_iva` | — |
-
-**Uploads** → `documento`
-
-| Documento | Obr. | Tipo |
+| # | Divergência | Impacto |
 |---|---|---|
-| Comprovativo de NIF | C (particular) | `comprovativo_nif` |
-| Certidão permanente | C (empresa) | `certidao_permanente` |
+| **D0** | Vários campos aparecem **duplicados** em todos os screenshots: `Profissão` ×2, `Nacionalidade(s)` ×2, `País` ×2, `Freguesia`/`Concelho` ×2, `Localidade` ×2, a pergunta de familiar de PPE ×2, o bloco `Ao cuidado de` ×3. Sempre campos adjacentes com o mesmo valor. | Parece um **bug de render do formulário atual**, não um requisito. Assumi campo único em cada caso. Confirma. |
+| **D1** | **O passo 7 não tem T&C, nem aceitação de proposta, nem assinatura digital.** Só uma "Declaração Final" com um checkbox e o botão Submeter. | O passo 7 do brief é **funcionalidade nova**, não migração. Metade da Fase 4 é construção de raiz. |
+| **D2** | **O passo 5 não é RGPD.** Chama-se "Preferências de contacto" e é marketing: como chegou até nós, newsletter, áreas de interesse, convites para eventos. Não há um único consentimento granular dos que o brief descreve. | Os consentimentos RGPD são **novos**. E resolve **A11**: o que existe hoje é marketing puro, que é mesmo consentimento. |
+| **D3** | **O documento de identificação está no passo 2, não no passo 1.** Tipo, número e validade vivem debaixo de "Identificação fiscal". | Muda a fronteira entre `dados_identificacao` e `dados_fiscais`. |
+| **D4** | O passo 6 **não tem IBAN**, nem condições, nem periodicidade de pagamento. Tem um bloco "Ao cuidado de" (nome, email, telefone) que o brief não menciona. | Sem IBAN não há validação mod-97 a fazer no passo 6. Confirma se é para acrescentar ou se não se cobra por débito direto. |
+| **D5** | O passo 4 **não tem "origem do património"**, e a **origem dos fundos é obrigatória sempre** (asterisco, sem condicional a PPE). Tem "Serviço(s) jurídico(s) que lhe vamos prestar", preenchido pelo cliente. | Resolve **A2** a favor da proposta. E resolve parte de **A13**: o serviço é declarado pelo cliente no passo 4. |
+| **D6** | O passo 1 **não pede estado civil nem naturalidade**. Pede **Entidade Patronal**, que o brief não menciona. `Nacionalidade(s)` é **multi-valor**. A morada é muito mais granular: Morada, País, Localidade, Código Postal, Freguesia, Concelho, Distrito. | Resolve **A4** (não há estado civil) e **A6** (morada granular, mas com Freguesia/Concelho/Distrito em vez de nº/andar). |
+| **D7** | O passo 3 **não tem RCBE nem beneficiários efetivos**. Tem "É representante?" como interruptor no topo e "Relação com o cliente final" como dropdown. | Resolve **A1** (o interruptor existe, está no passo 3). Mas a ausência de beneficiários efetivos é uma **lacuna de KYC**, não uma simplificação — ver nota no fim. |
+
+**Nota sobre os screenshots:** todos mostram o percurso **Pessoa Singular**. Não há imagens da
+variante **Empresa / Entidade Coletiva**. Tudo o que o brief diz sobre CAE, certidão permanente,
+regime de IVA, RCBE e beneficiários efetivos continua por validar — provavelmente vive nessa
+variante. **Preciso dos screenshots do percurso Empresa.**
 
 ---
 
-## Passo 3 — Representante legal · **condicional**
+## Passo 1 — Identificação do Cliente
 
-**Condição de entrada:** `tipo_cliente = empresa` **OU** representação por procuração.
-Ver ambiguidade **A1** — o campo que sinaliza "atua por procuração" não existe no passo 1.
+Ecrã: `passo-1-identificacao.jpg` · Tabela: `dados_identificacao`
 
-Tabelas: `representante_legal` (1:1) + `beneficiario_efetivo` (1:N).
+**Cabeçalho — "Quem é o cliente final?"** Dois cartões selecionáveis:
+`Pessoa Singular` ("Cliente individual ou particular") · `Empresa / Entidade Coletiva`
+("Sociedade comercial ou outra pessoa coletiva") → `processo_onboarding.tipo_cliente`.
 
-| Campo | Tipo | Obr. | Validação | Coluna | V? |
-|---|---|---|---|---|---|
-| Nome do representante | text | O | 2–200 car. | `nome` | — |
-| Qualidade / cargo | text | O | — | `qualidade` | — |
-| Tipo de documento de ID | enum | O | — | `doc_tipo` | — |
-| Número do documento | text | O | — | `doc_numero` | — |
-| Validade do documento | date | O | futuro | `doc_validade` | — |
-| País emissor | char(2) ISO | O | — | `doc_pais_emissor` | — |
-| NIF do representante | char(9) | O | mod-11 | `nif` | — |
-| Email | text | O | RFC 5322 | `email` | — |
-| Telefone | text | O | E.164 | `telefone` | — |
-| Âmbito dos poderes | text longo | O | — | `ambito_poderes` | — |
-| Código de acesso ao RCBE | text | C | só `empresa` | `codigo_rcbe` | — |
-| Beneficiários efetivos | lista dinâmica | C | ≥1 se `empresa` (ver A9) | tabela `beneficiario_efetivo` | — |
-| ↳ Nome | text | O | — | `.nome` | — |
-| ↳ NIF | char(9) | O | mod-11 se PT | `.nif` | — |
-| ↳ % de participação | numeric(5,2) | O | 0–100; soma ≤ 100 (ver A9) | `.percentagem` | — |
-| ↳ Natureza do controlo | text / enum | O | ver A9 | `.natureza_controlo` | — |
+### Dados pessoais e contactos
 
-**Uploads** → `documento`: `procuracao`, `ata_designacao`, `comprovativo_rcbe`.
+| Campo (rótulo no ecrã) | Controlo | Obr. | Notas | Coluna |
+|---|---|---|---|---|
+| Nome completo | text | O | — | `nome` |
+| Profissão ⚠ | text | O | — | `profissao` |
+| Entidade Patronal | text | O | hint: *"Caso não se aplique, preencha com N/A."* | `entidade_patronal` |
+| Data de nascimento | date picker | O | formato `DD/MM/AAAA` | `data_nascimento` |
+| Nacionalidade(s) ⚠ | **multi-select** (chips) | O | várias nacionalidades por cliente | tabela `nacionalidade` (1:N) |
+| Contacto telefónico | text | O | sem máscara visível | `telefone` |
+| Email | text | O | — | `email` |
 
----
+### Morada
 
-## Passo 4 — PPE · **dados sensíveis, invisíveis ao papel `assistente`**
-
-Tabela: `declaracao_ppe` (1:1).
-
-| Campo | Tipo | Obr. | Validação | Condicional | Coluna | V? |
-|---|---|---|---|---|---|---|
-| É PPE? | boolean | O | resposta explícita, sem default | — | `e_ppe` | — |
-| Cargo | text | C | — | `e_ppe = true` | `ppe_cargo` | — |
-| País | char(2) ISO | C | — | `e_ppe = true` | `ppe_pais` | — |
-| Entidade | text | C | — | `e_ppe = true` | `ppe_entidade` | — |
-| Início do exercício | date | C | passado | `e_ppe = true` | `ppe_inicio` | — |
-| Fim do exercício | date | C | ≥ início; nulo = em exercício | `e_ppe = true` | `ppe_fim` | — |
-| É familiar / relacionado com PPE? | boolean | O | sem default | — | `e_relacionado_ppe` | — |
-| Relação | text / enum | C | ver A10 | `e_relacionado_ppe = true` | `relacao_ppe` | — |
-| Identificação da PPE relacionada | text | C | nome, cargo, país | `e_relacionado_ppe = true` | `ppe_relacionada_*` | — |
-| Origem dos fundos | text longo | C | ver **A2** | `e_ppe = true` | `origem_fundos` | — |
-| Origem do património | text longo | C | ver **A2** | `e_ppe = true` | `origem_patrimonio` | — |
-| Declaração formal | boolean | O | tem de ser `true` | — | `declaracao_aceite` | — |
-| Versão do texto da declaração | text | O | preenchido pelo servidor | — | `versao_declaracao` | — |
-
-**Regras de negócio (não são campos, são invariantes):**
-
-- `e_ppe = true` → `processo.nivel_risco = elevado`, sempre, sem exceção.
-- Risco elevado → só `socio` ou `admin` podem aprovar. Aprovação automática bloqueada.
-- Leitura deste passo por qualquer utilizador escreve em `evento_auditoria`.
-- `assistente` não vê este passo — nem por URL direto, nem por Server Action, nem por RLS.
-
----
-
-## Passo 5 — RGPD
-
-Tabela: `consentimento_rgpd` (1:1, estado do passo) + `consentimento` (1:N, uma linha por finalidade).
-
-| Finalidade | Obr. | Pré-marcado | Base legal proposta | `consentimento.finalidade` | V? |
-|---|---|---|---|---|---|
-| Prestação do serviço jurídico | O | nunca | execução de contrato — ver **A11** | `servico_juridico` | — |
-| Cumprimento de obrigações legais | O | nunca | obrigação legal — ver **A11** | `obrigacoes_legais` | — |
-| Faturação | O | nunca | execução de contrato / obrigação legal | `faturacao` | — |
-| Comunicações de marketing | **Op** | **nunca** | consentimento | `marketing` | — |
-
-Cada linha de `consentimento` grava: `finalidade`, `versao_texto` (referência a
-`versao_texto_legal`), `texto_hash`, `aceite`, `aceite_em`, `ip`, `user_agent`, `revogado_em`.
-
-**Conteúdo informativo apresentado** (não são inputs; são texto versionado que temos de
-conseguir reproduzir daqui a 4 anos): prazos de conservação, direitos do titular, contacto
-do Encarregado de Proteção de Dados.
-
----
-
-## Passo 6 — Dados para faturação
-
-Tabela: `dados_faturacao` (1:1).
-
-| Campo | Tipo | Obr. | Validação | Coluna | V? |
-|---|---|---|---|---|---|
-| Igual aos dados fiscais | boolean | Op | copia do passo 2 no cliente | `igual_dados_fiscais` | — |
-| Denominação de faturação | text | O | — | `denominacao` | — |
-| NIF de faturação | char(9) | O | mod-11 | `nif` | — |
-| Morada de faturação — via | text | O | — | `morada_via` | — |
-| Morada — nº / andar | text | Op | — | `morada_numero` | — |
-| Código postal | text | O | `NNNN-NNN` se PT | `codigo_postal` | — |
-| Localidade | text | O | — | `localidade` | — |
-| País | char(2) ISO | O | — | `pais` | — |
-| Email para faturas | text | O | RFC 5322 | `email_faturacao` | — |
-| Condições de pagamento | enum / text | O | ver A12 | `condicoes_pagamento` | — |
-| Periodicidade | enum | O | ver A12 | `periodicidade` | — |
-| IBAN | text | O | **mod-97**; UI em mono, grupos de 4 | `iban` | — |
-| Referência / PO interna | text | Op | — | `referencia_cliente` | — |
-
----
-
-## Passo 7 — Fecho, T&C e assinatura
-
-Tabelas: `fecho_proposta` (1:1) + `assinatura` (1:1) + `consentimento` (T&C e proposta).
-
-| Campo | Tipo | Obr. | Validação | Coluna | V? |
-|---|---|---|---|---|---|
-| Serviços contratados | texto / lista | — | **read-only** para o cliente — ver A13 | `servicos` JSONB | — |
-| Modelo de honorários | enum / text | — | read-only — ver A13 | `modelo_honorarios` | — |
-| Valores | numeric | — | read-only — ver A13 | `valor`, `moeda` | — |
-| Aceitação dos T&C | boolean | O | checkbox só ativa após scroll ao fim | `consentimento(termos_condicoes)` | — |
-| Versão dos T&C | text | O | preenchida pelo servidor | `versao_termos` | — |
-| Aceitação da proposta | boolean | O | tem de ser `true` | `consentimento(proposta)` | — |
-| Assinatura (rubrica) | imagem | O | canvas; guardada em storage privado | `assinatura.imagem_chave` | — |
-
-**Ao submeter** (tudo do lado do servidor, nada do cliente):
-
-1. Gerar PDF do dossier: 7 secções + anexos + página de assinatura.
-2. Calcular SHA-256 do PDF → `assinatura.hash_documento`.
-3. Gravar `ip`, `user_agent`, `assinado_em` = **timestamp do servidor**.
-4. Escrever `evento_auditoria` (ação `processo.submetido` + `assinatura.criada`).
-5. Email com cópia ao cliente + notificação ao responsável interno.
-6. `processo.estado` → `submetido`, `submetido_em` = agora.
-
----
-
-## Ambiguidades — precisam de decisão tua
-
-Ordenadas por impacto no schema. As duas primeiras bloqueiam a Fase 1.
-
-| # | Ambiguidade | Porque importa | Proposta |
+| Campo | Controlo | Obr. | Coluna |
 |---|---|---|---|
-| **A1** | O passo 3 é condicional a "empresa **ou** representação por procuração", mas não há campo no passo 1 que capture "atua por procuração". | Sem ele, um particular representado por procurador não tem caminho para o passo 3. | Acrescentar ao passo 1 um booleano "É representado por procurador?" |
-| **A2** | Origem de fundos e origem de património são obrigatórios "se PPE = sim". | A Lei 83/2017 pede origem de fundos em diligência **normal**, não só reforçada. Limitar a PPE pode ficar aquém. | Obrigatório sempre; texto mais exigente se PPE |
-| **A3** | Idade mínima. Menores podem ser clientes (representados). | Se validarmos ≥18, bloqueamos casos legítimos. | Sem mínimo; avisar se < 18 e exigir representante |
-| **A4** | Valores de estado civil. Inclui união de facto? Separação judicial? Regime de bens? | Enum na BD. | `solteiro, casado, uniao_facto, divorciado, viuvo, separado_judicialmente`; regime de bens fora da v1 |
-| **A5** | Validar o check digit do CC português (e do NIF que ele contém)? | Reduz erros de digitação, mas rejeita documentos estrangeiros mal classificados. | Validar só se `doc_tipo = cc`; aviso, não bloqueio |
-| **A6** | Granularidade da morada: um campo livre ou via/nº/andar separados? | Muda o schema e a UX em 360px. | Via + nº/andar + CP + localidade + país |
-| **A7** | Verso do documento é obrigatório para passaporte? | Passaporte não tem verso relevante. | Obrigatório só para CC e título de residência |
-| **A8** | Valores do regime de IVA. | Enum na BD. | `normal, isento_art53, isento_art9, misto` |
-| **A9** | Beneficiários efetivos: mínimo 1? A soma das percentagens tem de fechar em 100? Natureza do controlo é lista fechada? | Validação e UX da lista dinâmica. | Mínimo 1 para empresa; soma ≤ 100 com aviso se < 100; natureza como enum + campo livre |
-| **A10** | "Relação com a PPE" é texto livre ou lista fechada (cônjuge, filho, sócio…)? | Filtrar por isto no back-office exige enum. | Enum + `outro` com texto |
-| **A11** | Os passos 5.1–5.3 são **consentimentos** ou apenas **informação** sobre bases legais? Juridicamente, execução de contrato e obrigação legal não se consentem — e um consentimento pedido para algo que não é consentimento é inválido e enfraquece o resto. | Muda a UI (checkbox vs. declaração de tomada de conhecimento) e o modelo de dados. | Só o marketing é consentimento; os outros são "declaro que tomei conhecimento", gravados com o mesmo rigor probatório |
-| **A12** | Condições e periodicidade de pagamento: listas fechadas ou texto? | Filtros e relatórios futuros. | Enums: `pronto_pagamento, 15_dias, 30_dias, 60_dias` e `avenca_mensal, trimestral, por_ato, projeto` |
-| **A13** | Quem preenche o resumo da proposta (serviços, honorários, valores)? O cliente não pode. | Se é o escritório, falta um ecrã de back-office anterior ao envio do link. | Preenchido no back-office ao criar o processo; read-only para o cliente |
-| **A14** | Um processo pode ter mais do que um representante legal? | 1:1 vs. 1:N. | 1:1 na v1, tabela desenhada para suportar 1:N depois |
-| **A15** | O que expira exatamente em `expira_em` — o link mágico ou o processo? Qual o prazo? | Regra de negócio e job de limpeza. | O link; 30 dias, renovável pelo responsável |
+| Morada | text | O | `morada` |
+| País ⚠ | select | O | `pais` |
+| Localidade | text | O | `localidade` |
+| Código Postal | text | O | `codigo_postal` |
+| Freguesia ⚠ | text | O | `freguesia` |
+| Concelho ⚠ | text | O | `concelho` |
+| Distrito | text | O | `distrito` |
+
+> Freguesia/Concelho/Distrito são campos de texto livre no formulário atual. Com CTT/dados
+> abertos dava para os derivar do código postal — melhoria de UX, não requisito.
 
 ---
 
-## O que falta para fechar a Fase 0
+## Passo 2 — Identificação Fiscal
 
-1. Os 7 screenshots em `docs/onboarding-screens/` — sem eles a coluna **V?** fica toda a `—`.
-2. As respostas às 15 ambiguidades acima (ou um "vai com as propostas").
-3. Aprovação de `docs/DECISAO-ASSINATURA.md` e de `docs/SCHEMA.md`.
+Ecrã: `passo-2-fiscal.jpg` · Tabela: `dados_fiscais`
+
+| Campo | Controlo | Obr. | Notas | Coluna |
+|---|---|---|---|---|
+| Número de Contribuinte Português? | checkbox | O | marcado no exemplo | `nif_portugues` |
+| Reside em Portugal? | checkbox | O | desmarcado no exemplo | `reside_em_portugal` |
+| Número de Contribuinte | text | O | valida mod-11 se `nif_portugues` | `nif` |
+| Tipo de Documento | select | O | valor visto: `Cartão de Cidadão` | `doc_tipo` |
+| Número do Documento | text | O | — | `doc_numero` |
+| Data de validade | date picker | O | avisar se < 3 meses (regra do brief) | `doc_validade` |
+
+**Aviso no ecrã:** *"Anexe um documento comprovativo do seu Número de Identificação Fiscal,
+obtido no portal da Autoridade Tributária, com data de emissão dos últimos 6 meses."* → é uma
+regra de validade sobre o upload, não sobre o campo.
+
+**Documentação** — dropzone único, multi-ficheiro ("Largue ou clique para carregar ficheiros"),
+com lista de ficheiros e remoção. Aviso: *"Anexe a cópia do documento de identificação válido e
+legível e outros documentos relevantes."*
+
+> O dropzone é **genérico**: um só sítio para todos os documentos, sem categorizar. O brief pede
+> tipos (`id_frente`, `id_verso`, `comprovativo_nif`…) e alertas de validade por tipo. Proponho
+> manter a coluna `tipo` em `documento` e pedir a categoria no upload — sem isso, os alertas de
+> expiração do painel (§6) não têm de onde sair. **Resolve A7:** não há frente/verso separados.
+
+---
+
+## Passo 3 — Representante Legal · condicional
+
+Ecrã: `passo-3-representante-legal.jpg` · Tabela: `representante_legal`
+
+**Interruptor:** `É representante?` (checkbox no topo). Marcado → mostra tudo o resto.
+**Isto resolve A1** — o sinalizador existe, e está no passo 3, não no passo 1.
+
+| Campo | Controlo | Obr. | Notas | Coluna |
+|---|---|---|---|---|
+| Relação com o cliente final | select | Op? | sem asterisco visível; valor visto: `Gerente de Negócios` | `relacao` |
+| Nome Completo | text | O | — | `nome` |
+| Data de Nascimento | date picker | O | — | `data_nascimento` |
+| Indique a(s) nacionalidade(s) | multi-select | O | — | tabela `nacionalidade` (1:N) |
+| Profissão ⚠ | text | O | — | `profissao` |
+| Contacto Telefónico | text | O | — | `telefone` |
+| Email | text | O | — | `email` |
+
+**Morada do representante:** mesmo bloco de 7 campos do passo 1.
+**Identificação fiscal do representante:** `Número de Contribuinte` O, `Tipo de Documento` O,
+`Número do Documento` O, `Data de Validade` O.
+**Documentação do representante:** dropzone igual ao do passo 2.
+
+> No exemplo, `Número de Contribuinte` e `Número do Documento` têm o mesmo valor (`229273394`) —
+> dados de teste, não uma regra.
+
+---
+
+## Passo 4 — PPE e Relação de Negócio
+
+Ecrã: `passo-4-ppe.jpg` · Tabelas: `declaracao_ppe` + `relacao_negocio`
+
+### Declaração de Pessoa Politicamente Exposta
+
+| Pergunta (texto exato) | Controlo | Obr. | Coluna |
+|---|---|---|---|
+| *"Ocupa ou ocupou nos últimos 12 meses algum cargo público ou político, em Portugal ou no estrangeiro?"* | radio Sim/Não | O | `e_ppe` |
+| *"É membro próximo da família ou é reconhecido como estreitamente associado com alguma pessoa considerada PPE?"* ⚠ | radio Sim/Não | O | `e_relacionado_ppe` |
+
+Nenhum radio vem pré-selecionado por defeito — correto para uma declaração.
+**Os campos de detalhe do PPE (cargo, país, entidade, período) não aparecem** porque o exemplo
+tem "Não" nas duas. Presumo que sejam condicionais; **é a última ambiguidade real** (ver A16).
+
+### Relação de Negócio
+
+| Campo | Controlo | Obr. | Hint no ecrã | Coluna |
+|---|---|---|---|---|
+| Serviço(s) jurídico(s) que lhe vamos prestar | text | **O** | *"Ex: Assessoria Jurídica Global/Avença/ Alterações Societárias/Constituição de Sociedade/ Questões Tributárias/ Recuperação de Crédito/ Questões Laborais, etc."* | `servicos` |
+| Origem dos fundos | text | **O** | *"Ex: Rendimentos empresariais da própria empresa/Financiamento Bancário/Donativos/Quotas, etc."* | `origem_fundos` |
+
+**Origem dos fundos é obrigatória sempre**, não só para PPE — o formulário atual já está
+alinhado com a Lei 83/2017. **A2 resolvida.** Não existe campo de origem do património.
+
+**Regra de negócio a manter do brief (não está no ecrã):** `e_ppe = Sim` → `nivel_risco = elevado`,
+aprovação só por `socio`/`admin`, e o passo invisível ao papel `assistente`.
+
+---
+
+## Passo 5 — Preferências de contacto
+
+Ecrã: `passo-5-preferencias-contacto.jpg` · Tabela: `preferencias_contacto`
+
+**Não é o passo RGPD do brief.** É captação de marketing. Ver **D2**.
+
+| Campo | Controlo | Obr. | Condicional | Coluna |
+|---|---|---|---|---|
+| Como chegou até nós? | radio: `Recomendação` · `Pesquisa Online` · `Evento/Conferência` · `Outro` | Op | — | `origem_contacto` |
+| Quem? | text | O | se `Recomendação` (presumido) | `origem_detalhe` |
+| Quer subscrever a nossa newsletter | radio Sim/Não | Op | — | `newsletter` |
+| Adicione um ou mais emails para receber novidades | multi-select de emails (chips) | O | se newsletter = Sim | tabela `email_newsletter` (1:N) |
+| Selecione as suas áreas de interesse | multi-select (chips) | Op | se newsletter = Sim | tabela `area_interesse` (1:N) |
+| Deseja receber convites para iniciativas (Formações, Webinars, Workshops, outros)? | radio Sim/Não | Op | — | `convites_iniciativas` |
+| Nome | text | O | se convites = Sim | `convites_nome` |
+| Email | text | O | se convites = Sim | `convites_email` |
+
+**Áreas de interesse vistas:** Administrativo e Contratação Pública · Penal e Contraordenacional ·
+Propriedade Intelectual e Privacidade · Comercial e Contratos · Laboral. A lista pode ter mais
+opções por abrir — **por confirmar**.
+
+> Isto é consentimento RGPD a sério (marketing), e hoje é gravado como um simples Sim/Não. Para
+> cumprir o §0 tem de passar a gravar versão do texto, data/hora e IP — é a única parte de RGPD
+> que o formulário atual já tem, e é a que mais precisa de prova.
+
+---
+
+## Passo 6 — Informação de Faturação
+
+Ecrã: `passo-6-faturacao.jpg` · Tabela: `dados_faturacao`
+
+| Campo | Controlo | Obr. | Coluna |
+|---|---|---|---|
+| Os dados de faturação são os mesmos do cliente? | checkbox | Op | `igual_ao_cliente` |
+| Nome ou Empresa | text | O | `nome` |
+| NIF / NIPC | text | O | `nif` |
+| Morada | text | O | `morada` |
+| País ⚠ | select | O | `pais` |
+| Localidade ⚠ | text | O | `localidade` |
+| Código Postal | text | O | `codigo_postal` |
+| Freguesia | text | O | `freguesia` |
+| Concelho ⚠ | text | O | `concelho` |
+| Distrito | text | O | `distrito` |
+| Email | text | O | `email` |
+
+### Ao cuidado de ⚠ (bloco repetido 3× no screenshot)
+
+| Campo | Controlo | Obr. | Coluna |
+|---|---|---|---|
+| Os dados ao cuidado de são os mesmos do cliente? | checkbox | Op | `ac_igual_ao_cliente` |
+| Nome | text | O | `ac_nome` |
+| Email | text | O | `ac_email` |
+| Contacto Telefónico | text | O | `ac_telefone` |
+
+**Sem IBAN, sem condições de pagamento, sem periodicidade.** Ver **D4**. **A12 fica sem objeto**
+enquanto esses campos não existirem.
+
+---
+
+## Passo 7 — Declaração Final
+
+Ecrã: `passo-7-declaracao-final.jpg` · Tabela: `fecho_proposta`
+
+| Campo | Controlo | Obr. | Coluna |
+|---|---|---|---|
+| *"Declaro que as informações prestadas são verdadeiras e assumo a responsabilidade pela sua atualização caso se verifiquem alterações."* | checkbox | O | `declaracao_veracidade` |
+
+Botão: **Submeter**.
+
+É tudo. Sem resumo de proposta, sem T&C com scroll obrigatório, sem aceitação de proposta, sem
+assinatura. Ver **D1** — o passo 7 do brief é construção nova.
+
+---
+
+## Ambiguidades — estado atualizado
+
+**Resolvidas pelos screenshots:** A1 (interruptor "É representante?" no passo 3) · A2 (origem de
+fundos sempre obrigatória) · A4 (não há estado civil) · A6 (morada com freguesia/concelho/distrito)
+· A7 (dropzone único, sem frente/verso) · A11 (o único consentimento real é marketing) ·
+A13 parcialmente (o serviço é declarado pelo cliente no passo 4).
+
+**Por decidir:**
+
+| # | Questão | Proposta |
+|---|---|---|
+| **A16** | Os campos de detalhe do PPE (cargo, país, entidade, período) existem quando se responde "Sim"? Não consigo ver com o exemplo a "Não". | Assumir que sim e implementá-los; a lei exige-os |
+| **A17** | Campos duplicados (**D0**) — bug do formulário atual ou requisito? | Bug. Campo único |
+| **A18** | O percurso **Empresa** não tem screenshots. Existe? Que campos tem? | Preciso das imagens |
+| **A19** | Beneficiários efetivos e RCBE não existem no formulário (**D7**). Numa sociedade de advogados isto é uma obrigação de identificação do beneficiário efetivo, não um extra. | Implementar na variante Empresa mesmo que o formulário atual não tenha |
+| **A20** | IBAN e condições de pagamento (**D4**) — acrescentar ou deixar de fora? | Deixar fora da POC; o schema fica preparado |
+| **A21** | "Relação com o cliente final" (passo 3) e "Áreas de interesse" (passo 5) são listas fechadas. Quais são todos os valores? | Preciso da lista completa |
+| **A15** | Prazo de expiração do link mágico. | 30 dias, renovável |
+
+---
+
+## Nota que não é técnica
+
+Duas ausências no formulário atual são obrigações legais, não escolhas de produto:
+**beneficiários efetivos / RCBE** (A19) e a **informação RGPD ao titular** — prazos de conservação,
+direitos, contacto do EPD (D2). Sinalizo porque o §0 do brief pede para tratar isto como requisito
+funcional. A decisão de as incluir ou adiar é tua, e é jurídica antes de ser técnica.
