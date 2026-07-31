@@ -16,8 +16,8 @@ export type EntradaAuditoria = {
   acao: string;
   entidade: string;
   entidadeId: string | null;
-  valorAnterior: unknown;
-  valorNovo: unknown;
+  valorAnterior: Record<string, unknown> | null;
+  valorNovo: Record<string, unknown> | null;
   ip: string | null;
   userAgent: string | null;
   criadoEm: Date;

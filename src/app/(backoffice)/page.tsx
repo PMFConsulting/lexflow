@@ -1,9 +1,9 @@
 import { FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Carimbos } from "@/components/carimbo";
 import { EstadoBadge, RiscoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
+import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 
 export const metadata = { title: "Painel" };
 
@@ -30,7 +30,7 @@ export default function Painel() {
             O estado dos processos de onboarding, hoje.
           </p>
         </div>
-        <Button>Novo processo</Button>
+        <BotaoNovoProcesso />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -62,9 +62,7 @@ export default function Painel() {
                 Crie o primeiro e envie o link de preenchimento ao cliente.
               </p>
             </div>
-            <Button variant="outline" size="sm">
-              Criar processo
-            </Button>
+            <BotaoNovoProcesso tamanho="sm" />
           </div>
         </CardContent>
       </Card>
