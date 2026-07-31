@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1785509182658,
+      "tag": "0000_clammy_lifeguard",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785509199640,
+      "tag": "0001_pesquisa_full_text_pt",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785509201832,
+      "tag": "0002_auditoria_imutavel",
+      "breakpoints": true
+    }
+  ]
+}
