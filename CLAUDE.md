@@ -94,6 +94,7 @@ altera o que se constrói à volta.
 | D12 | `prepare: false` na ligação Postgres — o pooler do Supabase em modo transaction é pgBouncer e não suporta prepared statements | `src/db/index.ts` |
 | D13 | Pesquisa full-text por trigger e não por coluna gerada: `unaccent` não é immutable e as fontes (nome, NIF) estão noutras tabelas | migração `0001` |
 | D14 | Sessões de 8 horas — um dia de trabalho, não um mês | `src/lib/auth.ts` |
+| D15 | Os `id` são gerados na aplicação (`uuidv7`), não pela base de dados — o Postgres só tem `uuidv7()` nativo na v18. Consequência prática: qualquer INSERT em SQL cru tem de indicar o `id` | `src/db/schema/_comum.ts` |
 
 ## Decisões em aberto
 
@@ -125,8 +126,14 @@ pnpm test:e2e             # Playwright
 pnpm db:generate          # drizzle-kit generate
 pnpm db:migrate           # aplica migrações
 pnpm db:seed              # só com NODE_ENV=development
+pnpm db:validar           # aplica as migrações a um Postgres em WASM e verifica-as
 pnpm auditoria:verificar  # revalida a cadeia de hashes de evento_auditoria
 ```
+
+`pnpm db:validar` não precisa de servidor nenhum: corre as três migrações num PGlite efémero e
+confirma que as 27 tabelas existem, que a auditoria recusa mesmo UPDATE e DELETE, e que a
+pesquisa resolve acentos e maiúsculas. É o que garante que o primeiro `db:migrate` contra o
+Supabase não rebenta.
 
 ## Convenções
 
