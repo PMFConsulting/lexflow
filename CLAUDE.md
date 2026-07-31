@@ -14,8 +14,8 @@ o primeiro troço.
 | Fase | Estado |
 |---|---|
 | 0 — Análise | **concluída** — 7 screenshots lidos, campos inventariados, 7 divergências registadas |
-| 1 — Fundações | **concluída** — falta aplicar as migrações a uma base de dados real |
-| 2 — Fluxo de onboarding | por iniciar |
+| 1 — Fundações | **concluída** e em produção |
+| 2 — Fluxo de onboarding | **concluída** — percorrida de ponta a ponta em produção |
 | 3 — Back-office | por iniciar |
 | 4 — Fecho (PDF, assinatura, emails) | fora do âmbito da POC |
 
@@ -31,12 +31,35 @@ cadeia de hashes da auditoria com 8 testes e script de verificação · seeds co
 
 `pnpm build` limpo, `pnpm typecheck` limpo, 29 testes verdes, sem scroll horizontal a 360px.
 
-### O que falta para fechar a Fase 1
+### O que ficou feito na Fase 2
 
-1. Criar o projeto Supabase (plano gratuito) e copiar `.env.example` para `.env`.
-2. `pnpm db:migrate` e `pnpm db:seed`.
+Sete passos em rotas próprias (`/onboarding/[token]/passo/[n]`), com o estado na base de
+dados e não em memória · schemas Zod partilhados entre cliente e servidor · Server Action que
+revalida token e schema · lógica condicional (particular/empresa, representante, PPE) · PPE
+declarada força risco elevado e escreve na auditoria · criação de processos com referência
+sequencial atómica e link mágico mostrado uma única vez · lombada com carimbos.
 
-Os segredos são preenchidos por ti — não passam por aqui.
+**Percorrido em produção**, do painel à submissão: validação a rejeitar 13 campos vazios,
+NIF com checksum errado recusado, documento expirado recusado, passo 3 saltado corretamente
+num particular sem procuração, risco elevado gravado, 9 eventos de auditoria com a cadeia
+íntegra, e o `UPDATE`/`DELETE` na auditoria a devolver zero linhas afetadas.
+
+### Três defeitos que só apareceram a usar
+
+1. **O React 19 faz reset ao formulário** depois de uma Server Action passada em `action={}`.
+   Um dígito errado no NIF apagava os outros dezanove campos. Passou a `onSubmit` com
+   `preventDefault`.
+2. **O passo 7 não conseguia ser submetido**: chamava `submeter()` diretamente, mas essa
+   função lê a declaração da base de dados e a caixa nunca era gravada antes.
+3. **A pasta `public/` vazia** não ia no git, e o `COPY` do Dockerfile rebentava a partir de
+   um clone limpo — passava na máquina de quem a tinha localmente.
+
+### Por fazer no fluxo
+
+- Uploads de documentos (o schema e a tabela `documento` já existem)
+- E2E Playwright dos dois percursos
+- Consentimentos RGPD com prova — hoje o passo 5 só grava preferências de marketing
+- Percurso Empresa por validar contra imagens (A18)
 
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
