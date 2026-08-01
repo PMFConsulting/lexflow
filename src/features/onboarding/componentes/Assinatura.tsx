@@ -50,9 +50,15 @@ export function Assinatura({
       maxWidth: 2.2,
     });
 
-    pad.current.addEventListener("endStroke", () => {
+    // Dois eventos, não um. O `endStroke` sozinho é frágil: basta o ponteiro
+    // ser largado fora do canvas — coisa banal a assinar com o dedo — para o
+    // traço ficar desenhado e o campo vazio, e o cliente vê a rubrica no ecrã
+    // e um erro a dizer que não assinou.
+    const capturar = () => {
       setDados(pad.current?.isEmpty() ? "" : (pad.current?.toDataURL("image/png") ?? ""));
-    });
+    };
+    pad.current.addEventListener("endStroke", capturar);
+    pad.current.addEventListener("afterUpdateStroke", capturar);
 
     ajustar();
     if (valorInicial) void pad.current.fromDataURL(valorInicial);
