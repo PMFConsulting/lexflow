@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { ligarConta } from "@/features/conta/acoes";
 export function FormularioRegisto() {
   const router = useRouter();
   const [erro, setErro] = useState<string | null>(null);
+  const [jaExiste, setJaExiste] = useState(false);
   const [aCriar, transicao] = useTransition();
 
   const submeter = (ev: React.FormEvent<HTMLFormElement>) => {
@@ -30,8 +32,11 @@ export function FormularioRegisto() {
       const r = await signUp.email({ email, password, name: nome || email });
 
       if (r.error) {
+        // "Já existe" sem caminho para a frente é um beco. Quem chega aqui
+        // quase sempre já se registou e só quer entrar.
+        setJaExiste(Boolean(r.error.message?.toLowerCase().includes("exist")));
         setErro(
-          r.error.message?.includes("exist")
+          r.error.message?.toLowerCase().includes("exist")
             ? "Já existe uma conta com este email."
             : "Não foi possível criar a conta.",
         );
@@ -77,9 +82,17 @@ export function FormularioRegisto() {
       </div>
 
       {erro && (
-        <p className="border-selo/40 bg-selo/10 text-selo rounded-sm border p-2.5 text-sm" role="alert">
-          {erro}
-        </p>
+        <div className="border-selo/40 bg-selo/10 rounded-sm border p-2.5" role="alert">
+          <p className="text-selo text-sm">{erro}</p>
+          {jaExiste && (
+            <Link
+              href="/entrar"
+              className="text-selo mt-1 inline-block text-sm font-medium underline underline-offset-2"
+            >
+              Entrar com essa conta →
+            </Link>
+          )}
+        </div>
       )}
 
       <Button type="submit" disabled={aCriar} size="lg">
