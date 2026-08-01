@@ -269,9 +269,11 @@ export function CampoCaixa({
             onChange?.(b);
           }}
           aria-invalid={Boolean(erro)}
-          className="mt-0.5"
+          // Alvo maior no telemóvel: 16px de caixa é pouco para acertar com o
+          // dedo, e estas caixas são declarações que não se querem falhadas.
+          className="mt-0.5 size-5 md:size-4"
         />
-        <Label htmlFor={id} className="text-sm leading-snug font-normal">
+        <Label htmlFor={id} className="py-0.5 text-sm leading-snug font-normal">
           {etiqueta}
         </Label>
       </div>

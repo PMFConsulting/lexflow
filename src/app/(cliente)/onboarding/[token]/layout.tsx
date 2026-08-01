@@ -37,7 +37,9 @@ export default async function LayoutOnboarding({
       </header>
 
       <div className="mx-auto grid max-w-5xl gap-8 px-4 py-8 md:grid-cols-[190px_1fr] md:gap-10">
-        <aside className="md:sticky md:top-8 md:self-start">
+        {/* min-w-0: sem isto o item da grelha cresce com o conteúdo da fita
+            horizontal e arrasta a página inteira para o lado no telemóvel. */}
+        <aside className="min-w-0 md:sticky md:top-8 md:self-start">
           <Lombada
             token={token}
             atual={processo.passoAtual}
