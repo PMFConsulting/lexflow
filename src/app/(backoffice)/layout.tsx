@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { exigirSessao } from "@/lib/sessao";
+import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
 
 const NAVEGACAO = [
   { titulo: "Painel", href: "/", icone: LayoutDashboard },
@@ -39,9 +41,20 @@ const ADMINISTRACAO = [
   { titulo: "Definições", href: "/definicoes", icone: Settings },
 ];
 
-export default function LayoutBackoffice({
+/**
+ * Nada aqui é pré-renderizável: cada página depende da sessão de quem a abre.
+ * Sem isto, o `next build` tentava gerar o painel em estático e batia na
+ * leitura das variáveis de ambiente.
+ */
+export const dynamic = "force-dynamic";
+
+export default async function LayoutBackoffice({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Guard num sítio só: todas as páginas do back-office passam por aqui, e é
+  // o que impede que uma página nova nasça aberta por esquecimento.
+  const { eu } = await exigirSessao();
+
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider>
@@ -96,8 +109,15 @@ export default function LayoutBackoffice({
             </SidebarGroup>
           </SidebarContent>
 
-          <SidebarFooter className="px-3 py-3">
-            <span className="font-mono text-2xs opacity-50">POC · v0.1.0</span>
+          <SidebarFooter className="gap-2 px-3 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium">{eu.nome}</p>
+              <p className="text-2xs truncate font-mono tracking-wider uppercase opacity-60">
+                {eu.papel}
+              </p>
+            </div>
+            <BotaoSair />
+            <span className="text-2xs font-mono opacity-40">POC · v0.1.0</span>
           </SidebarFooter>
         </Sidebar>
 
