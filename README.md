@@ -27,6 +27,7 @@ que tocam a base de dados é que precisam dele.
 
 | Ficheiro | O que é |
 |---|---|
+| [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) | **Começa aqui.** A arquitetura de todas as fases, e o porquê de cada peça |
 | [`docs/BRIEF.md`](docs/BRIEF.md) | O brief completo — âmbito, stack, design, modelo de dados, plano |
 | [`docs/CAMPOS.md`](docs/CAMPOS.md) | Inventário campo a campo dos 7 passos + 15 ambiguidades por decidir |
 | [`docs/SCHEMA.md`](docs/SCHEMA.md) | Proposta de schema Drizzle, auditoria encadeada, RLS, pesquisa |
