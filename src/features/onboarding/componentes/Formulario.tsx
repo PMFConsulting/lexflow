@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { guardarPasso, submeter } from "../acoes";
+import { CHAVE_CARIMBO } from "./Lombada";
 import { PASSOS, passoAnterior } from "../passos";
 import type { Seccoes } from "../dados";
 import {
@@ -220,6 +222,10 @@ export function Formulario({
       }
 
       setErros({});
+      // Deixa dito à lombada qual o passo a carimbar quando a página seguinte
+      // montar. É por isto que o carimbo aparece já com o passo dado.
+      sessionStorage.setItem(CHAVE_CARIMBO, String(n));
+
       if (n === 7) {
         router.push(`/onboarding/${token}/submetido`);
       } else if (r.proximo) {
@@ -245,6 +251,39 @@ export function Formulario({
         <p className="border-selo/40 bg-selo/10 text-selo rounded-sm border p-3 text-sm" role="alert">
           {mensagem}
         </p>
+      )}
+
+      {/* Resumo dos erros. Num formulário longo, ver "3 campos por corrigir" e
+          poder saltar para cada um poupa a rolagem às cegas à procura do vermelho. */}
+      {Object.keys(erros).length > 0 && (
+        <div
+          className="border-selo/40 bg-selo/5 rounded-sm border p-3"
+          role="alert"
+          aria-labelledby="resumo-erros"
+        >
+          <p id="resumo-erros" className="text-selo text-sm font-medium">
+            {Object.keys(erros).length === 1
+              ? "Falta corrigir um campo"
+              : `Faltam corrigir ${Object.keys(erros).length} campos`}
+          </p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {Object.entries(erros).map(([campo, msgs]) => (
+              <li key={campo}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const alvo = document.querySelector<HTMLElement>(`[name="${campo}"]`);
+                    alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
+                    alvo?.focus();
+                  }}
+                  className="text-selo/90 hover:text-selo text-left text-xs underline underline-offset-2"
+                >
+                  {msgs[0]}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {n === 1 && (
@@ -505,6 +544,8 @@ export function Formulario({
 
       {n === 7 && (
         <>
+          <Revisao token={token} seccoes={seccoes} tipoCliente={tipo} />
+
           <div className="border-linha bg-papel-alto rounded-sm border p-4">
             <h2 className="mb-3 text-lg">Declaração Final</h2>
             <CampoCaixa
@@ -514,6 +555,9 @@ export function Formulario({
               valorInicial={seccoes.fecho?.declaracaoVeracidade ?? false}
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Depois de submeter, o processo passa a revisão e deixa de ser editável.
+          </p>
           <input type="hidden" name="_acao" value="submeter" />
         </>
       )}
@@ -536,6 +580,126 @@ export function Formulario({
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Revisão antes de submeter.
+ *
+ * Pedir uma declaração de veracidade sem mostrar o que se está a declarar não
+ * é razoável — e num processo de KYC é o oposto do que se pretende. Cada
+ * secção tem link para voltar atrás e corrigir.
+ */
+function Revisao({
+  token,
+  seccoes,
+  tipoCliente,
+}: {
+  token: string;
+  seccoes: Seccoes;
+  tipoCliente: "particular" | "empresa";
+}) {
+  const s = seccoes;
+
+  const blocos: { passo: number; titulo: string; linhas: [string, string | null | undefined][] }[] =
+    [
+      {
+        passo: 1,
+        titulo: "Identificação",
+        linhas: [
+          [tipoCliente === "empresa" ? "Denominação" : "Nome", s.identificacao?.nome],
+          ["Profissão", s.identificacao?.profissao],
+          ["Nacionalidade(s)", s.nacionalidades.join(", ") || null],
+          ["Email", s.identificacao?.email],
+          ["Telefone", s.identificacao?.telefone],
+          [
+            "Morada",
+            s.identificacao
+              ? `${s.identificacao.morada}, ${s.identificacao.codigoPostal} ${s.identificacao.localidade}`
+              : null,
+          ],
+        ],
+      },
+      {
+        passo: 2,
+        titulo: "Fiscal",
+        linhas: [
+          ["NIF", s.fiscais?.nif],
+          ["Documento", s.fiscais?.docNumero],
+          ["Validade", s.fiscais?.docValidade],
+        ],
+      },
+      ...(s.representante?.eRepresentante
+        ? [
+            {
+              passo: 3,
+              titulo: "Representante",
+              linhas: [
+                ["Nome", s.representante.nome],
+                ["NIF", s.representante.nif],
+                ["Email", s.representante.email],
+              ] as [string, string | null | undefined][],
+            },
+          ]
+        : []),
+      {
+        passo: 4,
+        titulo: "PPE e relação de negócio",
+        linhas: [
+          ["Pessoa politicamente exposta", s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null],
+          ...(s.ppe?.ePpe
+            ? ([
+                ["Cargo", s.ppe.ppeCargo],
+                ["Entidade", s.ppe.ppeEntidade],
+              ] as [string, string | null | undefined][])
+            : []),
+          ["Serviços", s.negocio?.servicos],
+          ["Origem dos fundos", s.negocio?.origemFundos],
+        ],
+      },
+      {
+        passo: 6,
+        titulo: "Faturação",
+        linhas: [
+          ["Nome", s.faturacao?.nome],
+          ["NIF", s.faturacao?.nif],
+          ["Email", s.faturacao?.email],
+        ],
+      },
+    ];
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-lg">O que vai submeter</h2>
+
+      {blocos.map((b) => {
+        const linhas = b.linhas.filter(([, v]) => v);
+        if (!linhas.length) return null;
+        return (
+          <div key={b.passo} className="border-linha bg-papel-alto rounded-sm border">
+            <div className="border-linha flex items-center justify-between gap-2 border-b px-4 py-2">
+              <h3 className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+                {String(b.passo).padStart(2, "0")} · {b.titulo}
+              </h3>
+              <Link
+                href={`/onboarding/${token}/passo/${b.passo}`}
+                className="text-xs underline underline-offset-2 hover:text-selo"
+              >
+                Corrigir
+              </Link>
+            </div>
+            <dl className="grid gap-x-6 gap-y-1.5 px-4 py-3 text-sm sm:grid-cols-[minmax(0,14rem)_1fr]">
+              {linhas.map(([k, v]) => (
+                <div key={k} className="contents">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="break-words">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

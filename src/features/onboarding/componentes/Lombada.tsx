@@ -1,16 +1,25 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Carimbo } from "@/components/carimbo";
 import { PASSOS, passoAplicavel } from "../passos";
 
+/** Onde o formulário deixa dito qual foi o último passo gravado. */
+export const CHAVE_CARIMBO = "pmf.carimbado";
+
 /**
  * A lombada do dossier.
  *
  * Os sete passos numerados — aqui a numeração justifica-se, é uma sequência
- * real e obrigatória. Cada passo gravado recebe um carimbo; o passo em que se
- * está fica marcado; os que não se aplicam aparecem riscados em vez de
+ * real e obrigatória. Cada passo gravado recebe um visto; o que acabou de ser
+ * gravado leva com o carimbo. Os que não se aplicam ficam riscados em vez de
  * desaparecerem, para o cliente perceber que foram saltados e não perdidos.
+ *
+ * Em ecrãs estreitos deita-se: uma fita horizontal por cima do formulário, que
+ * é onde há espaço.
  */
 export function Lombada({
   token,
@@ -18,48 +27,82 @@ export function Lombada({
   gravados,
   tipoCliente,
   representadoPorProcurador,
-  carimbadoEm,
 }: {
   token: string;
   atual: number;
   gravados: number[];
   tipoCliente: "particular" | "empresa";
   representadoPorProcurador: boolean;
-  carimbadoEm?: Date | null;
 }) {
   const ctx = { tipoCliente, representadoPorProcurador };
+  const [carimbo, setCarimbo] = useState<{ passo: number; quando: Date } | null>(null);
+
+  // O carimbo é a recompensa de ter gravado, por isso aparece na página
+  // seguinte — que é para onde o cliente vai a seguir a carregar em guardar.
+  useEffect(() => {
+    const marca = sessionStorage.getItem(CHAVE_CARIMBO);
+    if (!marca) return;
+    sessionStorage.removeItem(CHAVE_CARIMBO);
+    const passo = Number(marca);
+    if (!Number.isInteger(passo)) return;
+    setCarimbo({ passo, quando: new Date() });
+    const t = setTimeout(() => setCarimbo(null), 3200);
+    return () => clearTimeout(t);
+  }, []);
+
+  const aplicaveis = PASSOS.filter((p) => passoAplicavel(p.n, ctx));
 
   return (
-    <nav aria-label="Passos do processo" className="flex flex-col gap-1">
+    <nav aria-label="Passos do processo">
       <p className="text-2xs mb-3 font-mono tracking-[0.16em] text-muted-foreground uppercase">
-        Dossier · {gravados.length} de {PASSOS.length}
+        Dossier · {gravados.length} de {aplicaveis.length}
       </p>
 
-      <ol className="border-linha flex flex-col border-l">
+      {/* barra de progresso — em mobile é o único indicador que cabe bem */}
+      <div className="bg-linha mb-3 h-0.5 w-full md:hidden">
+        <div
+          className="bg-selo h-full transition-[width] duration-500 ease-out"
+          style={{ width: `${(gravados.length / aplicaveis.length) * 100}%` }}
+        />
+      </div>
+
+      <ol className="border-linha flex gap-1 overflow-x-auto pb-2 md:flex-col md:gap-0 md:overflow-visible md:border-l md:pb-0">
         {PASSOS.map((p) => {
           const aplicavel = passoAplicavel(p.n, ctx);
           const feito = gravados.includes(p.n);
           const aqui = p.n === atual;
           const acessivel = aplicavel && (feito || p.n <= atual);
+          const aCarimbar = carimbo?.passo === p.n;
 
           const conteudo = (
             <span
               className={cn(
-                "relative -ml-px flex items-center gap-3 border-l-2 py-2 pl-4 text-sm transition-colors",
+                "relative flex shrink-0 items-center gap-2 rounded-sm px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors",
+                "md:-ml-px md:rounded-none md:border-l-2 md:px-0 md:py-2 md:pl-4 md:whitespace-normal",
                 aqui
-                  ? "border-selo text-tinta font-medium"
+                  ? "bg-tinta text-papel-alto md:bg-transparent md:border-selo md:text-tinta font-medium"
                   : feito
-                    ? "border-arquivo/50 text-tinta-suave"
-                    : "border-transparent text-muted-foreground",
-                !aplicavel && "line-through opacity-50",
+                    ? "border-linha text-tinta-suave border md:border-0 md:border-l-2 md:border-arquivo/50"
+                    : "border-linha border text-muted-foreground md:border-0 md:border-l-2 md:border-transparent",
+                !aplicavel && "line-through opacity-45",
                 acessivel && !aqui && "hover:text-tinta",
               )}
             >
-              <span className="text-2xs w-4 shrink-0 font-mono tabular-nums">
+              <span className="text-2xs font-mono tabular-nums md:w-4">
                 {String(p.n).padStart(2, "0")}
               </span>
-              <span className="flex-1">{p.curto}</span>
-              {feito && <Check className="text-arquivo size-3.5 shrink-0" strokeWidth={2.5} />}
+              <span className="md:flex-1">{p.curto}</span>
+              {feito && !aCarimbar && (
+                <Check className="text-arquivo size-3.5 shrink-0" strokeWidth={2.5} />
+              )}
+              {aCarimbar && (
+                <span
+                  className="animate-carimbo border-selo/40 bg-selo/10 text-selo text-2xs ml-auto rounded-full border px-1.5 py-0.5 font-mono"
+                  aria-hidden="true"
+                >
+                  ✓
+                </span>
+              )}
             </span>
           );
 
@@ -83,13 +126,17 @@ export function Lombada({
         })}
       </ol>
 
-      {/* O carimbo aparece quando o passo acabou de ser gravado — é o único
-          momento de animação com peso na aplicação. */}
-      {carimbadoEm && (
-        <div className="mt-6 flex justify-center">
-          <Carimbo data={carimbadoEm} rotulo="Gravado" />
+      {/* O carimbo grande, o momento com peso. Só em ecrã largo: no telemóvel
+          rouba metade do espaço útil ao formulário. */}
+      {carimbo && (
+        <div className="mt-6 hidden justify-center md:flex">
+          <Carimbo data={carimbo.quando} rotulo="Gravado" />
         </div>
       )}
+
+      <p aria-live="polite" className="sr-only">
+        {carimbo ? `Passo ${carimbo.passo} gravado.` : ""}
+      </p>
     </nav>
   );
 }
