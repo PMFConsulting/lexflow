@@ -31,8 +31,9 @@ export default function Entrar() {
         return;
       }
 
-      router.push("/");
-      router.refresh();
+      // Ver a nota em FormularioRegisto: navegação dura para o servidor ler o
+      // cookie da sessão nova, e para o botão não ficar preso.
+      window.location.assign("/");
     });
   };
 

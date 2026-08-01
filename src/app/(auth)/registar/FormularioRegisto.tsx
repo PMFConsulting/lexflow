@@ -51,8 +51,13 @@ export function FormularioRegisto() {
         return;
       }
 
-      router.push("/");
-      router.refresh();
+      // Navegação dura, não `router.push`.
+      //
+      // Duas razões: dentro de um useTransition a navegação do router deixa o
+      // botão preso em "A criar…" à espera de uma transição que não resolve; e
+      // uma sessão acabada de criar quer um pedido novo, para o servidor ler o
+      // cookie em vez de servir o que já tinha em cache.
+      window.location.assign("/");
     });
   };
 
