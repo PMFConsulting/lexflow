@@ -333,6 +333,17 @@ export const passo7 = z.object({
   declaracaoVeracidade: z.literal(true, {
     message: "Tem de declarar que as informações são verdadeiras para submeter.",
   }),
+  assinatura: z
+    .string()
+    .trim()
+    .min(1, "Assine no quadro antes de submeter.")
+    .refine(
+      (v) => v.startsWith("data:image/png;base64,"),
+      "A assinatura não foi lida corretamente. Limpe o quadro e tente de novo.",
+    )
+    // ~1 MB de PNG é muito mais do que uma rubrica precisa; acima disso é
+    // sinal de que algo está errado, e não vale a pena aceitar.
+    .refine((v) => v.length < 1_400_000, "A assinatura ficou demasiado pesada."),
 });
 
 /* ── mapa por passo ───────────────────────────────────────────────────── */

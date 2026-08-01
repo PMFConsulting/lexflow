@@ -10,6 +10,7 @@ import { guardarPasso, submeter } from "../acoes";
 import { CHAVE_CARIMBO } from "./Lombada";
 import { PASSOS, passoAnterior } from "../passos";
 import type { Seccoes } from "../dados";
+import { Assinatura } from "./Assinatura";
 import {
   CampoCaixa,
   CampoEscolha,
@@ -151,7 +152,10 @@ function carga(n: number, fd: FormData): unknown {
         iban: txt(fd, "iban") || undefined,
       };
     case 7:
-      return { declaracaoVeracidade: bool(fd, "declaracaoVeracidade") };
+      return {
+        declaracaoVeracidade: bool(fd, "declaracaoVeracidade"),
+        assinatura: txt(fd, "assinatura"),
+      };
     default:
       return {};
   }
@@ -546,14 +550,15 @@ export function Formulario({
         <>
           <Revisao token={token} seccoes={seccoes} tipoCliente={tipo} />
 
-          <div className="border-linha bg-papel-alto rounded-sm border p-4">
-            <h2 className="mb-3 text-lg">Declaração Final</h2>
+          <div className="border-linha bg-papel-alto flex flex-col gap-4 rounded-sm border p-4">
+            <h2 className="text-lg">Declaração Final</h2>
             <CampoCaixa
               etiqueta="Declaro que as informações prestadas são verdadeiras e assumo a responsabilidade pela sua atualização caso se verifiquem alterações."
               nome="declaracaoVeracidade"
               erros={erros}
               valorInicial={seccoes.fecho?.declaracaoVeracidade ?? false}
             />
+            <Assinatura nome="assinatura" erros={erros} />
           </div>
           <p className="text-xs text-muted-foreground">
             Depois de submeter, o processo passa a revisão e deixa de ser editável.
@@ -562,11 +567,27 @@ export function Formulario({
         </>
       )}
 
-      <Separator />
+      <Separator className="hidden md:block" />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* No telemóvel a barra cola-se ao fundo: com formulários deste tamanho,
+          obrigar a rolar até ao fim para carregar em continuar é castigo. Em
+          ecrã largo volta a ser uma linha normal no fluxo. */}
+      <div
+        className={
+          "border-linha bg-papel/95 sticky bottom-0 -mx-4 flex flex-wrap items-center " +
+          "justify-between gap-3 border-t px-4 py-3 backdrop-blur " +
+          "md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none"
+        }
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
         {anterior ? (
-          <Button type="button" variant="outline" onClick={() => router.push(`/onboarding/${token}/passo/${anterior}`)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="md:h-9"
+            onClick={() => router.push(`/onboarding/${token}/passo/${anterior}`)}
+          >
             <ArrowLeft className="size-4" />
             Voltar
           </Button>
@@ -574,7 +595,7 @@ export function Formulario({
           <span />
         )}
 
-        <Button type="submit" disabled={aGuardar}>
+        <Button type="submit" disabled={aGuardar} size="lg" className="md:h-9">
           {aGuardar ? "A guardar…" : n === 7 ? "Submeter" : "Guardar e continuar"}
           {n === 7 ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
         </Button>

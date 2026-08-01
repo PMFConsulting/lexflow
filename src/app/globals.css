@@ -228,6 +228,18 @@
     font-size: var(--texto-sm);
     font-variant-numeric: tabular-nums;
   }
+
+  /* Campos com 16px em ecrãs pequenos.
+     Abaixo disso o Safari do iOS faz zoom sozinho ao tocar num campo, e depois
+     deixa a página desalinhada — num formulário de sete passos preenchido no
+     telemóvel, isso sozinho estraga a experiência toda. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
 }
 
 /* prefers-reduced-motion respeitado: sem carimbo animado. */

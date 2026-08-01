@@ -1,0 +1,1 @@
+ALTER TABLE "assinatura" ADD COLUMN "imagem_dados" text;

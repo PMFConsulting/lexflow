@@ -1,9 +1,11 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { assinatura } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import {
   areaInteresse,
@@ -18,8 +20,9 @@ import {
   relacaoNegocio,
   representanteLegal,
 } from "@/db/schema/seccoes";
+import { canonico } from "@/features/auditoria/hash";
 import { registarEvento } from "@/features/auditoria/registar";
-import { processoPorToken } from "./dados";
+import { processoPorToken, seccoesDoProcesso } from "./dados";
 import { SCHEMAS } from "./schemas";
 import { proximoPasso } from "./passos";
 
@@ -244,15 +247,54 @@ export async function guardarPasso(
         });
       break;
 
-    case 7:
+    case 7: {
+      // A assinatura vive na sua tabela; o fecho fica só com a declaração.
+      const { assinatura: rubrica, ...fecho } = v as { assinatura: string } & Linha;
+
       await base
         .insert(fechoProposta)
-        .values(insere<typeof fechoProposta.$inferInsert>(v))
+        .values(insere<typeof fechoProposta.$inferInsert>(fecho))
         .onConflictDoUpdate({
           target: fechoProposta.processoId,
-          set: v as Partial<typeof fechoProposta.$inferInsert>,
+          set: fecho as Partial<typeof fechoProposta.$inferInsert>,
         });
+
+      // O que se assina é o conteúdo, não o botão: o hash é do dossier inteiro
+      // no momento da assinatura, em serialização canónica. Se alguém alterar
+      // um campo depois disto, o hash deixa de bater.
+      const dossier = await seccoesDoProcesso(processo.id);
+      const hashDocumento = createHash("sha256")
+        .update(canonico({ referencia: processo.referencia, dossier }), "utf8")
+        .digest("hex");
+
+      const valores = {
+        processoId: processo.id,
+        tipo: "simples",
+        imagemDados: rubrica,
+        hashDocumento,
+        ip: ip ?? "desconhecido",
+        userAgent: userAgent ?? "desconhecido",
+        // Relógio do servidor. Nunca o do cliente — é trivial de alterar.
+        assinadoEm: new Date(),
+      };
+
+      await base
+        .insert(assinatura)
+        .values(valores)
+        .onConflictDoUpdate({ target: assinatura.processoId, set: valores });
+
+      await registarEvento({
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+        acao: "assinatura.criada",
+        entidade: "assinatura",
+        entidadeId: processo.id,
+        valorNovo: { hashDocumento, tipo: "simples" },
+        ip,
+        userAgent,
+      });
       break;
+    }
   }
 
   await registarEvento({

@@ -59,8 +59,16 @@ export const assinatura = pgTable("assinatura", {
     .unique()
     .references(() => processoOnboarding.id, { onDelete: "restrict" }),
   tipo: text("tipo").notNull().default("simples"),
-  /** Rubrica em storage privado — nunca o dataURL na base de dados. */
+  /** Rubrica em storage privado, quando houver storage configurado. */
   imagemChave: text("imagem_chave"),
+  /**
+   * A rubrica em PNG base64, enquanto não há object storage.
+   *
+   * Compromisso assumido da POC: o certo é a imagem viver num bucket privado e
+   * aqui ficar só a chave. Fica registado para não passar despercebido — são
+   * alguns kilobytes por processo, o que aguenta uma POC e não aguenta escala.
+   */
+  imagemDados: text("imagem_dados"),
   /** SHA-256 do PDF final do dossier. */
   hashDocumento: text("hash_documento").notNull(),
   documentoId: uuid("documento_id").references(() => documento.id, {
