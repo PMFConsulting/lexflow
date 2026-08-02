@@ -54,14 +54,30 @@ export function Anexos({
     fd.set("ficheiro", f);
     fd.set("tipo", tipo);
 
-    transicao(async () => {
-      const r = await carregarDocumento(token, fd);
-      if (!r.ok) {
-        setErro(r.erro);
-        return;
-      }
-      setAnexos((a) => [...a, { id: r.id, nome: r.nome, tipo, bytes: f.size }]);
+    // Verificação no cliente antes de enviar: poupa a subida de um ficheiro
+    // que vai ser recusado, e dá a mensagem de imediato.
+    if (f.size > 4 * 1024 * 1024) {
+      setErro(`O ficheiro tem ${(f.size / 1024 / 1024).toFixed(1)} MB. O máximo são 4 MB.`);
       if (entrada.current) entrada.current.value = "";
+      return;
+    }
+
+    transicao(async () => {
+      try {
+        const r = await carregarDocumento(token, fd);
+        if (!r.ok) {
+          setErro(r.erro);
+          return;
+        }
+        setAnexos((a) => [...a, { id: r.id, nome: r.nome, tipo, bytes: f.size }]);
+      } catch {
+        // Uma Server Action que rebenta — limite de corpo, rede a cair — não
+        // pode deixar o componente mudo e bloqueado. Silêncio é pior do que
+        // uma falha visível.
+        setErro("Não foi possível carregar o ficheiro. Tente de novo.");
+      } finally {
+        if (entrada.current) entrada.current.value = "";
+      }
     });
   };
 
