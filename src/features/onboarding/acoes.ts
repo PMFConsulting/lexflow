@@ -22,6 +22,7 @@ import {
 } from "@/db/schema/seccoes";
 import { canonico } from "@/features/auditoria/hash";
 import { registarEvento } from "@/features/auditoria/registar";
+import { registarConsentimento } from "./consentimentos";
 import { processoPorToken, seccoesDoProcesso } from "./dados";
 import { SCHEMAS } from "./schemas";
 import { proximoPasso } from "./passos";
@@ -234,6 +235,24 @@ export async function guardarPasso(
           .insert(areaInteresse)
           .values(areasInteresse.map((area) => ({ processoId: processo.id, area })));
       }
+
+      // Estes dois são consentimento a sério, e é aqui que ficam com prova:
+      // o texto exato que a pessoa viu, a hora e o endereço. Um booleano numa
+      // coluna não demonstra nada daqui a quatro anos.
+      await registarConsentimento({
+        processoId: processo.id,
+        finalidade: "newsletter",
+        aceite: prefs.newsletter === true,
+        ip,
+        userAgent,
+      });
+      await registarConsentimento({
+        processoId: processo.id,
+        finalidade: "convites_iniciativas",
+        aceite: prefs.convitesIniciativas === true,
+        ip,
+        userAgent,
+      });
       break;
     }
 
@@ -282,6 +301,14 @@ export async function guardarPasso(
         .insert(assinatura)
         .values(valores)
         .onConflictDoUpdate({ target: assinatura.processoId, set: valores });
+
+      await registarConsentimento({
+        processoId: processo.id,
+        finalidade: "declaracao_veracidade",
+        aceite: fecho.declaracaoVeracidade === true,
+        ip,
+        userAgent,
+      });
 
       await registarEvento({
         organizacaoId: processo.organizacaoId,

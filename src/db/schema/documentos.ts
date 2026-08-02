@@ -31,6 +31,14 @@ export const documento = pgTable(
     tamanhoBytes: integer("tamanho_bytes").notNull(),
     hashSha256: text("hash_sha256").notNull(),
     chaveStorage: text("chave_storage").notNull(),
+    /**
+     * O ficheiro em base64, enquanto não há object storage.
+     *
+     * Mesmo compromisso da rubrica, e pela mesma razão: o certo é um bucket
+     * privado com a chave aqui. Base64 acrescenta 33% ao tamanho, por isso há
+     * um limite de 4 MB por ficheiro. Aguenta uma POC; não aguenta um arquivo.
+     */
+    dados: text("dados"),
     /** Alimenta os alertas de validade do painel. */
     validade: date("validade"),
     /** Nulo = carregado pelo cliente através do link mágico. */

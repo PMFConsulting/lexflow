@@ -15,6 +15,7 @@ import {
   relacaoNegocio,
   representanteLegal,
 } from "@/db/schema/seccoes";
+import { documento } from "@/db/schema/documentos";
 import { hashToken } from "@/lib/token";
 
 /**
@@ -61,6 +62,7 @@ export async function seccoesDoProcesso(processoId: string) {
     nacionalidades,
     emails,
     areas,
+    documentos,
   ] = await Promise.all([
     base.select().from(dadosIdentificacao).where(eq(dadosIdentificacao.processoId, processoId)).then(um),
     base.select().from(dadosFiscais).where(eq(dadosFiscais.processoId, processoId)).then(um),
@@ -73,6 +75,17 @@ export async function seccoesDoProcesso(processoId: string) {
     base.select().from(nacionalidade).where(eq(nacionalidade.processoId, processoId)),
     base.select().from(emailNewsletter).where(eq(emailNewsletter.processoId, processoId)),
     base.select().from(areaInteresse).where(eq(areaInteresse.processoId, processoId)),
+    // Sem a coluna `dados`: os ficheiros em si não têm de atravessar o servidor
+    // para desenhar a lista, e são megabytes por processo.
+    base
+      .select({
+        id: documento.id,
+        nome: documento.nomeOriginal,
+        tipo: documento.tipo,
+        bytes: documento.tamanhoBytes,
+      })
+      .from(documento)
+      .where(and(eq(documento.processoId, processoId), isNull(documento.apagadoEm))),
   ]);
 
   return {
@@ -90,6 +103,7 @@ export async function seccoesDoProcesso(processoId: string) {
       .map((n) => n.pais),
     emailsNewsletter: emails.map((e) => e.email),
     areasInteresse: areas.map((a) => a.area),
+    documentos,
   };
 }
 

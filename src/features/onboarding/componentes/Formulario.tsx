@@ -10,6 +10,7 @@ import { guardarPasso, submeter } from "../acoes";
 import { CHAVE_CARIMBO } from "./Lombada";
 import { PASSOS, passoAnterior } from "../passos";
 import type { Seccoes } from "../dados";
+import { Anexos } from "./Anexos";
 import { Assinatura } from "./Assinatura";
 import {
   CampoCaixa,
@@ -380,6 +381,21 @@ export function Formulario({
             <CampoTexto etiqueta="Data de validade" nome="docValidade" tipo="date" erros={erros} obrigatorio valorInicial={seccoes.fiscais?.docValidade ?? ""} />
           </div>
 
+          <Separator />
+          <Anexos
+            token={token}
+            titulo="Documentação"
+            ajuda="Anexe a cópia do documento de identificação válido e legível, e o comprovativo de NIF obtido no portal da Autoridade Tributária com emissão dos últimos 6 meses."
+            tipos={
+              tipo === "empresa"
+                ? ["identificacao", "comprovativo_nif", "certidao_permanente", "outro"]
+                : ["identificacao", "comprovativo_nif", "outro"]
+            }
+            iniciais={seccoes.documentos.filter((d) =>
+              ["identificacao", "comprovativo_nif", "certidao_permanente", "outro"].includes(d.tipo),
+            )}
+          />
+
           {tipo === "empresa" && (
             <>
               <Separator />
@@ -432,6 +448,17 @@ export function Formulario({
                   </div>
                 </>
               )}
+
+              <Separator />
+              <Anexos
+                token={token}
+                titulo="Documentação do representante"
+                ajuda="Anexe cópia do documento de identificação válido e legível, a procuração e, no caso de empresa, a ata de designação e o comprovativo RCBE."
+                tipos={["identificacao", "procuracao", "ata_designacao", "comprovativo_rcbe", "outro"]}
+                iniciais={seccoes.documentos.filter((d) =>
+                  ["procuracao", "ata_designacao", "comprovativo_rcbe"].includes(d.tipo),
+                )}
+              />
             </>
           )}
         </>
