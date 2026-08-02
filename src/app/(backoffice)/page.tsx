@@ -1,26 +1,53 @@
+import Link from "next/link";
 import { FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Carimbos } from "@/components/carimbo";
 import { EstadoBadge, RiscoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
+import { numerosDoPainel, recentes } from "@/features/processos/consultas";
 
 export const metadata = { title: "Painel" };
+
+const quando = (d: Date) =>
+  new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d);
 
 /**
  * Painel. Sem gráficos decorativos — só o que faz agir (§6 do brief).
  *
- * As contagens ligam-se às queries na Fase 3; nesta fase o painel existe para
- * fixar a linguagem visual e provar os tokens em contexto real.
+ * Cada número é um link para a listagem já filtrada: ver "3 por rever" e não
+ * poder clicar seria obrigar a refazer o filtro à mão.
  */
-const TILES = [
-  { rotulo: "Por rever", valor: 0, nota: "submetidos à espera de triagem" },
-  { rotulo: "Risco elevado por aprovar", valor: 0, nota: "só sócio ou admin podem aprovar" },
-  { rotulo: "Parados há mais de 7 dias", valor: 0, nota: "sem atividade do cliente" },
-  { rotulo: "Documentos a expirar", valor: 0, nota: "nos próximos 60 dias" },
-];
+export default async function Painel() {
+  const [n, ultimos] = await Promise.all([numerosDoPainel(), recentes()]);
 
-export default function Painel() {
+  const tiles = [
+    {
+      rotulo: "Por rever",
+      valor: n.porRever,
+      nota: "submetidos à espera de triagem",
+      href: "/processos?estado=submetido&estado=em_revisao",
+    },
+    {
+      rotulo: "Risco elevado por aprovar",
+      valor: n.riscoPorAprovar,
+      nota: "só sócio ou admin podem aprovar",
+      href: "/processos?risco=elevado&estado=submetido&estado=em_revisao",
+      alerta: n.riscoPorAprovar > 0,
+    },
+    {
+      rotulo: "Parados há mais de 7 dias",
+      valor: n.parados,
+      nota: "sem atividade do cliente",
+      href: "/processos?estado=rascunho&estado=pendente_cliente",
+    },
+    {
+      rotulo: "Documentos a expirar",
+      valor: n.aExpirar,
+      nota: "nos próximos 60 dias",
+      href: "/processos",
+    },
+  ];
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -34,51 +61,76 @@ export default function Painel() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {TILES.map((tile) => (
-          <Card key={tile.rotulo} className="gap-2">
-            <CardHeader className="pb-0">
-              <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {tile.rotulo}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="font-mono text-3xl leading-none tabular-nums">{tile.valor}</div>
-              <p className="mt-2 text-xs text-muted-foreground">{tile.nota}</p>
-            </CardContent>
-          </Card>
+        {tiles.map((t) => (
+          <Link key={t.rotulo} href={t.href} className="group">
+            <Card
+              className={
+                "hover:border-tinta-suave h-full gap-2 transition-colors " +
+                (t.alerta ? "border-selo/40" : "")
+              }
+            >
+              <CardHeader className="pb-0">
+                <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  {t.rotulo}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={
+                    "font-mono text-3xl leading-none tabular-nums " +
+                    (t.alerta ? "text-selo" : "")
+                  }
+                >
+                  {t.valor}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{t.nota}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="text-base">Atividade recente</CardTitle>
+          <Link href="/processos" className="text-xs underline underline-offset-4">
+            Ver todos
+          </Link>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center gap-3 border border-dashed border-linha py-12 text-center">
-            <FileText className="size-6 text-tinta-suave" strokeWidth={1.5} />
-            <div>
-              <p className="text-sm font-medium">Ainda não há processos.</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Crie o primeiro e envie o link de preenchimento ao cliente.
-              </p>
+          {ultimos.length === 0 ? (
+            <div className="border-linha flex flex-col items-center gap-3 border border-dashed py-12 text-center">
+              <FileText className="text-tinta-suave size-6" strokeWidth={1.5} />
+              <div>
+                <p className="text-sm font-medium">Ainda não há processos.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Crie o primeiro e envie o link de preenchimento ao cliente.
+                </p>
+              </div>
+              <BotaoNovoProcesso tamanho="sm" />
             </div>
-            <BotaoNovoProcesso tamanho="sm" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Amostra do vocabulário visual. Sai quando as queries entrarem, na Fase 3. */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Vocabulário visual</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-          <Ref>PMF-2026-0142</Ref>
-          <EstadoBadge estado="em_revisao" />
-          <EstadoBadge estado="aprovado" />
-          <EstadoBadge estado="rejeitado" />
-          <RiscoBadge nivel="elevado" fatores={[{ descricao: "PPE declarada" }]} />
-          <Carimbos concluidos={5} />
+          ) : (
+            <ul className="border-linha divide-linha divide-y border-t">
+              {ultimos.map((p) => (
+                <li key={p.id}>
+                  <Link
+                    href={`/processos/${p.id}`}
+                    className="hover:bg-muted flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-3 transition-colors"
+                  >
+                    <Ref className="text-muted-foreground">{p.referencia}</Ref>
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {p.nome ?? <span className="text-muted-foreground">sem nome ainda</span>}
+                    </span>
+                    <EstadoBadge estado={p.estado} />
+                    {p.nivelRisco === "elevado" && <RiscoBadge nivel="elevado" />}
+                    <Ref className="text-xs text-muted-foreground">
+                      {quando(p.atualizadoEm)}
+                    </Ref>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

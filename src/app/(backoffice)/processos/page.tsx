@@ -1,0 +1,171 @@
+import Link from "next/link";
+import { Search } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Carimbos } from "@/components/carimbo";
+import { EstadoBadge, RiscoBadge } from "@/components/estado-badge";
+import { Ref } from "@/components/ref-processo";
+import { facetas, listarProcessos } from "@/features/processos/consultas";
+import { Filtros } from "@/features/processos/componentes/Filtros";
+import { exigirSessao } from "@/lib/sessao";
+
+export const metadata = { title: "Processos" };
+export const dynamic = "force-dynamic";
+
+const quando = (d: Date | null) =>
+  d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" }).format(d) : "—";
+
+const lista = (v: string | string[] | undefined) =>
+  v === undefined ? undefined : Array.isArray(v) ? v : [v];
+
+/**
+ * Listagem de processos.
+ *
+ * Filtros no URL, não em estado local: o §6 pede que um filtro seja
+ * partilhável por link — "risco elevado + por aprovar" tem de abrir igual para
+ * quem receber o endereço.
+ */
+export default async function Processos({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  await exigirSessao();
+  const sp = await searchParams;
+
+  const ppe: "sim" | "nao" | undefined =
+    sp.ppe === "sim" ? "sim" : sp.ppe === "nao" ? "nao" : undefined;
+
+  const filtros = {
+    q: typeof sp.q === "string" ? sp.q : undefined,
+    estado: lista(sp.estado),
+    risco: lista(sp.risco),
+    tipo: lista(sp.tipo),
+    ppe,
+    pagina: Number(sp.pagina) || 1,
+  };
+
+  /** Mantém os filtros ao mudar de página, sem os reescrever à mão. */
+  const comPagina = (n: number) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (k === "pagina" || v === undefined) continue;
+      if (Array.isArray(v)) v.forEach((x) => p.append(k, x));
+      else p.set(k, v);
+    }
+    p.set("pagina", String(n));
+    return `/processos?${p}`;
+  };
+
+  const [{ linhas, total, pagina, porPagina }, f] = await Promise.all([
+    listarProcessos(filtros),
+    facetas(),
+  ]);
+
+  const paginas = Math.max(1, Math.ceil(total / porPagina));
+
+  return (
+    <div className="mx-auto flex max-w-6xl flex-col gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl">Processos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {total === 1 ? "1 processo" : `${total} processos`}
+            {filtros.q && ` para “${filtros.q}”`}
+          </p>
+        </div>
+      </div>
+
+      <Filtros facetas={f} />
+
+      {linhas.length === 0 ? (
+        <Card className="flex flex-col items-center gap-2 py-14 text-center">
+          <Search className="text-tinta-suave size-6" strokeWidth={1.5} />
+          <p className="text-sm font-medium">Nenhum processo com estes filtros.</p>
+          <Link href="/processos" className="text-sm underline underline-offset-4">
+            Limpar filtros
+          </Link>
+        </Card>
+      ) : (
+        <Card className="overflow-hidden p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-linha border-b text-left">
+                  {["Referência", "Cliente", "Tipo", "Estado", "Risco", "Progresso", "Submetido", "Responsável"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="text-2xs px-3 py-2.5 font-mono font-medium tracking-wider text-muted-foreground uppercase whitespace-nowrap"
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-linha divide-y">
+                {linhas.map((p) => (
+                  <tr key={p.id} className="hover:bg-muted transition-colors">
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <Link href={`/processos/${p.id}`} className="hover:text-selo">
+                        <Ref>{p.referencia}</Ref>
+                      </Link>
+                    </td>
+                    <td className="max-w-56 truncate px-3 py-2.5">
+                      <Link href={`/processos/${p.id}`}>
+                        {p.nome ?? <span className="text-muted-foreground">—</span>}
+                      </Link>
+                      {p.nif && (
+                        <Ref className="ml-2 text-xs text-muted-foreground">{p.nif}</Ref>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
+                      {p.tipoCliente === "empresa" ? "Empresa" : "Particular"}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <EstadoBadge estado={p.estado} />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <RiscoBadge nivel={p.nivelRisco} />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <Carimbos concluidos={Math.max(0, p.passoAtual - 1)} />
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <Ref className="text-xs text-muted-foreground">
+                        {quando(p.submetidoEm)}
+                      </Ref>
+                    </td>
+                    <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
+                      {p.responsavel ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {paginas > 1 && (
+        <nav className="flex items-center justify-between text-sm" aria-label="Paginação">
+          <span className="text-muted-foreground">
+            Página {pagina} de {paginas}
+          </span>
+          <div className="flex gap-2">
+            {pagina > 1 && (
+              <Link href={comPagina(pagina - 1)} className="border-linha rounded-sm border px-3 py-1.5">
+                Anterior
+              </Link>
+            )}
+            {pagina < paginas && (
+              <Link href={comPagina(pagina + 1)} className="border-linha rounded-sm border px-3 py-1.5">
+                Seguinte
+              </Link>
+            )}
+          </div>
+        </nav>
+      )}
+    </div>
+  );
+}
