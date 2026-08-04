@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <div className="bg-papel grid min-h-svh place-items-center px-4 py-10">
       <div className="w-full max-w-sm text-center">
-        <p className="font-display text-2xl leading-none">PMF Consulting</p>
+        <p className="font-display text-2xl leading-none">POC</p>
         <p className="text-2xs text-muted-foreground mt-1 mb-8 font-mono tracking-[0.16em] uppercase">
           Processos · Onboarding
         </p>

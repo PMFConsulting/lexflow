@@ -621,7 +621,7 @@ export function Formulario({
             <div>
               <h2 className="text-lg">Termos e condições e aceitação da proposta</h2>
               <p className="text-sm text-muted-foreground">
-                Ao aceitar, confirma que leu os Termos e Condições da PMF Consulting e que
+                Ao aceitar, confirma que leu os Termos e Condições da POC e que
                 aceita os serviços e as condições descritos na proposta que lhe foi apresentada.
               </p>
             </div>

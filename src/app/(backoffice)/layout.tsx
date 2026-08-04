@@ -52,7 +52,7 @@ export default async function LayoutBackoffice({
             {/* A lombada do dossier: tinta sólida, marca em display. */}
             <Link href="/" className="flex flex-col gap-0.5">
               <span className="font-display text-lg leading-none">
-                PMF Consulting
+                POC
               </span>
               <span className="font-mono text-2xs tracking-[0.16em] uppercase opacity-60">
                 Processos

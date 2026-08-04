@@ -27,7 +27,7 @@ export default async function LayoutOnboarding({
       <header className="border-linha bg-papel-alto border-b">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div>
-            <p className="font-display text-lg leading-none">PMF Consulting</p>
+            <p className="font-display text-lg leading-none">POC</p>
             <p className="text-2xs font-mono tracking-[0.16em] text-muted-foreground uppercase">
               Onboarding de cliente
             </p>

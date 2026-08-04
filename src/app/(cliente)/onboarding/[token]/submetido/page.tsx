@@ -30,7 +30,7 @@ export default async function Submetido({
       <div>
         <h1 className="text-2xl">Recebemos o seu processo</h1>
         <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-          A partir de agora o processo fica em revisão pela equipa da PMF
+          A partir de agora o processo fica em revisão pela equipa da POC
           Consulting. Se faltar alguma coisa ou for preciso corrigir um dado,
           entramos em contacto pelo email que indicou.
         </p>

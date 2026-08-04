@@ -25,8 +25,8 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "PMF Consulting — Processos",
-    template: "%s · PMF Consulting",
+    default: "POC — Processos",
+    template: "%s · POC",
   },
   description: "Plataforma de processos jurídicos — onboarding de clientes.",
 };
