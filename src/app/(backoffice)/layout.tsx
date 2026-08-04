@@ -1,11 +1,5 @@
 import Link from "next/link";
-import {
-  FileText,
-  LayoutDashboard,
-  Settings,
-  ShieldAlert,
-  Users,
-} from "lucide-react";
+import { FileText, LayoutDashboard, ShieldAlert } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -34,11 +28,6 @@ const NAVEGACAO = [
     href: "/processos?risco=elevado",
     icone: ShieldAlert,
   },
-];
-
-const ADMINISTRACAO = [
-  { titulo: "Utilizadores", href: "/definicoes/utilizadores", icone: Users },
-  { titulo: "Definições", href: "/definicoes", icone: Settings },
 ];
 
 /**
@@ -77,24 +66,6 @@ export default async function LayoutBackoffice({
               <SidebarGroupContent>
                 <SidebarMenu>
                   {NAVEGACAO.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild tooltip={item.titulo}>
-                        <Link href={item.href}>
-                          <item.icone />
-                          <span>{item.titulo}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            <SidebarGroup>
-              <SidebarGroupLabel>Administração</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {ADMINISTRACAO.map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton asChild tooltip={item.titulo}>
                         <Link href={item.href}>
