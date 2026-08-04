@@ -1,9 +1,16 @@
 import { notFound } from "next/navigation";
-import { processoPorToken } from "@/features/onboarding/dados";
+import { TriangleAlert } from "lucide-react";
+import { assinaturaDoProcesso, processoPorToken } from "@/features/onboarding/dados";
 import { Carimbo } from "@/components/carimbo";
 import { Ref } from "@/components/ref-processo";
 
 export const metadata = { title: "Processo submetido" };
+
+const formatadorAssinatura = new Intl.DateTimeFormat("pt-PT", {
+  dateStyle: "long",
+  timeStyle: "short",
+  timeZone: "Europe/Lisbon",
+});
 
 export default async function Submetido({
   params,
@@ -13,6 +20,8 @@ export default async function Submetido({
   const { token } = await params;
   const processo = await processoPorToken(token);
   if (!processo) notFound();
+
+  const assinatura = await assinaturaDoProcesso(processo.id);
 
   return (
     <div className="border-linha bg-papel-alto flex flex-col items-center gap-6 rounded-sm border p-8 text-center md:p-12">
@@ -46,6 +55,30 @@ export default async function Submetido({
           </dd>
         </div>
       </dl>
+
+      {assinatura?.imagemDados ? (
+        <div className="border-linha bg-papel-alto w-full max-w-sm rounded-sm border p-1">
+          <div className="border-latao/40 flex flex-col items-center gap-3 rounded-sm border p-5">
+            <p className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
+              Rubrica registada
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={assinatura.imagemDados}
+              alt="Rubrica manuscrita do assinante"
+              className="h-16 w-auto max-w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Assinado em <Ref>{formatadorAssinatura.format(assinatura.assinadoEm)}</Ref>
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="border-linha flex w-full max-w-sm items-center gap-2 rounded-sm border border-dashed p-4 text-left text-xs text-muted-foreground">
+          <TriangleAlert className="size-4 shrink-0" />
+          Este processo não tem assinatura registada.
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Guarde a referência — serve para qualquer contacto sobre este processo.

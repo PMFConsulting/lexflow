@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, EyeOff, FileText, Lock, ShieldAlert } from "lucide-react";
+import { ArrowLeft, EyeOff, FileText, Lock, ShieldAlert, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Carimbos } from "@/components/carimbo";
@@ -8,7 +8,7 @@ import { EstadoBadge, RiscoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { auditoriaDoProcesso, ACOES } from "@/features/auditoria/consultas";
 import { documentosDoProcesso, processoPorId } from "@/features/processos/consultas";
-import { seccoesDoProcesso } from "@/features/onboarding/dados";
+import { assinaturaDoProcesso, seccoesDoProcesso } from "@/features/onboarding/dados";
 import { exigirSessao, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 
@@ -66,10 +66,11 @@ export default async function Processo({
   const processo = await processoPorId(id);
   if (!processo) notFound();
 
-  const [s, docs, eventos] = await Promise.all([
+  const [s, docs, eventos, assinatura] = await Promise.all([
     seccoesDoProcesso(processo.id),
     documentosDoProcesso(processo.id),
     auditoriaDoProcesso(processo.id),
+    assinaturaDoProcesso(processo.id),
   ]);
 
   const vePpe = podeVerPpe(eu.papel);
@@ -238,6 +239,31 @@ export default async function Processo({
           <Linha
             k="Declaração de veracidade"
             v={s.fecho?.declaracaoVeracidade ? "Aceite" : "Por aceitar"}
+          />
+          <Linha
+            k="Rubrica"
+            v={
+              assinatura?.imagemDados ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="border-linha bg-papel-alto inline-flex items-center justify-center rounded-sm border p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={assinatura.imagemDados}
+                      alt="Rubrica manuscrita do assinante"
+                      className="h-10 w-auto max-w-[10rem]"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    Assinado em <Ref>{dt(assinatura.assinadoEm)}</Ref>
+                  </span>
+                </div>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <TriangleAlert className="size-3.5 shrink-0" />
+                  Sem assinatura registada
+                </span>
+              )
+            }
           />
         </Bloco>
       </div>

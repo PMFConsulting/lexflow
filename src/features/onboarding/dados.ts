@@ -15,7 +15,7 @@ import {
   relacaoNegocio,
   representanteLegal,
 } from "@/db/schema/seccoes";
-import { documento } from "@/db/schema/documentos";
+import { assinatura, documento } from "@/db/schema/documentos";
 import { hashToken } from "@/lib/token";
 
 /**
@@ -108,6 +108,20 @@ export async function seccoesDoProcesso(processoId: string) {
 }
 
 export type Seccoes = Awaited<ReturnType<typeof seccoesDoProcesso>>;
+
+/** A rubrica do passo 7 — prova de assinatura, para o ecrã final e o back-office. */
+export async function assinaturaDoProcesso(processoId: string) {
+  const [linha] = await db()
+    .select({
+      imagemDados: assinatura.imagemDados,
+      assinadoEm: assinatura.assinadoEm,
+    })
+    .from(assinatura)
+    .where(eq(assinatura.processoId, processoId))
+    .limit(1);
+
+  return linha ?? null;
+}
 
 /** Quantos passos já foram gravados — alimenta os carimbos da lombada. */
 export function passosGravados(s: Seccoes): number[] {
