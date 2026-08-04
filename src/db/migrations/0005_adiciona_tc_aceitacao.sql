@@ -1,0 +1,1 @@
+ALTER TABLE "fecho_proposta" ADD COLUMN "tc_aceitacao" boolean DEFAULT false NOT NULL;

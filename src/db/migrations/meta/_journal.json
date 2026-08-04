@@ -36,6 +36,13 @@
       "when": 1785684241792,
       "tag": "0004_bouncy_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785777602180,
+      "tag": "0005_adiciona_tc_aceitacao",
+      "breakpoints": true
     }
   ]
 }

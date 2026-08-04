@@ -264,8 +264,10 @@ export const dadosFaturacao = pgTable("dados_faturacao", {
 export const fechoProposta = pgTable("fecho_proposta", {
   id: id(),
   processoId: processoId().unique(),
-  /** O único campo que o passo 7 tem hoje — divergência D1. */
+  /** O único campo que o passo 7 tinha — divergência D1, agora coberta. */
   declaracaoVeracidade: boolean("declaracao_veracidade").notNull().default(false),
+  /** Aceitação explícita dos T&C e da proposta — a parte do passo 7 do brief que faltava. */
+  tcAceitacao: boolean("tc_aceitacao").notNull().default(false),
   /* --- para o dia em que o passo 7 do brief avançar --- */
   servicosContratados: text("servicos_contratados"),
   modeloHonorarios: text("modelo_honorarios"),

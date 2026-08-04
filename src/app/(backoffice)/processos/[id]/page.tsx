@@ -230,7 +230,11 @@ export default async function Processo({
           <Linha k="Ao cuidado de" v={s.faturacao?.acNome} />
         </Bloco>
 
-        <Bloco titulo="Declaração final" passo={7}>
+        <Bloco titulo="T&C, aceitação de proposta e assinatura digital" passo={7}>
+          <Linha
+            k="Termos e condições e proposta"
+            v={s.fecho?.tcAceitacao ? "Aceite" : "Por aceitar"}
+          />
           <Linha
             k="Declaração de veracidade"
             v={s.fecho?.declaracaoVeracidade ? "Aceite" : "Por aceitar"}

@@ -16,7 +16,7 @@ export const PASSOS = [
   { n: 4, chave: "ppe", titulo: "PPE e relação de negócio", curto: "PPE" },
   { n: 5, chave: "preferencias", titulo: "Preferências de contacto", curto: "Preferências" },
   { n: 6, chave: "faturacao", titulo: "Dados para faturação", curto: "Faturação" },
-  { n: 7, chave: "fecho", titulo: "Declaração final", curto: "Fecho" },
+  { n: 7, chave: "fecho", titulo: "T&C, aceitação de proposta e assinatura digital", curto: "Fecho" },
 ] as const;
 
 export type Passo = (typeof PASSOS)[number];

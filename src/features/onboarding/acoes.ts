@@ -373,6 +373,13 @@ export async function submeter(token: string): Promise<Resultado> {
     .where(eq(fechoProposta.processoId, processo.id))
     .limit(1);
 
+  if (!fecho?.tcAceitacao) {
+    return {
+      ok: false,
+      erros: { tcAceitacao: ["Tem de aceitar os Termos e Condições e a proposta."] },
+    };
+  }
+
   if (!fecho?.declaracaoVeracidade) {
     return {
       ok: false,

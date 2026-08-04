@@ -118,6 +118,6 @@ export function passosGravados(s: Seccoes): number[] {
   if (s.ppe && s.negocio) feitos.push(4);
   if (s.preferencias) feitos.push(5);
   if (s.faturacao) feitos.push(6);
-  if (s.fecho?.declaracaoVeracidade) feitos.push(7);
+  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao) feitos.push(7);
   return feitos;
 }

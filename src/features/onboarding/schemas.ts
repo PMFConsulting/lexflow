@@ -333,6 +333,9 @@ export const passo7 = z.object({
   declaracaoVeracidade: z.literal(true, {
     message: "Tem de declarar que as informações são verdadeiras para submeter.",
   }),
+  tcAceitacao: z.literal(true, {
+    message: "Tem de aceitar os Termos e Condições e a proposta para submeter.",
+  }),
   assinatura: z
     .string()
     .trim()

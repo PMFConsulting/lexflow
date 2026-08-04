@@ -34,6 +34,12 @@ export function Assinatura({
     if (!el) return;
 
     const ajustar = () => {
+      // Um canvas com largura ou altura 0 (layout ainda não assentou, ou o
+      // teclado a meio de uma transição) faz o toDataURL devolver "data:," —
+      // passa no `.min(1)` mas falha no `startsWith`, e o cliente vê a
+      // rubrica no ecrã e um erro a dizer que não leu a assinatura.
+      if (el.offsetWidth === 0 || el.offsetHeight === 0) return;
+
       const anterior = pad.current?.isEmpty() === false ? pad.current.toDataURL("image/png") : null;
       const rácio = Math.max(window.devicePixelRatio || 1, 1);
       el.width = el.offsetWidth * rácio;
@@ -63,13 +69,45 @@ export function Assinatura({
     ajustar();
     if (valorInicial) void pad.current.fromDataURL(valorInicial);
 
-    window.addEventListener("resize", ajustar);
+    /**
+     * `ResizeObserver` em vez de `window.resize`: reage à própria caixa do
+     * canvas, não à janela. É o que apanha o layout que ainda não tinha
+     * assentado no primeiro `ajustar()` (largura 0 no arranque) — o
+     * observador dispara de novo assim que a caixa ganhar o tamanho real,
+     * mesmo sem a janela alguma vez disparar "resize".
+     */
+    const observador = new ResizeObserver(ajustar);
+    observador.observe(el);
+
+    /**
+     * Rede de segurança para telemóveis que ignorem o `interactiveWidget:
+     * "resizes-content"` do layout: quando o `visualViewport` encolhe (o
+     * teclado abriu), traz o quadro de volta para dentro da área visível.
+     */
+    const visivel = window.visualViewport;
+    const reagirAoTeclado = () => {
+      canvas.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    };
+    visivel?.addEventListener("resize", reagirAoTeclado);
+
     return () => {
-      window.removeEventListener("resize", ajustar);
+      observador.disconnect();
+      visivel?.removeEventListener("resize", reagirAoTeclado);
       pad.current?.off();
       pad.current = null;
     };
   }, [valorInicial]);
+
+  /**
+   * Tocar no canvas não devia poder abrir teclado nenhum, mas se algum campo
+   * anterior do formulário ficou com foco (comum ao navegar por Tab ou ao
+   * voltar atrás), o teclado ainda visível tapa a assinatura. Um `blur`
+   * explícito ao início do traço fecha-o antes de o utilizador desenhar.
+   */
+  const fecharTeclado = () => {
+    const ativo = document.activeElement;
+    if (ativo instanceof HTMLElement && ativo !== document.body) ativo.blur();
+  };
 
   const limpar = () => {
     pad.current?.clear();
@@ -105,6 +143,7 @@ export function Assinatura({
         <canvas
           id="rubrica"
           ref={canvas}
+          onPointerDown={fecharTeclado}
           className="h-40 w-full touch-none sm:h-44"
           aria-label="Área de assinatura. Desenhe a sua rubrica com o dedo ou o rato."
         />

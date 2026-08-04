@@ -1,17 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { guardarPasso, submeter } from "../acoes";
+import { guardarPasso, submeter, type Resultado } from "../acoes";
 import { CHAVE_CARIMBO } from "./Lombada";
 import { PASSOS, passoAnterior } from "../passos";
 import type { Seccoes } from "../dados";
 import { Anexos } from "./Anexos";
 import { Assinatura } from "./Assinatura";
+import { RiscoBadge } from "@/components/estado-badge";
+import { Ref } from "@/components/ref-processo";
+import type { FatorRisco } from "@/db/schema/processo";
 import {
   CampoCaixa,
   CampoEscolha,
@@ -20,6 +23,8 @@ import {
   CampoSimNao,
   CampoTexto,
 } from "./Campo";
+
+type NivelRisco = "baixo" | "medio" | "elevado";
 
 type Erros = Record<string, string[]>;
 
@@ -155,6 +160,7 @@ function carga(n: number, fd: FormData): unknown {
     case 7:
       return {
         declaracaoVeracidade: bool(fd, "declaracaoVeracidade"),
+        tcAceitacao: bool(fd, "tcAceitacao"),
         assinatura: txt(fd, "assinatura"),
       };
     default:
@@ -168,12 +174,18 @@ export function Formulario({
   seccoes,
   tipoCliente,
   representadoPorProcurador,
+  referencia,
+  nivelRisco,
+  fatoresRisco,
 }: {
   token: string;
   n: number;
   seccoes: Seccoes;
   tipoCliente: "particular" | "empresa";
   representadoPorProcurador: boolean;
+  referencia: string;
+  nivelRisco: NivelRisco;
+  fatoresRisco: FatorRisco[];
 }) {
   const router = useRouter();
   const [erros, setErros] = useState<Erros>({});
@@ -208,9 +220,30 @@ export function Formulario({
       // No passo 7 são dois momentos: gravar a declaração e só depois submeter.
       // O `submeter` lê a declaração da base de dados — se não a gravarmos
       // primeiro, o cliente fica preso num erro que não consegue resolver.
-      let r = await guardarPasso(token, n, carga(n, fd));
-      if (r.ok && n === 7 && fd.get("_acao") === "submeter") {
-        r = await submeter(token);
+      let r: Resultado;
+      try {
+        r = await guardarPasso(token, n, carga(n, fd));
+        if (r.ok && n === 7 && fd.get("_acao") === "submeter") {
+          r = await submeter(token);
+        }
+      } catch (erro) {
+        // O `revalidatePath` dentro do `guardarPasso`/`submeter` força a
+        // Next a voltar a renderizar a página ou o layout do passo a meio
+        // desta chamada — e essa re-renderização pode conter um
+        // `redirect()` (a página do passo manda para `/submetido` assim
+        // que o estado muda) ou um `notFound()` (o link expirou a meio do
+        // preenchimento). Isso chega aqui como uma exceção com "digest"
+        // próprio do Next, não como um erro nosso: tem de continuar a
+        // propagar-se para a navegação acontecer. Um `catch` genérico que a
+        // engolisse deixava o processo submetido na BD com o cliente preso
+        // no passo 7, ou o passo por gravar apesar de os dados já lá estarem.
+        unstable_rethrow(erro);
+
+        // Uma Server Action que rebenta a sério — limite de corpo, rede a
+        // cair — não pode deixar o botão preso em "A guardar…" sem
+        // explicação. Silêncio é pior do que uma falha visível.
+        setMensagem("Não foi possível guardar. Verifique a ligação e tente de novo.");
+        return;
       }
 
       if (!r.ok) {
@@ -575,16 +608,48 @@ export function Formulario({
 
       {n === 7 && (
         <>
-          <Revisao token={token} seccoes={seccoes} tipoCliente={tipo} />
+          <Revisao
+            token={token}
+            seccoes={seccoes}
+            tipoCliente={tipo}
+            referencia={referencia}
+            nivelRisco={nivelRisco}
+            fatoresRisco={fatoresRisco}
+          />
 
-          <div className="border-linha bg-papel-alto flex flex-col gap-4 rounded-sm border p-4">
-            <h2 className="text-lg">Declaração Final</h2>
+          <div className="border-linha bg-papel-alto flex flex-col gap-5 rounded-sm border p-4">
+            <div>
+              <h2 className="text-lg">Termos e condições e aceitação da proposta</h2>
+              <p className="text-sm text-muted-foreground">
+                Ao aceitar, confirma que leu os Termos e Condições da PMF Consulting e que
+                aceita os serviços e as condições descritos na proposta que lhe foi apresentada.
+              </p>
+            </div>
+            <CampoCaixa
+              etiqueta="Aceito os Termos e Condições e aceito a proposta."
+              nome="tcAceitacao"
+              erros={erros}
+              valorInicial={seccoes.fecho?.tcAceitacao ?? false}
+            />
+
+            <Separator />
+
+            <h2 className="text-lg">Declaração final</h2>
             <CampoCaixa
               etiqueta="Declaro que as informações prestadas são verdadeiras e assumo a responsabilidade pela sua atualização caso se verifiquem alterações."
               nome="declaracaoVeracidade"
               erros={erros}
               valorInicial={seccoes.fecho?.declaracaoVeracidade ?? false}
             />
+
+            <Separator />
+
+            <div>
+              <h2 className="text-lg">Assinatura digital</h2>
+              <p className="text-sm text-muted-foreground">
+                A sua rubrica fecha e confirma tudo o que aceitou acima.
+              </p>
+            </div>
             <Assinatura nome="assinatura" erros={erros} />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -642,12 +707,46 @@ function Revisao({
   token,
   seccoes,
   tipoCliente,
+  referencia,
+  nivelRisco,
+  fatoresRisco,
 }: {
   token: string;
   seccoes: Seccoes;
   tipoCliente: "particular" | "empresa";
+  referencia: string;
+  nivelRisco: NivelRisco;
+  fatoresRisco: FatorRisco[];
 }) {
   const s = seccoes;
+
+  const morada = (v: {
+    morada?: string | null;
+    codigoPostal?: string | null;
+    localidade?: string | null;
+  } | null) => (v?.morada ? `${v.morada}, ${v.codigoPostal} ${v.localidade}` : null);
+
+  const representante = s.representante?.eRepresentante ? s.representante : null;
+
+  const resumo: { etiqueta: string; valor: React.ReactNode }[] = [
+    { etiqueta: "Referência", valor: <Ref>{referencia}</Ref> },
+    { etiqueta: "Tipo de cliente", valor: tipoCliente === "empresa" ? "Empresa / Entidade Coletiva" : "Pessoa Singular" },
+    { etiqueta: tipoCliente === "empresa" ? "Denominação social" : "Nome", valor: s.identificacao?.nome },
+    { etiqueta: "NIF", valor: s.fiscais?.nif ? <Ref>{s.fiscais.nif}</Ref> : null },
+    { etiqueta: "Email", valor: s.identificacao?.email },
+    { etiqueta: "Telefone", valor: s.identificacao?.telefone ? <Ref>{s.identificacao.telefone}</Ref> : null },
+    ...(representante
+      ? [{ etiqueta: "Representante legal", valor: representante.nome }]
+      : []),
+    { etiqueta: "Morada", valor: morada(s.identificacao) },
+    {
+      etiqueta: "Áreas de interesse",
+      valor: s.areasInteresse.length
+        ? s.areasInteresse.map((a) => AREAS.find((x) => x.valor === a)?.texto ?? a).join(", ")
+        : "Nenhuma indicada",
+    },
+    { etiqueta: "Nível de risco", valor: <RiscoBadge nivel={nivelRisco} fatores={fatoresRisco} /> },
+  ].filter((c) => c.valor);
 
   const blocos: { passo: number; titulo: string; linhas: [string, string | null | undefined][] }[] =
     [
@@ -717,8 +816,25 @@ function Revisao({
     ];
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-4">
       <h2 className="text-lg">O que vai submeter</h2>
+
+      <div className="border-tinta/25 bg-papel-alto relative overflow-hidden rounded-sm border-2 p-5">
+        <span className="bg-latao absolute top-0 left-0 h-1 w-full" aria-hidden="true" />
+        <p className="text-2xs text-latao font-mono tracking-[0.18em] uppercase">
+          Resumo do processo
+        </p>
+        <dl className="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+          {resumo.map((c) => (
+            <div key={c.etiqueta} className="flex flex-col gap-0.5">
+              <dt className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+                {c.etiqueta}
+              </dt>
+              <dd className="text-lg leading-snug break-words">{c.valor}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
 
       {blocos.map((b) => {
         const linhas = b.linhas.filter(([, v]) => v);

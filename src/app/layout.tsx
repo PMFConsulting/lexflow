@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Instrument_Serif, Inter_Tight } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -29,6 +29,17 @@ export const metadata: Metadata = {
     template: "%s · PMF Consulting",
   },
   description: "Plataforma de processos jurídicos — onboarding de clientes.",
+};
+
+/**
+ * `interactiveWidget: "resizes-content"` — sem isto, o teclado virtual em
+ * Android/iOS sobrepõe-se ao layout em vez de o encolher, e o quadro de
+ * assinatura do passo 7 fica escondido atrás do teclado.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
