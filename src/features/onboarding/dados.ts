@@ -128,9 +128,8 @@ export function passosGravados(s: Seccoes): number[] {
   const feitos: number[] = [];
   if (s.identificacao) feitos.push(1);
   if (s.fiscais) feitos.push(2);
-  if (s.representante) feitos.push(3);
-  if (s.ppe && s.negocio) feitos.push(4);
-  if (s.faturacao) feitos.push(5);
-  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao) feitos.push(6);
+  if (s.ppe && s.negocio) feitos.push(3);
+  if (s.faturacao) feitos.push(4);
+  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao) feitos.push(5);
   return feitos;
 }

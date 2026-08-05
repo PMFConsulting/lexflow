@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { processoPorToken, seccoesDoProcesso } from "@/features/onboarding/dados";
 import { Formulario } from "@/features/onboarding/componentes/Formulario";
-import { passoAplicavel, passoPorNumero, proximoPasso } from "@/features/onboarding/passos";
+import { passoPorNumero } from "@/features/onboarding/passos";
 
 export default async function PaginaPasso({
   params,
@@ -21,18 +21,6 @@ export default async function PaginaPasso({
   }
 
   const seccoes = await seccoesDoProcesso(processo.id);
-  const procurador =
-    (seccoes.identificacao?.extra as { representadoPorProcurador?: boolean } | null)
-      ?.representadoPorProcurador ?? false;
-
-  const ctx = { tipoCliente: processo.tipoCliente, representadoPorProcurador: procurador };
-
-  // Um passo que não se aplica não é um erro: salta-se para o seguinte em vez
-  // de mostrar 404 a quem escreveu o URL à mão ou usou o botão de voltar.
-  if (!passoAplicavel(n, ctx)) {
-    const seguinte = proximoPasso(n, ctx) ?? 1;
-    redirect(`/onboarding/${token}/passo/${seguinte}`);
-  }
 
   return (
     <Formulario
@@ -40,7 +28,6 @@ export default async function PaginaPasso({
       n={n}
       seccoes={seccoes}
       tipoCliente={processo.tipoCliente}
-      representadoPorProcurador={procurador}
       referencia={processo.referencia}
       nivelRisco={processo.nivelRisco}
       fatoresRisco={processo.fatoresRisco}

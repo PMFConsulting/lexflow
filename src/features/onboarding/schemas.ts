@@ -93,7 +93,6 @@ export const passo1 = z
     telefone,
     email,
     ...morada,
-    representadoPorProcurador: z.boolean().default(false),
   })
   .superRefine((v, ctx) => {
     if (v.tipoCliente === "particular") {
@@ -142,70 +141,9 @@ export const passo2 = z
     }
   });
 
-/* ── passo 3 — representante (condicional) ────────────────────────────── */
+/* ── passo 3 — PPE e relação de negócio ───────────────────────────────── */
 
 export const passo3 = z
-  .object({
-    eRepresentante: z.boolean().default(false),
-    relacao: z.string().trim().optional(),
-    nome: z.string().trim().optional(),
-    dataNascimento: z.string().trim().optional(),
-    profissao: z.string().trim().optional(),
-    telefone: z.string().trim().optional(),
-    email: z.string().trim().optional(),
-    morada: z.string().trim().optional(),
-    pais: z.string().trim().optional(),
-    localidade: z.string().trim().optional(),
-    codigoPostal: z.string().trim().optional(),
-    freguesia: z.string().trim().optional(),
-    concelho: z.string().trim().optional(),
-    distrito: z.string().trim().optional(),
-    nif: z.string().trim().optional(),
-    docTipo: z.enum(["cartao_cidadao", "passaporte", "titulo_residencia", "outro"]).optional(),
-    docNumero: z.string().trim().optional(),
-    docValidade: z.string().trim().optional(),
-    codigoRcbe: z.string().trim().optional(),
-    ambitoPoderes: z.string().trim().optional(),
-  })
-  .superRefine((v, ctx) => {
-    // Sem interruptor ligado não há nada a validar: o passo fica vazio de
-    // propósito e o cliente segue em frente.
-    if (!v.eRepresentante) return;
-
-    const exigir = (campo: keyof typeof v, msg: string) => {
-      if (!v[campo]) ctx.addIssue({ code: "custom", path: [campo], message: msg });
-    };
-
-    exigir("nome", "O nome do representante é obrigatório.");
-    exigir("telefone", "O contacto telefónico é obrigatório.");
-    exigir("email", "O email é obrigatório.");
-    exigir("nif", "O número de contribuinte é obrigatório.");
-    exigir("docNumero", "O número do documento é obrigatório.");
-    exigir("docValidade", "A data de validade é obrigatória.");
-
-    if (v.email) {
-      const r = z.string().email().safeParse(v.email);
-      if (!r.success)
-        ctx.addIssue({ code: "custom", path: ["email"], message: "Email inválido." });
-    }
-    if (v.telefone) {
-      const r = validarTelefone(v.telefone);
-      if (!r.valido) ctx.addIssue({ code: "custom", path: ["telefone"], message: r.mensagem });
-    }
-    if (v.nif) {
-      const r = validarNif(v.nif);
-      if (!r.valido) ctx.addIssue({ code: "custom", path: ["nif"], message: r.mensagem });
-    }
-    if (v.codigoPostal) {
-      const r = validarCodigoPostal(v.codigoPostal);
-      if (!r.valido)
-        ctx.addIssue({ code: "custom", path: ["codigoPostal"], message: r.mensagem });
-    }
-  });
-
-/* ── passo 4 — PPE e relação de negócio ───────────────────────────────── */
-
-export const passo4 = z
   .object({
     ePpe: z.boolean({ message: "Responda sim ou não." }),
     ppeCargo: z.string().trim().optional(),
@@ -261,9 +199,9 @@ export const passo4 = z
     }
   });
 
-/* ── passo 5 — faturação ──────────────────────────────────────────────── */
+/* ── passo 4 — faturação ──────────────────────────────────────────────── */
 
-export const passo5 = z
+export const passo4 = z
   .object({
     igualAoCliente: z.boolean().default(false),
     nome: obrigatorio("A denominação de faturação"),
@@ -289,9 +227,9 @@ export const passo5 = z
     }
   });
 
-/* ── passo 6 — declaração final ───────────────────────────────────────── */
+/* ── passo 5 — declaração final ───────────────────────────────────────── */
 
-export const passo6 = z.object({
+export const passo5 = z.object({
   declaracaoVeracidade: z.literal(true, {
     message: "Tem de declarar que as informações são verdadeiras para submeter.",
   }),
@@ -319,7 +257,6 @@ export const SCHEMAS = {
   3: passo3,
   4: passo4,
   5: passo5,
-  6: passo6,
 } as const;
 
 export type DadosPasso1 = z.infer<typeof passo1>;
@@ -327,4 +264,3 @@ export type DadosPasso2 = z.infer<typeof passo2>;
 export type DadosPasso3 = z.infer<typeof passo3>;
 export type DadosPasso4 = z.infer<typeof passo4>;
 export type DadosPasso5 = z.infer<typeof passo5>;
-export type DadosPasso6 = z.infer<typeof passo6>;

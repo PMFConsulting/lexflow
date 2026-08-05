@@ -8,8 +8,9 @@ import { EstadoBadge, RiscoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { auditoriaDoProcesso, ACOES } from "@/features/auditoria/consultas";
 import { documentosDoProcesso, processoPorId } from "@/features/processos/consultas";
+import { AcoesProcesso } from "@/features/processos/componentes/AcoesProcesso";
 import { assinaturaDoProcesso, seccoesDoProcesso } from "@/features/onboarding/dados";
-import { exigirSessao, podeVerPpe } from "@/lib/sessao";
+import { exigirSessao, podeAprovarRiscoElevado, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 
 export const dynamic = "force-dynamic";
@@ -127,18 +128,33 @@ export default async function Processo({
         </span>
       </div>
 
-      {processo.nivelRisco === "elevado" && (
+      {(processo.nivelRisco === "elevado" || processo.fatoresRisco.length > 0) && (
         <div className="border-selo/40 bg-selo/5 flex items-start gap-3 rounded-sm border p-3">
           <ShieldAlert className="text-selo mt-0.5 size-4 shrink-0" />
           <div className="text-sm">
-            <p className="font-medium">Aprovação reservada a sócio ou admin</p>
-            <p className="mt-0.5 text-muted-foreground">
-              {processo.fatoresRisco.map((f) => f.descricao).join(" · ") ||
-                "Risco elevado atribuído."}
-            </p>
+            {processo.nivelRisco === "elevado" && (
+              <p className="font-medium">Aprovação reservada a sócio ou admin</p>
+            )}
+            {processo.fatoresRisco.length > 0 ? (
+              <ul className="mt-0.5 flex flex-col gap-0.5 text-muted-foreground">
+                {processo.fatoresRisco.map((f) => (
+                  <li key={f.codigo}>
+                    <Ref className="text-xs">{f.codigo}</Ref> — {f.descricao}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-0.5 text-muted-foreground">Risco elevado atribuído.</p>
+            )}
           </div>
         </div>
       )}
+
+      <AcoesProcesso
+        processoId={processo.id}
+        estado={processo.estado}
+        podeAprovar={podeAprovarRiscoElevado(eu.papel)}
+      />
 
       <Separator />
 
@@ -172,21 +188,10 @@ export default async function Processo({
           <Linha k="Certidão permanente" v={s.fiscais?.codigoCertidaoPermanente} />
         </Bloco>
 
-        {s.representante?.eRepresentante && (
-          <Bloco titulo="Representante legal" passo={3}>
-            <Linha k="Nome" v={s.representante.nome} />
-            <Linha k="Relação" v={s.representante.relacao} />
-            <Linha k="NIF" v={<Ref>{s.representante.nif}</Ref>} />
-            <Linha k="Email" v={s.representante.email} />
-            <Linha k="Telefone" v={<Ref>{s.representante.telefone}</Ref>} />
-            <Linha k="RCBE" v={s.representante.codigoRcbe} />
-          </Bloco>
-        )}
-
-        {/* O passo 4 é o mais sensível do sistema. O papel `assistente` não o vê
+        {/* O passo 3 é o mais sensível do sistema. O papel `assistente` não o vê
             — nem aqui, nem por URL direto, nem por chamada à API. */}
         {vePpe ? (
-          <Bloco titulo="PPE e relação de negócio" passo={4}>
+          <Bloco titulo="PPE e relação de negócio" passo={3}>
             <Linha k="Pessoa politicamente exposta" v={s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null} />
             <Linha k="Cargo" v={s.ppe?.ppeCargo} />
             <Linha k="Entidade" v={s.ppe?.ppeEntidade} />
@@ -204,7 +209,7 @@ export default async function Processo({
             <CardContent className="flex items-center gap-3 py-5 text-sm text-muted-foreground">
               <EyeOff className="size-4 shrink-0" />
               <span>
-                <strong className="text-tinta">Passo 4 — PPE e origem de fundos</strong> não é
+                <strong className="text-tinta">Passo 3 — PPE e origem de fundos</strong> não é
                 visível para o papel <Ref>{eu.papel}</Ref>. A tentativa de consulta ficou
                 registada na auditoria.
               </span>
@@ -212,26 +217,14 @@ export default async function Processo({
           </Card>
         )}
 
-        <Bloco titulo="Preferências de contacto" passo={5}>
-          <Linha k="Como chegou até nós" v={s.preferencias?.origemContacto} />
-          <Linha k="Detalhe" v={s.preferencias?.origemDetalhe} />
-          <Linha k="Newsletter" v={s.preferencias ? (s.preferencias.newsletter ? "Sim" : "Não") : null} />
-          <Linha k="Emails" v={s.emailsNewsletter.join(", ")} />
-          <Linha k="Áreas de interesse" v={s.areasInteresse.join(", ")} />
-          <Linha
-            k="Convites"
-            v={s.preferencias ? (s.preferencias.convitesIniciativas ? "Sim" : "Não") : null}
-          />
-        </Bloco>
-
-        <Bloco titulo="Faturação" passo={6}>
+        <Bloco titulo="Faturação" passo={4}>
           <Linha k="Nome ou empresa" v={s.faturacao?.nome} />
           <Linha k="NIF" v={<Ref>{s.faturacao?.nif}</Ref>} />
           <Linha k="Email" v={s.faturacao?.email} />
           <Linha k="Ao cuidado de" v={s.faturacao?.acNome} />
         </Bloco>
 
-        <Bloco titulo="T&C, aceitação de proposta e assinatura digital" passo={7}>
+        <Bloco titulo="T&C, aceitação de proposta e assinatura digital" passo={5}>
           <Linha
             k="Termos e condições e proposta"
             v={s.fecho?.tcAceitacao ? "Aceite" : "Por aceitar"}

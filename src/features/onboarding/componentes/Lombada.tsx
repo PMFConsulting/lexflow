@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Carimbo } from "@/components/carimbo";
-import { PASSOS, passoAplicavel } from "../passos";
+import { PASSOS } from "../passos";
 
 /** Onde o formulário deixa dito qual foi o último passo gravado. */
 export const CHAVE_CARIMBO = "pmf.carimbado";
@@ -15,8 +15,7 @@ export const CHAVE_CARIMBO = "pmf.carimbado";
  *
  * Os passos numerados — aqui a numeração justifica-se, é uma sequência
  * real e obrigatória. Cada passo gravado recebe um visto; o que acabou de ser
- * gravado leva com o carimbo. Os que não se aplicam ficam riscados em vez de
- * desaparecerem, para o cliente perceber que foram saltados e não perdidos.
+ * gravado leva com o carimbo.
  *
  * Em ecrãs estreitos deita-se: uma fita horizontal por cima do formulário, que
  * é onde há espaço.
@@ -25,16 +24,11 @@ export function Lombada({
   token,
   atual,
   gravados,
-  tipoCliente,
-  representadoPorProcurador,
 }: {
   token: string;
   atual: number;
   gravados: number[];
-  tipoCliente: "particular" | "empresa";
-  representadoPorProcurador: boolean;
 }) {
-  const ctx = { tipoCliente, representadoPorProcurador };
   const [carimbo, setCarimbo] = useState<{ passo: number; quando: Date } | null>(null);
 
   // O carimbo é a recompensa de ter gravado, por isso aparece na página
@@ -50,28 +44,25 @@ export function Lombada({
     return () => clearTimeout(t);
   }, []);
 
-  const aplicaveis = PASSOS.filter((p) => passoAplicavel(p.n, ctx));
-
   return (
     <nav aria-label="Passos do processo">
       <p className="text-2xs mb-3 font-mono tracking-[0.16em] text-muted-foreground uppercase">
-        Dossier · {gravados.length} de {aplicaveis.length}
+        Dossier · {gravados.length} de {PASSOS.length}
       </p>
 
       {/* barra de progresso — em mobile é o único indicador que cabe bem */}
       <div className="bg-linha mb-3 h-0.5 w-full md:hidden">
         <div
           className="bg-selo h-full transition-[width] duration-500 ease-out"
-          style={{ width: `${(gravados.length / aplicaveis.length) * 100}%` }}
+          style={{ width: `${(gravados.length / PASSOS.length) * 100}%` }}
         />
       </div>
 
       <ol className="border-linha flex gap-1 overflow-x-auto pb-2 md:flex-col md:gap-0 md:overflow-visible md:border-l md:pb-0">
         {PASSOS.map((p) => {
-          const aplicavel = passoAplicavel(p.n, ctx);
           const feito = gravados.includes(p.n);
           const aqui = p.n === atual;
-          const acessivel = aplicavel && (feito || p.n <= atual);
+          const acessivel = feito || p.n <= atual;
           const aCarimbar = carimbo?.passo === p.n;
 
           const conteudo = (
@@ -84,7 +75,6 @@ export function Lombada({
                   : feito
                     ? "border-linha text-tinta-suave border md:border-0 md:border-l-2 md:border-arquivo/50"
                     : "border-linha border text-muted-foreground md:border-0 md:border-l-2 md:border-transparent",
-                !aplicavel && "line-through opacity-45",
                 acessivel && !aqui && "hover:text-tinta",
               )}
             >

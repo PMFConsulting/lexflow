@@ -231,7 +231,7 @@
 
   /* Campos com 16px em ecrãs pequenos.
      Abaixo disso o Safari do iOS faz zoom sozinho ao tocar num campo, e depois
-     deixa a página desalinhada — num formulário de sete passos preenchido no
+     deixa a página desalinhada — num formulário de cinco passos preenchido no
      telemóvel, isso sozinho estraga a experiência toda. */
   @media (max-width: 767px) {
     input,

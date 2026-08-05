@@ -58,8 +58,22 @@ num particular sem procuração, risco elevado gravado, 9 eventos de auditoria c
 
 - Uploads de documentos (o schema e a tabela `documento` já existem)
 - E2E Playwright dos dois percursos
-- Consentimentos RGPD com prova — hoje o passo 5 só grava preferências de marketing
 - Percurso Empresa por validar contra imagens (A18)
+
+### Atualização — passo Representante removido, fluxo a 5 passos
+
+Pedido do cliente (05/08/2026): o passo Representante legal sai do onboarding — o formulário
+real não tinha essa figura, e o campo "Sou representado por procurador" ficava sem uso. O
+fluxo passa a **Identificação → Fiscal → PPE → Faturação → Fecho**, 5 passos. Schema da BD
+mantém-se intacto (`representante_legal` e `preferencias_contacto` ficam por usar, como já
+tinha acontecido com as preferências). Cada passo mostra agora uma descrição curta junto ao
+título, e o passo PPE explica em uma frase como o risco é calculado.
+
+Ficava por fazer desde a Fase 2 e passou a existir nesta atualização: **fluxo de aprovação**.
+`alterarEstadoProcesso` (`src/features/processos/acoes.ts`) marca em revisão, aprova ou
+rejeita — só sócio ou admin, com evento de auditoria e email ao cliente (nunca com o motivo
+da rejeição, para não indicar como contornar a diligência). Botões no detalhe do processo,
+visíveis só a quem pode decidir e só enquanto o processo ainda não tem decisão final.
 
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
@@ -88,7 +102,7 @@ servidor, o problema desaparece e poupa-se uma conta.
 
 ## Corte de âmbito da POC — a validar
 
-**Fica dentro:** os 7 passos com rascunho e link mágico · back-office com listagem filtrável e
+**Fica dentro:** os 5 passos com rascunho e link mágico · back-office com listagem filtrável e
 detalhe do processo · `evento_auditoria` append-only com cadeia de hashes · motor de risco ·
 papéis aplicados na aplicação · design tokens do §3.
 
@@ -129,6 +143,7 @@ altera o que se constrói à volta.
 | D16b | Fornecedor: Hostinger (a Hetzner exigia VAT ID). Empresa da UE com datacenter na UE — para um sistema que guarda documentos de identificação e declarações de PPE, um fornecedor americano traria exposição ao Cloud Act mesmo com datacenter europeu | `docs/DEPLOY.md` |
 | D17 | Postgres no próprio servidor em vez de Supabase — elimina a suspensão do plano gratuito ao fim de 7 dias sem uso, que é o padrão de uma POC mostrada de duas em duas semanas | `docs/DEPLOY.md` |
 | D18 | `output: "standalone"` e imagem Docker em três estágios; as migrações correm no arranque do contentor e, se falharem, ele não sobe | `Dockerfile` |
+| D19 | Passo Representante removido do onboarding (pedido do cliente); fluxo passa a 5 passos. Tabela `representante_legal` fica no schema, só deixa de ser escrita | este ficheiro |
 
 ## Decisões em aberto
 

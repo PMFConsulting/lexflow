@@ -17,7 +17,6 @@ import {
   fechoProposta,
   nacionalidade,
   relacaoNegocio,
-  representanteLegal,
 } from "@/db/schema/seccoes";
 import { canonico } from "@/features/auditoria/hash";
 import { registarEvento } from "@/features/auditoria/registar";
@@ -92,10 +91,9 @@ export async function guardarPasso(
 
   switch (n) {
     case 1: {
-      const { tipoCliente, nacionalidades, representadoPorProcurador, ...resto } = v as {
+      const { tipoCliente, nacionalidades, ...resto } = v as {
         tipoCliente: "particular" | "empresa";
         nacionalidades: string[];
-        representadoPorProcurador: boolean;
       } & Linha;
 
       await base
@@ -124,13 +122,6 @@ export async function guardarPasso(
         .update(processoOnboarding)
         .set({ tipoCliente })
         .where(eq(processoOnboarding.id, processo.id));
-
-      // Guardado no extra por agora: o interruptor de procuração ainda não tem
-      // coluna própria (ambiguidade A1, resolvida a favor do passo 3).
-      await base
-        .update(dadosIdentificacao)
-        .set({ extra: { representadoPorProcurador } })
-        .where(eq(dadosIdentificacao.processoId, processo.id));
       break;
     }
 
@@ -144,17 +135,7 @@ export async function guardarPasso(
         });
       break;
 
-    case 3:
-      await base
-        .insert(representanteLegal)
-        .values(insere<typeof representanteLegal.$inferInsert>(v))
-        .onConflictDoUpdate({
-          target: representanteLegal.processoId,
-          set: v as Partial<typeof representanteLegal.$inferInsert>,
-        });
-      break;
-
-    case 4: {
+    case 3: {
       const { servicos, origemFundos, ...ppe } = v as {
         servicos: string;
         origemFundos: string;
@@ -207,7 +188,7 @@ export async function guardarPasso(
       break;
     }
 
-    case 5:
+    case 4:
       await base
         .insert(dadosFaturacao)
         .values(insere<typeof dadosFaturacao.$inferInsert>(v))
@@ -217,7 +198,7 @@ export async function guardarPasso(
         });
       break;
 
-    case 6: {
+    case 5: {
       // A assinatura vive na sua tabela; o fecho fica só com a declaração.
       const { assinatura: rubrica, ...fecho } = v as { assinatura: string } & Linha;
 
@@ -286,21 +267,7 @@ export async function guardarPasso(
     userAgent,
   });
 
-  const [identificacao] = await base
-    .select()
-    .from(dadosIdentificacao)
-    .where(eq(dadosIdentificacao.processoId, processo.id))
-    .limit(1);
-
-  const ctx = {
-    tipoCliente:
-      n === 1 ? (v.tipoCliente as "particular" | "empresa") : processo.tipoCliente,
-    representadoPorProcurador:
-      (identificacao?.extra as { representadoPorProcurador?: boolean } | null)
-        ?.representadoPorProcurador ?? false,
-  };
-
-  const seguinte = proximoPasso(n, ctx);
+  const seguinte = proximoPasso(n);
 
   await base
     .update(processoOnboarding)

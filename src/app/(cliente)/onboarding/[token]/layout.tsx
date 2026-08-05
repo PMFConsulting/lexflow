@@ -18,9 +18,6 @@ export default async function LayoutOnboarding({
 
   const seccoes = await seccoesDoProcesso(processo.id);
   const gravados = passosGravados(seccoes);
-  const procurador =
-    (seccoes.identificacao?.extra as { representadoPorProcurador?: boolean } | null)
-      ?.representadoPorProcurador ?? false;
 
   return (
     <div className="bg-papel min-h-svh">
@@ -44,8 +41,6 @@ export default async function LayoutOnboarding({
             token={token}
             atual={processo.passoAtual}
             gravados={gravados}
-            tipoCliente={processo.tipoCliente}
-            representadoPorProcurador={procurador}
           />
         </aside>
 

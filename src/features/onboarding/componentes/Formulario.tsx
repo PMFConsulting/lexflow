@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { guardarPasso, submeter, type Resultado } from "../acoes";
@@ -77,7 +77,6 @@ function carga(n: number, fd: FormData): unknown {
         telefone: txt(fd, "telefone"),
         email: txt(fd, "email"),
         ...morada,
-        representadoPorProcurador: bool(fd, "representadoPorProcurador"),
       };
     case 2:
       return {
@@ -93,23 +92,6 @@ function carga(n: number, fd: FormData): unknown {
       };
     case 3:
       return {
-        eRepresentante: bool(fd, "eRepresentante"),
-        relacao: txt(fd, "relacao") || undefined,
-        nome: txt(fd, "nome") || undefined,
-        dataNascimento: txt(fd, "dataNascimento") || undefined,
-        profissao: txt(fd, "profissao") || undefined,
-        telefone: txt(fd, "telefone") || undefined,
-        email: txt(fd, "email") || undefined,
-        ...morada,
-        nif: txt(fd, "nif") || undefined,
-        docTipo: txt(fd, "docTipo") || undefined,
-        docNumero: txt(fd, "docNumero") || undefined,
-        docValidade: txt(fd, "docValidade") || undefined,
-        codigoRcbe: txt(fd, "codigoRcbe") || undefined,
-        ambitoPoderes: txt(fd, "ambitoPoderes") || undefined,
-      };
-    case 4:
-      return {
         ePpe: bool(fd, "ePpe"),
         ppeCargo: txt(fd, "ppeCargo") || undefined,
         ppePais: txt(fd, "ppePais") || undefined,
@@ -124,7 +106,7 @@ function carga(n: number, fd: FormData): unknown {
         servicos: txt(fd, "servicos"),
         origemFundos: txt(fd, "origemFundos"),
       };
-    case 5:
+    case 4:
       return {
         igualAoCliente: bool(fd, "igualAoCliente"),
         nome: txt(fd, "nome"),
@@ -137,7 +119,7 @@ function carga(n: number, fd: FormData): unknown {
         acTelefone: txt(fd, "acTelefone") || undefined,
         iban: txt(fd, "iban") || undefined,
       };
-    case 6:
+    case 5:
       return {
         declaracaoVeracidade: bool(fd, "declaracaoVeracidade"),
         tcAceitacao: bool(fd, "tcAceitacao"),
@@ -153,7 +135,6 @@ export function Formulario({
   n,
   seccoes,
   tipoCliente,
-  representadoPorProcurador,
   referencia,
   nivelRisco,
   fatoresRisco,
@@ -162,7 +143,6 @@ export function Formulario({
   n: number;
   seccoes: Seccoes;
   tipoCliente: "particular" | "empresa";
-  representadoPorProcurador: boolean;
   referencia: string;
   nivelRisco: NivelRisco;
   fatoresRisco: FatorRisco[];
@@ -176,10 +156,9 @@ export function Formulario({
   const [tipo, setTipo] = useState(tipoCliente);
   const [ePpe, setEPpe] = useState(seccoes.ppe?.ePpe ?? null);
   const [relPpe, setRelPpe] = useState(seccoes.ppe?.eRelacionadoPpe ?? null);
-  const [eRep, setERep] = useState(seccoes.representante?.eRepresentante ?? false);
   const [nifPt, setNifPt] = useState(seccoes.fiscais?.nifPortugues ?? true);
 
-  const anterior = passoAnterior(n, { tipoCliente: tipo, representadoPorProcurador });
+  const anterior = passoAnterior(n);
   const passo = PASSOS.find((p) => p.n === n)!;
 
   /**
@@ -261,6 +240,7 @@ export function Formulario({
           Passo {String(n).padStart(2, "0")} de {String(TOTAL_PASSOS).padStart(2, "0")}
         </p>
         <h1 className="mt-1 text-2xl">{passo.titulo}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{passo.descricao}</p>
       </header>
 
       <Separator />
@@ -362,12 +342,6 @@ export function Formulario({
           <Separator />
           <h2 className="text-lg">Morada</h2>
           <BlocoMorada erros={erros} v={seccoes.identificacao} />
-
-          <CampoCaixa
-            etiqueta="Sou representado por procurador"
-            nome="representadoPorProcurador"
-            valorInicial={representadoPorProcurador}
-          />
         </>
       )}
 
@@ -425,60 +399,6 @@ export function Formulario({
 
       {n === 3 && (
         <>
-          <CampoCaixa etiqueta="É representante?" nome="eRepresentante" valorInicial={eRep} onChange={setERep} />
-
-          {eRep && (
-            <>
-              <Separator />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <CampoTexto etiqueta="Relação com o cliente final" nome="relacao" erros={erros} valorInicial={seccoes.representante?.relacao ?? ""} className="sm:col-span-2" />
-                <CampoTexto etiqueta="Nome completo" nome="nome" erros={erros} obrigatorio valorInicial={seccoes.representante?.nome ?? ""} className="sm:col-span-2" />
-                <CampoTexto etiqueta="Data de nascimento" nome="dataNascimento" tipo="date" erros={erros} valorInicial={seccoes.representante?.dataNascimento ?? ""} />
-                <CampoTexto etiqueta="Profissão" nome="profissao" erros={erros} valorInicial={seccoes.representante?.profissao ?? ""} />
-                <CampoTexto etiqueta="Contacto telefónico" nome="telefone" erros={erros} obrigatorio valorInicial={seccoes.representante?.telefone ?? ""} />
-                <CampoTexto etiqueta="Email" nome="email" tipo="email" erros={erros} obrigatorio valorInicial={seccoes.representante?.email ?? ""} />
-              </div>
-
-              <Separator />
-              <h2 className="text-lg">Morada do representante</h2>
-              <BlocoMorada erros={erros} v={seccoes.representante} />
-
-              <Separator />
-              <h2 className="text-lg">Identificação fiscal do representante</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <CampoTexto etiqueta="Número de contribuinte" nome="nif" erros={erros} obrigatorio mono valorInicial={seccoes.representante?.nif ?? ""} />
-                <CampoEscolha etiqueta="Tipo de documento" nome="docTipo" erros={erros} opcoes={DOCUMENTOS} valorInicial={seccoes.representante?.docTipo ?? ""} />
-                <CampoTexto etiqueta="Número do documento" nome="docNumero" erros={erros} obrigatorio mono valorInicial={seccoes.representante?.docNumero ?? ""} />
-                <CampoTexto etiqueta="Data de validade" nome="docValidade" tipo="date" erros={erros} obrigatorio valorInicial={seccoes.representante?.docValidade ?? ""} />
-              </div>
-
-              {tipo === "empresa" && (
-                <>
-                  <Separator />
-                  <div className="grid gap-4">
-                    <CampoTexto etiqueta="Código de acesso ao RCBE" nome="codigoRcbe" erros={erros} mono valorInicial={seccoes.representante?.codigoRcbe ?? ""} />
-                    <CampoLongo etiqueta="Âmbito dos poderes de representação" nome="ambitoPoderes" erros={erros} valorInicial={seccoes.representante?.ambitoPoderes ?? ""} />
-                  </div>
-                </>
-              )}
-
-              <Separator />
-              <Anexos
-                token={token}
-                titulo="Documentação do representante"
-                ajuda="Anexe cópia do documento de identificação válido e legível, a procuração e, no caso de empresa, a ata de designação e o comprovativo RCBE."
-                tipos={["identificacao", "procuracao", "ata_designacao", "comprovativo_rcbe", "outro"]}
-                iniciais={seccoes.documentos.filter((d) =>
-                  ["procuracao", "ata_designacao", "comprovativo_rcbe"].includes(d.tipo),
-                )}
-              />
-            </>
-          )}
-        </>
-      )}
-
-      {n === 4 && (
-        <>
           <h2 className="text-lg">Declaração de Pessoa Politicamente Exposta</h2>
 
           <CampoSimNao
@@ -488,6 +408,15 @@ export function Formulario({
             valorInicial={ePpe}
             onChange={setEPpe}
           />
+
+          <p className="border-linha bg-muted flex items-start gap-2 rounded-sm border p-3 text-xs text-muted-foreground">
+            <Info className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              Como é calculado o risco: o processo começa com risco baixo. Se declarar ser
+              pessoa politicamente exposta (PPE), é automaticamente marcado como risco elevado
+              e fica à espera de aprovação de um sócio ou administrador.
+            </span>
+          </p>
 
           {ePpe === true && (
             <div className="border-latao/40 bg-latao/5 grid gap-4 rounded-sm border p-4 sm:grid-cols-2">
@@ -523,7 +452,7 @@ export function Formulario({
         </>
       )}
 
-      {n === 5 && (
+      {n === 4 && (
         <>
           <CampoCaixa etiqueta="Os dados de faturação são os mesmos do cliente" nome="igualAoCliente" valorInicial={seccoes.faturacao?.igualAoCliente ?? false} />
 
@@ -548,7 +477,7 @@ export function Formulario({
         </>
       )}
 
-      {n === 6 && (
+      {n === 5 && (
         <>
           <Revisao
             token={token}
@@ -668,8 +597,6 @@ function Revisao({
     localidade?: string | null;
   } | null) => (v?.morada ? `${v.morada}, ${v.codigoPostal} ${v.localidade}` : null);
 
-  const representante = s.representante?.eRepresentante ? s.representante : null;
-
   const resumo: { etiqueta: string; valor: React.ReactNode }[] = [
     { etiqueta: "Referência", valor: <Ref>{referencia}</Ref> },
     { etiqueta: "Tipo de cliente", valor: tipoCliente === "empresa" ? "Empresa / Entidade Coletiva" : "Pessoa Singular" },
@@ -677,9 +604,6 @@ function Revisao({
     { etiqueta: "NIF", valor: s.fiscais?.nif ? <Ref>{s.fiscais.nif}</Ref> : null },
     { etiqueta: "Email", valor: s.identificacao?.email },
     { etiqueta: "Telefone", valor: s.identificacao?.telefone ? <Ref>{s.identificacao.telefone}</Ref> : null },
-    ...(representante
-      ? [{ etiqueta: "Representante legal", valor: representante.nome }]
-      : []),
     { etiqueta: "Morada", valor: morada(s.identificacao) },
     { etiqueta: "Nível de risco", valor: <RiscoBadge nivel={nivelRisco} fatores={fatoresRisco} /> },
   ].filter((c) => c.valor);
@@ -712,21 +636,8 @@ function Revisao({
           ["Validade", s.fiscais?.docValidade],
         ],
       },
-      ...(s.representante?.eRepresentante
-        ? [
-            {
-              passo: 3,
-              titulo: "Representante",
-              linhas: [
-                ["Nome", s.representante.nome],
-                ["NIF", s.representante.nif],
-                ["Email", s.representante.email],
-              ] as [string, string | null | undefined][],
-            },
-          ]
-        : []),
       {
-        passo: 4,
+        passo: 3,
         titulo: "PPE e relação de negócio",
         linhas: [
           ["Pessoa politicamente exposta", s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null],
@@ -741,7 +652,7 @@ function Revisao({
         ],
       },
       {
-        passo: 5,
+        passo: 4,
         titulo: "Faturação",
         linhas: [
           ["Nome", s.faturacao?.nome],

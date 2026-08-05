@@ -103,13 +103,13 @@ const PASSOS = [
     numero: "03",
     titulo: "Criar processos",
     descricao:
-      "No Painel, o botão Novo processo gera o link mágico de onboarding — mostrado uma única vez. O cliente preenche os 7 passos, assina e submete.",
+      "No Painel, o botão Novo processo gera o link mágico de onboarding — mostrado uma única vez. O cliente preenche os 5 passos, assina e submete.",
   },
   {
     numero: "04",
     titulo: "Ver os dados",
     descricao:
-      "Lista de processos com pesquisa, detalhe com os 7 passos, risco e auditoria imutável com cadeia de hashes (nada se apaga nem se altera).",
+      "Lista de processos com pesquisa, detalhe com os 5 passos, risco e auditoria imutável com cadeia de hashes (nada se apaga nem se altera).",
   },
 ] as const;
 
