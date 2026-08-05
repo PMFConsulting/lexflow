@@ -10,8 +10,12 @@ import { exigirSessao } from "@/lib/sessao";
 export const metadata = { title: "Clientes" };
 export const dynamic = "force-dynamic";
 
-const quando = (d: Date) =>
-  new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" }).format(d);
+const quando = (d: Date | string | null) => {
+  if (!d) return "—";
+  const data = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(data.getTime())) return "—";
+  return new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" }).format(data);
+};
 
 /**
  * Um cliente é uma pessoa ou empresa distinta, deduplicada por NIF/NIPC — não

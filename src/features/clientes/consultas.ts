@@ -16,7 +16,7 @@ export type LinhaCliente = {
   ultimoProcessoId: string;
   ultimaReferencia: string;
   ultimoEstado: Estado;
-  ultimoCriadoEm: Date;
+  ultimoCriadoEm: Date | string | null;
 };
 
 type LinhaBruta = {
@@ -30,7 +30,7 @@ type LinhaBruta = {
   processo_id: string;
   referencia: string;
   estado: Estado;
-  criado_em: Date;
+  criado_em: Date | string | null;
 };
 
 /**
