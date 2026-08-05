@@ -261,47 +261,9 @@ export const passo4 = z
     }
   });
 
-/* ── passo 5 — preferências de contacto ───────────────────────────────── */
+/* ── passo 5 — faturação ──────────────────────────────────────────────── */
 
 export const passo5 = z
-  .object({
-    origemContacto: z
-      .enum(["recomendacao", "pesquisa_online", "evento_conferencia", "outro"])
-      .optional(),
-    origemDetalhe: z.string().trim().optional(),
-    newsletter: z.boolean().default(false),
-    emailsNewsletter: z.array(email).default([]),
-    areasInteresse: z.array(z.string().trim()).default([]),
-    convitesIniciativas: z.boolean().default(false),
-    convitesNome: z.string().trim().optional(),
-    convitesEmail: z.string().trim().optional(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.origemContacto === "recomendacao" && !v.origemDetalhe)
-      ctx.addIssue({
-        code: "custom",
-        path: ["origemDetalhe"],
-        message: "Diga-nos quem o recomendou.",
-      });
-
-    if (v.newsletter && v.emailsNewsletter.length === 0)
-      ctx.addIssue({
-        code: "custom",
-        path: ["emailsNewsletter"],
-        message: "Indique pelo menos um email para receber novidades.",
-      });
-
-    if (v.convitesIniciativas) {
-      if (!v.convitesNome)
-        ctx.addIssue({ code: "custom", path: ["convitesNome"], message: "Indique o nome." });
-      if (!v.convitesEmail)
-        ctx.addIssue({ code: "custom", path: ["convitesEmail"], message: "Indique o email." });
-    }
-  });
-
-/* ── passo 6 — faturação ──────────────────────────────────────────────── */
-
-export const passo6 = z
   .object({
     igualAoCliente: z.boolean().default(false),
     nome: obrigatorio("A denominação de faturação"),
@@ -327,9 +289,9 @@ export const passo6 = z
     }
   });
 
-/* ── passo 7 — declaração final ───────────────────────────────────────── */
+/* ── passo 6 — declaração final ───────────────────────────────────────── */
 
-export const passo7 = z.object({
+export const passo6 = z.object({
   declaracaoVeracidade: z.literal(true, {
     message: "Tem de declarar que as informações são verdadeiras para submeter.",
   }),
@@ -358,7 +320,6 @@ export const SCHEMAS = {
   4: passo4,
   5: passo5,
   6: passo6,
-  7: passo7,
 } as const;
 
 export type DadosPasso1 = z.infer<typeof passo1>;
@@ -367,4 +328,3 @@ export type DadosPasso3 = z.infer<typeof passo3>;
 export type DadosPasso4 = z.infer<typeof passo4>;
 export type DadosPasso5 = z.infer<typeof passo5>;
 export type DadosPasso6 = z.infer<typeof passo6>;
-export type DadosPasso7 = z.infer<typeof passo7>;

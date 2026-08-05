@@ -13,7 +13,7 @@ export const CHAVE_CARIMBO = "pmf.carimbado";
 /**
  * A lombada do dossier.
  *
- * Os sete passos numerados — aqui a numeração justifica-se, é uma sequência
+ * Os passos numerados — aqui a numeração justifica-se, é uma sequência
  * real e obrigatória. Cada passo gravado recebe um visto; o que acabou de ser
  * gravado leva com o carimbo. Os que não se aplicam ficam riscados em vez de
  * desaparecerem, para o cliente perceber que foram saltados e não perdidos.

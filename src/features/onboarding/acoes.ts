@@ -10,15 +10,12 @@ import { enviarEmail } from "@/lib/email";
 import { assinatura } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import {
-  areaInteresse,
   dadosFaturacao,
   dadosFiscais,
   dadosIdentificacao,
   declaracaoPpe,
-  emailNewsletter,
   fechoProposta,
   nacionalidade,
-  preferenciasContacto,
   relacaoNegocio,
   representanteLegal,
 } from "@/db/schema/seccoes";
@@ -210,55 +207,7 @@ export async function guardarPasso(
       break;
     }
 
-    case 5: {
-      const { emailsNewsletter, areasInteresse, ...prefs } = v as {
-        emailsNewsletter: string[];
-        areasInteresse: string[];
-      } & Linha;
-
-      await base
-        .insert(preferenciasContacto)
-        .values(insere<typeof preferenciasContacto.$inferInsert>(prefs))
-        .onConflictDoUpdate({
-          target: preferenciasContacto.processoId,
-          set: prefs as Partial<typeof preferenciasContacto.$inferInsert>,
-        });
-
-      await base.delete(emailNewsletter).where(eq(emailNewsletter.processoId, processo.id));
-      if (emailsNewsletter.length) {
-        await base
-          .insert(emailNewsletter)
-          .values(emailsNewsletter.map((email) => ({ processoId: processo.id, email })));
-      }
-
-      await base.delete(areaInteresse).where(eq(areaInteresse.processoId, processo.id));
-      if (areasInteresse.length) {
-        await base
-          .insert(areaInteresse)
-          .values(areasInteresse.map((area) => ({ processoId: processo.id, area })));
-      }
-
-      // Estes dois são consentimento a sério, e é aqui que ficam com prova:
-      // o texto exato que a pessoa viu, a hora e o endereço. Um booleano numa
-      // coluna não demonstra nada daqui a quatro anos.
-      await registarConsentimento({
-        processoId: processo.id,
-        finalidade: "newsletter",
-        aceite: prefs.newsletter === true,
-        ip,
-        userAgent,
-      });
-      await registarConsentimento({
-        processoId: processo.id,
-        finalidade: "convites_iniciativas",
-        aceite: prefs.convitesIniciativas === true,
-        ip,
-        userAgent,
-      });
-      break;
-    }
-
-    case 6:
+    case 5:
       await base
         .insert(dadosFaturacao)
         .values(insere<typeof dadosFaturacao.$inferInsert>(v))
@@ -268,7 +217,7 @@ export async function guardarPasso(
         });
       break;
 
-    case 7: {
+    case 6: {
       // A assinatura vive na sua tabela; o fecho fica só com a declaração.
       const { assinatura: rubrica, ...fecho } = v as { assinatura: string } & Linha;
 

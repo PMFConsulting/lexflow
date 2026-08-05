@@ -109,7 +109,7 @@ export async function seccoesDoProcesso(processoId: string) {
 
 export type Seccoes = Awaited<ReturnType<typeof seccoesDoProcesso>>;
 
-/** A rubrica do passo 7 — prova de assinatura, para o ecrã final e o back-office. */
+/** A rubrica do último passo — prova de assinatura, para o ecrã final e o back-office. */
 export async function assinaturaDoProcesso(processoId: string) {
   const [linha] = await db()
     .select({
@@ -130,8 +130,7 @@ export function passosGravados(s: Seccoes): number[] {
   if (s.fiscais) feitos.push(2);
   if (s.representante) feitos.push(3);
   if (s.ppe && s.negocio) feitos.push(4);
-  if (s.preferencias) feitos.push(5);
-  if (s.faturacao) feitos.push(6);
-  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao) feitos.push(7);
+  if (s.faturacao) feitos.push(5);
+  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao) feitos.push(6);
   return feitos;
 }

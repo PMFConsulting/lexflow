@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { guardarPasso, submeter, type Resultado } from "../acoes";
 import { CHAVE_CARIMBO } from "./Lombada";
-import { PASSOS, passoAnterior } from "../passos";
+import { PASSOS, TOTAL_PASSOS, passoAnterior } from "../passos";
 import type { Seccoes } from "../dados";
 import { Anexos } from "./Anexos";
 import { Assinatura } from "./Assinatura";
@@ -46,15 +46,6 @@ const DOCUMENTOS = [
   { valor: "passaporte", texto: "Passaporte" },
   { valor: "titulo_residencia", texto: "Título de residência" },
   { valor: "outro", texto: "Outro" },
-];
-
-// Valores vistos nos screenshots. A lista completa está por confirmar (A21).
-const AREAS = [
-  { valor: "administrativo", texto: "Administrativo e Contratação Pública" },
-  { valor: "penal", texto: "Penal e Contraordenacional" },
-  { valor: "pi_privacidade", texto: "Propriedade Intelectual e Privacidade" },
-  { valor: "comercial", texto: "Comercial e Contratos" },
-  { valor: "laboral", texto: "Laboral" },
 ];
 
 const bool = (fd: FormData, k: string) => fd.get(k) === "true";
@@ -135,17 +126,6 @@ function carga(n: number, fd: FormData): unknown {
       };
     case 5:
       return {
-        origemContacto: txt(fd, "origemContacto") || undefined,
-        origemDetalhe: txt(fd, "origemDetalhe") || undefined,
-        newsletter: bool(fd, "newsletter"),
-        emailsNewsletter: lista(fd, "emailsNewsletter"),
-        areasInteresse: lista(fd, "areasInteresse"),
-        convitesIniciativas: bool(fd, "convitesIniciativas"),
-        convitesNome: txt(fd, "convitesNome") || undefined,
-        convitesEmail: txt(fd, "convitesEmail") || undefined,
-      };
-    case 6:
-      return {
         igualAoCliente: bool(fd, "igualAoCliente"),
         nome: txt(fd, "nome"),
         nif: txt(fd, "nif"),
@@ -157,7 +137,7 @@ function carga(n: number, fd: FormData): unknown {
         acTelefone: txt(fd, "acTelefone") || undefined,
         iban: txt(fd, "iban") || undefined,
       };
-    case 7:
+    case 6:
       return {
         declaracaoVeracidade: bool(fd, "declaracaoVeracidade"),
         tcAceitacao: bool(fd, "tcAceitacao"),
@@ -197,8 +177,6 @@ export function Formulario({
   const [ePpe, setEPpe] = useState(seccoes.ppe?.ePpe ?? null);
   const [relPpe, setRelPpe] = useState(seccoes.ppe?.eRelacionadoPpe ?? null);
   const [eRep, setERep] = useState(seccoes.representante?.eRepresentante ?? false);
-  const [newsletter, setNewsletter] = useState(seccoes.preferencias?.newsletter ?? false);
-  const [convites, setConvites] = useState(seccoes.preferencias?.convitesIniciativas ?? false);
   const [nifPt, setNifPt] = useState(seccoes.fiscais?.nifPortugues ?? true);
 
   const anterior = passoAnterior(n, { tipoCliente: tipo, representadoPorProcurador });
@@ -217,13 +195,14 @@ export function Formulario({
     const fd = new FormData(ev.currentTarget);
     setMensagem(null);
     transicao(async () => {
-      // No passo 7 são dois momentos: gravar a declaração e só depois submeter.
-      // O `submeter` lê a declaração da base de dados — se não a gravarmos
-      // primeiro, o cliente fica preso num erro que não consegue resolver.
+      // No último passo são dois momentos: gravar a declaração e só depois
+      // submeter. O `submeter` lê a declaração da base de dados — se não a
+      // gravarmos primeiro, o cliente fica preso num erro que não consegue
+      // resolver.
       let r: Resultado;
       try {
         r = await guardarPasso(token, n, carga(n, fd));
-        if (r.ok && n === 7 && fd.get("_acao") === "submeter") {
+        if (r.ok && n === TOTAL_PASSOS && fd.get("_acao") === "submeter") {
           r = await submeter(token);
         }
       } catch (erro) {
@@ -236,7 +215,8 @@ export function Formulario({
         // próprio do Next, não como um erro nosso: tem de continuar a
         // propagar-se para a navegação acontecer. Um `catch` genérico que a
         // engolisse deixava o processo submetido na BD com o cliente preso
-        // no passo 7, ou o passo por gravar apesar de os dados já lá estarem.
+        // no último passo, ou o passo por gravar apesar de os dados já lá
+        // estarem.
         unstable_rethrow(erro);
 
         // Uma Server Action que rebenta a sério — limite de corpo, rede a
@@ -264,7 +244,7 @@ export function Formulario({
       // montar. É por isto que o carimbo aparece já com o passo dado.
       sessionStorage.setItem(CHAVE_CARIMBO, String(n));
 
-      if (n === 7) {
+      if (n === TOTAL_PASSOS) {
         router.push(`/onboarding/${token}/submetido`);
       } else if (r.proximo) {
         router.push(`/onboarding/${token}/passo/${r.proximo}`);
@@ -278,7 +258,7 @@ export function Formulario({
     <form onSubmit={enviar} className="flex flex-col gap-6">
       <header>
         <p className="text-2xs font-mono tracking-[0.16em] text-muted-foreground uppercase">
-          Passo {String(n).padStart(2, "0")} de 07
+          Passo {String(n).padStart(2, "0")} de {String(TOTAL_PASSOS).padStart(2, "0")}
         </p>
         <h1 className="mt-1 text-2xl">{passo.titulo}</h1>
       </header>
@@ -545,44 +525,6 @@ export function Formulario({
 
       {n === 5 && (
         <>
-          <CampoEscolha
-            etiqueta="Como chegou até nós?"
-            nome="origemContacto"
-            erros={erros}
-            opcoes={[
-              { valor: "recomendacao", texto: "Recomendação" },
-              { valor: "pesquisa_online", texto: "Pesquisa Online" },
-              { valor: "evento_conferencia", texto: "Evento / Conferência" },
-              { valor: "outro", texto: "Outro" },
-            ]}
-            valorInicial={seccoes.preferencias?.origemContacto ?? ""}
-          />
-          <CampoTexto etiqueta="Quem?" nome="origemDetalhe" erros={erros} valorInicial={seccoes.preferencias?.origemDetalhe ?? ""} />
-
-          <Separator />
-          <CampoCaixa etiqueta="Quero subscrever a newsletter" nome="newsletter" valorInicial={newsletter} onChange={setNewsletter} />
-
-          {newsletter && (
-            <div className="grid gap-4">
-              <CampoLista etiqueta="Emails para receber novidades" nome="emailsNewsletter" erros={erros} obrigatorio placeholder="nome@empresa.pt" valorInicial={seccoes.emailsNewsletter} />
-              <CampoLista etiqueta="Áreas de interesse" nome="areasInteresse" erros={erros} sugestoes={AREAS} valorInicial={seccoes.areasInteresse} />
-            </div>
-          )}
-
-          <Separator />
-          <CampoCaixa etiqueta="Desejo receber convites para iniciativas (formações, webinars, workshops)" nome="convitesIniciativas" valorInicial={convites} onChange={setConvites} />
-
-          {convites && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <CampoTexto etiqueta="Nome" nome="convitesNome" erros={erros} obrigatorio valorInicial={seccoes.preferencias?.convitesNome ?? ""} />
-              <CampoTexto etiqueta="Email" nome="convitesEmail" tipo="email" erros={erros} obrigatorio valorInicial={seccoes.preferencias?.convitesEmail ?? ""} />
-            </div>
-          )}
-        </>
-      )}
-
-      {n === 6 && (
-        <>
           <CampoCaixa etiqueta="Os dados de faturação são os mesmos do cliente" nome="igualAoCliente" valorInicial={seccoes.faturacao?.igualAoCliente ?? false} />
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -606,7 +548,7 @@ export function Formulario({
         </>
       )}
 
-      {n === 7 && (
+      {n === 6 && (
         <>
           <Revisao
             token={token}
@@ -688,8 +630,8 @@ export function Formulario({
         )}
 
         <Button type="submit" disabled={aGuardar} size="lg" className="md:h-9">
-          {aGuardar ? "A guardar…" : n === 7 ? "Submeter" : "Guardar e continuar"}
-          {n === 7 ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
+          {aGuardar ? "A guardar…" : n === TOTAL_PASSOS ? "Submeter" : "Guardar e continuar"}
+          {n === TOTAL_PASSOS ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
         </Button>
       </div>
     </form>
@@ -739,12 +681,6 @@ function Revisao({
       ? [{ etiqueta: "Representante legal", valor: representante.nome }]
       : []),
     { etiqueta: "Morada", valor: morada(s.identificacao) },
-    {
-      etiqueta: "Áreas de interesse",
-      valor: s.areasInteresse.length
-        ? s.areasInteresse.map((a) => AREAS.find((x) => x.valor === a)?.texto ?? a).join(", ")
-        : "Nenhuma indicada",
-    },
     { etiqueta: "Nível de risco", valor: <RiscoBadge nivel={nivelRisco} fatores={fatoresRisco} /> },
   ].filter((c) => c.valor);
 
@@ -805,7 +741,7 @@ function Revisao({
         ],
       },
       {
-        passo: 6,
+        passo: 5,
         titulo: "Faturação",
         linhas: [
           ["Nome", s.faturacao?.nome],

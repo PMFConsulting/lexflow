@@ -5,18 +5,17 @@ import type { representanteLegal } from "@/db/schema/seccoes";
 export type Processo = InferSelectModel<typeof processoOnboarding>;
 export type Representante = InferSelectModel<typeof representanteLegal>;
 
-export const TOTAL_PASSOS = 7;
+export const TOTAL_PASSOS = 6;
 
-export type NumeroPasso = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type NumeroPasso = 1 | 2 | 3 | 4 | 5 | 6;
 
 export const PASSOS = [
   { n: 1, chave: "identificacao", titulo: "Identificação do cliente", curto: "Identificação" },
   { n: 2, chave: "fiscal", titulo: "Identificação fiscal", curto: "Fiscal" },
   { n: 3, chave: "representante", titulo: "Representante legal", curto: "Representante" },
   { n: 4, chave: "ppe", titulo: "PPE e relação de negócio", curto: "PPE" },
-  { n: 5, chave: "preferencias", titulo: "Preferências de contacto", curto: "Preferências" },
-  { n: 6, chave: "faturacao", titulo: "Dados para faturação", curto: "Faturação" },
-  { n: 7, chave: "fecho", titulo: "T&C, aceitação de proposta e assinatura digital", curto: "Fecho" },
+  { n: 5, chave: "faturacao", titulo: "Dados para faturação", curto: "Faturação" },
+  { n: 6, chave: "fecho", titulo: "T&C, aceitação de proposta e assinatura digital", curto: "Fecho" },
 ] as const;
 
 export type Passo = (typeof PASSOS)[number];
