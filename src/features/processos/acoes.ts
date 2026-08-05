@@ -32,27 +32,51 @@ export async function criarProcesso(tipoCliente: "particular" | "empresa" = "par
     .values({ organizacaoId: org.id, ano, ultimo: 0 })
     .onConflictDoNothing({ target: [contadorReferencia.organizacaoId, contadorReferencia.ano] });
 
-  const [contador] = await base
-    .update(contadorReferencia)
-    .set({ ultimo: sql`${contadorReferencia.ultimo} + 1` })
-    .where(
-      and(eq(contadorReferencia.organizacaoId, org.id), eq(contadorReferencia.ano, ano)),
-    )
-    .returning({ ultimo: contadorReferencia.ultimo });
-
-  const referencia = `${org.prefixoReferencia}-${ano}-${String(contador.ultimo).padStart(4, "0")}`;
   const token = gerarToken();
 
-  const [processo] = await base
-    .insert(processoOnboarding)
-    .values({
-      organizacaoId: org.id,
-      referencia,
-      tipoCliente,
-      tokenAcessoHash: hashToken(token),
-      expiraEm: expiraDaquiA(30),
-    })
-    .returning();
+  let processo: typeof processoOnboarding.$inferSelect | undefined;
+  let referencia = "";
+
+  for (let tentativa = 1; tentativa <= 5; tentativa++) {
+    const [contador] = await base
+      .update(contadorReferencia)
+      .set({ ultimo: sql`${contadorReferencia.ultimo} + 1` })
+      .where(
+        and(eq(contadorReferencia.organizacaoId, org.id), eq(contadorReferencia.ano, ano)),
+      )
+      .returning({ ultimo: contadorReferencia.ultimo });
+
+    referencia = `${org.prefixoReferencia}-${ano}-${String(contador.ultimo).padStart(4, "0")}`;
+
+    try {
+      [processo] = await base
+        .insert(processoOnboarding)
+        .values({
+          organizacaoId: org.id,
+          referencia,
+          tipoCliente,
+          tokenAcessoHash: hashToken(token),
+          expiraEm: expiraDaquiA(30),
+        })
+        .returning();
+      break;
+    } catch (erro) {
+      if ((erro as { code?: string }).code === "23505" && tentativa < 5) {
+        continue;
+      }
+      if ((erro as { code?: string }).code === "23505") {
+        return {
+          ok: false as const,
+          erro: "Não foi possível criar o processo. Tente novamente.",
+        };
+      }
+      throw erro;
+    }
+  }
+
+  if (!processo) {
+    return { ok: false as const, erro: "Não foi possível criar o processo. Tente novamente." };
+  }
 
   const h = await headers();
   await registarEvento({
