@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, EyeOff, FileText, Lock, ShieldAlert, TriangleAlert } from "lucide-react";
+import { ArrowLeft, EyeOff, FileText, Lock, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Carimbos } from "@/components/carimbo";
-import { EstadoBadge, RiscoBadge } from "@/components/estado-badge";
+import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { auditoriaDoProcesso, ACOES } from "@/features/auditoria/consultas";
 import { documentosDoProcesso, processoPorId } from "@/features/processos/consultas";
-import { AcoesProcesso } from "@/features/processos/componentes/AcoesProcesso";
 import { assinaturaDoProcesso, seccoesDoProcesso } from "@/features/onboarding/dados";
-import { exigirSessao, podeAprovarRiscoElevado, podeVerPpe } from "@/lib/sessao";
+import { exigirSessao, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 
 export const dynamic = "force-dynamic";
@@ -111,7 +110,6 @@ export default async function Processo({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <EstadoBadge estado={processo.estado} />
-          <RiscoBadge nivel={processo.nivelRisco} fatores={processo.fatoresRisco} />
         </div>
       </header>
 
@@ -127,34 +125,6 @@ export default async function Processo({
           Atualizado <Ref>{dt(processo.atualizadoEm)}</Ref>
         </span>
       </div>
-
-      {(processo.nivelRisco === "elevado" || processo.fatoresRisco.length > 0) && (
-        <div className="border-selo/40 bg-selo/5 flex items-start gap-3 rounded-sm border p-3">
-          <ShieldAlert className="text-selo mt-0.5 size-4 shrink-0" />
-          <div className="text-sm">
-            {processo.nivelRisco === "elevado" && (
-              <p className="font-medium">Aprovação reservada a sócio ou admin</p>
-            )}
-            {processo.fatoresRisco.length > 0 ? (
-              <ul className="mt-0.5 flex flex-col gap-0.5 text-muted-foreground">
-                {processo.fatoresRisco.map((f) => (
-                  <li key={f.codigo}>
-                    <Ref className="text-xs">{f.codigo}</Ref> — {f.descricao}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-0.5 text-muted-foreground">Risco elevado atribuído.</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      <AcoesProcesso
-        processoId={processo.id}
-        estado={processo.estado}
-        podeAprovar={podeAprovarRiscoElevado(eu.papel)}
-      />
 
       <Separator />
 

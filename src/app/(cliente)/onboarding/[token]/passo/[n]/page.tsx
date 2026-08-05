@@ -29,8 +29,6 @@ export default async function PaginaPasso({
       seccoes={seccoes}
       tipoCliente={processo.tipoCliente}
       referencia={processo.referencia}
-      nivelRisco={processo.nivelRisco}
-      fatoresRisco={processo.fatoresRisco}
     />
   );
 }

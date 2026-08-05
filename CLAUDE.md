@@ -69,11 +69,32 @@ mantém-se intacto (`representante_legal` e `preferencias_contacto` ficam por us
 tinha acontecido com as preferências). Cada passo mostra agora uma descrição curta junto ao
 título, e o passo PPE explica em uma frase como o risco é calculado.
 
-Ficava por fazer desde a Fase 2 e passou a existir nesta atualização: **fluxo de aprovação**.
-`alterarEstadoProcesso` (`src/features/processos/acoes.ts`) marca em revisão, aprova ou
-rejeita — só sócio ou admin, com evento de auditoria e email ao cliente (nunca com o motivo
-da rejeição, para não indicar como contornar a diligência). Botões no detalhe do processo,
-visíveis só a quem pode decidir e só enquanto o processo ainda não tem decisão final.
+Ficava por fazer desde a Fase 2 e passou a existir nesta atualização: **fluxo de aprovação**
+(`alterarEstadoProcesso`, botões no detalhe do processo). Removido na atualização seguinte —
+ver D20.
+
+### Atualização — aprovações e risco removidos da UI, página Clientes
+
+Pedido do cliente (05/08/2026): simplificar a POC. Ver D20 e D21.
+
+- **Aprovações fora**: `alterarEstadoProcesso` e `AcoesProcesso` (botões Aprovar / Rejeitar /
+  Marcar em revisão) saíram por completo — apagados, não só escondidos. `podeAprovarRiscoElevado`
+  também saiu de `src/lib/sessao.ts` por ter ficado sem utilização. O email de decisão ao
+  cliente (`notificarDecisao`) foi com ele. Os estados `aprovado`/`rejeitado` continuam no enum
+  e no schema — só deixam de ser alcançáveis a partir da UI.
+- **Risco fora da UI**: `RiscoBadge`, a secção "Fatores de risco" e os filtros/facetas de risco
+  desapareceram do detalhe do processo, da lista de processos, do painel e — porque também lá
+  aparecia, ao próprio cliente — da revisão final do onboarding. O cálculo
+  (`nivelRisco`/`fatoresRisco`, PPE força risco elevado) mantém-se intacto na base de dados,
+  só não é mostrado a ninguém.
+- **`/clientes`**: nova página no back-office (`src/app/(backoffice)/clientes/page.tsx`),
+  entrada na sidebar entre Processos e — já sem "Risco elevado" a ocupar esse lugar. Um
+  cliente é uma pessoa/empresa deduplicada por NIF/NIPC (`src/features/clientes/consultas.ts`,
+  `listarClientes`): CTE com `row_number()` particionado por NIF para escolher o processo mais
+  recente e `count(*)` para o total, com pesquisa por nome/NIF/email via `ilike` + `unaccent`,
+  mesmo padrão do `/processos`. Um processo sem NIF (passo 2 por preencher) ainda não conta
+  como cliente. Sem migração — usa `dados_fiscais`, `dados_identificacao` e `nacionalidade`
+  já existentes.
 
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
@@ -144,6 +165,8 @@ altera o que se constrói à volta.
 | D17 | Postgres no próprio servidor em vez de Supabase — elimina a suspensão do plano gratuito ao fim de 7 dias sem uso, que é o padrão de uma POC mostrada de duas em duas semanas | `docs/DEPLOY.md` |
 | D18 | `output: "standalone"` e imagem Docker em três estágios; as migrações correm no arranque do contentor e, se falharem, ele não sobe | `Dockerfile` |
 | D19 | Passo Representante removido do onboarding (pedido do cliente); fluxo passa a 5 passos. Tabela `representante_legal` fica no schema, só deixa de ser escrita | este ficheiro |
+| D20 | Fluxo de aprovação apagado (não só escondido): `alterarEstadoProcesso`, `AcoesProcesso`, `podeAprovarRiscoElevado`, email de decisão. Os estados `aprovado`/`rejeitado` ficam no schema como estados finais possíveis, só sem caminho na UI para lá chegar | este ficheiro |
+| D21 | Risco (`nivelRisco`, `fatoresRisco`, PPE força risco elevado) deixa de aparecer em qualquer UI — backoffice ou onboarding do cliente — mas o cálculo e a gravação continuam; enxertar de volta um dia é mostrar campos que já existem, não reescrever lógica | este ficheiro |
 
 ## Decisões em aberto
 

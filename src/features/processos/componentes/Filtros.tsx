@@ -16,9 +16,6 @@ const ROTULOS: Record<string, string> = {
   aprovado: "Aprovado",
   rejeitado: "Rejeitado",
   arquivado: "Arquivado",
-  baixo: "Risco baixo",
-  medio: "Risco médio",
-  elevado: "Risco elevado",
   particular: "Particular",
   empresa: "Empresa",
 };
@@ -26,13 +23,13 @@ const ROTULOS: Record<string, string> = {
 /**
  * Filtros facetados com contagens, com o estado no URL.
  *
- * É isto que faz "risco elevado + por aprovar" ser partilhável por link — o
- * colega abre o mesmo endereço e vê exatamente a mesma lista.
+ * É isto que faz um filtro ser partilhável por link — o colega abre o mesmo
+ * endereço e vê exatamente a mesma lista.
  */
 export function Filtros({
   facetas,
 }: {
-  facetas: { porEstado: Faceta[]; porRisco: Faceta[]; porTipo: Faceta[] };
+  facetas: { porEstado: Faceta[]; porTipo: Faceta[] };
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -56,7 +53,7 @@ export function Filtros({
     });
 
   const ativo = (campo: string, valor: string) => sp.getAll(campo).includes(valor);
-  const temFiltros = ["estado", "risco", "tipo", "ppe", "q"].some((c) => sp.has(c));
+  const temFiltros = ["estado", "tipo", "ppe", "q"].some((c) => sp.has(c));
 
   const grupo = (campo: string, itens: Faceta[]) =>
     itens.length === 0 ? null : (
@@ -105,7 +102,6 @@ export function Filtros({
 
       <div className="flex flex-wrap gap-x-5 gap-y-2">
         {grupo("estado", facetas.porEstado)}
-        {grupo("risco", facetas.porRisco)}
         {grupo("tipo", facetas.porTipo)}
 
         <div className="flex flex-wrap items-center gap-1.5">

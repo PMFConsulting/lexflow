@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, LayoutDashboard, ShieldAlert } from "lucide-react";
+import { FileText, LayoutDashboard, Users } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -23,11 +23,7 @@ import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
 const NAVEGACAO = [
   { titulo: "Painel", href: "/", icone: LayoutDashboard },
   { titulo: "Processos", href: "/processos", icone: FileText },
-  {
-    titulo: "Risco elevado",
-    href: "/processos?risco=elevado",
-    icone: ShieldAlert,
-  },
+  { titulo: "Clientes", href: "/clientes", icone: Users },
 ];
 
 /**

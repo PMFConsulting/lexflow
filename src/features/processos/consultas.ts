@@ -16,7 +16,6 @@ import { documento } from "@/db/schema/documentos";
 export type Filtros = {
   q?: string;
   estado?: string[];
-  risco?: string[];
   tipo?: string[];
   ppe?: "sim" | "nao";
   pagina?: number;
@@ -28,9 +27,6 @@ function condicoes(f: Filtros) {
 
   if (f.estado?.length) {
     partes.push(inArray(processoOnboarding.estado, f.estado as never[]));
-  }
-  if (f.risco?.length) {
-    partes.push(inArray(processoOnboarding.nivelRisco, f.risco as never[]));
   }
   if (f.tipo?.length) {
     partes.push(inArray(processoOnboarding.tipoCliente, f.tipo as never[]));
@@ -69,8 +65,6 @@ export async function listarProcessos(f: Filtros) {
         referencia: processoOnboarding.referencia,
         tipoCliente: processoOnboarding.tipoCliente,
         estado: processoOnboarding.estado,
-        nivelRisco: processoOnboarding.nivelRisco,
-        fatoresRisco: processoOnboarding.fatoresRisco,
         passoAtual: processoOnboarding.passoAtual,
         submetidoEm: processoOnboarding.submetidoEm,
         atualizadoEm: processoOnboarding.atualizadoEm,
@@ -92,22 +86,17 @@ export async function listarProcessos(f: Filtros) {
   return { linhas, total: total?.n ?? 0, pagina, porPagina };
 }
 
-/** Contagens por estado e risco — os filtros facetados do §6. */
+/** Contagens por estado e tipo — os filtros facetados do §6. */
 export async function facetas() {
   const base = db();
   const vivos = isNull(processoOnboarding.apagadoEm);
 
-  const [porEstado, porRisco, porTipo] = await Promise.all([
+  const [porEstado, porTipo] = await Promise.all([
     base
       .select({ chave: processoOnboarding.estado, n: count() })
       .from(processoOnboarding)
       .where(vivos)
       .groupBy(processoOnboarding.estado),
-    base
-      .select({ chave: processoOnboarding.nivelRisco, n: count() })
-      .from(processoOnboarding)
-      .where(vivos)
-      .groupBy(processoOnboarding.nivelRisco),
     base
       .select({ chave: processoOnboarding.tipoCliente, n: count() })
       .from(processoOnboarding)
@@ -115,7 +104,7 @@ export async function facetas() {
       .groupBy(processoOnboarding.tipoCliente),
   ]);
 
-  return { porEstado, porRisco, porTipo };
+  return { porEstado, porTipo };
 }
 
 /** Os números do painel. Só o que faz agir — nada de gráficos decorativos. */
@@ -125,50 +114,38 @@ export async function numerosDoPainel() {
   const seteDias = new Date(Date.now() - 7 * 86_400_000);
   const sessentaDias = new Date(Date.now() + 60 * 86_400_000);
 
-  const [[porRever], [riscoPorAprovar], [parados], [aExpirar], [rascunhos]] =
-    await Promise.all([
-      base
-        .select({ n: count() })
-        .from(processoOnboarding)
-        .where(and(vivos, inArray(processoOnboarding.estado, ["submetido", "em_revisao"]))),
-      base
-        .select({ n: count() })
-        .from(processoOnboarding)
-        .where(
-          and(
-            vivos,
-            eq(processoOnboarding.nivelRisco, "elevado"),
-            inArray(processoOnboarding.estado, ["submetido", "em_revisao"]),
-          ),
+  const [[porRever], [parados], [aExpirar], [rascunhos]] = await Promise.all([
+    base
+      .select({ n: count() })
+      .from(processoOnboarding)
+      .where(and(vivos, inArray(processoOnboarding.estado, ["submetido", "em_revisao"]))),
+    base
+      .select({ n: count() })
+      .from(processoOnboarding)
+      .where(
+        and(
+          vivos,
+          inArray(processoOnboarding.estado, ["rascunho", "pendente_cliente"]),
+          lte(processoOnboarding.atualizadoEm, seteDias),
         ),
-      base
-        .select({ n: count() })
-        .from(processoOnboarding)
-        .where(
-          and(
-            vivos,
-            inArray(processoOnboarding.estado, ["rascunho", "pendente_cliente"]),
-            lte(processoOnboarding.atualizadoEm, seteDias),
-          ),
+      ),
+    base
+      .select({ n: count() })
+      .from(dadosFiscais)
+      .where(
+        and(
+          gte(dadosFiscais.docValidade, new Date().toISOString().slice(0, 10)),
+          lte(dadosFiscais.docValidade, sessentaDias.toISOString().slice(0, 10)),
         ),
-      base
-        .select({ n: count() })
-        .from(dadosFiscais)
-        .where(
-          and(
-            gte(dadosFiscais.docValidade, new Date().toISOString().slice(0, 10)),
-            lte(dadosFiscais.docValidade, sessentaDias.toISOString().slice(0, 10)),
-          ),
-        ),
-      base
-        .select({ n: count() })
-        .from(processoOnboarding)
-        .where(and(vivos, eq(processoOnboarding.estado, "rascunho"))),
-    ]);
+      ),
+    base
+      .select({ n: count() })
+      .from(processoOnboarding)
+      .where(and(vivos, eq(processoOnboarding.estado, "rascunho"))),
+  ]);
 
   return {
     porRever: porRever?.n ?? 0,
-    riscoPorAprovar: riscoPorAprovar?.n ?? 0,
     parados: parados?.n ?? 0,
     aExpirar: aExpirar?.n ?? 0,
     rascunhos: rascunhos?.n ?? 0,
@@ -182,7 +159,6 @@ export async function recentes(limite = 6) {
       id: processoOnboarding.id,
       referencia: processoOnboarding.referencia,
       estado: processoOnboarding.estado,
-      nivelRisco: processoOnboarding.nivelRisco,
       atualizadoEm: processoOnboarding.atualizadoEm,
       nome: dadosIdentificacao.nome,
     })

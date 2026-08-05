@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EstadoBadge, RiscoBadge } from "@/components/estado-badge";
+import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 import { numerosDoPainel, recentes } from "@/features/processos/consultas";
@@ -26,13 +26,6 @@ export default async function Painel() {
       valor: n.porRever,
       nota: "submetidos à espera de triagem",
       href: "/processos?estado=submetido&estado=em_revisao",
-    },
-    {
-      rotulo: "Risco elevado por aprovar",
-      valor: n.riscoPorAprovar,
-      nota: "só sócio ou admin podem aprovar",
-      href: "/processos?risco=elevado&estado=submetido&estado=em_revisao",
-      alerta: n.riscoPorAprovar > 0,
     },
     {
       rotulo: "Parados há mais de 7 dias",
@@ -63,26 +56,14 @@ export default async function Painel() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {tiles.map((t) => (
           <Link key={t.rotulo} href={t.href} className="group">
-            <Card
-              className={
-                "hover:border-tinta-suave h-full gap-2 transition-colors " +
-                (t.alerta ? "border-selo/40" : "")
-              }
-            >
+            <Card className="hover:border-tinta-suave h-full gap-2 transition-colors">
               <CardHeader className="pb-0">
                 <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   {t.rotulo}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div
-                  className={
-                    "font-mono text-3xl leading-none tabular-nums " +
-                    (t.alerta ? "text-selo" : "")
-                  }
-                >
-                  {t.valor}
-                </div>
+                <div className="font-mono text-3xl leading-none tabular-nums">{t.valor}</div>
                 <p className="mt-2 text-xs text-muted-foreground">{t.nota}</p>
               </CardContent>
             </Card>
@@ -122,7 +103,6 @@ export default async function Painel() {
                       {p.nome ?? <span className="text-muted-foreground">sem nome ainda</span>}
                     </span>
                     <EstadoBadge estado={p.estado} />
-                    {p.nivelRisco === "elevado" && <RiscoBadge nivel="elevado" />}
                     <Ref className="text-xs text-muted-foreground">
                       {quando(p.atualizadoEm)}
                     </Ref>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Carimbos } from "@/components/carimbo";
-import { EstadoBadge, RiscoBadge } from "@/components/estado-badge";
+import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { facetas, listarProcessos } from "@/features/processos/consultas";
 import { Filtros } from "@/features/processos/componentes/Filtros";
@@ -38,7 +38,6 @@ export default async function Processos({
   const filtros = {
     q: typeof sp.q === "string" ? sp.q : undefined,
     estado: lista(sp.estado),
-    risco: lista(sp.risco),
     tipo: lista(sp.tipo),
     ppe,
     pagina: Number(sp.pagina) || 1,
@@ -91,7 +90,7 @@ export default async function Processos({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-linha border-b text-left">
-                  {["Referência", "Cliente", "Tipo", "Estado", "Risco", "Progresso", "Submetido", "Responsável"].map(
+                  {["Referência", "Cliente", "Tipo", "Estado", "Progresso", "Submetido", "Responsável"].map(
                     (h) => (
                       <th
                         key={h}
@@ -124,9 +123,6 @@ export default async function Processos({
                     </td>
                     <td className="px-3 py-2.5">
                       <EstadoBadge estado={p.estado} />
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <RiscoBadge nivel={p.nivelRisco} />
                     </td>
                     <td className="px-3 py-2.5">
                       <Carimbos concluidos={Math.max(0, p.passoAtual - 1)} />

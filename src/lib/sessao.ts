@@ -43,8 +43,3 @@ export async function exigirSessao() {
 export function podeVerPpe(papel: string) {
   return papel !== "assistente";
 }
-
-/** Risco elevado só é aprovado por sócio ou admin. Não é configurável. */
-export function podeAprovarRiscoElevado(papel: string) {
-  return papel === "socio" || papel === "admin";
-}

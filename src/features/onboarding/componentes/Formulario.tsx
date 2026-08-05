@@ -12,9 +12,7 @@ import { PASSOS, TOTAL_PASSOS, passoAnterior } from "../passos";
 import type { Seccoes } from "../dados";
 import { Anexos } from "./Anexos";
 import { Assinatura } from "./Assinatura";
-import { RiscoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
-import type { FatorRisco } from "@/db/schema/processo";
 import {
   CampoCaixa,
   CampoEscolha,
@@ -23,8 +21,6 @@ import {
   CampoSimNao,
   CampoTexto,
 } from "./Campo";
-
-type NivelRisco = "baixo" | "medio" | "elevado";
 
 type Erros = Record<string, string[]>;
 
@@ -136,16 +132,12 @@ export function Formulario({
   seccoes,
   tipoCliente,
   referencia,
-  nivelRisco,
-  fatoresRisco,
 }: {
   token: string;
   n: number;
   seccoes: Seccoes;
   tipoCliente: "particular" | "empresa";
   referencia: string;
-  nivelRisco: NivelRisco;
-  fatoresRisco: FatorRisco[];
 }) {
   const router = useRouter();
   const [erros, setErros] = useState<Erros>({});
@@ -484,8 +476,6 @@ export function Formulario({
             seccoes={seccoes}
             tipoCliente={tipo}
             referencia={referencia}
-            nivelRisco={nivelRisco}
-            fatoresRisco={fatoresRisco}
           />
 
           <div className="border-linha bg-papel-alto flex flex-col gap-5 rounded-sm border p-4">
@@ -579,15 +569,11 @@ function Revisao({
   seccoes,
   tipoCliente,
   referencia,
-  nivelRisco,
-  fatoresRisco,
 }: {
   token: string;
   seccoes: Seccoes;
   tipoCliente: "particular" | "empresa";
   referencia: string;
-  nivelRisco: NivelRisco;
-  fatoresRisco: FatorRisco[];
 }) {
   const s = seccoes;
 
@@ -605,7 +591,6 @@ function Revisao({
     { etiqueta: "Email", valor: s.identificacao?.email },
     { etiqueta: "Telefone", valor: s.identificacao?.telefone ? <Ref>{s.identificacao.telefone}</Ref> : null },
     { etiqueta: "Morada", valor: morada(s.identificacao) },
-    { etiqueta: "Nível de risco", valor: <RiscoBadge nivel={nivelRisco} fatores={fatoresRisco} /> },
   ].filter((c) => c.valor);
 
   const blocos: { passo: number; titulo: string; linhas: [string, string | null | undefined][] }[] =
