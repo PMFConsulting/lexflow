@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { env } from "@/env";
+import { enviarEmail } from "@/lib/email";
 import { assinatura } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import {
@@ -406,6 +408,69 @@ export async function submeter(token: string): Promise<Resultado> {
     userAgent,
   });
 
+  await notificarSubmissao(processo);
+
   revalidatePath(`/onboarding/${token}`, "layout");
   return { ok: true, proximo: null };
+}
+
+/**
+ * Emails de confirmação depois de o processo já estar submetido — uma falha
+ * de envio não pode impedir a submissão, por isso vive à parte e nunca lança.
+ */
+async function notificarSubmissao(processo: typeof processoOnboarding.$inferSelect) {
+  const base = db();
+
+  const [identificacao] = await base
+    .select({ email: dadosIdentificacao.email })
+    .from(dadosIdentificacao)
+    .where(eq(dadosIdentificacao.processoId, processo.id))
+    .limit(1);
+
+  const [faturacao] = await base
+    .select({ email: dadosFaturacao.email })
+    .from(dadosFaturacao)
+    .where(eq(dadosFaturacao.processoId, processo.id))
+    .limit(1);
+
+  const emailCliente = identificacao?.email ?? faturacao?.email;
+  const emailBackoffice = env().EMAIL_NOTIFICACOES ?? "ummgames88@gmail.com";
+
+  const envios: Promise<unknown>[] = [];
+
+  if (emailCliente) {
+    envios.push(
+      enviarEmail({
+        para: emailCliente,
+        assunto: `Processo ${processo.referencia} submetido com sucesso`,
+        html: `
+          <p>O seu processo <strong>${processo.referencia}</strong> foi submetido com sucesso.</p>
+          <p>A nossa equipa vai analisar os dados e documentos enviados. Entraremos em
+          contacto caso seja necessária alguma informação adicional.</p>
+        `,
+      }),
+    );
+  }
+
+  envios.push(
+    enviarEmail({
+      para: emailBackoffice,
+      assunto: `Novo processo submetido: ${processo.referencia}`,
+      html: `
+        <p>Foi submetido um novo processo de onboarding.</p>
+        <ul>
+          <li>Referência: <strong>${processo.referencia}</strong></li>
+          <li>Tipo de cliente: ${processo.tipoCliente}</li>
+        </ul>
+        <p><a href="https://poc.terlicalabs.com/processos/${processo.id}">Ver processo no back-office</a></p>
+      `,
+    }),
+  );
+
+  const resultados = await Promise.allSettled(envios);
+  for (const resultado of resultados) {
+    if (resultado.status === "rejected") {
+      console.error("[email] falha ao notificar submissão", resultado.reason);
+    }
+  }
 }

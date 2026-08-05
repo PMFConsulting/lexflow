@@ -12,6 +12,7 @@ const esquema = z.object({
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_REMETENTE: z.string().email().default("onboarding@resend.dev"),
+  EMAIL_NOTIFICACOES: z.string().email().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
