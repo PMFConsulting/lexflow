@@ -227,9 +227,51 @@ export const passo4 = z
     }
   });
 
-/* ── passo 5 — declaração final ───────────────────────────────────────── */
+/* ── passo 5 — preferências de contacto ───────────────────────────────── */
 
-export const passo5 = z.object({
+export const passo5 = z
+  .object({
+    origemContacto: z.enum(["evento_conferencia", "recomendacao", "pesquisa_online", "outro"], {
+      message: "Indique como chegou até nós.",
+    }),
+    /** "Quem?" — condicional a `recomendacao`. */
+    origemDetalhe: z.string().trim().optional(),
+    newsletter: z.boolean().default(false),
+    emailsNewsletter: z.array(email).optional().default([]),
+    areasInteresse: z.array(z.string().trim().min(1)).optional().default([]),
+    convitesIniciativas: z.boolean().default(false),
+    convitesNome: z.string().trim().optional(),
+    convitesEmail: z.string().trim().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.origemContacto === "recomendacao" && !v.origemDetalhe)
+      ctx.addIssue({
+        code: "custom",
+        path: ["origemDetalhe"],
+        message: "Indique quem o recomendou.",
+      });
+    if (v.newsletter && v.emailsNewsletter.length === 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["emailsNewsletter"],
+        message: "Indique pelo menos um email para receber a newsletter.",
+      });
+    if (v.convitesIniciativas) {
+      if (!v.convitesNome)
+        ctx.addIssue({ code: "custom", path: ["convitesNome"], message: "Indique o nome." });
+      if (!v.convitesEmail) {
+        ctx.addIssue({ code: "custom", path: ["convitesEmail"], message: "Indique o email." });
+      } else {
+        const r = z.string().email().safeParse(v.convitesEmail);
+        if (!r.success)
+          ctx.addIssue({ code: "custom", path: ["convitesEmail"], message: "Email inválido." });
+      }
+    }
+  });
+
+/* ── passo 6 — declaração final ───────────────────────────────────────── */
+
+export const passo6 = z.object({
   declaracaoVeracidade: z.literal(true, {
     message: "Tem de declarar que as informações são verdadeiras para submeter.",
   }),
@@ -257,6 +299,7 @@ export const SCHEMAS = {
   3: passo3,
   4: passo4,
   5: passo5,
+  6: passo6,
 } as const;
 
 export type DadosPasso1 = z.infer<typeof passo1>;
@@ -264,3 +307,4 @@ export type DadosPasso2 = z.infer<typeof passo2>;
 export type DadosPasso3 = z.infer<typeof passo3>;
 export type DadosPasso4 = z.infer<typeof passo4>;
 export type DadosPasso5 = z.infer<typeof passo5>;
+export type DadosPasso6 = z.infer<typeof passo6>;

@@ -20,6 +20,13 @@ const dt = (d: Date | null | undefined) =>
 const kb = (b: number) =>
   b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 
+const ORIGEM_CONTACTO_TEXTO: Record<string, string> = {
+  evento_conferencia: "Evento / Conferência",
+  recomendacao: "Recomendação de cliente anterior",
+  pesquisa_online: "Pesquisa Online",
+  outro: "Outro",
+};
+
 function Linha({ k, v }: { k: string; v: React.ReactNode }) {
   if (v === null || v === undefined || v === "") return null;
   return (
@@ -194,7 +201,20 @@ export default async function Processo({
           <Linha k="Ao cuidado de" v={s.faturacao?.acNome} />
         </Bloco>
 
-        <Bloco titulo="T&C, aceitação de proposta e assinatura digital" passo={5}>
+        <Bloco titulo="Preferências de contacto" passo={5}>
+          <Linha k="Como chegou até nós" v={ORIGEM_CONTACTO_TEXTO[s.preferencias?.origemContacto ?? ""]} />
+          <Linha k="Recomendado por" v={s.preferencias?.origemDetalhe} />
+          <Linha k="Newsletter" v={s.preferencias ? (s.preferencias.newsletter ? "Sim" : "Não") : null} />
+          <Linha k="Emails da newsletter" v={s.emailsNewsletter.join(", ")} />
+          <Linha k="Áreas de interesse" v={s.areasInteresse.join(", ")} />
+          <Linha
+            k="Convites para iniciativas"
+            v={s.preferencias ? (s.preferencias.convitesIniciativas ? "Sim" : "Não") : null}
+          />
+          <Linha k="Contacto para convites" v={s.preferencias?.convitesNome} />
+        </Bloco>
+
+        <Bloco titulo="T&C, aceitação de proposta e assinatura digital" passo={6}>
           <Linha
             k="Termos e condições e proposta"
             v={s.fecho?.tcAceitacao ? "Aceite" : "Por aceitar"}

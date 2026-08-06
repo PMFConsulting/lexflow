@@ -15,9 +15,11 @@ import { Assinatura } from "./Assinatura";
 import { Ref } from "@/components/ref-processo";
 import {
   CampoCaixa,
+  CampoCaixas,
   CampoEscolha,
   CampoLista,
   CampoLongo,
+  CampoRadio,
   CampoSimNao,
   CampoTexto,
 } from "./Campo";
@@ -42,6 +44,21 @@ const DOCUMENTOS = [
   { valor: "passaporte", texto: "Passaporte" },
   { valor: "titulo_residencia", texto: "Título de residência" },
   { valor: "outro", texto: "Outro" },
+];
+
+const ORIGEM_CONTACTO = [
+  { valor: "evento_conferencia", texto: "Evento / Conferência" },
+  { valor: "recomendacao", texto: "Recomendação de cliente anterior" },
+  { valor: "pesquisa_online", texto: "Pesquisa Online" },
+  { valor: "outro", texto: "Outro" },
+];
+
+const AREAS_INTERESSE = [
+  { valor: "Administrativo e Contratação Pública", texto: "Administrativo e Contratação Pública" },
+  { valor: "Penal e Contraordenacional", texto: "Penal e Contraordenacional" },
+  { valor: "Comercial e Contratos", texto: "Comercial e Contratos" },
+  { valor: "Laboral", texto: "Laboral" },
+  { valor: "Propriedade Intelectual e Privacidade", texto: "Propriedade Intelectual e Privacidade" },
 ];
 
 const bool = (fd: FormData, k: string) => fd.get(k) === "true";
@@ -117,6 +134,17 @@ function carga(n: number, fd: FormData): unknown {
       };
     case 5:
       return {
+        origemContacto: txt(fd, "origemContacto"),
+        origemDetalhe: txt(fd, "origemDetalhe") || undefined,
+        newsletter: bool(fd, "newsletter"),
+        emailsNewsletter: lista(fd, "emailsNewsletter"),
+        areasInteresse: lista(fd, "areasInteresse"),
+        convitesIniciativas: bool(fd, "convitesIniciativas"),
+        convitesNome: txt(fd, "convitesNome") || undefined,
+        convitesEmail: txt(fd, "convitesEmail") || undefined,
+      };
+    case 6:
+      return {
         declaracaoVeracidade: bool(fd, "declaracaoVeracidade"),
         tcAceitacao: bool(fd, "tcAceitacao"),
         assinatura: txt(fd, "assinatura"),
@@ -149,6 +177,9 @@ export function Formulario({
   const [ePpe, setEPpe] = useState(seccoes.ppe?.ePpe ?? null);
   const [relPpe, setRelPpe] = useState(seccoes.ppe?.eRelacionadoPpe ?? null);
   const [nifPt, setNifPt] = useState(seccoes.fiscais?.nifPortugues ?? true);
+  const [origem, setOrigem] = useState(seccoes.preferencias?.origemContacto ?? "");
+  const [newsletter, setNewsletter] = useState(seccoes.preferencias?.newsletter ?? null);
+  const [convites, setConvites] = useState(seccoes.preferencias?.convitesIniciativas ?? null);
 
   const anterior = passoAnterior(n);
   const passo = PASSOS.find((p) => p.n === n)!;
@@ -164,7 +195,10 @@ export function Formulario({
     const fis = seccoes.fiscais;
     const mapa: Record<string, string | null | undefined> = {
       nome: id?.nome,
-      nif: fis?.nif,
+      // O passo de faturação valida o NIF por mod-11 português; copiar um NIF
+      // estrangeiro (nifPortugues=false) bloquearia o cliente sem forma de o
+      // perceber, porque o campo de destino nem mostra essa distinção.
+      nif: fis?.nifPortugues ? fis?.nif : undefined,
       email: id?.email,
       morada: id?.morada,
       pais: id?.pais,
@@ -530,6 +564,91 @@ export function Formulario({
 
       {n === 5 && (
         <>
+          <CampoRadio
+            etiqueta="Como chegou até nós?"
+            nome="origemContacto"
+            erros={erros}
+            obrigatorio
+            opcoes={ORIGEM_CONTACTO}
+            valorInicial={origem}
+            onChange={setOrigem}
+          />
+
+          {origem === "recomendacao" && (
+            <CampoTexto
+              etiqueta="Quem?"
+              nome="origemDetalhe"
+              erros={erros}
+              obrigatorio
+              valorInicial={seccoes.preferencias?.origemDetalhe ?? ""}
+            />
+          )}
+
+          <Separator />
+
+          <CampoSimNao
+            pergunta="Quer subscrever a nossa newsletter?"
+            nome="newsletter"
+            erros={erros}
+            valorInicial={newsletter}
+            onChange={setNewsletter}
+          />
+
+          {newsletter === true && (
+            <CampoLista
+              etiqueta="Adicione um ou mais emails para receber novidades"
+              nome="emailsNewsletter"
+              erros={erros}
+              obrigatorio
+              placeholder="nome@empresa.pt"
+              valorInicial={seccoes.emailsNewsletter}
+            />
+          )}
+
+          <Separator />
+
+          <CampoCaixas
+            etiqueta="Selecione as suas áreas de interesse"
+            nome="areasInteresse"
+            erros={erros}
+            opcoes={AREAS_INTERESSE}
+            valorInicial={seccoes.areasInteresse}
+          />
+
+          <Separator />
+
+          <CampoSimNao
+            pergunta="Deseja receber convites para iniciativas (Formações, Webinars, Workshops, outros)?"
+            nome="convitesIniciativas"
+            erros={erros}
+            valorInicial={convites}
+            onChange={setConvites}
+          />
+
+          {convites === true && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <CampoTexto
+                etiqueta="Nome"
+                nome="convitesNome"
+                erros={erros}
+                obrigatorio
+                valorInicial={seccoes.preferencias?.convitesNome ?? ""}
+              />
+              <CampoTexto
+                etiqueta="Email"
+                nome="convitesEmail"
+                tipo="email"
+                erros={erros}
+                obrigatorio
+                valorInicial={seccoes.preferencias?.convitesEmail ?? ""}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {n === 6 && (
+        <>
           <Revisao
             token={token}
             seccoes={seccoes}
@@ -702,6 +821,23 @@ function Revisao({
           ["Nome", s.faturacao?.nome],
           ["NIF", s.faturacao?.nif],
           ["Email", s.faturacao?.email],
+        ],
+      },
+      {
+        passo: 5,
+        titulo: "Preferências de contacto",
+        linhas: [
+          [
+            "Como chegou até nós",
+            ORIGEM_CONTACTO.find((o) => o.valor === s.preferencias?.origemContacto)?.texto ??
+              null,
+          ],
+          ["Newsletter", s.preferencias ? (s.preferencias.newsletter ? "Sim" : "Não") : null],
+          ["Áreas de interesse", s.areasInteresse.join(", ") || null],
+          [
+            "Convites para iniciativas",
+            s.preferencias ? (s.preferencias.convitesIniciativas ? "Sim" : "Não") : null,
+          ],
         ],
       },
     ];

@@ -53,12 +53,12 @@ export function Carimbo({
 }
 
 /**
- * Versão compacta para listagens: quantos dos 5 carimbos o processo já tem.
+ * Versão compacta para listagens: quantos dos 6 carimbos o processo já tem.
  * Mesmo vocabulário, densidade de tabela.
  */
 export function Carimbos({
   concluidos,
-  total = 5,
+  total = 6,
   className,
 }: {
   concluidos: number;

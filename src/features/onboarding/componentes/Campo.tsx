@@ -239,6 +239,120 @@ export function CampoSimNao({
   );
 }
 
+/** Escolha única entre opções nomeadas — mesmo padrão visual do CampoSimNao. */
+export function CampoRadio({
+  etiqueta,
+  nome,
+  erros,
+  obrigatorio,
+  opcoes,
+  valorInicial = "",
+  onChange,
+}: {
+  etiqueta: string;
+  nome: string;
+  erros?: Record<string, string[]>;
+  obrigatorio?: boolean;
+  opcoes: { valor: string; texto: string }[];
+  valorInicial?: string;
+  onChange?: (v: string) => void;
+}) {
+  const [valor, setValor] = useState(valorInicial);
+  const erro = erros?.[nome]?.[0];
+
+  const escolher = (v: string) => {
+    setValor(v);
+    onChange?.(v);
+  };
+
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-1 text-sm font-medium">
+        {etiqueta}
+        {obrigatorio && <span className="text-selo"> *</span>}
+      </legend>
+      <input type="hidden" name={nome} value={valor} />
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
+        {opcoes.map((o) => (
+          <button
+            key={o.valor}
+            type="button"
+            onClick={() => escolher(o.valor)}
+            aria-pressed={valor === o.valor}
+            className={cn(
+              "border-linha rounded-sm border px-3 py-1.5 text-left text-sm transition-colors",
+              valor === o.valor
+                ? "border-tinta bg-tinta text-papel-alto"
+                : "bg-papel-alto hover:border-tinta-suave",
+            )}
+          >
+            {o.texto}
+          </button>
+        ))}
+      </div>
+      {erro && (
+        <p className="text-xs text-selo" role="alert">
+          {erro}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+/** Multi-seleção — áreas de interesse e afins. Cada escolha é um input próprio. */
+export function CampoCaixas({
+  etiqueta,
+  nome,
+  erros,
+  opcoes,
+  valorInicial = [],
+}: {
+  etiqueta: string;
+  nome: string;
+  erros?: Record<string, string[]>;
+  opcoes: { valor: string; texto: string }[];
+  valorInicial?: string[];
+}) {
+  const [itens, setItens] = useState<string[]>(valorInicial);
+  const erro = erros?.[nome]?.[0];
+
+  const alternar = (v: string) => {
+    setItens((atual) => (atual.includes(v) ? atual.filter((x) => x !== v) : [...atual, v]));
+  };
+
+  return (
+    <fieldset className="flex flex-col gap-2.5">
+      <legend className="mb-0.5 text-sm font-medium">{etiqueta}</legend>
+      {itens.map((v) => (
+        <input key={v} type="hidden" name={nome} value={v} />
+      ))}
+      <div className="flex flex-col gap-2.5">
+        {opcoes.map((o) => {
+          const id = `${nome}-${o.valor}`;
+          return (
+            <div key={o.valor} className="flex items-start gap-2.5">
+              <Checkbox
+                id={id}
+                checked={itens.includes(o.valor)}
+                onCheckedChange={() => alternar(o.valor)}
+                className="mt-0.5 size-5 md:size-4"
+              />
+              <Label htmlFor={id} className="py-0.5 text-sm leading-snug font-normal">
+                {o.texto}
+              </Label>
+            </div>
+          );
+        })}
+      </div>
+      {erro && (
+        <p className="text-xs text-selo" role="alert">
+          {erro}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
 export function CampoCaixa({
   etiqueta,
   nome,

@@ -3,9 +3,9 @@ import type { processoOnboarding } from "@/db/schema/processo";
 
 export type Processo = InferSelectModel<typeof processoOnboarding>;
 
-export const TOTAL_PASSOS = 5;
+export const TOTAL_PASSOS = 6;
 
-export type NumeroPasso = 1 | 2 | 3 | 4 | 5;
+export type NumeroPasso = 1 | 2 | 3 | 4 | 5 | 6;
 
 export const PASSOS = [
   {
@@ -39,6 +39,13 @@ export const PASSOS = [
   },
   {
     n: 5,
+    chave: "preferencias",
+    titulo: "Preferências de contacto",
+    curto: "Preferências",
+    descricao: "Como nos conheceu, e se quer receber newsletter ou convites para iniciativas.",
+  },
+  {
+    n: 6,
     chave: "fecho",
     titulo: "T&C, aceitação de proposta e assinatura digital",
     curto: "Fecho",
