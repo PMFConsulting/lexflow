@@ -134,6 +134,22 @@ forma de garantir que os parâmetros do scrypt não divergem numa atualização.
 `scripts/verificar_hash.mjs` confirma-o sem base de dados, e o modo `--gerar-hash` prepara a
 palavra-passe numa máquina sem acesso ao Postgres.
 
+### Atualização — armazenamento por servidor (SFTP) a funcionar de ponta a ponta
+
+Configurado e percorrido no contentor de produção (06/08/2026). Três coisas partiam, e nenhuma
+delas aparecia em desenvolvimento:
+
+1. **O URL do SFTP ia com os nomes em cru.** Uma pasta de cliente chama-se
+   `Maria Silva (249886344)`, e o espaço não entra num URL: o curl truncava aí e o upload
+   ia parar a `/Clientes/Maria`. Os segmentos passam a percent-encoded, como já iam no WebDAV.
+2. **O `-Q mkdir` do curl parte a linha em palavras.** O caminho acabava no primeiro espaço,
+   e a pasta criada tinha o nome errado. Vai entre aspas, com `\"` e `\\` escapados.
+3. **O `curl` do Alpine não fala sftp://** — vem compilado sem libssh2, e a sincronização
+   falhava com "Protocol sftp not supported" na primeira submissão. Ver D26.
+
+Ao mesmo tempo, e por pedido do Diogo, cada pasta passa a ter também o `dados_cliente.pdf`
+(D27), que era o que o auxiliar em Python deixava no OneDrive.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -209,6 +225,8 @@ altera o que se constrói à volta.
 | D23 | Sem registo público: `disableSignUp: true` e `/registar` apagado. Contas criadas no servidor por `scripts/criar_utilizador.mjs`, com o hash vindo de `better-auth/crypto` e não de uma reimplementação | `scripts/criar_utilizador.mjs` |
 | D24 | O `summary.pdf` grava-se sem fluxos de objetos e leva a referência do processo como entrada em texto simples no dicionário Info. Um resumo de arquivo tem de ser identificável sem uma biblioteca de PDF à mão — e o `setTitle` do pdf-lib escreve em UTF-16BE hexadecimal | `src/lib/storage/resumo.ts` |
 | D25 | `nomeSeguro` preserva o ponto final de um nome de empresa ("Lda.", "S.A.") e só o corta quando o nome começa por ponto, que é a forma de um ficheiro oculto. Contraria a regra do SharePoint de propósito: uma pasta com a denominação errada é pior do que uma pasta com um nome que o SharePoint normaliza | `src/lib/storage/tipos.ts` |
+| D26 | Imagem de produção em `node:22-bookworm-slim` e não em Alpine: o `curl` do Alpine é compilado sem libssh2 e não tem `sftp://`. A alternativa — `openssh-client` e reescrever o adaptador à volta do binário `sftp` — custava o `.netrc` (a palavra-passe passava a depender do `sshpass`) e o `--hostpubsha256` (o pinning da chave do host). Trocar a base custa megabytes de imagem e zero linhas de lógica. O `curl --version \| grep -qw sftp` no Dockerfile é o que impede a regressão silenciosa: sem sftp, a imagem não se constrói | `Dockerfile` |
+| D27 | Cada pasta de cliente leva dois PDFs: o `summary.pdf` com o detalhe do processo e o `dados_cliente.pdf` — capa com data, referência, nome, NIF e o índice dos ficheiros. O nome do segundo não é escolha nossa, é o que o `scripts/gera_pasta_cliente.py` já deixava no OneDrive e por onde se procura o dossier. A capa gera-se em último, quando já se sabe o que indexar, e não se indexa a si própria | `src/lib/storage/capa.ts` |
 
 ## Decisões em aberto
 

@@ -1,7 +1,16 @@
 # Imagem de produção. Três estágios para o resultado final não levar nem o
 # código-fonte nem as dependências de desenvolvimento.
-
-FROM node:22-alpine AS base
+#
+# Debian slim e não Alpine, e a razão é uma só: o adaptador de armazenamento
+# por servidor fala SFTP através do `curl` (src/lib/storage/servidor.ts), e o
+# `curl` do Alpine é compilado sem libssh2 — não tem sftp:// na lista de
+# protocolos, e a sincronização falhava com "Protocol sftp not supported" já
+# em produção. O do Debian traz libssh2. A alternativa era instalar o
+# openssh-client e reescrever o adaptador à volta do binário `sftp`, o que
+# custava o `.netrc` (a palavra-passe passava a depender do `sshpass`) e o
+# `--hostpubsha256` (o pinning da chave do host). Trocar a base custa uns
+# megabytes de imagem e nenhuma linha de lógica.
+FROM node:22-bookworm-slim AS base
 RUN npm install -g pnpm@9.15.9
 WORKDIR /app
 
@@ -28,8 +37,18 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-RUN addgroup --system --gid 1001 nodejs \
- && adduser --system --uid 1001 nextjs
+# O curl é uma dependência de runtime da aplicação, não uma ferramenta de
+# diagnóstico: é ele que leva os dossiers para o SFTP da sociedade. O `grep`
+# no fim é a parte que interessa — sem sftp na lista de protocolos a imagem
+# não se constrói, em vez de a falha aparecer na primeira submissão de um
+# cliente, num sítio onde ninguém está a olhar.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl --version | grep -qw sftp
+
+RUN groupadd --system --gid 1001 nodejs \
+ && useradd --system --uid 1001 --gid nodejs --home-dir /app --shell /usr/sbin/nologin nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

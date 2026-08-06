@@ -6,6 +6,7 @@ import { documento } from "@/db/schema/documentos";
 import type { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
 import { seccoesDoProcesso } from "@/features/onboarding/dados";
+import { gerarCapaPdf } from "./capa";
 import { destinoDaOrganizacao } from "./index";
 import { gerarResumoPdf, type DadosResumo } from "./resumo";
 import { mensagemSegura, nomeDaPasta } from "./sanitizacao";
@@ -29,6 +30,12 @@ export type ResultadoSincronizacao =
   | { ok: false; erro: string };
 
 const SUMARIO = "summary.pdf";
+
+/**
+ * A capa da pasta. O nome não é escolha nossa: é o que o auxiliar em Python
+ * já deixava em cada pasta do OneDrive, e é por ele que se procura o dossier.
+ */
+const CAPA = "dados_cliente.pdf";
 
 export async function sincronizarCliente(
   processo: typeof processoOnboarding.$inferSelect,
@@ -95,7 +102,7 @@ export async function sincronizarCliente(
       .from(documento)
       .where(and(eq(documento.processoId, processo.id), isNull(documento.apagadoEm)));
 
-    const usados = new Set<string>([SUMARIO.toLowerCase()]);
+    const usados = new Set<string>([SUMARIO.toLowerCase(), CAPA.toLowerCase()]);
     for (const anexo of anexos) {
       if (!anexo.dados) continue;
 
@@ -117,6 +124,22 @@ export async function sincronizarCliente(
         conteudo: Buffer.from(anexo.dados, "base64"),
       });
     }
+
+    // A capa é o último a gerar-se e o primeiro a entrar na pasta: só aqui se
+    // sabe que ficheiros ela tem de indexar. Não se indexa a si própria — o
+    // tamanho dela ainda não existe quando o conteúdo é desenhado.
+    ficheiros.unshift({
+      nome: CAPA,
+      mime: "application/pdf",
+      conteudo: await gerarCapaPdf({
+        referencia: processo.referencia,
+        nome: dados.nome,
+        nif: dados.nif,
+        submetidoEm: processo.submetidoEm,
+        geradoEm: dados.geradoEm,
+        ficheiros: ficheiros.map((f) => ({ nome: f.nome, bytes: f.conteudo.byteLength })),
+      }),
+    });
 
     // Em série e não em paralelo: são poucos ficheiros, e um OneDrive
     // respondeu com 429 a menos do que isto.

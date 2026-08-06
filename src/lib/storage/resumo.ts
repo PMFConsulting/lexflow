@@ -4,10 +4,24 @@ import {
   PDFName,
   PDFString,
   StandardFonts,
-  rgb,
   type PDFFont,
   type PDFPage,
 } from "pdf-lib";
+import {
+  A4,
+  COLUNA_CHAVE,
+  LINHA,
+  MARGEM,
+  RODAPE,
+  SELO,
+  SUAVE,
+  TINTA,
+  dataHoraPt,
+  dataPt,
+  kb,
+  paraWinAnsi,
+  quebrar,
+} from "./pdf";
 
 /**
  * O `summary.pdf` que acompanha cada pasta de cliente.
@@ -24,20 +38,6 @@ import {
  * rubrica. Esses vivem na aplicação, com o controlo de acesso por papel que a
  * pasta de um OneDrive não tem.
  */
-
-/* ------------------------------------------------------------------ paleta */
-
-const TINTA = rgb(0x10 / 255, 0x1a / 255, 0x24 / 255);
-const SUAVE = rgb(0x5c / 255, 0x62 / 255, 0x70 / 255);
-const SELO = rgb(0x7a / 255, 0x6a / 255, 0x4a / 255);
-const LINHA = rgb(0xd8 / 255, 0xd4 / 255, 0xca / 255);
-const RODAPE = rgb(0x8a / 255, 0x8f / 255, 0x99 / 255);
-
-/* -------------------------------------------------------------- geometria */
-
-const A4 = { largura: 595.28, altura: 841.89 };
-const MARGEM = { x: 56, topo: 62, fundo: 52 };
-const COLUNA_CHAVE = 150;
 
 export type DadosResumo = {
   referencia: string;
@@ -77,70 +77,6 @@ const TIPO_DOCUMENTO_TEXTO: Record<string, string> = {
   dossier_assinado: "Dossier assinado",
   outro: "Outro",
 };
-
-/**
- * As fontes padrão do PDF são WinAnsi: os acentos do português passam, mas um
- * carácter fora dessa tabela (um nome em cirílico, um emoji colado num campo
- * de texto livre) faz o pdf-lib lançar. Trocar por "?" é melhor do que ficar
- * sem resumo nenhum.
- */
-function paraWinAnsi(texto: string): string {
-  return texto
-    .normalize("NFC")
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[–—]/g, "-")
-    .replace(/…/g, "...")
-    .split("")
-    .map((c) => (c.charCodeAt(0) <= 0xff ? c : "?"))
-    .join("");
-}
-
-const dataPt = (d: Date | null) =>
-  d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeZone: "Europe/Lisbon" }).format(d) : "—";
-
-const dataHoraPt = (d: Date | null) =>
-  d
-    ? new Intl.DateTimeFormat("pt-PT", {
-        dateStyle: "short",
-        timeStyle: "short",
-        timeZone: "Europe/Lisbon",
-      }).format(d)
-    : "—";
-
-const kb = (b: number) =>
-  b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
-
-/** Parte o texto em linhas que cabem em `largura`, medindo com a própria fonte. */
-function quebrar(texto: string, fonte: PDFFont, tamanho: number, largura: number): string[] {
-  const palavras = texto.split(/\s+/).filter(Boolean);
-  if (!palavras.length) return [""];
-
-  const linhas: string[] = [];
-  let atual = "";
-
-  for (const palavra of palavras) {
-    const tentativa = atual ? `${atual} ${palavra}` : palavra;
-    if (fonte.widthOfTextAtSize(tentativa, tamanho) <= largura) {
-      atual = tentativa;
-      continue;
-    }
-    if (atual) linhas.push(atual);
-    // Uma palavra sozinha maior do que a coluna (um URL, um IBAN colado) parte-se.
-    atual = palavra;
-    while (fonte.widthOfTextAtSize(atual, tamanho) > largura && atual.length > 1) {
-      let corte = atual.length;
-      while (corte > 1 && fonte.widthOfTextAtSize(atual.slice(0, corte), tamanho) > largura) {
-        corte -= 1;
-      }
-      linhas.push(atual.slice(0, corte));
-      atual = atual.slice(corte);
-    }
-  }
-
-  if (atual) linhas.push(atual);
-  return linhas;
-}
 
 export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
   const pdf = await PDFDocument.create();

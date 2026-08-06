@@ -11,7 +11,9 @@ import { caminho } from "./tipos";
  *
  *   · WebDAV sobre HTTPS — `fetch`, com MKCOL e PUT. É o caminho preferido:
  *     não sai do processo e não depende de binários instalados.
- *   · SFTP sobre SSH — através do `curl`, que fala sftp:// nativamente.
+ *   · SFTP sobre SSH — através do `curl`, que fala sftp:// quando vem
+ *     compilado com libssh2. O `curl` do Alpine não vem, e é por isso que a
+ *     imagem assenta em Debian: ver o comentário no Dockerfile.
  *
  * Ambos são cifrados em trânsito, e isso não é configurável: um destino em
  * HTTP simples ou FTP é recusado à entrada. O que atravessa isto são
@@ -126,11 +128,34 @@ function criarDestinoWebdav(p: ParametrosServidor): Destino {
 
 /* -------------------------------------------------------------------- SFTP */
 
-function urlSftp(p: ParametrosServidor, segmentos: string[]): string {
+/** Só exportado para os testes: o URL é a fronteira onde os nomes se partem. */
+export function urlSftp(p: ParametrosServidor, segmentos: string[]): string {
   const anfitriao = p.host.replace(/^sftp:\/\//i, "").replace(/\/.*$/, "");
   const porta = p.porta ? `:${p.porta}` : "";
-  const cauda = caminho([p.caminhoBase ?? "", ...segmentos]);
-  return `sftp://${anfitriao}${porta}${cauda}`;
+
+  // Cada segmento vai percent-encoded, como no WebDAV. Uma pasta de cliente
+  // chama-se "Maria Silva (249886344)" e o espaço não pode entrar num URL em
+  // cru: o curl trunca aí, e o upload ia parar a "/Clientes/Maria".
+  const cauda = caminho([p.caminhoBase ?? "", ...segmentos])
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+
+  return `sftp://${anfitriao}${porta}/${cauda}`;
+}
+
+/**
+ * Um caminho para dentro de um comando `-Q` do curl.
+ *
+ * O `-Q` não é um URL: o curl parte a linha em palavras e o caminho acaba no
+ * primeiro espaço. Entre aspas, o caminho chega inteiro — e dentro das aspas o
+ * curl reconhece `\"` e `\\` como escapes. O `nomeSeguro` já tira as aspas de
+ * um nome de cliente; isto é a segunda linha, para o caminho base, que vem da
+ * configuração da sociedade e não passa por lá.
+ */
+export function citarSftp(caminhoServidor: string): string {
+  return `"${caminhoServidor.replace(/[\\"]/g, "\\$&")}"`;
 }
 
 /**
@@ -205,7 +230,7 @@ function criarDestinoSftp(p: ParametrosServidor): Destino {
               [
                 ...argumentos,
                 "-Q",
-                `mkdir ${caminho([p.caminhoBase ?? "", ...percorridos])}`,
+                `mkdir ${citarSftp(caminho([p.caminhoBase ?? "", ...percorridos]))}`,
                 `${urlSftp(p, [])}/`,
               ],
               { timeout: TEMPO_LIMITE_MS },
