@@ -105,6 +105,18 @@ function carga(n: number, fd: FormData): unknown {
       };
     case 3:
       return {
+        eRepresentante: bool(fd, "eRepresentante"),
+        relacao: txt(fd, "relacao") || undefined,
+        nome: txt(fd, "nome") || undefined,
+        dataNascimento: txt(fd, "dataNascimento") || undefined,
+        nacionalidades: lista(fd, "nacionalidades"),
+        profissao: txt(fd, "profissao") || undefined,
+        telefone: txt(fd, "telefone") || undefined,
+        email: txt(fd, "email") || undefined,
+        ...morada,
+      };
+    case 4:
+      return {
         ePpe: bool(fd, "ePpe"),
         ppeCargo: txt(fd, "ppeCargo") || undefined,
         ppePais: txt(fd, "ppePais") || undefined,
@@ -119,7 +131,7 @@ function carga(n: number, fd: FormData): unknown {
         servicos: txt(fd, "servicos"),
         origemFundos: txt(fd, "origemFundos"),
       };
-    case 4:
+    case 5:
       return {
         igualAoCliente: bool(fd, "igualAoCliente"),
         nome: txt(fd, "nome"),
@@ -132,7 +144,7 @@ function carga(n: number, fd: FormData): unknown {
         acTelefone: txt(fd, "acTelefone") || undefined,
         iban: txt(fd, "iban") || undefined,
       };
-    case 5:
+    case 6:
       return {
         origemContacto: txt(fd, "origemContacto"),
         origemDetalhe: txt(fd, "origemDetalhe") || undefined,
@@ -143,7 +155,7 @@ function carga(n: number, fd: FormData): unknown {
         convitesNome: txt(fd, "convitesNome") || undefined,
         convitesEmail: txt(fd, "convitesEmail") || undefined,
       };
-    case 6:
+    case 7:
       return {
         declaracaoVeracidade: bool(fd, "declaracaoVeracidade"),
         tcAceitacao: bool(fd, "tcAceitacao"),
@@ -174,6 +186,11 @@ export function Formulario({
 
   // estado local para os campos que fazem aparecer outros
   const [tipo, setTipo] = useState(tipoCliente);
+  // Sem representante é o caso comum: a pergunta abre respondida a "Não" e o
+  // passo passa-se num clique.
+  const [eRepresentante, setERepresentante] = useState<boolean | null>(
+    seccoes.representante?.eRepresentante ?? false,
+  );
   const [ePpe, setEPpe] = useState(seccoes.ppe?.ePpe ?? null);
   const [relPpe, setRelPpe] = useState(seccoes.ppe?.eRelacionadoPpe ?? null);
   const [nifPt, setNifPt] = useState(seccoes.fiscais?.nifPortugues ?? true);
@@ -468,6 +485,95 @@ export function Formulario({
 
       {n === 3 && (
         <>
+          <CampoSimNao
+            pergunta="É representante?"
+            nome="eRepresentante"
+            erros={erros}
+            valorInicial={eRepresentante}
+            onChange={setERepresentante}
+          />
+
+          {eRepresentante !== true ? (
+            <p className="border-linha bg-muted flex items-start gap-2 rounded-sm border p-3 text-xs text-muted-foreground">
+              <Info className="mt-0.5 size-3.5 shrink-0" />
+              <span>
+                Responda Sim apenas se estiver a tratar deste processo em nome de outra pessoa
+                ou entidade — por exemplo, como gerente, procurador ou administrador. Caso
+                contrário, siga em frente.
+              </span>
+            </p>
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <CampoTexto
+                  etiqueta="Relação com o cliente final"
+                  nome="relacao"
+                  erros={erros}
+                  obrigatorio
+                  ajuda="Por exemplo: Gerente de Negócios, Administrador, Procurador."
+                  valorInicial={seccoes.representante?.relacao ?? ""}
+                  className="sm:col-span-2"
+                />
+                <CampoTexto
+                  etiqueta="Nome completo"
+                  nome="nome"
+                  erros={erros}
+                  obrigatorio
+                  valorInicial={seccoes.representante?.nome ?? ""}
+                  className="sm:col-span-2"
+                />
+                <CampoTexto
+                  etiqueta="Data de nascimento"
+                  nome="dataNascimento"
+                  tipo="date"
+                  erros={erros}
+                  obrigatorio
+                  valorInicial={seccoes.representante?.dataNascimento ?? ""}
+                />
+                <CampoTexto
+                  etiqueta="Profissão"
+                  nome="profissao"
+                  erros={erros}
+                  obrigatorio
+                  valorInicial={seccoes.representante?.profissao ?? ""}
+                />
+                <CampoLista
+                  etiqueta="Nacionalidade(s)"
+                  nome="nacionalidades"
+                  erros={erros}
+                  obrigatorio
+                  sugestoes={PAISES}
+                  valorInicial={seccoes.nacionalidadesRepresentante}
+                  className="sm:col-span-2"
+                />
+                <CampoTexto
+                  etiqueta="Contacto telefónico"
+                  nome="telefone"
+                  erros={erros}
+                  obrigatorio
+                  ajuda="Com indicativo — por exemplo +351 912 345 678."
+                  valorInicial={seccoes.representante?.telefone ?? ""}
+                />
+                <CampoTexto
+                  etiqueta="Email"
+                  nome="email"
+                  tipo="email"
+                  erros={erros}
+                  obrigatorio
+                  valorInicial={seccoes.representante?.email ?? ""}
+                />
+              </div>
+
+              <Separator />
+              <h2 className="text-lg">Morada do representante</h2>
+              <BlocoMorada erros={erros} v={seccoes.representante} />
+            </>
+          )}
+        </>
+      )}
+
+      {n === 4 && (
+        <>
           <h2 className="text-lg">Declaração de Pessoa Politicamente Exposta</h2>
 
           <CampoSimNao
@@ -521,7 +627,7 @@ export function Formulario({
         </>
       )}
 
-      {n === 4 && (
+      {n === 5 && (
         <>
           <CampoCaixa etiqueta="Os dados de faturação são os mesmos do cliente" nome="igualAoCliente" valorInicial={seccoes.faturacao?.igualAoCliente ?? false} onChange={preencherFaturacao} />
 
@@ -546,7 +652,7 @@ export function Formulario({
         </>
       )}
 
-      {n === 5 && (
+      {n === 6 && (
         <>
           <CampoRadio
             etiqueta="Como chegou até nós?"
@@ -631,7 +737,7 @@ export function Formulario({
         </>
       )}
 
-      {n === 6 && (
+      {n === 7 && (
         <>
           <Revisao
             token={token}
@@ -785,6 +891,30 @@ function Revisao({
       },
       {
         passo: 3,
+        titulo: "Representante Legal",
+        linhas: [
+          ["Tem representante", s.representante ? (s.representante.eRepresentante ? "Sim" : "Não") : null],
+          ...(s.representante?.eRepresentante
+            ? ([
+                ["Relação", s.representante.relacao],
+                ["Nome", s.representante.nome],
+                ["Data de nascimento", s.representante.dataNascimento],
+                ["Nacionalidade(s)", s.nacionalidadesRepresentante.join(", ") || null],
+                ["Profissão", s.representante.profissao],
+                ["Email", s.representante.email],
+                ["Telefone", s.representante.telefone],
+                [
+                  "Morada",
+                  s.representante.morada
+                    ? `${s.representante.morada}, ${s.representante.codigoPostal} ${s.representante.localidade}`
+                    : null,
+                ],
+              ] as [string, string | null | undefined][])
+            : []),
+        ],
+      },
+      {
+        passo: 4,
         titulo: "PPE e relação de negócio",
         linhas: [
           ["Pessoa politicamente exposta", s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null],
@@ -799,7 +929,7 @@ function Revisao({
         ],
       },
       {
-        passo: 4,
+        passo: 5,
         titulo: "Faturação",
         linhas: [
           ["Nome", s.faturacao?.nome],
@@ -808,7 +938,7 @@ function Revisao({
         ],
       },
       {
-        passo: 5,
+        passo: 6,
         titulo: "RGPD — consentimentos",
         linhas: [
           [

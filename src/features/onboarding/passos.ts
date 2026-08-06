@@ -3,9 +3,9 @@ import type { processoOnboarding } from "@/db/schema/processo";
 
 export type Processo = InferSelectModel<typeof processoOnboarding>;
 
-export const TOTAL_PASSOS = 6;
+export const TOTAL_PASSOS = 7;
 
-export type NumeroPasso = 1 | 2 | 3 | 4 | 5 | 6;
+export type NumeroPasso = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export const PASSOS = [
   {
@@ -24,6 +24,14 @@ export const PASSOS = [
   },
   {
     n: 3,
+    chave: "representante",
+    titulo: "Representante Legal",
+    curto: "Representante",
+    descricao:
+      "Dados do representante legal, se houver. Se estiver a tratar do processo em nome próprio, responda Não e siga em frente.",
+  },
+  {
+    n: 4,
     chave: "ppe",
     titulo: "PPE e relação de negócio",
     curto: "PPE",
@@ -31,21 +39,21 @@ export const PASSOS = [
       "Diligência de KYC. Se declarar ser pessoa politicamente exposta, o processo fica com risco elevado e exige aprovação da sociedade.",
   },
   {
-    n: 4,
+    n: 5,
     chave: "faturacao",
     titulo: "Dados para faturação",
     curto: "Faturação",
     descricao: "Dados para a faturação. Pode indicar que são iguais aos do cliente.",
   },
   {
-    n: 5,
+    n: 6,
     chave: "preferencias",
     titulo: "RGPD",
     curto: "RGPD",
     descricao: "Como nos conheceu, e se quer receber newsletter ou convites para iniciativas. Consentimentos ao abrigo do RGPD.",
   },
   {
-    n: 6,
+    n: 7,
     chave: "fecho",
     titulo: "T&C, aceitação de proposta e assinatura digital",
     curto: "Fecho",

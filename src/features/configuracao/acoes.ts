@@ -27,7 +27,7 @@ export async function testarLigacao(): Promise<ResultadoTeste> {
     return {
       ok: false,
       detalhe:
-        "Não há ligação ativa. Configure as credenciais com `pnpm armazenamento configurar`.",
+        "Ainda não há armazenamento ligado. Contacte o seu gestor para o configurar.",
     };
   }
 

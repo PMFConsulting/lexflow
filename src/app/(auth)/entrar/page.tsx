@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,8 +30,9 @@ export default function Entrar() {
         return;
       }
 
-      // Ver a nota em FormularioRegisto: navegação dura para o servidor ler o
-      // cookie da sessão nova, e para o botão não ficar preso.
+      // Navegação dura, não `router.push`: dentro de um `useTransition` a
+      // navegação do router deixa o botão preso em "A entrar…", e uma sessão
+      // acabada de criar quer um pedido novo para o servidor ler o cookie.
       window.location.assign("/");
     });
   };
@@ -74,11 +74,8 @@ export default function Entrar() {
         </form>
 
         <p className="mt-5 text-xs text-muted-foreground">
-          Primeira vez?{" "}
-          <Link href="/registar" className="underline underline-offset-2">
-            Criar a sua conta
-          </Link>
-          .
+          Primeira vez? As contas são criadas pela sociedade. Se ainda não recebeu as suas
+          credenciais, fale com o seu gestor.
         </p>
       </div>
 
@@ -90,9 +87,9 @@ export default function Entrar() {
 const PASSOS = [
   {
     numero: "01",
-    titulo: "Registar",
+    titulo: "Conta criada pela sociedade",
     descricao:
-      "Só emails autorizados pela sociedade criam conta (socio@pmf.local, advogado@pmf.local, assistente@pmf.local). Palavra-passe com mínimo de 12 caracteres.",
+      "Não há registo público: a sociedade cria a conta e entrega-lhe as credenciais de acesso, já com o papel atribuído. Palavra-passe com mínimo de 12 caracteres.",
   },
   {
     numero: "02",
@@ -103,13 +100,13 @@ const PASSOS = [
     numero: "03",
     titulo: "Criar processos",
     descricao:
-      "No Painel, o botão Novo processo gera o link mágico de onboarding — mostrado uma única vez. O cliente preenche os 6 passos, assina e submete.",
+      "No Painel, o botão Novo processo gera o link mágico de onboarding — mostrado uma única vez. O cliente preenche os 7 passos, assina e submete.",
   },
   {
     numero: "04",
     titulo: "Ver os dados",
     descricao:
-      "Lista de processos com pesquisa, detalhe com os 6 passos, risco e auditoria imutável com cadeia de hashes (nada se apaga nem se altera).",
+      "Lista de processos com pesquisa, detalhe com os 7 passos, risco e auditoria imutável com cadeia de hashes (nada se apaga nem se altera).",
   },
 ] as const;
 

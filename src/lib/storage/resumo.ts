@@ -1,4 +1,13 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import {
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFString,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFPage,
+} from "pdf-lib";
 
 /**
  * O `summary.pdf` que acompanha cada pasta de cliente.
@@ -139,6 +148,18 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
   pdf.setProducer("POC Processos");
   pdf.setCreationDate(d.geradoEm);
   pdf.setModificationDate(d.geradoEm);
+
+  // O `setTitle` do pdf-lib grava o texto em UTF-16BE hexadecimal, que é
+  // ilegível para quem abrir o ficheiro num editor ou correr um `grep` sobre a
+  // pasta do cliente. A referência entra também como entrada própria do
+  // dicionário Info, em texto simples: é o que identifica o dossier sem abrir
+  // o PDF. Filtrada para ASCII de referência — um parêntese solto partia a
+  // sintaxe da string literal.
+  const info = pdf.context.lookup(pdf.context.trailerInfo.Info, PDFDict);
+  info.set(
+    PDFName.of("Referencia"),
+    PDFString.of(d.referencia.replace(/[^A-Za-z0-9._-]/g, "")),
+  );
 
   const corpo = await pdf.embedFont(StandardFonts.Helvetica);
   const forte = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -303,5 +324,9 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
     RODAPE,
   );
 
-  return Buffer.from(await pdf.save());
+  // Sem fluxos de objetos: com eles, o dicionário de cada página e o Info ficam
+  // dentro de um bloco comprimido, e um resumo de arquivo deixa de ser
+  // inspecionável sem uma biblioteca de PDF à mão. Custa uns kilobytes por
+  // dossier — que é o que um documento destes tem de sobra.
+  return Buffer.from(await pdf.save({ useObjectStreams: false }));
 }

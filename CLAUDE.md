@@ -96,6 +96,44 @@ Pedido do cliente (05/08/2026): simplificar a POC. Ver D20 e D21.
   como cliente. Sem migração — usa `dados_fiscais`, `dados_identificacao` e `nacionalidade`
   já existentes.
 
+### Atualização — Representante Legal de volta, fluxo a 7 passos
+
+Pedido do cliente (06/08/2026): o passo Representante Legal volta ao fluxo, entre Fiscal e PPE.
+Reverte a D19. **Sem migração** — a tabela `representante_legal` e o enum
+`titular_nacionalidade` ('cliente' | 'representante') já existiam desde a Fase 1; o que faltava
+era o passo que os escrevia. Mesmo padrão da reativação do passo RGPD.
+
+Ordem final: **1 Identificação · 2 Fiscal · 3 Representante Legal · 4 PPE · 5 Faturação ·
+6 RGPD · 7 Fecho**. Renumerados os schemas Zod, os `case` do `guardarPasso`, os blocos do
+formulário e da revisão final, os blocos do detalhe do processo, os rótulos de auditoria
+(`passo.N.gravado`) e o `total` dos `Carimbos`. A restrição `passo_valido` da base de dados já
+aceitava `between 1 and 7`.
+
+O passo pende de um interruptor — "É representante?", com "Não" como resposta de partida. Com
+"Não", grava-se a linha com `e_representante = false` e mais nada é obrigatório; a linha em
+branco é a prova de que a pergunta foi feita, coisa que a ausência de linha não distingue de
+"ainda não chegou aqui". Com "Sim", exigem-se relação, nome, data de nascimento,
+nacionalidade(s), profissão, telefone, email e as sete colunas de morada, com as mesmas
+validações PT do passo 1.
+
+Corrigido a caminho: o passo 1 apagava **todas** as nacionalidades do processo antes de
+regravar as suas. Passou a apagar só as de `titular = 'cliente'` — sem isso, voltar atrás para
+corrigir uma vírgula no nome levava com ele as nacionalidades do representante.
+
+### Atualização — sem registo público
+
+Pedido do cliente (06/08/2026). O ecrã `/registar` foi apagado e `disableSignUp` passou a
+`true`, o que fecha também o endpoint da API — a rota continuava a aceitar quem a chamasse à
+mão, mesmo sem página. As contas passam a criar-se no servidor com
+`scripts/criar_utilizador.mjs`, que escreve as três linhas necessárias: `user` e `account`
+(onde o Better Auth guarda a palavra-passe, com `provider_id = 'credential'`) e `utilizador`,
+já com `auth_user_id` ligado — sem esse último passo o login passa e a sessão não resolve.
+
+O hash vem do próprio pacote (`better-auth/crypto`), não de uma reimplementação: é a única
+forma de garantir que os parâmetros do scrypt não divergem numa atualização. O
+`scripts/verificar_hash.mjs` confirma-o sem base de dados, e o modo `--gerar-hash` prepara a
+palavra-passe numa máquina sem acesso ao Postgres.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -167,6 +205,10 @@ altera o que se constrói à volta.
 | D19 | Passo Representante removido do onboarding (pedido do cliente); fluxo passa a 5 passos. Tabela `representante_legal` fica no schema, só deixa de ser escrita | este ficheiro |
 | D20 | Fluxo de aprovação apagado (não só escondido): `alterarEstadoProcesso`, `AcoesProcesso`, `podeAprovarRiscoElevado`, email de decisão. Os estados `aprovado`/`rejeitado` ficam no schema como estados finais possíveis, só sem caminho na UI para lá chegar | este ficheiro |
 | D21 | Risco (`nivelRisco`, `fatoresRisco`, PPE força risco elevado) deixa de aparecer em qualquer UI — backoffice ou onboarding do cliente — mas o cálculo e a gravação continuam; enxertar de volta um dia é mostrar campos que já existem, não reescrever lógica | este ficheiro |
+| D22 | Passo Representante Legal de volta ao fluxo, entre Fiscal e PPE (reverte a D19). Fluxo a 7 passos, sem migração — a tabela e o enum já existiam | este ficheiro |
+| D23 | Sem registo público: `disableSignUp: true` e `/registar` apagado. Contas criadas no servidor por `scripts/criar_utilizador.mjs`, com o hash vindo de `better-auth/crypto` e não de uma reimplementação | `scripts/criar_utilizador.mjs` |
+| D24 | O `summary.pdf` grava-se sem fluxos de objetos e leva a referência do processo como entrada em texto simples no dicionário Info. Um resumo de arquivo tem de ser identificável sem uma biblioteca de PDF à mão — e o `setTitle` do pdf-lib escreve em UTF-16BE hexadecimal | `src/lib/storage/resumo.ts` |
+| D25 | `nomeSeguro` preserva o ponto final de um nome de empresa ("Lda.", "S.A.") e só o corta quando o nome começa por ponto, que é a forma de um ficheiro oculto. Contraria a regra do SharePoint de propósito: uma pasta com a denominação errada é pior do que uma pasta com um nome que o SharePoint normaliza | `src/lib/storage/tipos.ts` |
 
 ## Decisões em aberto
 

@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { env } from "@/env";
 import { enviarEmail } from "@/lib/email";
@@ -21,6 +21,7 @@ import {
   nacionalidade,
   preferenciasContacto,
   relacaoNegocio,
+  representanteLegal,
 } from "@/db/schema/seccoes";
 import { canonico } from "@/features/auditoria/hash";
 import { registarEvento } from "@/features/auditoria/registar";
@@ -109,8 +110,17 @@ export async function guardarPasso(
         });
 
       // As nacionalidades são uma lista: substituir é mais simples e correto do
-      // que tentar reconciliar diferenças.
-      await base.delete(nacionalidade).where(eq(nacionalidade.processoId, processo.id));
+      // que tentar reconciliar diferenças. Só as do cliente — as do
+      // representante são gravadas no passo 3 e apagá-las aqui fazia com que
+      // voltar atrás para corrigir uma vírgula no nome as levasse com ele.
+      await base
+        .delete(nacionalidade)
+        .where(
+          and(
+            eq(nacionalidade.processoId, processo.id),
+            eq(nacionalidade.titular, "cliente"),
+          ),
+        );
       if (nacionalidades.length) {
         await base.insert(nacionalidade).values(
           nacionalidades.map((pais) => ({
@@ -140,6 +150,69 @@ export async function guardarPasso(
       break;
 
     case 3: {
+      const { eRepresentante, nacionalidades } = v as {
+        eRepresentante: boolean;
+        nacionalidades: string[];
+      };
+
+      // Um campo que ficou por preencher chega aqui como string vazia, e uma
+      // data vazia numa coluna `date` rebenta — por isso o vazio vira null.
+      const texto = (campo: string) => {
+        const bruto = v[campo];
+        return typeof bruto === "string" && bruto ? bruto : null;
+      };
+
+      // Sem representante, o passo grava-se na mesma — com o interruptor a
+      // `false` e o resto a null. Uma linha em branco é a prova de que a
+      // pergunta foi feita e respondida; a ausência de linha não distingue
+      // "não tem" de "ainda não chegou aqui".
+      const valores = {
+        eRepresentante,
+        relacao: texto("relacao"),
+        nome: texto("nome"),
+        dataNascimento: texto("dataNascimento"),
+        profissao: texto("profissao"),
+        telefone: texto("telefone"),
+        email: texto("email"),
+        morada: texto("morada"),
+        pais: texto("pais"),
+        localidade: texto("localidade"),
+        codigoPostal: texto("codigoPostal"),
+        freguesia: texto("freguesia"),
+        concelho: texto("concelho"),
+        distrito: texto("distrito"),
+      };
+
+      await base
+        .insert(representanteLegal)
+        .values(insere<typeof representanteLegal.$inferInsert>(valores))
+        .onConflictDoUpdate({
+          target: representanteLegal.processoId,
+          set: valores,
+        });
+
+      await base
+        .delete(nacionalidade)
+        .where(
+          and(
+            eq(nacionalidade.processoId, processo.id),
+            eq(nacionalidade.titular, "representante"),
+          ),
+        );
+
+      if (eRepresentante && nacionalidades.length) {
+        await base.insert(nacionalidade).values(
+          nacionalidades.map((pais) => ({
+            processoId: processo.id,
+            titular: "representante" as const,
+            pais,
+          })),
+        );
+      }
+      break;
+    }
+
+    case 4: {
       const { servicos, origemFundos, ...ppe } = v as {
         servicos: string;
         origemFundos: string;
@@ -192,7 +265,7 @@ export async function guardarPasso(
       break;
     }
 
-    case 4:
+    case 5:
       await base
         .insert(dadosFaturacao)
         .values(insere<typeof dadosFaturacao.$inferInsert>(v))
@@ -202,7 +275,7 @@ export async function guardarPasso(
         });
       break;
 
-    case 5: {
+    case 6: {
       const { emailsNewsletter, areasInteresse, ...prefs } = v as {
         emailsNewsletter: string[];
         areasInteresse: string[];
@@ -249,7 +322,7 @@ export async function guardarPasso(
       break;
     }
 
-    case 6: {
+    case 7: {
       // A assinatura vive na sua tabela; o fecho fica só com a declaração.
       const { assinatura: rubrica, ...fecho } = v as { assinatura: string } & Linha;
 

@@ -124,16 +124,28 @@ const PROIBIDOS = /[\\/:*?"<>|#%~]/g;
  * Devolve `alternativa` quando não sobra nada de útil.
  */
 export function nomeSeguro(bruto: string | null | undefined, alternativa = "Sem Nome"): string {
-  const limpo = (bruto ?? "")
+  const base = (bruto ?? "")
     .normalize("NFC")
     .replace(CONTROLO, "")
     .replace(PROIBIDOS, " ")
     .replace(/\.{2,}/g, ".")
-    .replace(/\s+/g, " ")
-    // O SharePoint recusa nomes com ponto ou espaço no início e no fim.
-    .replace(/^[.\s]+|[.\s]+$/g, "")
+    .replace(/\s+/g, " ");
+
+  // Um nome que começa por ponto é uma tentativa de ficheiro oculto (`.ssh`,
+  // `.oculto.`) e não um nome de cliente: nesse caso tiram-se os pontos das
+  // duas pontas. Num nome normal, o ponto final é abreviatura — "Lda." e
+  // "Cª, S.A." são denominações reais de empresas portuguesas, e cortá-las
+  // dava pastas com o nome errado.
+  const oculto = /^\s*\./.test(base);
+
+  let limpo = base
+    // O SharePoint recusa nomes com ponto ou espaço no início.
+    .replace(/^[.\s]+/, "")
+    .replace(/\s+$/, "")
     .slice(0, 120)
     .trim();
+
+  if (oculto) limpo = limpo.replace(/[.\s]+$/, "").trim();
 
   if (!limpo || RESERVADOS_WINDOWS.test(limpo)) return alternativa;
   return limpo;

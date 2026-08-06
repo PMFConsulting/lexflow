@@ -29,8 +29,11 @@ function criar() {
     baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
     emailAndPassword: {
       enabled: true,
-      // Sem registo público: os utilizadores são criados por um admin.
-      disableSignUp: false,
+      // Sem registo público: as contas são criadas pela sociedade, com o
+      // `scripts/criar_utilizador.mjs` a correr no servidor. O ecrã de registo
+      // deixou de existir, e este interruptor fecha também o endpoint — a rota
+      // da API continuava aberta a quem a chamasse à mão.
+      disableSignUp: true,
       minPasswordLength: 12,
     },
     session: {

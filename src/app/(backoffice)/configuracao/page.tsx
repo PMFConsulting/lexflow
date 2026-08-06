@@ -13,36 +13,45 @@ export const dynamic = "force-dynamic";
 const dt = (d: Date | null | undefined) =>
   d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d) : "—";
 
+/**
+ * O que cada estado quer dizer, em linguagem de quem usa a plataforma.
+ *
+ * Sem comandos nem nomes de tabelas: este ecrã é do cliente, e um passo que ele
+ * não pode dar sozinho — a ligação faz-se no servidor, por quem tem as
+ * credenciais — não se resolve mostrando-lhe a linha de comandos. O que aqui
+ * importa é se os dossiers estão a ser arquivados e a quem falar quando não
+ * estão.
+ */
 const ESTADOS: Record<EstadoLigacao, { rotulo: string; classe: string; explicacao: string }> = {
   ligado: {
     rotulo: "Ligado",
     classe: "border-arquivo/40 bg-arquivo/10 text-arquivo",
     explicacao:
-      "Cada processo submetido cria a pasta do cliente com o summary.pdf e os anexos carregados.",
+      "O armazenamento automático está ativo. Cada processo submetido cria a pasta do cliente com o resumo do dossier e os documentos anexados.",
   },
   desativado: {
     rotulo: "Desativado",
     classe: "border-linha bg-muted text-tinta-suave",
     explicacao:
-      "As credenciais estão gravadas mas a sincronização está desligada. Nada é enviado.",
+      "O destino está configurado mas o arquivo automático está desligado — não sai nada da plataforma. Os processos continuam a ser gravados e consultáveis aqui. Para voltar a ligar, contacte o seu gestor.",
   },
   por_configurar: {
     rotulo: "Por configurar",
     classe: "border-latao/40 bg-latao/10 text-latao",
     explicacao:
-      "Falta ligar o destino. As credenciais gravam-se com `pnpm armazenamento configurar` — ver docs/ARMAZENAMENTO.md.",
+      "Ainda não está indicado onde guardar os dossiers. Para ligar o armazenamento automático — no OneDrive da sociedade ou num servidor próprio — contacte o seu gestor. Entretanto, os processos ficam guardados na plataforma.",
   },
   sem_chave: {
-    rotulo: "Sem chave de cifra",
+    rotulo: "Indisponível",
     classe: "border-selo/40 bg-selo/10 text-selo",
     explicacao:
-      "Há credenciais gravadas mas falta ARMAZENAMENTO_CHAVE no ambiente, e sem ela não é possível decifrá-las.",
+      "As credenciais do destino estão gravadas e cifradas, mas a plataforma não as consegue abrir nesta instalação. Contacte o seu gestor: é uma configuração do servidor, não algo a corrigir aqui.",
   },
   sem_configuracao: {
-    rotulo: "Sem configuração",
+    rotulo: "Indisponível",
     classe: "border-selo/40 bg-selo/10 text-selo",
     explicacao:
-      "Esta sociedade não tem linha em armazenamento_sociedade. Corra as migrações.",
+      "Esta sociedade ainda não tem armazenamento associado na plataforma. Contacte o seu gestor para o preparar.",
   },
 };
 

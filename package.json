@@ -17,7 +17,9 @@
     "db:seed": "tsx src/db/seed.dev.ts",
     "db:validar": "tsx scripts/validar-migracoes.ts",
     "auditoria:verificar": "tsx scripts/verificar-auditoria.ts",
-    "armazenamento": "tsx scripts/armazenamento.ts"
+    "armazenamento": "tsx scripts/armazenamento.ts",
+    "utilizador:criar": "node scripts/criar_utilizador.mjs",
+    "utilizador:hash": "node scripts/verificar_hash.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",

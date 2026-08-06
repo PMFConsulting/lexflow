@@ -141,9 +141,76 @@ export const passo2 = z
     }
   });
 
-/* ── passo 3 — PPE e relação de negócio ───────────────────────────────── */
+/* ── passo 3 — representante legal ────────────────────────────────────── */
 
+/**
+ * O passo inteiro pende de um interruptor: sem representante, nada mais é
+ * obrigatório e o cliente passa à frente sem preencher um campo. Com
+ * representante, exige-se o mesmo rigor da identificação do passo 1 — é uma
+ * pessoa que age em nome de outra, e a Lei 83/2017 obriga a identificá-la.
+ */
 export const passo3 = z
+  .object({
+    eRepresentante: z.boolean().default(false),
+    relacao: z.string().trim().optional(),
+    nome: z.string().trim().optional(),
+    dataNascimento: z.string().trim().optional(),
+    nacionalidades: z.array(z.string().trim().min(1)).optional().default([]),
+    profissao: z.string().trim().optional(),
+    telefone: z.string().trim().optional(),
+    email: z.string().trim().optional(),
+    morada: z.string().trim().optional(),
+    pais: z.string().trim().optional(),
+    localidade: z.string().trim().optional(),
+    codigoPostal: z.string().trim().optional(),
+    freguesia: z.string().trim().optional(),
+    concelho: z.string().trim().optional(),
+    distrito: z.string().trim().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.eRepresentante) return;
+
+    const falta = (campo: string, mensagem: string) =>
+      ctx.addIssue({ code: "custom", path: [campo], message: mensagem });
+
+    if (!v.relacao) falta("relacao", "Indique a relação com o cliente final.");
+    if (!v.nome) falta("nome", "O nome do representante é obrigatório.");
+    if (!v.profissao) falta("profissao", "A profissão é obrigatória.");
+
+    if (!v.dataNascimento) falta("dataNascimento", "A data de nascimento é obrigatória.");
+    else if (new Date(v.dataNascimento) > new Date())
+      falta("dataNascimento", "A data de nascimento não pode estar no futuro.");
+
+    if (!v.nacionalidades.length)
+      falta("nacionalidades", "Indique pelo menos uma nacionalidade.");
+
+    if (!v.telefone) falta("telefone", "O contacto telefónico é obrigatório.");
+    else {
+      const r = validarTelefone(v.telefone);
+      if (!r.valido) falta("telefone", r.mensagem);
+    }
+
+    if (!v.email) falta("email", "O email é obrigatório.");
+    else if (!z.string().email().safeParse(v.email).success)
+      falta("email", "Falta o @ ou o domínio — por exemplo nome@empresa.pt.");
+
+    if (!v.morada) falta("morada", "A morada é obrigatória.");
+    if (!v.pais || v.pais.length !== 2) falta("pais", "Escolha um país da lista.");
+    if (!v.localidade) falta("localidade", "A localidade é obrigatória.");
+    if (!v.freguesia) falta("freguesia", "A freguesia é obrigatória.");
+    if (!v.concelho) falta("concelho", "O concelho é obrigatório.");
+    if (!v.distrito) falta("distrito", "O distrito é obrigatório.");
+
+    if (!v.codigoPostal) falta("codigoPostal", "O código postal é obrigatório.");
+    else {
+      const r = validarCodigoPostal(v.codigoPostal);
+      if (!r.valido) falta("codigoPostal", r.mensagem);
+    }
+  });
+
+/* ── passo 4 — PPE e relação de negócio ───────────────────────────────── */
+
+export const passo4 = z
   .object({
     ePpe: z.boolean({ message: "Responda sim ou não." }),
     ppeCargo: z.string().trim().optional(),
@@ -199,9 +266,9 @@ export const passo3 = z
     }
   });
 
-/* ── passo 4 — faturação ──────────────────────────────────────────────── */
+/* ── passo 5 — faturação ──────────────────────────────────────────────── */
 
-export const passo4 = z
+export const passo5 = z
   .object({
     igualAoCliente: z.boolean().default(false),
     nome: obrigatorio("A denominação de faturação"),
@@ -227,9 +294,9 @@ export const passo4 = z
     }
   });
 
-/* ── passo 5 — preferências de contacto ───────────────────────────────── */
+/* ── passo 6 — preferências de contacto ───────────────────────────────── */
 
-export const passo5 = z
+export const passo6 = z
   .object({
     origemContacto: z.enum(["evento_conferencia", "recomendacao", "pesquisa_online", "outro"], {
       message: "Indique como chegou até nós.",
@@ -269,9 +336,9 @@ export const passo5 = z
     }
   });
 
-/* ── passo 6 — declaração final ───────────────────────────────────────── */
+/* ── passo 7 — declaração final ───────────────────────────────────────── */
 
-export const passo6 = z.object({
+export const passo7 = z.object({
   declaracaoVeracidade: z.literal(true, {
     message: "Tem de declarar que as informações são verdadeiras para submeter.",
   }),
@@ -300,6 +367,7 @@ export const SCHEMAS = {
   4: passo4,
   5: passo5,
   6: passo6,
+  7: passo7,
 } as const;
 
 export type DadosPasso1 = z.infer<typeof passo1>;
@@ -308,3 +376,4 @@ export type DadosPasso3 = z.infer<typeof passo3>;
 export type DadosPasso4 = z.infer<typeof passo4>;
 export type DadosPasso5 = z.infer<typeof passo5>;
 export type DadosPasso6 = z.infer<typeof passo6>;
+export type DadosPasso7 = z.infer<typeof passo7>;

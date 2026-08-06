@@ -128,9 +128,12 @@ export function passosGravados(s: Seccoes): number[] {
   const feitos: number[] = [];
   if (s.identificacao) feitos.push(1);
   if (s.fiscais) feitos.push(2);
-  if (s.ppe && s.negocio) feitos.push(3);
-  if (s.faturacao) feitos.push(4);
-  if (s.preferencias?.origemContacto) feitos.push(5);
-  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao) feitos.push(6);
+  // Sem representante o passo continua a contar como dado: a linha existe com
+  // `eRepresentante` a false, que é a resposta.
+  if (s.representante) feitos.push(3);
+  if (s.ppe && s.negocio) feitos.push(4);
+  if (s.faturacao) feitos.push(5);
+  if (s.preferencias?.origemContacto) feitos.push(6);
+  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao) feitos.push(7);
   return feitos;
 }

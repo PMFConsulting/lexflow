@@ -165,10 +165,35 @@ export default async function Processo({
           <Linha k="Certidão permanente" v={s.fiscais?.codigoCertidaoPermanente} />
         </Bloco>
 
-        {/* O passo 3 é o mais sensível do sistema. O papel `assistente` não o vê
+        <Bloco titulo="Representante Legal" passo={3}>
+          <Linha
+            k="Tem representante"
+            v={s.representante ? (s.representante.eRepresentante ? "Sim" : "Não") : null}
+          />
+          {s.representante?.eRepresentante && (
+            <>
+              <Linha k="Relação com o cliente" v={s.representante.relacao} />
+              <Linha k="Nome" v={s.representante.nome} />
+              <Linha k="Data de nascimento" v={s.representante.dataNascimento} />
+              <Linha k="Nacionalidade(s)" v={s.nacionalidadesRepresentante.join(", ")} />
+              <Linha k="Profissão" v={s.representante.profissao} />
+              <Linha k="Email" v={s.representante.email} />
+              <Linha k="Telefone" v={<Ref>{s.representante.telefone}</Ref>} />
+              <Linha
+                k="Morada"
+                v={
+                  s.representante.morada &&
+                  `${s.representante.morada}, ${s.representante.codigoPostal} ${s.representante.localidade} — ${s.representante.freguesia}, ${s.representante.concelho}, ${s.representante.distrito}`
+                }
+              />
+            </>
+          )}
+        </Bloco>
+
+        {/* O passo 4 é o mais sensível do sistema. O papel `assistente` não o vê
             — nem aqui, nem por URL direto, nem por chamada à API. */}
         {vePpe ? (
-          <Bloco titulo="PPE e relação de negócio" passo={3}>
+          <Bloco titulo="PPE e relação de negócio" passo={4}>
             <Linha k="Pessoa politicamente exposta" v={s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null} />
             <Linha k="Cargo" v={s.ppe?.ppeCargo} />
             <Linha k="Entidade" v={s.ppe?.ppeEntidade} />
@@ -186,7 +211,7 @@ export default async function Processo({
             <CardContent className="flex items-center gap-3 py-5 text-sm text-muted-foreground">
               <EyeOff className="size-4 shrink-0" />
               <span>
-                <strong className="text-tinta">Passo 3 — PPE e origem de fundos</strong> não é
+                <strong className="text-tinta">Passo 4 — PPE e origem de fundos</strong> não é
                 visível para o papel <Ref>{eu.papel}</Ref>. A tentativa de consulta ficou
                 registada na auditoria.
               </span>
@@ -194,14 +219,14 @@ export default async function Processo({
           </Card>
         )}
 
-        <Bloco titulo="Faturação" passo={4}>
+        <Bloco titulo="Faturação" passo={5}>
           <Linha k="Nome ou empresa" v={s.faturacao?.nome} />
           <Linha k="NIF" v={<Ref>{s.faturacao?.nif}</Ref>} />
           <Linha k="Email" v={s.faturacao?.email} />
           <Linha k="Ao cuidado de" v={s.faturacao?.acNome} />
         </Bloco>
 
-        <Bloco titulo="RGPD — consentimentos" passo={5}>
+        <Bloco titulo="RGPD — consentimentos" passo={6}>
           <Linha k="Como chegou até nós" v={ORIGEM_CONTACTO_TEXTO[s.preferencias?.origemContacto ?? ""]} />
           <Linha k="Recomendado por" v={s.preferencias?.origemDetalhe} />
           <Linha k="Newsletter" v={s.preferencias ? (s.preferencias.newsletter ? "Sim" : "Não") : null} />
@@ -214,7 +239,7 @@ export default async function Processo({
           <Linha k="Contacto para convites" v={s.preferencias?.convitesNome} />
         </Bloco>
 
-        <Bloco titulo="T&C, aceitação de proposta e assinatura digital" passo={6}>
+        <Bloco titulo="T&C, aceitação de proposta e assinatura digital" passo={7}>
           <Linha
             k="Termos e condições e proposta"
             v={s.fecho?.tcAceitacao ? "Aceite" : "Por aceitar"}
