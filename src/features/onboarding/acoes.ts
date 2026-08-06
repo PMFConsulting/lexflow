@@ -305,6 +305,22 @@ export async function submeter(token: string): Promise<Resultado> {
     };
   }
 
+  // A rubrica é o que dá prova de quem assinou: sem ela gravada, o processo
+  // não pode ser submetido. A caixa de verificação sozinha não vale nada.
+  const [ass] = await db()
+    .select({ imagemDados: assinatura.imagemDados })
+    .from(assinatura)
+    .where(eq(assinatura.processoId, processo.id))
+    .limit(1);
+
+  if (!ass?.imagemDados || ass.imagemDados.length < 50) {
+    return {
+      ok: false,
+      erros: { assinatura: ["Assine no quadro antes de submeter."] },
+      mensagem: "A assinatura é obrigatória.",
+    };
+  }
+
   const { ip, userAgent } = await contexto();
 
   await db()
