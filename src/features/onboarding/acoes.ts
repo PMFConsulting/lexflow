@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { env } from "@/env";
 import { enviarEmail } from "@/lib/email";
+import { TERMOS_CONDICOES_EMAIL } from "@/lib/termos";
 import { assinatura } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import {
@@ -379,6 +380,7 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
           <p>O seu processo <strong>${processo.referencia}</strong> foi submetido com sucesso.</p>
           <p>A nossa equipa vai analisar os dados e documentos enviados. Entraremos em
           contacto caso seja necessária alguma informação adicional.</p>
+          ${TERMOS_CONDICOES_EMAIL}
         `,
       }),
     );

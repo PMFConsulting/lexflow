@@ -154,6 +154,49 @@ export function Formulario({
   const passo = PASSOS.find((p) => p.n === n)!;
 
   /**
+   * Marcar "os dados de faturação são os mesmos do cliente" devia preencher
+   * os campos, não ser só uma declaração. Sem isto o cliente marca a caixa e
+   * vê tudo vazio — foi o que a reunião de 06/08 apanhou.
+   */
+  const preencherFaturacao = (marcado: boolean) => {
+    if (!marcado) return;
+    const id = seccoes.identificacao;
+    const fis = seccoes.fiscais;
+    const mapa: Record<string, string | null | undefined> = {
+      nome: id?.nome,
+      nif: fis?.nif,
+      email: id?.email,
+      morada: id?.morada,
+      pais: id?.pais,
+      codigoPostal: id?.codigoPostal,
+      localidade: id?.localidade,
+      freguesia: id?.freguesia,
+      concelho: id?.concelho,
+      distrito: id?.distrito,
+    };
+    for (const [name, valor] of Object.entries(mapa)) {
+      if (!valor) continue;
+      const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`);
+      if (el) el.value = valor;
+    }
+  };
+
+  const preencherAoCuidado = (marcado: boolean) => {
+    if (!marcado) return;
+    const id = seccoes.identificacao;
+    const mapa: Record<string, string | null | undefined> = {
+      acNome: id?.nome,
+      acEmail: id?.email,
+      acTelefone: id?.telefone,
+    };
+    for (const [name, valor] of Object.entries(mapa)) {
+      if (!valor) continue;
+      const el = document.querySelector<HTMLInputElement>(`[name="${name}"]`);
+      if (el) el.value = valor;
+    }
+  };
+
+  /**
    * `onSubmit` com `preventDefault`, e não `action={}`.
    *
    * O React 19 faz reset ao formulário depois de correr uma Server Action
@@ -446,7 +489,7 @@ export function Formulario({
 
       {n === 4 && (
         <>
-          <CampoCaixa etiqueta="Os dados de faturação são os mesmos do cliente" nome="igualAoCliente" valorInicial={seccoes.faturacao?.igualAoCliente ?? false} />
+          <CampoCaixa etiqueta="Os dados de faturação são os mesmos do cliente" nome="igualAoCliente" valorInicial={seccoes.faturacao?.igualAoCliente ?? false} onChange={preencherFaturacao} />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <CampoTexto etiqueta="Nome ou empresa" nome="nome" erros={erros} obrigatorio valorInicial={seccoes.faturacao?.nome ?? ""} className="sm:col-span-2" />
@@ -458,9 +501,25 @@ export function Formulario({
           <h2 className="text-lg">Morada de faturação</h2>
           <BlocoMorada erros={erros} v={seccoes.faturacao} />
 
+          <div className="border-linha bg-papel-alto flex flex-col gap-1.5 rounded-sm border p-4">
+            <p className="text-sm font-medium">Custos do serviço</p>
+            <p className="text-xs text-muted-foreground">
+              Consulte os honorários e encargos associados ao serviço jurídico antes de
+              aceitar a proposta.
+            </p>
+            <a
+              href="/custos.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-selo mt-1 inline-flex w-fit items-center gap-1.5 text-sm underline underline-offset-4"
+            >
+              Ver PDF de custos
+            </a>
+          </div>
+
           <Separator />
           <h2 className="text-lg">Ao cuidado de</h2>
-          <CampoCaixa etiqueta="Os dados ao cuidado de são os mesmos do cliente" nome="acIgualAoCliente" valorInicial={seccoes.faturacao?.acIgualAoCliente ?? false} />
+          <CampoCaixa etiqueta="Os dados ao cuidado de são os mesmos do cliente" nome="acIgualAoCliente" valorInicial={seccoes.faturacao?.acIgualAoCliente ?? false} onChange={preencherAoCuidado} />
           <div className="grid gap-4 sm:grid-cols-3">
             <CampoTexto etiqueta="Nome" nome="acNome" erros={erros} valorInicial={seccoes.faturacao?.acNome ?? ""} />
             <CampoTexto etiqueta="Email" nome="acEmail" tipo="email" erros={erros} valorInicial={seccoes.faturacao?.acEmail ?? ""} />
