@@ -374,10 +374,13 @@ export async function submeter(token: string): Promise<Resultado> {
 
   const { ip, userAgent } = await contexto();
 
-  await db()
+  // `returning` e não um segundo SELECT: o resumo em PDF precisa da data de
+  // submissão, e a linha que já estava em memória ainda a tem a null.
+  const [submetido] = await db()
     .update(processoOnboarding)
     .set({ estado: "submetido", submetidoEm: new Date() })
-    .where(eq(processoOnboarding.id, processo.id));
+    .where(eq(processoOnboarding.id, processo.id))
+    .returning();
 
   await registarEvento({
     organizacaoId: processo.organizacaoId,
@@ -392,9 +395,32 @@ export async function submeter(token: string): Promise<Resultado> {
   });
 
   await notificarSubmissao(processo);
+  await arquivarNoArmazenamento(submetido ?? processo);
 
   revalidatePath(`/onboarding/${token}`, "layout");
   return { ok: true, proximo: null };
+}
+
+/**
+ * Pasta do cliente no destino da sociedade, depois de o processo já estar
+ * submetido.
+ *
+ * Mesmo contrato dos emails, e pela mesma razão: o processo já está gravado, e
+ * nada do que aconteça a seguir pode transformar uma submissão bem-sucedida
+ * num ecrã de erro. A falha vai para `evento_auditoria` com a ação
+ * `armazenamento.erro` e aparece no ecrã de configuração do back-office.
+ */
+async function arquivarNoArmazenamento(processo: typeof processoOnboarding.$inferSelect) {
+  try {
+    // Esperado, e não deitado fora: numa POC alojada em contentor, um
+    // `void promessa()` é morto quando a resposta fecha, e a sincronização
+    // desapareceria a meio sem deixar rasto.
+    const { sincronizarCliente } = await import("@/lib/storage/sincronizar");
+    await sincronizarCliente(processo);
+  } catch (e) {
+    // `sincronizarCliente` já não lança; isto cobre o próprio import falhar.
+    console.error("[armazenamento] sincronização não chegou a correr", e);
+  }
 }
 
 /**

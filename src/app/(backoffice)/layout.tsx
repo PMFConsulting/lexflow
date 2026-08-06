@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, LayoutDashboard, Users } from "lucide-react";
+import { FileText, LayoutDashboard, Settings, Users } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,7 @@ const NAVEGACAO = [
   { titulo: "Painel", href: "/", icone: LayoutDashboard },
   { titulo: "Processos", href: "/processos", icone: FileText },
   { titulo: "Clientes", href: "/clientes", icone: Users },
+  { titulo: "Configuração", href: "/configuracao", icone: Settings },
 ];
 
 /**

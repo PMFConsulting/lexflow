@@ -40,9 +40,9 @@ export const PASSOS = [
   {
     n: 5,
     chave: "preferencias",
-    titulo: "Preferências de contacto",
-    curto: "Preferências",
-    descricao: "Como nos conheceu, e se quer receber newsletter ou convites para iniciativas.",
+    titulo: "RGPD",
+    curto: "RGPD",
+    descricao: "Como nos conheceu, e se quer receber newsletter ou convites para iniciativas. Consentimentos ao abrigo do RGPD.",
   },
   {
     n: 6,

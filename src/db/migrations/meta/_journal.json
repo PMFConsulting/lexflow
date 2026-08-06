@@ -43,6 +43,13 @@
       "when": 1785777602180,
       "tag": "0005_adiciona_tc_aceitacao",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786016334957,
+      "tag": "0006_blue_moira_mactaggert",
+      "breakpoints": true
     }
   ]
 }

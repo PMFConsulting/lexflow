@@ -201,7 +201,7 @@ export default async function Processo({
           <Linha k="Ao cuidado de" v={s.faturacao?.acNome} />
         </Bloco>
 
-        <Bloco titulo="Preferências de contacto" passo={5}>
+        <Bloco titulo="RGPD — consentimentos" passo={5}>
           <Linha k="Como chegou até nós" v={ORIGEM_CONTACTO_TEXTO[s.preferencias?.origemContacto ?? ""]} />
           <Linha k="Recomendado por" v={s.preferencias?.origemDetalhe} />
           <Linha k="Newsletter" v={s.preferencias ? (s.preferencias.newsletter ? "Sim" : "Não") : null} />

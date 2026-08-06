@@ -1,0 +1,250 @@
+/**
+ * Configuração do armazenamento de uma sociedade.
+ *
+ * As credenciais entram por aqui e não por um formulário no back-office: um
+ * `token_refresh` colado numa caixa de texto passa pelo browser, pelo proxy e
+ * pelos logs de ambos. Por script, no servidor, só passa pela base de dados —
+ * e mesmo aí, cifrado.
+ *
+ *   pnpm armazenamento estado
+ *   pnpm armazenamento testar
+ *   pnpm armazenamento configurar --tipo onedrive --pasta /Clientes
+ *   pnpm armazenamento desligar
+ *
+ * O `configurar` lê os parâmetros do ambiente, nunca de argumentos da linha de
+ * comandos — `ps aux` mostra argumentos, e o histórico da shell guarda-os:
+ *
+ *   OneDrive:  ONEDRIVE_TENANT_ID, ONEDRIVE_CLIENT_ID, ONEDRIVE_TOKEN_REFRESH,
+ *              ONEDRIVE_CLIENT_SECRET (opcional), ONEDRIVE_DRIVE_ID (opcional)
+ *   Servidor:  SERVIDOR_PROTOCOLO (webdav|sftp), SERVIDOR_HOST, SERVIDOR_PORTA,
+ *              SERVIDOR_UTILIZADOR, SERVIDOR_SEGREDO, SERVIDOR_CHAVE_PRIVADA,
+ *              SERVIDOR_IMPRESSAO_HOST, SERVIDOR_CAMINHO_BASE
+ */
+import { config } from "dotenv";
+import { asc, eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { uuidv7 } from "uuidv7";
+import { armazenamentoSociedade } from "../src/db/schema/armazenamento";
+import { organizacao } from "../src/db/schema/organizacao";
+import { cifrar, decifrar, lerChave } from "../src/lib/storage/cifra";
+import { criarDestinoOneDrive } from "../src/lib/storage/onedrive";
+import { criarDestinoServidor } from "../src/lib/storage/servidor";
+import {
+  parametrosOneDrive,
+  parametrosServidor,
+  type Destino,
+  type TipoArmazenamento,
+} from "../src/lib/storage/tipos";
+
+config({ path: ".env" });
+
+type Base = ReturnType<typeof drizzle>;
+
+function argumento(nome: string): string | undefined {
+  const i = process.argv.indexOf(`--${nome}`);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
+
+function chave() {
+  const bruta = process.env.ARMAZENAMENTO_CHAVE?.trim();
+  if (!bruta) {
+    console.error(
+      "ARMAZENAMENTO_CHAVE não definida. Gera uma e põe no .env:\n" +
+        '  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    );
+    process.exit(1);
+  }
+  return lerChave(bruta);
+}
+
+/** A sociedade alvo: a indicada em `--org`, ou a única que existir. */
+async function sociedade(base: Base) {
+  const alvo = argumento("org");
+  const linhas = await base
+    .select({ id: organizacao.id, nome: organizacao.nome })
+    .from(organizacao)
+    .orderBy(asc(organizacao.criadoEm));
+
+  if (linhas.length === 0) {
+    console.error("Não há nenhuma organização na base de dados. Corre `pnpm db:seed`.");
+    process.exit(1);
+  }
+  if (alvo) {
+    const escolhida = linhas.find((o) => o.id === alvo || o.nome === alvo);
+    if (!escolhida) {
+      console.error(`Organização "${alvo}" não encontrada.`);
+      process.exit(1);
+    }
+    return escolhida;
+  }
+  if (linhas.length > 1) {
+    console.error("Há mais do que uma organização. Indica qual com --org <id|nome>:");
+    for (const o of linhas) console.error(`  · ${o.nome} — ${o.id}`);
+    process.exit(1);
+  }
+  return linhas[0];
+}
+
+function parametrosDoAmbiente(tipo: TipoArmazenamento) {
+  if (tipo === "onedrive") {
+    return parametrosOneDrive.parse({
+      tenantId: process.env.ONEDRIVE_TENANT_ID,
+      clientId: process.env.ONEDRIVE_CLIENT_ID,
+      clientSecret: process.env.ONEDRIVE_CLIENT_SECRET || undefined,
+      tokenRefresh: process.env.ONEDRIVE_TOKEN_REFRESH,
+      driveId: process.env.ONEDRIVE_DRIVE_ID || undefined,
+    });
+  }
+
+  return parametrosServidor.parse({
+    protocolo: process.env.SERVIDOR_PROTOCOLO ?? "webdav",
+    host: process.env.SERVIDOR_HOST,
+    porta: process.env.SERVIDOR_PORTA ? Number(process.env.SERVIDOR_PORTA) : undefined,
+    utilizador: process.env.SERVIDOR_UTILIZADOR,
+    segredo: process.env.SERVIDOR_SEGREDO || undefined,
+    chavePrivada: process.env.SERVIDOR_CHAVE_PRIVADA || undefined,
+    impressaoDigitalHost: process.env.SERVIDOR_IMPRESSAO_HOST || undefined,
+    caminhoBase: process.env.SERVIDOR_CAMINHO_BASE || undefined,
+  });
+}
+
+function destinoDe(tipo: TipoArmazenamento, parametros: unknown): Destino {
+  return tipo === "onedrive"
+    ? criarDestinoOneDrive(parametrosOneDrive.parse(parametros))
+    : criarDestinoServidor(parametrosServidor.parse(parametros));
+}
+
+async function linhaDe(base: Base, organizacaoId: string) {
+  const [linha] = await base
+    .select()
+    .from(armazenamentoSociedade)
+    .where(eq(armazenamentoSociedade.organizacaoId, organizacaoId))
+    .limit(1);
+  return linha ?? null;
+}
+
+/* ------------------------------------------------------------------ comandos */
+
+async function estado(base: Base) {
+  const org = await sociedade(base);
+  const linha = await linhaDe(base, org.id);
+
+  console.log(`Sociedade: ${org.nome}`);
+  if (!linha) {
+    console.log("Estado:    sem linha em armazenamento_sociedade — corre `pnpm db:migrate`.");
+    return;
+  }
+
+  console.log(`Destino:   ${linha.tipo}`);
+  console.log(`Pasta:     ${linha.pastaRaiz}`);
+  console.log(`Credenciais: ${linha.parametros ? "gravadas (cifradas)" : "por gravar"}`);
+  console.log(`Ativo:     ${linha.ativo ? "sim" : "não"}`);
+  console.log(`Última sincronização: ${linha.ultimaSincronizacaoEm?.toISOString() ?? "—"}`);
+  if (linha.ultimoErro) console.log(`Último erro: ${linha.ultimoErro}`);
+  if (linha.parametros && !process.env.ARMAZENAMENTO_CHAVE) {
+    console.log("\n⚠ ARMAZENAMENTO_CHAVE em falta: as credenciais não podem ser decifradas.");
+  }
+}
+
+async function configurar(base: Base) {
+  const org = await sociedade(base);
+  const tipo = (argumento("tipo") ?? "onedrive") as TipoArmazenamento;
+
+  if (tipo !== "onedrive" && tipo !== "servidor") {
+    console.error('--tipo tem de ser "onedrive" ou "servidor".');
+    process.exit(1);
+  }
+
+  const parametros = parametrosDoAmbiente(tipo);
+  const envelope = cifrar(parametros, chave());
+  const pastaRaiz = argumento("pasta") ?? "/Clientes";
+  const ativo = argumento("ativo") !== "false";
+
+  const existente = await linhaDe(base, org.id);
+
+  if (existente) {
+    await base
+      .update(armazenamentoSociedade)
+      .set({ tipo, parametros: envelope, pastaRaiz, ativo, ultimoErro: null })
+      .where(eq(armazenamentoSociedade.id, existente.id));
+  } else {
+    await base.insert(armazenamentoSociedade).values({
+      id: uuidv7(),
+      organizacaoId: org.id,
+      tipo,
+      parametros: envelope,
+      pastaRaiz,
+      ativo,
+    });
+  }
+
+  console.log(`✓ ${org.nome}: ${tipo} em ${pastaRaiz}, ${ativo ? "ativo" : "desativado"}.`);
+  console.log("  As credenciais ficaram cifradas com ARMAZENAMENTO_CHAVE.");
+  console.log("  Confirma com: pnpm armazenamento testar");
+}
+
+async function testar(base: Base) {
+  const org = await sociedade(base);
+  const linha = await linhaDe(base, org.id);
+
+  if (!linha?.parametros) {
+    console.error("Sem credenciais gravadas. Corre `pnpm armazenamento configurar` primeiro.");
+    process.exit(1);
+  }
+
+  const destino = destinoDe(linha.tipo, decifrar(linha.parametros, chave()));
+  const r = await destino.verificar();
+  console.log(`${r.ok ? "✓" : "✗"} ${r.detalhe}`);
+  if (!r.ok) process.exit(1);
+}
+
+async function desligar(base: Base) {
+  const org = await sociedade(base);
+  const linha = await linhaDe(base, org.id);
+  if (!linha) {
+    console.error("Nada para desligar.");
+    process.exit(1);
+  }
+
+  // As credenciais ficam: desligar não é esquecer, e voltar a ligar não pode
+  // obrigar a pedir tudo outra vez à sociedade.
+  await base
+    .update(armazenamentoSociedade)
+    .set({ ativo: false })
+    .where(eq(armazenamentoSociedade.id, linha.id));
+
+  console.log(`✓ ${org.nome}: sincronização desligada. As credenciais ficaram gravadas.`);
+}
+
+async function main() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error("DATABASE_URL não definido. Copia o .env.example para .env.");
+    process.exit(1);
+  }
+
+  const ligacao = postgres(url, { max: 1, prepare: false });
+  const base = drizzle(ligacao, { casing: "snake_case" });
+
+  const comando = process.argv[2] ?? "estado";
+
+  try {
+    if (comando === "estado") await estado(base);
+    else if (comando === "configurar") await configurar(base);
+    else if (comando === "testar") await testar(base);
+    else if (comando === "desligar") await desligar(base);
+    else {
+      console.error(`Comando desconhecido: ${comando}`);
+      console.error("Usa: estado | configurar | testar | desligar");
+      process.exit(1);
+    }
+  } finally {
+    await ligacao.end();
+  }
+}
+
+main().catch((e) => {
+  console.error(e instanceof Error ? e.message : e);
+  process.exit(1);
+});

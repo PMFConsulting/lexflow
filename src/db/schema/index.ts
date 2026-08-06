@@ -6,3 +6,4 @@ export * from "./seccoes";
 export * from "./documentos";
 export * from "./legal";
 export * from "./auditoria";
+export * from "./armazenamento";

@@ -13,6 +13,11 @@ const esquema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_REMETENTE: z.string().email().default("onboarding@resend.dev"),
   EMAIL_NOTIFICACOES: z.string().email().optional(),
+  /** Chave AES-256 (64 carateres hex) para cifrar credenciais de armazenamento. Gera com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. */
+  ARMAZENAMENTO_CHAVE: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, "ARMAZENAMENTO_CHAVE tem de ser 64 carateres hex (32 bytes)")
+    .optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

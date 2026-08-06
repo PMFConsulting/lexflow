@@ -535,22 +535,6 @@ export function Formulario({
           <h2 className="text-lg">Morada de faturação</h2>
           <BlocoMorada erros={erros} v={seccoes.faturacao} />
 
-          <div className="border-linha bg-papel-alto flex flex-col gap-1.5 rounded-sm border p-4">
-            <p className="text-sm font-medium">Custos do serviço</p>
-            <p className="text-xs text-muted-foreground">
-              Consulte os honorários e encargos associados ao serviço jurídico antes de
-              aceitar a proposta.
-            </p>
-            <a
-              href="/custos.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-selo mt-1 inline-flex w-fit items-center gap-1.5 text-sm underline underline-offset-4"
-            >
-              Ver PDF de custos
-            </a>
-          </div>
-
           <Separator />
           <h2 className="text-lg">Ao cuidado de</h2>
           <CampoCaixa etiqueta="Os dados ao cuidado de são os mesmos do cliente" nome="acIgualAoCliente" valorInicial={seccoes.faturacao?.acIgualAoCliente ?? false} onChange={preencherAoCuidado} />
@@ -825,7 +809,7 @@ function Revisao({
       },
       {
         passo: 5,
-        titulo: "Preferências de contacto",
+        titulo: "RGPD — consentimentos",
         linhas: [
           [
             "Como chegou até nós",

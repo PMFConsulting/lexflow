@@ -69,6 +69,12 @@ export const finalidadeConsentimento = pgEnum("finalidade_consentimento", [
   "proposta",
 ]);
 
+/**
+ * Onde a sociedade guarda os dossiers dos clientes. `servidor` é o guarda-chuva
+ * para o que não é OneDrive — WebDAV ou SFTP, à escolha de cada sociedade.
+ */
+export const tipoArmazenamento = pgEnum("tipo_armazenamento", ["onedrive", "servidor"]);
+
 /** Regime de IVA — percurso Empresa. Por validar contra imagem (A18). */
 export const regimeIva = pgEnum("regime_iva", [
   "normal",
