@@ -1,4 +1,4 @@
-import { Cloud, HardDrive, TriangleAlert } from "lucide-react";
+import { HardDrive, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Ref } from "@/components/ref-processo";
 import { estadoArmazenamento } from "@/features/configuracao/consultas";
@@ -39,7 +39,7 @@ const ESTADOS: Record<EstadoLigacao, { rotulo: string; classe: string; explicaca
     rotulo: "Por configurar",
     classe: "border-latao/40 bg-latao/10 text-latao",
     explicacao:
-      "Ainda não está indicado onde guardar os dossiers. Para ligar o armazenamento automático — no OneDrive da sociedade ou num servidor próprio — contacte o seu gestor. Entretanto, os processos ficam guardados na plataforma.",
+      "Ainda não está indicado onde guardar os dossiers. Para ligar o armazenamento automático no servidor da sociedade, contacte o seu gestor. Entretanto, os processos ficam guardados na plataforma.",
   },
   sem_chave: {
     rotulo: "Indisponível",
@@ -75,7 +75,6 @@ export default async function Configuracao() {
   const { config, estado, ultimosEventos } = await estadoArmazenamento(eu.organizacaoId);
 
   const info = ESTADOS[estado];
-  const Icone = config?.tipo === "servidor" ? HardDrive : Cloud;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
@@ -89,7 +88,7 @@ export default async function Configuracao() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
           <CardTitle className="text-2xs flex items-center gap-2 font-mono tracking-[0.14em] text-muted-foreground uppercase">
-            <Icone className="size-3.5" strokeWidth={1.5} />
+            <HardDrive className="size-3.5" strokeWidth={1.5} />
             Armazenamento
           </CardTitle>
           <span
@@ -106,10 +105,7 @@ export default async function Configuracao() {
           <p className="text-sm text-muted-foreground">{info.explicacao}</p>
 
           <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[minmax(0,13rem)_1fr]">
-            <Linha
-              k="Destino"
-              v={config?.tipo === "servidor" ? "Servidor próprio (WebDAV / SFTP)" : "OneDrive"}
-            />
+            <Linha k="Destino" v="Servidor da sociedade (SFTP)" />
             <Linha k="Pasta raiz" v={<Ref>{config?.pastaRaiz ?? "—"}</Ref>} />
             <Linha k="Credenciais" v={config?.parametros ? "Gravadas e cifradas" : "Por gravar"} />
             <Linha k="Última sincronização" v={dt(config?.ultimaSincronizacaoEm)} />

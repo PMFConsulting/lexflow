@@ -8,7 +8,12 @@ import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { auditoriaDoProcesso, ACOES } from "@/features/auditoria/consultas";
 import { documentosDoProcesso, processoPorId } from "@/features/processos/consultas";
-import { assinaturaDoProcesso, seccoesDoProcesso } from "@/features/onboarding/dados";
+import {
+  assinaturaDoProcesso,
+  passosGravados,
+  seccoesDoProcesso,
+} from "@/features/onboarding/dados";
+import { passosDoProcesso } from "@/features/onboarding/passos";
 import { exigirSessao, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 
@@ -123,7 +128,13 @@ export default async function Processo({
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
         <span className="flex items-center gap-2">
           <span className="text-muted-foreground">Progresso</span>
-          <Carimbos concluidos={Math.max(0, processo.passoAtual - 1)} />
+          {/* Contam-se os passos gravados, e não `passoAtual - 1`: num
+              particular a numeração salta o 3, e a subtração dava um carimbo
+              a um passo que ninguém preencheu. */}
+          <Carimbos
+            concluidos={passosGravados(s, processo.tipoCliente).length}
+            total={passosDoProcesso(processo.tipoCliente).length}
+          />
         </span>
         <span className="text-muted-foreground">
           Submetido <Ref>{dt(processo.submetidoEm)}</Ref>
@@ -165,14 +176,17 @@ export default async function Processo({
           <Linha k="Certidão permanente" v={s.fiscais?.codigoCertidaoPermanente} />
         </Bloco>
 
+        {/* O passo 3 só existe para pessoas coletivas: uma pessoa singular
+            representa-se a si própria, e o bloco em branco só diria isso. */}
+        {processo.tipoCliente === "empresa" && (
         <Bloco titulo="Representante Legal" passo={3}>
           <Linha
-            k="Tem representante"
+            k="Quem preencheu é o representante legal"
             v={s.representante ? (s.representante.eRepresentante ? "Sim" : "Não") : null}
           />
-          {s.representante?.eRepresentante && (
+          {s.representante && !s.representante.eRepresentante && (
             <>
-              <Linha k="Relação com o cliente" v={s.representante.relacao} />
+              <Linha k="Cargo" v={s.representante.relacao} />
               <Linha k="Nome" v={s.representante.nome} />
               <Linha k="Data de nascimento" v={s.representante.dataNascimento} />
               <Linha k="Nacionalidade(s)" v={s.nacionalidadesRepresentante.join(", ")} />
@@ -189,6 +203,7 @@ export default async function Processo({
             </>
           )}
         </Bloco>
+        )}
 
         {/* O passo 4 é o mais sensível do sistema. O papel `assistente` não o vê
             — nem aqui, nem por URL direto, nem por chamada à API. */}
@@ -228,7 +243,12 @@ export default async function Processo({
 
         <Bloco titulo="RGPD — consentimentos" passo={6}>
           <Linha k="Como chegou até nós" v={ORIGEM_CONTACTO_TEXTO[s.preferencias?.origemContacto ?? ""]} />
-          <Linha k="Recomendado por" v={s.preferencias?.origemDetalhe} />
+          <Linha
+            k={
+              s.preferencias?.origemContacto === "outro" ? "Em concreto" : "Recomendado por"
+            }
+            v={s.preferencias?.origemDetalhe}
+          />
           <Linha k="Newsletter" v={s.preferencias ? (s.preferencias.newsletter ? "Sim" : "Não") : null} />
           <Linha k="Emails da newsletter" v={s.emailsNewsletter.join(", ")} />
           <Linha k="Áreas de interesse" v={s.areasInteresse.join(", ")} />

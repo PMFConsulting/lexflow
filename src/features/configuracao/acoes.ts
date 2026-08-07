@@ -15,7 +15,7 @@ export type ResultadoTeste = { ok: boolean; detalhe: string };
 /**
  * Toca no destino sem escrever nada.
  *
- * Existe porque a alternativa é descobrir que o refresh token expirou quando o
+ * Existe porque a alternativa é descobrir que a palavra-passe mudou quando o
  * primeiro cliente submeter — e aí a pasta já não se criou. Fica em auditoria:
  * uma ligação a um arquivo de clientes não se testa anonimamente.
  */
@@ -47,7 +47,7 @@ export async function testarLigacao(): Promise<ResultadoTeste> {
     acao: "armazenamento.testado",
     entidade: "armazenamento_sociedade",
     entidadeId: ligacao.config.id,
-    valorNovo: { tipo: ligacao.config.tipo, ok: resultado.ok },
+    valorNovo: { ok: resultado.ok },
     ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
     userAgent: h.get("user-agent") ?? null,
   });

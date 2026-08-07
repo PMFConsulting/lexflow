@@ -8,10 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { guardarPasso, submeter, type Resultado } from "../acoes";
 import { CHAVE_CARIMBO } from "./Lombada";
-import { PASSOS, TOTAL_PASSOS, passoAnterior } from "../passos";
+import {
+  PASSOS,
+  passoAnterior,
+  passoAplicavel,
+  passosDoProcesso,
+  ultimoPasso,
+} from "../passos";
 import type { Seccoes } from "../dados";
 import { Anexos } from "./Anexos";
 import { Assinatura } from "./Assinatura";
+import { LeitorTermos } from "./LeitorTermos";
 import { Ref } from "@/components/ref-processo";
 import {
   CampoCaixa,
@@ -51,6 +58,29 @@ const ORIGEM_CONTACTO = [
   { valor: "recomendacao", texto: "Recomendação de cliente anterior" },
   { valor: "pesquisa_online", texto: "Pesquisa Online" },
   { valor: "outro", texto: "Outro" },
+];
+
+/**
+ * As sugestões das duas caixas do passo 4, tal como vinham na linha de ajuda do
+ * formulário em papel. Passaram a botões: eram exemplos que ninguém lia.
+ */
+const SUGESTOES_SERVICOS = [
+  "Assessoria Jurídica Global",
+  "Avença",
+  "Alterações Societárias",
+  "Constituição de Sociedade",
+  "Questões Tributárias",
+  "Recuperação de Crédito",
+  "Questões Laborais",
+];
+
+const SUGESTOES_ORIGEM_FUNDOS = [
+  "Rendimentos empresariais da própria empresa",
+  "Rendimentos do trabalho",
+  "Financiamento Bancário",
+  "Donativos",
+  "Quotas",
+  "Poupanças",
 ];
 
 const AREAS_INTERESSE = [
@@ -105,7 +135,10 @@ function carga(n: number, fd: FormData): unknown {
       };
     case 3:
       return {
-        eRepresentante: bool(fd, "eRepresentante"),
+        // `undefined` e não `false` quando não há resposta: o schema exige uma
+        // escolha explícita, e `bool` não distingue "respondeu Não" de "não
+        // respondeu" — as duas chegam aqui como string vazia.
+        eRepresentante: fd.get("eRepresentante") ? bool(fd, "eRepresentante") : undefined,
         relacao: txt(fd, "relacao") || undefined,
         nome: txt(fd, "nome") || undefined,
         dataNascimento: txt(fd, "dataNascimento") || undefined,
@@ -186,20 +219,31 @@ export function Formulario({
 
   // estado local para os campos que fazem aparecer outros
   const [tipo, setTipo] = useState(tipoCliente);
-  // Sem representante é o caso comum: a pergunta abre respondida a "Não" e o
-  // passo passa-se num clique.
+  // Sem resposta de partida: é uma declaração sobre quem age em nome de quem.
+  // "Sim" fecha o passo num clique, "Não" abre os dados do representante.
   const [eRepresentante, setERepresentante] = useState<boolean | null>(
-    seccoes.representante?.eRepresentante ?? false,
+    seccoes.representante?.eRepresentante ?? null,
   );
   const [ePpe, setEPpe] = useState(seccoes.ppe?.ePpe ?? null);
   const [relPpe, setRelPpe] = useState(seccoes.ppe?.eRelacionadoPpe ?? null);
   const [nifPt, setNifPt] = useState(seccoes.fiscais?.nifPortugues ?? true);
   const [origem, setOrigem] = useState(seccoes.preferencias?.origemContacto ?? "");
+  // Quem já tinha aceitado os T&C não volta a ser mandado ler o documento —
+  // a caixa marcada na base de dados é prova de que ele já passou por aqui.
+  const [termosLidos, setTermosLidos] = useState(seccoes.fecho?.tcAceitacao ?? false);
   const [newsletter, setNewsletter] = useState(seccoes.preferencias?.newsletter ?? null);
   const [convites, setConvites] = useState(seccoes.preferencias?.convitesIniciativas ?? null);
 
-  const anterior = passoAnterior(n);
+  const anterior = passoAnterior(n, tipo);
   const passo = PASSOS.find((p) => p.n === n)!;
+
+  // A contagem do cabeçalho é a do percurso deste cliente, não a dos sete
+  // passos que existem: uma pessoa singular não passa pelo Representante Legal
+  // e prometer-lhe "de 07" é prometer um ecrã que nunca vai ver. O `tipo` é
+  // estado local, por isso a contagem acompanha a escolha no passo 1 em direto.
+  const percurso = passosDoProcesso(tipo);
+  const posicao = percurso.findIndex((p) => p.n === n) + 1;
+  const eUltimo = n === ultimoPasso(tipo);
 
   /**
    * Marcar "os dados de faturação são os mesmos do cliente" devia preencher
@@ -267,7 +311,7 @@ export function Formulario({
       let r: Resultado;
       try {
         r = await guardarPasso(token, n, carga(n, fd));
-        if (r.ok && n === TOTAL_PASSOS && fd.get("_acao") === "submeter") {
+        if (r.ok && eUltimo && fd.get("_acao") === "submeter") {
           r = await submeter(token);
         }
       } catch (erro) {
@@ -309,7 +353,7 @@ export function Formulario({
       // montar. É por isto que o carimbo aparece já com o passo dado.
       sessionStorage.setItem(CHAVE_CARIMBO, String(n));
 
-      if (n === TOTAL_PASSOS) {
+      if (eUltimo) {
         router.push(`/onboarding/${token}/submetido`);
       } else if (r.proximo) {
         router.push(`/onboarding/${token}/passo/${r.proximo}`);
@@ -323,7 +367,7 @@ export function Formulario({
     <form onSubmit={enviar} className="flex flex-col gap-6">
       <header>
         <p className="text-2xs font-mono tracking-[0.16em] text-muted-foreground uppercase">
-          Passo {String(n).padStart(2, "0")} de {String(TOTAL_PASSOS).padStart(2, "0")}
+          Passo {String(posicao).padStart(2, "0")} de {String(percurso.length).padStart(2, "0")}
         </p>
         <h1 className="mt-1 text-2xl">{passo.titulo}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{passo.descricao}</p>
@@ -486,31 +530,32 @@ export function Formulario({
       {n === 3 && (
         <>
           <CampoSimNao
-            pergunta="É representante?"
+            pergunta="É o representante legal desta entidade?"
             nome="eRepresentante"
             erros={erros}
             valorInicial={eRepresentante}
             onChange={setERepresentante}
           />
 
-          {eRepresentante !== true ? (
+          {eRepresentante !== false ? (
             <p className="border-linha bg-muted flex items-start gap-2 rounded-sm border p-3 text-xs text-muted-foreground">
               <Info className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                Responda Sim apenas se estiver a tratar deste processo em nome de outra pessoa
-                ou entidade — por exemplo, como gerente, procurador ou administrador. Caso
-                contrário, siga em frente.
+                Se é o próprio a representar legalmente a entidade — como gerente,
+                administrador ou procurador —, responda Sim: os seus dados já foram
+                recolhidos no primeiro passo e não há nada a repetir aqui. Responda Não
+                para identificar outra pessoa como representante legal.
               </span>
             </p>
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <CampoTexto
-                  etiqueta="Relação com o cliente final"
+                  etiqueta="Cargo"
                   nome="relacao"
                   erros={erros}
                   obrigatorio
-                  ajuda="Por exemplo: Gerente de Negócios, Administrador, Procurador."
+                  ajuda="Por exemplo: Gerente, Administrador, Procurador."
                   valorInicial={seccoes.representante?.relacao ?? ""}
                   className="sm:col-span-2"
                 />
@@ -622,8 +667,24 @@ export function Formulario({
 
           <Separator />
           <h2 className="text-lg">Relação de Negócio</h2>
-          <CampoLongo etiqueta="Serviço(s) jurídico(s) que lhe vamos prestar" nome="servicos" erros={erros} obrigatorio ajuda="Ex: Assessoria Jurídica Global / Avença / Alterações Societárias / Constituição de Sociedade / Questões Tributárias / Recuperação de Crédito / Questões Laborais." valorInicial={seccoes.negocio?.servicos ?? ""} />
-          <CampoLongo etiqueta="Origem dos fundos" nome="origemFundos" erros={erros} obrigatorio ajuda="Ex: Rendimentos empresariais da própria empresa / Financiamento Bancário / Donativos / Quotas." valorInicial={seccoes.negocio?.origemFundos ?? ""} />
+          <CampoLongo
+            etiqueta="Serviço(s) jurídico(s) que lhe vamos prestar"
+            nome="servicos"
+            erros={erros}
+            obrigatorio
+            ajuda="Escreva pelas suas palavras, ou escolha das sugestões e ajuste."
+            sugestoes={SUGESTOES_SERVICOS}
+            valorInicial={seccoes.negocio?.servicos ?? ""}
+          />
+          <CampoLongo
+            etiqueta="Origem dos fundos"
+            nome="origemFundos"
+            erros={erros}
+            obrigatorio
+            ajuda="De onde vem o dinheiro com que os honorários vão ser pagos."
+            sugestoes={SUGESTOES_ORIGEM_FUNDOS}
+            valorInicial={seccoes.negocio?.origemFundos ?? ""}
+          />
         </>
       )}
 
@@ -664,12 +725,19 @@ export function Formulario({
             onChange={setOrigem}
           />
 
-          {origem === "recomendacao" && (
+          {/* O detalhe partilha a mesma coluna (`origem_detalhe`) nos dois
+              casos: é sempre "o resto da resposta a esta pergunta", e duas
+              colunas para o mesmo pedaço de texto só dariam duas maneiras de
+              ficar vazio. */}
+          {(origem === "recomendacao" || origem === "outro") && (
             <CampoTexto
-              etiqueta="Quem?"
+              etiqueta={origem === "recomendacao" ? "Quem?" : "Como chegou até nós?"}
               nome="origemDetalhe"
               erros={erros}
               obrigatorio
+              ajuda={
+                origem === "outro" ? "Descreva por palavras suas como nos conheceu." : undefined
+              }
               valorInicial={seccoes.preferencias?.origemDetalhe ?? ""}
             />
           )}
@@ -702,6 +770,9 @@ export function Formulario({
             nome="areasInteresse"
             erros={erros}
             opcoes={AREAS_INTERESSE}
+            permitirOutro
+            etiquetaOutro="Outra área"
+            placeholderOutro="Ex: Direito da Família e Sucessões"
             valorInicial={seccoes.areasInteresse}
           />
 
@@ -716,23 +787,39 @@ export function Formulario({
           />
 
           {convites === true && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <CampoTexto
-                etiqueta="Nome"
-                nome="convitesNome"
-                erros={erros}
-                obrigatorio
-                valorInicial={seccoes.preferencias?.convitesNome ?? ""}
-              />
-              <CampoTexto
-                etiqueta="Email"
-                nome="convitesEmail"
-                tipo="email"
-                erros={erros}
-                obrigatorio
-                valorInicial={seccoes.preferencias?.convitesEmail ?? ""}
-              />
-            </div>
+            <>
+              {/* Já demos o nome e o email no passo 1: pedi-los outra vez para
+                  receber um convite é fazer trabalho que a plataforma já tem
+                  feito. Vêm preenchidos e continuam editáveis — os convites
+                  podem ir para outra pessoa da mesma empresa. Os campos só
+                  montam depois do "Sim", por isso o valor de partida basta;
+                  não é preciso ir mexer no DOM como na faturação. */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <CampoTexto
+                  etiqueta="Nome"
+                  nome="convitesNome"
+                  erros={erros}
+                  obrigatorio
+                  valorInicial={
+                    seccoes.preferencias?.convitesNome ?? seccoes.identificacao?.nome ?? ""
+                  }
+                />
+                <CampoTexto
+                  etiqueta="Email"
+                  nome="convitesEmail"
+                  tipo="email"
+                  erros={erros}
+                  obrigatorio
+                  valorInicial={
+                    seccoes.preferencias?.convitesEmail ?? seccoes.identificacao?.email ?? ""
+                  }
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Preenchido com os dados do primeiro passo. Altere se os convites forem
+                para outra pessoa.
+              </p>
+            </>
           )}
         </>
       )}
@@ -750,14 +837,23 @@ export function Formulario({
             <div>
               <h2 className="text-lg">Termos e condições e aceitação da proposta</h2>
               <p className="text-sm text-muted-foreground">
-                Ao aceitar, confirma que leu os Termos e Condições da POC e que
-                aceita os serviços e as condições descritos na proposta que lhe foi apresentada.
+                Ao aceitar, confirma que leu os Termos e Condições e que aceita os
+                serviços e as condições descritos na proposta que lhe foi apresentada.
               </p>
             </div>
+
+            <LeitorTermos lido={termosLidos} aoLer={() => setTermosLidos(true)} />
+
+            {/* Um processo já submetido uma vez traz a caixa marcada da base de
+                dados; nesse caso o documento já foi lido, e voltar a trancá-la
+                era pedir a leitura outra vez a quem só voltou atrás para
+                corrigir uma vírgula noutro passo. */}
             <CampoCaixa
               etiqueta="Aceito os Termos e Condições e aceito a proposta."
               nome="tcAceitacao"
               erros={erros}
+              desativado={!termosLidos}
+              ajudaDesativado="Abra o documento acima e percorra-o até ao fim para poder aceitar."
               valorInicial={seccoes.fecho?.tcAceitacao ?? false}
             />
 
@@ -817,8 +913,8 @@ export function Formulario({
         )}
 
         <Button type="submit" disabled={aGuardar} size="lg" className="md:h-9">
-          {aGuardar ? "A guardar…" : n === TOTAL_PASSOS ? "Submeter" : "Guardar e continuar"}
-          {n === TOTAL_PASSOS ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
+          {aGuardar ? "A guardar…" : eUltimo ? "Submeter" : "Guardar e continuar"}
+          {eUltimo ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
         </Button>
       </div>
     </form>
@@ -861,8 +957,13 @@ function Revisao({
     { etiqueta: "Morada", valor: morada(s.identificacao) },
   ].filter((c) => c.valor);
 
-  const blocos: { passo: number; titulo: string; linhas: [string, string | null | undefined][] }[] =
-    [
+  type Bloco = {
+    passo: number;
+    titulo: string;
+    linhas: [string, string | null | undefined][];
+  };
+
+  const todosOsBlocos: Bloco[] = [
       {
         passo: 1,
         titulo: "Identificação",
@@ -893,10 +994,15 @@ function Revisao({
         passo: 3,
         titulo: "Representante Legal",
         linhas: [
-          ["Tem representante", s.representante ? (s.representante.eRepresentante ? "Sim" : "Não") : null],
-          ...(s.representante?.eRepresentante
+          [
+            "É o representante legal",
+            s.representante ? (s.representante.eRepresentante ? "Sim" : "Não") : null,
+          ],
+          // Os campos abrem-se com o "Não": quem responde Sim é o próprio
+          // representante e já se identificou no passo 1.
+          ...(s.representante && !s.representante.eRepresentante
             ? ([
-                ["Relação", s.representante.relacao],
+                ["Cargo", s.representante.relacao],
                 ["Nome", s.representante.nome],
                 ["Data de nascimento", s.representante.dataNascimento],
                 ["Nacionalidade(s)", s.nacionalidadesRepresentante.join(", ") || null],
@@ -943,8 +1049,16 @@ function Revisao({
         linhas: [
           [
             "Como chegou até nós",
-            ORIGEM_CONTACTO.find((o) => o.valor === s.preferencias?.origemContacto)?.texto ??
-              null,
+            (() => {
+              const texto = ORIGEM_CONTACTO.find(
+                (o) => o.valor === s.preferencias?.origemContacto,
+              )?.texto;
+              if (!texto) return null;
+              // "Outro" sozinho não diz nada a quem revê: o detalhe é a resposta.
+              return s.preferencias?.origemDetalhe
+                ? `${texto} — ${s.preferencias.origemDetalhe}`
+                : texto;
+            })(),
           ],
           ["Newsletter", s.preferencias ? (s.preferencias.newsletter ? "Sim" : "Não") : null],
           ["Áreas de interesse", s.areasInteresse.join(", ") || null],
@@ -955,6 +1069,11 @@ function Revisao({
         ],
       },
     ];
+
+  // Um particular não passa pelo Representante Legal: mostrar-lhe o bloco na
+  // revisão era mostrar-lhe um passo que nunca lhe apareceu, com um link
+  // "Corrigir" que o mandava de volta para aqui.
+  const blocos = todosOsBlocos.filter((b) => passoAplicavel(b.passo, tipoCliente));
 
   return (
     <section className="flex flex-col gap-4">

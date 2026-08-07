@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Carimbo } from "@/components/carimbo";
-import { PASSOS } from "../passos";
+import { passosDoProcesso, type TipoCliente } from "../passos";
 
 /** Onde o formulário deixa dito qual foi o último passo gravado. */
 export const CHAVE_CARIMBO = "pmf.carimbado";
@@ -24,12 +24,19 @@ export function Lombada({
   token,
   atual,
   gravados,
+  tipoCliente,
 }: {
   token: string;
   atual: number;
   gravados: number[];
+  tipoCliente: TipoCliente;
 }) {
   const [carimbo, setCarimbo] = useState<{ passo: number; quando: Date } | null>(null);
+
+  // Numa pessoa singular o percurso tem seis passos, não sete: o Representante
+  // Legal não entra, e a contagem do dossier não pode prometer um passo que
+  // ninguém vai ver.
+  const percurso = passosDoProcesso(tipoCliente);
 
   // O carimbo é a recompensa de ter gravado, por isso aparece na página
   // seguinte — que é para onde o cliente vai a seguir a carregar em guardar.
@@ -47,19 +54,19 @@ export function Lombada({
   return (
     <nav aria-label="Passos do processo">
       <p className="text-2xs mb-3 font-mono tracking-[0.16em] text-muted-foreground uppercase">
-        Dossier · {gravados.length} de {PASSOS.length}
+        Dossier · {gravados.length} de {percurso.length}
       </p>
 
       {/* barra de progresso — em mobile é o único indicador que cabe bem */}
       <div className="bg-linha mb-3 h-0.5 w-full md:hidden">
         <div
           className="bg-selo h-full transition-[width] duration-500 ease-out"
-          style={{ width: `${(gravados.length / PASSOS.length) * 100}%` }}
+          style={{ width: `${(gravados.length / percurso.length) * 100}%` }}
         />
       </div>
 
       <ol className="border-linha flex gap-1 overflow-x-auto pb-2 md:flex-col md:gap-0 md:overflow-visible md:border-l md:pb-0">
-        {PASSOS.map((p) => {
+        {percurso.map((p) => {
           const feito = gravados.includes(p.n);
           const aqui = p.n === atual;
           const acessivel = feito || p.n <= atual;

@@ -1,16 +1,18 @@
 import { boolean, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { EnvelopeCifrado } from "@/lib/storage/tipos";
 import { id, timestamps } from "./_comum";
-import { tipoArmazenamento } from "./enums";
 import { organizacao } from "./organizacao";
 
 /**
  * Onde é que cada sociedade guarda os dossiers dos seus clientes.
  *
- * Uma linha por organização: hoje a PMF, amanhã outras sociedades, cada uma
- * com o seu OneDrive ou o seu servidor. A linha existe sempre — o que pode
- * faltar são as credenciais, e é isso que distingue "por configurar" de
- * "ligado".
+ * Uma linha por organização: hoje a JMASSANO, amanhã outras sociedades, cada
+ * uma com o seu servidor. A linha existe sempre — o que pode faltar são as
+ * credenciais, e é isso que distingue "por configurar" de "ligado".
+ *
+ * Não há coluna de tipo: o destino é sempre o servidor dedicado da sociedade,
+ * por SFTP. A escolha entre destinos existiu enquanto o OneDrive esteve na
+ * mesa, e saiu com ele.
  */
 export const armazenamentoSociedade = pgTable(
   "armazenamento_sociedade",
@@ -19,14 +21,13 @@ export const armazenamentoSociedade = pgTable(
     organizacaoId: uuid("organizacao_id")
       .notNull()
       .references(() => organizacao.id, { onDelete: "cascade" }),
-    tipo: tipoArmazenamento("tipo").notNull().default("onedrive"),
     /**
      * Credenciais de ligação. A coluna é JSONB, mas o segredo nunca lá está em
      * claro: o que se grava é o criptograma AES-256-GCM, com o nonce e a
      * etiqueta de autenticação ao lado. Quem tiver leitura da base de dados
-     * fica com bytes, não com o `token_refresh` do OneDrive nem com a
-     * palavra-passe do servidor — a chave vive em `ARMAZENAMENTO_CHAVE`, fora
-     * da base de dados, e é isso que separa "cifrado" de "codificado".
+     * fica com bytes, não com a palavra-passe do servidor — a chave vive em
+     * `ARMAZENAMENTO_CHAVE`, fora da base de dados, e é isso que separa
+     * "cifrado" de "codificado".
      *
      * Nulo enquanto não houver credenciais.
      */

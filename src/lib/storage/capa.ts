@@ -17,10 +17,10 @@ import {
 /**
  * O `dados_cliente.pdf` — a capa da pasta do cliente.
  *
- * É o ficheiro que o auxiliar em Python (`scripts/gera_pasta_cliente.py`) já
- * deixava no OneDrive, e é o primeiro que se abre ao entrar num dossier: quem
- * chega à pasta quer saber de que processo é, de quem, de quando, e o que lá
- * está dentro. O `summary.pdf` continua ao lado com o detalhe todo.
+ * É o ficheiro que o auxiliar em Python já deixava em cada pasta de cliente, e
+ * é o primeiro que se abre ao entrar num dossier: quem chega à pasta quer
+ * saber de que processo é, de quem, de quando, e o que lá está dentro. O
+ * `summary.pdf` continua ao lado com o detalhe todo.
  *
  * Uma folha, quatro linhas e o índice dos ficheiros. Nada de dados sensíveis,
  * pela mesma razão do resumo: uma pasta partilhada não tem o controlo de

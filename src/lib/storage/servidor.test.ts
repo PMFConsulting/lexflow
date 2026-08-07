@@ -59,10 +59,11 @@ describe("citarSftp", () => {
 });
 
 describe("criarDestinoServidor", () => {
-  it("escolhe o adaptador pelo protocolo e recusa WebDAV em claro", async () => {
-    expect(criarDestinoServidor(BASE).tipo).toBe("servidor");
+  it("devolve um destino com o contrato completo", () => {
+    const destino = criarDestinoServidor(BASE);
 
-    const webdav = criarDestinoServidor({ ...BASE, protocolo: "webdav", host: "http://interno" });
-    await expect(webdav.garantirPasta(["Clientes"])).rejects.toThrow(/HTTPS/);
+    expect(typeof destino.garantirPasta).toBe("function");
+    expect(typeof destino.enviar).toBe("function");
+    expect(typeof destino.verificar).toBe("function");
   });
 });

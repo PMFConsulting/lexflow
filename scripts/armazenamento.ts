@@ -1,24 +1,21 @@
 /**
- * Configuração do armazenamento de uma sociedade.
+ * Configuração do armazenamento de uma sociedade — o servidor dedicado, por SFTP.
  *
- * As credenciais entram por aqui e não por um formulário no back-office: um
- * `token_refresh` colado numa caixa de texto passa pelo browser, pelo proxy e
+ * As credenciais entram por aqui e não por um formulário no back-office: uma
+ * palavra-passe colada numa caixa de texto passa pelo browser, pelo proxy e
  * pelos logs de ambos. Por script, no servidor, só passa pela base de dados —
- * e mesmo aí, cifrado.
+ * e mesmo aí, cifrada.
  *
  *   pnpm armazenamento estado
  *   pnpm armazenamento testar
- *   pnpm armazenamento configurar --tipo onedrive --pasta /Clientes
+ *   pnpm armazenamento configurar --pasta /Clientes
  *   pnpm armazenamento desligar
  *
  * O `configurar` lê os parâmetros do ambiente, nunca de argumentos da linha de
  * comandos — `ps aux` mostra argumentos, e o histórico da shell guarda-os:
  *
- *   OneDrive:  ONEDRIVE_TENANT_ID, ONEDRIVE_CLIENT_ID, ONEDRIVE_TOKEN_REFRESH,
- *              ONEDRIVE_CLIENT_SECRET (opcional), ONEDRIVE_DRIVE_ID (opcional)
- *   Servidor:  SERVIDOR_PROTOCOLO (webdav|sftp), SERVIDOR_HOST, SERVIDOR_PORTA,
- *              SERVIDOR_UTILIZADOR, SERVIDOR_SEGREDO, SERVIDOR_CHAVE_PRIVADA,
- *              SERVIDOR_IMPRESSAO_HOST, SERVIDOR_CAMINHO_BASE
+ *   SERVIDOR_HOST, SERVIDOR_PORTA, SERVIDOR_UTILIZADOR, SERVIDOR_SEGREDO,
+ *   SERVIDOR_CHAVE_PRIVADA, SERVIDOR_IMPRESSAO_HOST, SERVIDOR_CAMINHO_BASE
  */
 import { config } from "dotenv";
 import { asc, eq } from "drizzle-orm";
@@ -28,14 +25,8 @@ import { uuidv7 } from "uuidv7";
 import { armazenamentoSociedade } from "../src/db/schema/armazenamento";
 import { organizacao } from "../src/db/schema/organizacao";
 import { cifrar, decifrar, lerChave } from "../src/lib/storage/cifra";
-import { criarDestinoOneDrive } from "../src/lib/storage/onedrive";
 import { criarDestinoServidor } from "../src/lib/storage/servidor";
-import {
-  parametrosOneDrive,
-  parametrosServidor,
-  type Destino,
-  type TipoArmazenamento,
-} from "../src/lib/storage/tipos";
+import { parametrosServidor, type Destino } from "../src/lib/storage/tipos";
 
 config({ path: ".env" });
 
@@ -86,19 +77,9 @@ async function sociedade(base: Base) {
   return linhas[0];
 }
 
-function parametrosDoAmbiente(tipo: TipoArmazenamento) {
-  if (tipo === "onedrive") {
-    return parametrosOneDrive.parse({
-      tenantId: process.env.ONEDRIVE_TENANT_ID,
-      clientId: process.env.ONEDRIVE_CLIENT_ID,
-      clientSecret: process.env.ONEDRIVE_CLIENT_SECRET || undefined,
-      tokenRefresh: process.env.ONEDRIVE_TOKEN_REFRESH,
-      driveId: process.env.ONEDRIVE_DRIVE_ID || undefined,
-    });
-  }
-
+function parametrosDoAmbiente() {
   return parametrosServidor.parse({
-    protocolo: process.env.SERVIDOR_PROTOCOLO ?? "webdav",
+    protocolo: "sftp",
     host: process.env.SERVIDOR_HOST,
     porta: process.env.SERVIDOR_PORTA ? Number(process.env.SERVIDOR_PORTA) : undefined,
     utilizador: process.env.SERVIDOR_UTILIZADOR,
@@ -109,10 +90,8 @@ function parametrosDoAmbiente(tipo: TipoArmazenamento) {
   });
 }
 
-function destinoDe(tipo: TipoArmazenamento, parametros: unknown): Destino {
-  return tipo === "onedrive"
-    ? criarDestinoOneDrive(parametrosOneDrive.parse(parametros))
-    : criarDestinoServidor(parametrosServidor.parse(parametros));
+function destinoDe(parametros: unknown): Destino {
+  return criarDestinoServidor(parametrosServidor.parse(parametros));
 }
 
 async function linhaDe(base: Base, organizacaoId: string) {
@@ -136,7 +115,7 @@ async function estado(base: Base) {
     return;
   }
 
-  console.log(`Destino:   ${linha.tipo}`);
+  console.log(`Destino:   servidor da sociedade (SFTP)`);
   console.log(`Pasta:     ${linha.pastaRaiz}`);
   console.log(`Credenciais: ${linha.parametros ? "gravadas (cifradas)" : "por gravar"}`);
   console.log(`Ativo:     ${linha.ativo ? "sim" : "não"}`);
@@ -149,14 +128,7 @@ async function estado(base: Base) {
 
 async function configurar(base: Base) {
   const org = await sociedade(base);
-  const tipo = (argumento("tipo") ?? "onedrive") as TipoArmazenamento;
-
-  if (tipo !== "onedrive" && tipo !== "servidor") {
-    console.error('--tipo tem de ser "onedrive" ou "servidor".');
-    process.exit(1);
-  }
-
-  const parametros = parametrosDoAmbiente(tipo);
+  const parametros = parametrosDoAmbiente();
   const envelope = cifrar(parametros, chave());
   const pastaRaiz = argumento("pasta") ?? "/Clientes";
   const ativo = argumento("ativo") !== "false";
@@ -166,20 +138,19 @@ async function configurar(base: Base) {
   if (existente) {
     await base
       .update(armazenamentoSociedade)
-      .set({ tipo, parametros: envelope, pastaRaiz, ativo, ultimoErro: null })
+      .set({ parametros: envelope, pastaRaiz, ativo, ultimoErro: null })
       .where(eq(armazenamentoSociedade.id, existente.id));
   } else {
     await base.insert(armazenamentoSociedade).values({
       id: uuidv7(),
       organizacaoId: org.id,
-      tipo,
       parametros: envelope,
       pastaRaiz,
       ativo,
     });
   }
 
-  console.log(`✓ ${org.nome}: ${tipo} em ${pastaRaiz}, ${ativo ? "ativo" : "desativado"}.`);
+  console.log(`✓ ${org.nome}: SFTP em ${pastaRaiz}, ${ativo ? "ativo" : "desativado"}.`);
   console.log("  As credenciais ficaram cifradas com ARMAZENAMENTO_CHAVE.");
   console.log("  Confirma com: pnpm armazenamento testar");
 }
@@ -193,7 +164,7 @@ async function testar(base: Base) {
     process.exit(1);
   }
 
-  const destino = destinoDe(linha.tipo, decifrar(linha.parametros, chave()));
+  const destino = destinoDe(decifrar(linha.parametros, chave()));
   const r = await destino.verificar();
   console.log(`${r.ok ? "✓" : "✗"} ${r.detalhe}`);
   if (!r.ok) process.exit(1);

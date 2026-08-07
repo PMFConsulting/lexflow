@@ -17,6 +17,7 @@ import {
 } from "@/db/schema/seccoes";
 import { assinatura, documento } from "@/db/schema/documentos";
 import { hashToken } from "@/lib/token";
+import type { TipoCliente } from "./passos";
 
 /**
  * Carrega o processo a partir do token do link mágico.
@@ -124,13 +125,13 @@ export async function assinaturaDoProcesso(processoId: string) {
 }
 
 /** Quantos passos já foram gravados — alimenta os carimbos da lombada. */
-export function passosGravados(s: Seccoes): number[] {
+export function passosGravados(s: Seccoes, tipoCliente: TipoCliente): number[] {
   const feitos: number[] = [];
   if (s.identificacao) feitos.push(1);
   if (s.fiscais) feitos.push(2);
-  // Sem representante o passo continua a contar como dado: a linha existe com
-  // `eRepresentante` a false, que é a resposta.
-  if (s.representante) feitos.push(3);
+  // O passo 3 só existe para pessoas coletivas. Quando existe, a linha conta
+  // como dada mesmo com "Sim" — o registo em branco é a resposta.
+  if (tipoCliente === "empresa" && s.representante) feitos.push(3);
   if (s.ppe && s.negocio) feitos.push(4);
   if (s.faturacao) feitos.push(5);
   if (s.preferencias?.origemContacto) feitos.push(6);

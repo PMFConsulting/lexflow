@@ -7,17 +7,15 @@ import type { Destino, Ficheiro, ParametrosServidor, Verificacao } from "./tipos
 import { caminho } from "./tipos";
 
 /**
- * Servidor à escolha da sociedade. Implementação base, dois protocolos:
+ * O servidor dedicado da sociedade, por SFTP sobre SSH.
  *
- *   · WebDAV sobre HTTPS — `fetch`, com MKCOL e PUT. É o caminho preferido:
- *     não sai do processo e não depende de binários instalados.
- *   · SFTP sobre SSH — através do `curl`, que fala sftp:// quando vem
- *     compilado com libssh2. O `curl` do Alpine não vem, e é por isso que a
- *     imagem assenta em Debian: ver o comentário no Dockerfile.
+ * Fala-se com ele através do `curl`, que suporta sftp:// quando vem compilado
+ * com libssh2. O `curl` do Alpine não vem, e é por isso que a imagem assenta
+ * em Debian: ver o comentário no Dockerfile.
  *
- * Ambos são cifrados em trânsito, e isso não é configurável: um destino em
- * HTTP simples ou FTP é recusado à entrada. O que atravessa isto são
- * documentos de identificação.
+ * É o único destino, e isso não é configurável: FTP simples, HTTP e WebDAV em
+ * claro ficaram de fora de propósito. O que atravessa isto são documentos de
+ * identificação.
  */
 
 const executar = promisify(execFile);
@@ -32,100 +30,6 @@ export class ErroServidor extends Error {
   }
 }
 
-/* ------------------------------------------------------------------ WebDAV */
-
-function baseWebdav(p: ParametrosServidor): URL {
-  // Sem esquema explícito, assume-se HTTPS. Com `http://` explícito, recusa-se.
-  const bruto = /^[a-z][a-z0-9+.-]*:\/\//i.test(p.host) ? p.host : `https://${p.host}`;
-  const url = new URL(bruto);
-
-  if (url.protocol !== "https:") {
-    throw new ErroServidor(
-      "O WebDAV só é aceite sobre HTTPS. Um destino em HTTP simples transporta " +
-        "documentos de identificação em claro.",
-    );
-  }
-  if (p.porta) url.port = String(p.porta);
-  return url;
-}
-
-function urlWebdav(p: ParametrosServidor, segmentos: string[]): string {
-  const base = baseWebdav(p);
-  const prefixo = p.caminhoBase ? caminho([p.caminhoBase]) : "";
-  const cauda = caminho(segmentos)
-    .split("/")
-    .filter(Boolean)
-    .map(encodeURIComponent)
-    .join("/");
-
-  base.pathname = caminho([prefixo, cauda]);
-  return base.toString();
-}
-
-function autorizacaoBasica(p: ParametrosServidor): string {
-  const par = `${p.utilizador}:${p.segredo ?? ""}`;
-  return `Basic ${Buffer.from(par, "utf8").toString("base64")}`;
-}
-
-function criarDestinoWebdav(p: ParametrosServidor): Destino {
-  const cabecalhos = () => ({ authorization: autorizacaoBasica(p) });
-
-  const pedir = (url: string, init: RequestInit) =>
-    fetch(url, {
-      ...init,
-      headers: { ...cabecalhos(), ...init.headers },
-      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
-    });
-
-  return {
-    tipo: "servidor",
-
-    async garantirPasta(segmentos) {
-      // MKCOL não cria intermédias: um nível de cada vez, como no Graph.
-      const percorridos: string[] = [];
-      for (const segmento of segmentos) {
-        percorridos.push(segmento);
-        const resposta = await pedir(urlWebdav(p, percorridos), { method: "MKCOL" });
-
-        // 405 e 301 = a coleção já existe, que é o resultado desejado.
-        if (!resposta.ok && ![405, 301].includes(resposta.status)) {
-          throw new ErroServidor(
-            `MKCOL de "${segmento}" recusado (HTTP ${resposta.status}).`,
-          );
-        }
-      }
-    },
-
-    async enviar(segmentos, ficheiro: Ficheiro) {
-      const resposta = await pedir(urlWebdav(p, [...segmentos, ficheiro.nome]), {
-        method: "PUT",
-        headers: { "content-type": ficheiro.mime },
-        body: new Uint8Array(ficheiro.conteudo),
-      });
-
-      if (!resposta.ok) {
-        throw new ErroServidor(
-          `Falha ao enviar "${ficheiro.nome}" (HTTP ${resposta.status}).`,
-        );
-      }
-    },
-
-    async verificar(): Promise<Verificacao> {
-      try {
-        const resposta = await pedir(urlWebdav(p, []), {
-          method: "PROPFIND",
-          headers: { depth: "0" },
-        });
-        return resposta.ok || resposta.status === 207
-          ? { ok: true, detalhe: `WebDAV acessível em ${baseWebdav(p).host}.` }
-          : { ok: false, detalhe: `O servidor respondeu HTTP ${resposta.status}.` };
-      } catch (e) {
-        return { ok: false, detalhe: e instanceof Error ? e.message : "Falha desconhecida." };
-      }
-    },
-  };
-}
-
 /* -------------------------------------------------------------------- SFTP */
 
 /** Só exportado para os testes: o URL é a fronteira onde os nomes se partem. */
@@ -133,9 +37,9 @@ export function urlSftp(p: ParametrosServidor, segmentos: string[]): string {
   const anfitriao = p.host.replace(/^sftp:\/\//i, "").replace(/\/.*$/, "");
   const porta = p.porta ? `:${p.porta}` : "";
 
-  // Cada segmento vai percent-encoded, como no WebDAV. Uma pasta de cliente
-  // chama-se "Maria Silva (249886344)" e o espaço não pode entrar num URL em
-  // cru: o curl trunca aí, e o upload ia parar a "/Clientes/Maria".
+  // Cada segmento vai percent-encoded. Uma pasta de cliente chama-se
+  // "Maria Silva (249886344)" e o espaço não pode entrar num URL em cru: o
+  // curl trunca aí, e o upload ia parar a "/Clientes/Maria".
   const cauda = caminho([p.caminhoBase ?? "", ...segmentos])
     .split("/")
     .filter(Boolean)
@@ -213,14 +117,12 @@ function erroDoCurl(e: unknown, contexto: string): never {
   throw new ErroServidor(`${contexto} falhou (curl saiu com ${codigo}).`);
 }
 
-function criarDestinoSftp(p: ParametrosServidor): Destino {
+export function criarDestinoServidor(p: ParametrosServidor): Destino {
   return {
-    tipo: "servidor",
-
     async garantirPasta(segmentos) {
       await comNetrc(p, async (argumentos) => {
         // O `-Q mkdir` do curl não falha o comando quando a pasta já existe no
-        // servidor; o caminho é criado nível a nível, como nos outros destinos.
+        // servidor; o caminho é criado nível a nível.
         const percorridos: string[] = [];
         for (const segmento of segmentos) {
           percorridos.push(segmento);
@@ -278,8 +180,4 @@ function criarDestinoSftp(p: ParametrosServidor): Destino {
       }
     },
   };
-}
-
-export function criarDestinoServidor(p: ParametrosServidor): Destino {
-  return p.protocolo === "webdav" ? criarDestinoWebdav(p) : criarDestinoSftp(p);
 }

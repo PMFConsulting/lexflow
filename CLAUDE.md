@@ -150,6 +150,35 @@ delas aparecia em desenvolvimento:
 Ao mesmo tempo, e por pedido do Diogo, cada pasta passa a ter também o `dados_cliente.pdf`
 (D27), que era o que o auxiliar em Python deixava no OneDrive.
 
+### Atualização — melhorias pedidas pela JMASSANO (análise de 07/08/2026)
+
+Oito pontos, do documento de análise do cliente (João Massano Escritório de Advogado).
+
+- **Logo no cabeçalho.** `public/logo_jm.png` substitui o texto "POC" no cabeçalho do
+  onboarding — que vive no layout, por isso aparece nos sete passos de uma vez — e no
+  cabeçalho do ecrã de entrada.
+- **Passo 3 só para pessoas coletivas** (D28), com a semântica invertida (D29) e "Relação com
+  o cliente final" a passar a **Cargo**.
+- **Passo 4** com sugestões clicáveis por baixo de cada caixa, em vez da lista de exemplos
+  numa linha de ajuda que ninguém lia. Clicar acrescenta; clicar outra vez tira.
+- **RGPD**: "Outro" em *como chegou até nós* abre caixa de texto (a mesma coluna
+  `origem_detalhe` do "quem?" da recomendação, e obrigatória pela mesma razão); áreas de
+  interesse ganham "Outra área" com caixa livre, que entra na lista como mais um valor —
+  sem migração, a tabela já era de texto livre; e o "sim" aos convites traz o nome e o email
+  do passo 1 já preenchidos, editáveis.
+- **Passo 7**: leitura obrigatória dos T&C (D30).
+- **Três emails** com os assuntos **e os corpos** que o cliente escreveu (D31, D33).
+- **Só SFTP** (D32): o OneDrive e o WebDAV saíram do código, do schema e dos scripts.
+- **Página de entrada** sem o bloco "Como funciona".
+
+Os **textos dos três emails** deixaram de estar por confirmar (07/08/2026): os corpos em
+`src/lib/emails/jmassano.ts` são agora os do documento de análise, à letra — ver D33.
+
+Fica por confirmar o articulado dos **T&C** em `src/lib/termos.ts`: é texto de demonstração
+escrito a partir do que a lei obriga a constar. Ao substituí-lo, subir também `VERSAO_TERMOS` —
+é essa versão que fica gravada junto do consentimento, e mudar o texto sem mudar a versão
+apaga a diferença entre o que o cliente aceitou e o que passou a estar escrito.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -226,7 +255,13 @@ altera o que se constrói à volta.
 | D24 | O `summary.pdf` grava-se sem fluxos de objetos e leva a referência do processo como entrada em texto simples no dicionário Info. Um resumo de arquivo tem de ser identificável sem uma biblioteca de PDF à mão — e o `setTitle` do pdf-lib escreve em UTF-16BE hexadecimal | `src/lib/storage/resumo.ts` |
 | D25 | `nomeSeguro` preserva o ponto final de um nome de empresa ("Lda.", "S.A.") e só o corta quando o nome começa por ponto, que é a forma de um ficheiro oculto. Contraria a regra do SharePoint de propósito: uma pasta com a denominação errada é pior do que uma pasta com um nome que o SharePoint normaliza | `src/lib/storage/tipos.ts` |
 | D26 | Imagem de produção em `node:22-bookworm-slim` e não em Alpine: o `curl` do Alpine é compilado sem libssh2 e não tem `sftp://`. A alternativa — `openssh-client` e reescrever o adaptador à volta do binário `sftp` — custava o `.netrc` (a palavra-passe passava a depender do `sshpass`) e o `--hostpubsha256` (o pinning da chave do host). Trocar a base custa megabytes de imagem e zero linhas de lógica. O `curl --version \| grep -qw sftp` no Dockerfile é o que impede a regressão silenciosa: sem sftp, a imagem não se constrói | `Dockerfile` |
-| D27 | Cada pasta de cliente leva dois PDFs: o `summary.pdf` com o detalhe do processo e o `dados_cliente.pdf` — capa com data, referência, nome, NIF e o índice dos ficheiros. O nome do segundo não é escolha nossa, é o que o `scripts/gera_pasta_cliente.py` já deixava no OneDrive e por onde se procura o dossier. A capa gera-se em último, quando já se sabe o que indexar, e não se indexa a si própria | `src/lib/storage/capa.ts` |
+| D27 | Cada pasta de cliente leva dois PDFs: o `summary.pdf` com o detalhe do processo e o `dados_cliente.pdf` — capa com data, referência, nome, NIF e o índice dos ficheiros. O nome do segundo não é escolha nossa, é o que o auxiliar em Python já deixava em cada pasta de cliente e por onde se procura o dossier. A capa gera-se em último, quando já se sabe o que indexar, e não se indexa a si própria | `src/lib/storage/capa.ts` |
+| D28 | Passo 3 (Representante Legal) só aparece a pessoas coletivas. Uma pessoa singular representa-se a si própria — a pergunta não tem resposta possível. A **numeração não se mexe**: o passo continua a ser o 3 e o Fecho o 7, porque renumerar partia os rótulos de auditoria (`passo.N.gravado`), a restrição `passo_valido` e os links de "Corrigir" já gravados. O que muda é o percurso: `passosDoProcesso`, `proximoPasso` e `passoAnterior` saltam-no, e a contagem do cabeçalho passa a "de 06" | `src/features/onboarding/passos.ts` |
+| D29 | A pergunta do passo 3 inverte-se: "É o representante legal desta entidade?" — **Sim** avança (quem preenche já se identificou no passo 1), **Não** abre os campos do representante. Sem resposta de partida, ao contrário do que estava: pré-responder a uma declaração sobre quem age em nome de quem é dá-la por feita. Trocar para pessoa singular no passo 1 apaga a linha do representante — deixada lá, aparecia no PDF do arquivo a descrever um processo que já não é aquele | `src/features/onboarding/schemas.ts` |
+| D30 | A caixa de aceitação dos T&C só se destranca depois de o documento ser aberto e percorrido até ao fim, estilo banca. O texto é renderizado dentro do leitor e não num `iframe`: assim o fim do documento é uma medição do próprio elemento, sem depender de o browser deixar ler o `scrollTop` de outro documento. Um documento que caiba todo no ecrã conta como lido — senão a caixa ficava trancada para sempre num monitor grande. O mesmo texto está em `/termos-condicoes` e vai em PDF no email de boas-vindas, os três da mesma fonte | `src/lib/termos.ts` |
+| D31 | Três emails ao cliente, todos em `src/lib/emails/jmassano.ts`: **JMASSANO \| Registro** (com o link, no momento em que a sociedade cria o processo), **JMASSANO \| Confirmação de Receção dos seus Dados** e **Bem-vindo à JMASSANO Escritório de Advogado** (com resumo, T&C e proposta de honorários em anexo). Os dois últimos saem os dois na submissão porque a POC não tem passo de aprovação (D20) — não há um segundo momento em que dar as boas-vindas. O resumo anexado é o mesmo `summary.pdf` que vai para o arquivo, gerado do mesmo sítio, para o cliente e a sociedade não ficarem com versões diferentes do mesmo documento | `src/lib/emails/jmassano.ts` |
+| D32 | Um só destino de armazenamento: o servidor da sociedade, por SFTP. O OneDrive e o WebDAV saíram do código, do schema (a coluna `tipo` e o enum `tipo_armazenamento` foram removidos na migração `0007`) e dos scripts (`gera_pasta_cliente.py` apagado). O `protocolo` fica no schema Zod fixo em `z.literal("sftp")`, e não desaparece: é o que faz uma configuração antiga noutro protocolo rebentar à entrada em vez de ser tratada como SFTP. A migração apaga as credenciais das linhas que estavam em `onedrive` — um segredo do Graph sem finalidade não fica gravado | `src/db/migrations/0007_armazenamento_so_sftp.sql` |
+| D33 | Os corpos dos três emails passam a ser os do documento de análise do cliente, à letra — assinatura em aberto ("Assinatura do Advogado gestor do Cliente") incluída, que é o espaço do advogado que gere cada cliente. Duas coisas caem por não constarem desse texto: a saudação deixa de levar o nome ("Caro(a) Sr.(a)," é o que lá está) e a referência do processo sai do corpo dos emails 2 e 3 — continua no assunto do aviso ao back-office e no resumo em anexo. O bloco-resumo dos T&C sai do email 2 pela mesma razão; os T&C completos vão em PDF no email 3. Os parâmetros `nome` e `referencia` ficam nas assinaturas, aceites e ignorados, para repor qualquer um sem mexer em quem chama | `src/lib/emails/jmassano.ts` |
 
 ## Decisões em aberto
 

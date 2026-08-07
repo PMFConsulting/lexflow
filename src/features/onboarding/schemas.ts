@@ -144,14 +144,21 @@ export const passo2 = z
 /* ── passo 3 — representante legal ────────────────────────────────────── */
 
 /**
- * O passo inteiro pende de um interruptor: sem representante, nada mais é
- * obrigatório e o cliente passa à frente sem preencher um campo. Com
- * representante, exige-se o mesmo rigor da identificação do passo 1 — é uma
- * pessoa que age em nome de outra, e a Lei 83/2017 obriga a identificá-la.
+ * Só para pessoas coletivas, e pende de um interruptor: "É o representante
+ * legal desta entidade?".
+ *
+ * Com **Sim**, quem preenche é o representante — já se identificou no passo 1 e
+ * não há nada a repetir aqui. Com **Não**, é preciso dizer quem representa
+ * legalmente a entidade, e aí exige-se o mesmo rigor da identificação do passo
+ * 1: é uma pessoa que age em nome de outra, e a Lei 83/2017 obriga a
+ * identificá-la.
+ *
+ * O interruptor não tem resposta de partida. É uma declaração sobre quem age em
+ * nome de quem, e pré-responder a uma declaração é dá-la por feita.
  */
 export const passo3 = z
   .object({
-    eRepresentante: z.boolean().default(false),
+    eRepresentante: z.boolean({ message: "Responda sim ou não." }),
     relacao: z.string().trim().optional(),
     nome: z.string().trim().optional(),
     dataNascimento: z.string().trim().optional(),
@@ -168,12 +175,14 @@ export const passo3 = z
     distrito: z.string().trim().optional(),
   })
   .superRefine((v, ctx) => {
-    if (!v.eRepresentante) return;
+    // Ao contrário do que aqui esteve: é o "Não" que abre os campos. Quem
+    // responde Sim é o próprio representante e já se identificou no passo 1.
+    if (v.eRepresentante) return;
 
     const falta = (campo: string, mensagem: string) =>
       ctx.addIssue({ code: "custom", path: [campo], message: mensagem });
 
-    if (!v.relacao) falta("relacao", "Indique a relação com o cliente final.");
+    if (!v.relacao) falta("relacao", "Indique o cargo do representante legal.");
     if (!v.nome) falta("nome", "O nome do representante é obrigatório.");
     if (!v.profissao) falta("profissao", "A profissão é obrigatória.");
 
@@ -301,7 +310,7 @@ export const passo6 = z
     origemContacto: z.enum(["evento_conferencia", "recomendacao", "pesquisa_online", "outro"], {
       message: "Indique como chegou até nós.",
     }),
-    /** "Quem?" — condicional a `recomendacao`. */
+    /** O resto da resposta: "quem?" numa recomendação, "como?" num "outro". */
     origemDetalhe: z.string().trim().optional(),
     newsletter: z.boolean().default(false),
     emailsNewsletter: z.array(email).optional().default([]),
@@ -316,6 +325,14 @@ export const passo6 = z
         code: "custom",
         path: ["origemDetalhe"],
         message: "Indique quem o recomendou.",
+      });
+    // "Outro" sem explicação não é resposta nenhuma: a pergunta existe para
+    // saber por onde os clientes chegam, e um "outro" em branco não conta nada.
+    if (v.origemContacto === "outro" && !v.origemDetalhe)
+      ctx.addIssue({
+        code: "custom",
+        path: ["origemDetalhe"],
+        message: "Diga-nos como chegou até nós.",
       });
     if (v.newsletter && v.emailsNewsletter.length === 0)
       ctx.addIssue({

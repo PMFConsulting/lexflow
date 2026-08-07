@@ -10,9 +10,9 @@ import { nomeSeguro } from "./tipos";
 /**
  * Sanitiza uma mensagem de erro antes de a gravar.
  *
- * Os erros dos adaptadores já são escritos para não citar credenciais, mas um
- * erro de rede do runtime pode trazer o URL completo — e num WebDAV o URL leva
- * o utilizador e a palavra-passe. Isto é a última linha, e vale a pena tê-la:
+ * Os erros do adaptador já são escritos para não citar credenciais, mas um
+ * erro de rede do runtime pode trazer o URL completo, e um URL pode levar o
+ * utilizador colado. Isto é a última linha, e vale a pena tê-la:
  * o que entra em `evento_auditoria` fica lá sete anos, e a auditoria não
  * permite UPDATE para corrigir o engano.
  */

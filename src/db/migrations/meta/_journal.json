@@ -50,6 +50,13 @@
       "when": 1786016334957,
       "tag": "0006_blue_moira_mactaggert",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786230000000,
+      "tag": "0007_armazenamento_so_sftp",
+      "breakpoints": true
     }
   ]
 }

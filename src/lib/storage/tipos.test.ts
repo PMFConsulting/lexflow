@@ -93,31 +93,40 @@ describe("caminho", () => {
 });
 
 describe("validação dos parâmetros", () => {
-  it("aceita um OneDrive completo", () => {
+  it("aceita um servidor SFTP completo", () => {
     expect(
-      validarParametros("onedrive", {
-        tenantId: "t",
-        clientId: "c",
-        tokenRefresh: "r",
-      }),
-    ).toMatchObject({ tenantId: "t" });
-  });
-
-  it("recusa um OneDrive sem refresh token", () => {
-    expect(() => validarParametros("onedrive", { tenantId: "t", clientId: "c" })).toThrow();
-  });
-
-  it("só aceita protocolos cifrados no servidor", () => {
-    expect(
-      parametrosServidor.parse({
+      validarParametros({
         protocolo: "sftp",
         host: "arquivo.exemplo.pt",
-        utilizador: "pmf",
+        utilizador: "jm",
+        segredo: "s3gr3d0",
       }),
-    ).toMatchObject({ protocolo: "sftp" });
+    ).toMatchObject({ protocolo: "sftp", host: "arquivo.exemplo.pt" });
+  });
 
+  it("assume sftp quando o protocolo não vem", () => {
+    expect(
+      parametrosServidor.parse({ host: "arquivo.exemplo.pt", utilizador: "jm" }),
+    ).toMatchObject({ protocolo: "sftp" });
+  });
+
+  it("recusa um servidor sem host", () => {
+    expect(() => validarParametros({ utilizador: "jm" })).toThrow();
+  });
+
+  /**
+   * O SFTP é o único destino: um FTP simples ou um WebDAV em claro levava
+   * documentos de identificação pela rede sem cifra, e uma configuração
+   * antiga com esse protocolo tem de rebentar à entrada, não ser tratada
+   * como se fosse SFTP.
+   */
+  it("recusa qualquer protocolo que não seja sftp", () => {
     expect(() =>
       parametrosServidor.parse({ protocolo: "ftp", host: "h", utilizador: "u" }),
+    ).toThrow();
+
+    expect(() =>
+      parametrosServidor.parse({ protocolo: "webdav", host: "h", utilizador: "u" }),
     ).toThrow();
   });
 });

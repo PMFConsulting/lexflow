@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { processoPorToken, passosGravados, seccoesDoProcesso } from "@/features/onboarding/dados";
 import { Lombada } from "@/features/onboarding/componentes/Lombada";
@@ -17,14 +18,23 @@ export default async function LayoutOnboarding({
   if (!processo) notFound();
 
   const seccoes = await seccoesDoProcesso(processo.id);
-  const gravados = passosGravados(seccoes);
+  const gravados = passosGravados(seccoes, processo.tipoCliente);
 
   return (
     <div className="bg-papel min-h-svh">
       <header className="border-linha bg-papel-alto border-b">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <div>
-            <p className="font-display text-lg leading-none">POC</p>
+          {/* O cabeçalho é o mesmo em todos os passos — vive no layout, e é por
+              isso que basta trocá-lo aqui para o logo aparecer nos sete. */}
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo_jm.png"
+              alt="JMASSANO — Escritório de Advogado"
+              width={202}
+              height={171}
+              priority
+              className="h-11 w-auto"
+            />
             <p className="text-2xs font-mono tracking-[0.16em] text-muted-foreground uppercase">
               Onboarding de cliente
             </p>
@@ -41,6 +51,7 @@ export default async function LayoutOnboarding({
             token={token}
             atual={processo.passoAtual}
             gravados={gravados}
+            tipoCliente={processo.tipoCliente}
           />
         </aside>
 

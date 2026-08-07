@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { signIn } from "@/lib/auth-cliente";
 
 export default function Entrar() {
-  const router = useRouter();
   const [erro, setErro] = useState<string | null>(null);
   const [aEntrar, transicao] = useTransition();
 
@@ -78,60 +76,6 @@ export default function Entrar() {
           credenciais, fale com o seu gestor.
         </p>
       </div>
-
-      <ComoFunciona />
-    </div>
-  );
-}
-
-const PASSOS = [
-  {
-    numero: "01",
-    titulo: "Conta criada pela sociedade",
-    descricao:
-      "Não há registo público: a sociedade cria a conta e entrega-lhe as credenciais de acesso, já com o papel atribuído. Palavra-passe com mínimo de 12 caracteres.",
-  },
-  {
-    numero: "02",
-    titulo: "Entrar",
-    descricao: "Email + palavra-passe. Sessão de 8 horas, um dia de trabalho.",
-  },
-  {
-    numero: "03",
-    titulo: "Criar processos",
-    descricao:
-      "No Painel, o botão Novo processo gera o link mágico de onboarding — mostrado uma única vez. O cliente preenche os 7 passos, assina e submete.",
-  },
-  {
-    numero: "04",
-    titulo: "Ver os dados",
-    descricao:
-      "Lista de processos com pesquisa, detalhe com os 7 passos, risco e auditoria imutável com cadeia de hashes (nada se apaga nem se altera).",
-  },
-] as const;
-
-function ComoFunciona() {
-  return (
-    <div className="border-linha bg-papel-alto rounded-sm border p-6">
-      <h2 className="text-2xs mb-5 font-mono tracking-[0.16em] text-muted-foreground uppercase">
-        Como funciona a POC
-      </h2>
-      <ol className="flex flex-col gap-5">
-        {PASSOS.map((passo) => (
-          <li key={passo.numero} className="flex gap-4">
-            <span
-              className="border-latao/30 bg-latao/8 text-latao grid size-9 shrink-0 place-items-center rounded-full border font-mono text-sm font-medium tabular-nums"
-              aria-hidden="true"
-            >
-              {passo.numero}
-            </span>
-            <div>
-              <p className="text-sm font-medium">{passo.titulo}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{passo.descricao}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }

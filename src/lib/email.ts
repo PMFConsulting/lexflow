@@ -3,10 +3,17 @@ import { env } from "@/env";
 
 export type ResultadoEnvio = { ok: true } | { ok: false; erro: string };
 
+export type AnexoEmail = {
+  /** Nome com que o anexo chega à caixa de correio do cliente. */
+  nome: string;
+  conteudo: Buffer;
+};
+
 type ParametrosEmail = {
   para: string;
   assunto: string;
   html: string;
+  anexos?: AnexoEmail[];
 };
 
 /**
@@ -14,11 +21,17 @@ type ParametrosEmail = {
  * chave configurada, fica-se pelo log; qualquer erro na chamada é apanhado e
  * devolvido, não propagado.
  */
-export async function enviarEmail({ para, assunto, html }: ParametrosEmail): Promise<ResultadoEnvio> {
+export async function enviarEmail({
+  para,
+  assunto,
+  html,
+  anexos,
+}: ParametrosEmail): Promise<ResultadoEnvio> {
   const ambiente = env();
 
   if (!ambiente.RESEND_API_KEY) {
-    console.log(`[email] (sem chave) para=${para} assunto="${assunto}"`);
+    const lista = anexos?.length ? ` anexos=${anexos.map((a) => a.nome).join(",")}` : "";
+    console.log(`[email] (sem chave) para=${para} assunto="${assunto}"${lista}`);
     return { ok: false, erro: "RESEND_API_KEY não configurada" };
   }
 
@@ -34,6 +47,16 @@ export async function enviarEmail({ para, assunto, html }: ParametrosEmail): Pro
         to: [para],
         subject: assunto,
         html,
+        // O Resend quer o conteúdo em base64. Só se inclui a chave quando há
+        // anexos: um `attachments: []` faz a API responder 422.
+        ...(anexos?.length
+          ? {
+              attachments: anexos.map((a) => ({
+                filename: a.nome,
+                content: a.conteudo.toString("base64"),
+              })),
+            }
+          : {}),
       }),
     });
 

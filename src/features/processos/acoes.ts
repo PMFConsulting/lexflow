@@ -4,18 +4,46 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { env } from "@/env";
 import { contadorReferencia, organizacao } from "@/db/schema/organizacao";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
+import { enviarEmail } from "@/lib/email";
+import { ASSUNTO_REGISTO, emailRegisto } from "@/lib/emails/jmassano";
 import { expiraDaquiA, gerarToken, hashToken } from "@/lib/token";
+
+/**
+ * O endereço público desta instalação, para montar o link que vai no email.
+ *
+ * Sai dos cabeçalhos do pedido e não de uma constante: entre o `localhost` do
+ * desenvolvimento e o `poc.terlicalabs.com` de produção, um valor fixo mandava
+ * metade dos clientes para o sítio errado. O `BETTER_AUTH_URL` fica como
+ * recurso para quando isto correr fora de um pedido.
+ */
+async function origemPublica(): Promise<string> {
+  const h = await headers();
+  const anfitriao = h.get("x-forwarded-host") ?? h.get("host");
+  if (!anfitriao) return env().BETTER_AUTH_URL.replace(/\/+$/, "");
+
+  const protocolo = h.get("x-forwarded-proto") ?? (anfitriao.startsWith("localhost") ? "http" : "https");
+  return `${protocolo}://${anfitriao}`;
+}
 
 /**
  * Cria um processo e devolve o link mágico.
  *
  * O token em claro é devolvido uma única vez, aqui — depois disto só existe o
  * hash na base de dados. Quem perder o link pede outro; ninguém o recupera.
+ *
+ * Com `emailCliente`, o link segue também por email ("JMASSANO | Registro").
+ * O envio nunca faz falhar a criação: o processo já existe e o link continua a
+ * ser mostrado no ecrã, que é a forma de o recuperar quando o email não sai.
  */
-export async function criarProcesso(tipoCliente: "particular" | "empresa" = "particular") {
+export async function criarProcesso(
+  tipoCliente: "particular" | "empresa" = "particular",
+  emailCliente?: string,
+  nomeCliente?: string,
+) {
   const base = db();
 
   const [org] = await base.select().from(organizacao).limit(1);
@@ -90,6 +118,32 @@ export async function criarProcesso(tipoCliente: "particular" | "empresa" = "par
     userAgent: h.get("user-agent") ?? null,
   });
 
+  const link = `${await origemPublica()}/onboarding/${token}`;
+  let emailEnviado = false;
+
+  if (emailCliente) {
+    const r = await enviarEmail({
+      para: emailCliente,
+      assunto: ASSUNTO_REGISTO,
+      html: emailRegisto({ nome: nomeCliente, link }),
+    });
+    emailEnviado = r.ok;
+
+    // O envio fica em auditoria mesmo quando falha: um link de acesso a um
+    // processo que sai por email é um acontecimento, e saber que não saiu é
+    // tão relevante como saber que saiu.
+    await registarEvento({
+      organizacaoId: org.id,
+      processoId: processo.id,
+      acao: r.ok ? "link.enviado" : "link.envio_falhou",
+      entidade: "processo_onboarding",
+      entidadeId: processo.id,
+      valorNovo: { para: emailCliente, ...(r.ok ? {} : { erro: r.erro }) },
+      ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      userAgent: h.get("user-agent") ?? null,
+    });
+  }
+
   revalidatePath("/");
-  return { ok: true as const, referencia, token, processoId: processo.id };
+  return { ok: true as const, referencia, token, processoId: processo.id, emailEnviado };
 }

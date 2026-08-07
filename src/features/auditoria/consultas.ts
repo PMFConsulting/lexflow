@@ -26,7 +26,12 @@ export async function auditoriaDoProcesso(processoId: string) {
 /** Rótulos legíveis. Um registo que só a equipa técnica lê não serve de prova. */
 export const ACOES: Record<string, string> = {
   "processo.criado": "Processo criado",
+  "link.enviado": "Link de registo enviado ao cliente",
+  "link.envio_falhou": "Falha ao enviar o link de registo",
   "processo.submetido": "Processo submetido pelo cliente",
+  "email.confirmacao_enviado": "Email de confirmação de receção enviado",
+  "email.boas_vindas_enviado": "Email de boas-vindas enviado",
+  "email.falhou": "Falha no envio de email ao cliente",
   "risco.elevado": "Nível de risco elevado para elevado",
   "assinatura.criada": "Assinatura recolhida",
   "documento.carregado": "Documento carregado",

@@ -106,6 +106,15 @@ export function CampoTexto({
   );
 }
 
+/**
+ * Caixa de texto livre, com sugestões clicáveis por baixo.
+ *
+ * As sugestões existem porque estas duas perguntas — que serviços e de onde
+ * vêm os fundos — são as que o cliente menos sabe responder por palavras
+ * dele, e uma lista de exemplos escondida numa linha de ajuda não se usa.
+ * Clicar acrescenta ao que já lá está em vez de substituir: quase nunca é uma
+ * escolha única ("Avença" *e* "Questões Laborais").
+ */
 export function CampoLongo({
   etiqueta,
   nome,
@@ -113,6 +122,7 @@ export function CampoLongo({
   ajuda,
   obrigatorio,
   valorInicial = "",
+  sugestoes,
 }: {
   etiqueta: string;
   nome: string;
@@ -120,18 +130,70 @@ export function CampoLongo({
   ajuda?: string;
   obrigatorio?: boolean;
   valorInicial?: string;
+  sugestoes?: string[];
 }) {
+  const [valor, setValor] = useState(valorInicial);
+
+  const juntar = (sugestao: string) => {
+    setValor((atual) => {
+      const limpo = atual.trim();
+      // Já lá está: clicar outra vez tira-a, que é o que quem se enganou espera.
+      const partes = limpo
+        ? limpo.split(/\s*\/\s*/).map((p) => p.trim()).filter(Boolean)
+        : [];
+      const seguintes = partes.includes(sugestao)
+        ? partes.filter((p) => p !== sugestao)
+        : [...partes, sugestao];
+      return seguintes.join(" / ");
+    });
+  };
+
   return (
     <Campo etiqueta={etiqueta} nome={nome} erros={erros} ajuda={ajuda} obrigatorio={obrigatorio}>
       {({ id, descrito, invalido }) => (
-        <Textarea
-          id={id}
-          name={nome}
-          rows={3}
-          defaultValue={valorInicial}
-          aria-invalid={invalido}
-          aria-describedby={descrito || undefined}
-        />
+        <>
+          <Textarea
+            id={id}
+            name={nome}
+            rows={3}
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            aria-invalid={invalido}
+            aria-describedby={descrito || undefined}
+          />
+          {sugestoes && sugestoes.length > 0 && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <p className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+                Sugestões
+              </p>
+              <ul className="flex flex-wrap gap-1.5">
+                {sugestoes.map((s) => {
+                  const escolhida = valor
+                    .split(/\s*\/\s*/)
+                    .map((p) => p.trim())
+                    .includes(s);
+                  return (
+                    <li key={s}>
+                      <button
+                        type="button"
+                        onClick={() => juntar(s)}
+                        aria-pressed={escolhida}
+                        className={cn(
+                          "border-linha rounded-sm border px-2 py-1 text-xs transition-colors",
+                          escolhida
+                            ? "border-tinta bg-tinta text-papel-alto"
+                            : "bg-papel-alto hover:border-tinta-suave",
+                        )}
+                      >
+                        {s}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </Campo>
   );
@@ -299,26 +361,53 @@ export function CampoRadio({
   );
 }
 
-/** Multi-seleção — áreas de interesse e afins. Cada escolha é um input próprio. */
+/**
+ * Multi-seleção — áreas de interesse e afins. Cada escolha é um input próprio.
+ *
+ * Com `permitirOutro`, junta-se uma última caixa com um campo de texto ao lado.
+ * O que lá for escrito entra na lista como mais um valor, sem coluna nem
+ * tabela própria: a lista já é de texto livre, e o que interessa guardar é a
+ * área que o cliente indicou, não o facto de ela ter vindo de uma caixa
+ * diferente. Ao recarregar, o valor que não corresponde a nenhuma opção
+ * conhecida é, por definição, o "outro".
+ */
 export function CampoCaixas({
   etiqueta,
   nome,
   erros,
   opcoes,
   valorInicial = [],
+  permitirOutro,
+  etiquetaOutro = "Outro",
+  placeholderOutro,
 }: {
   etiqueta: string;
   nome: string;
   erros?: Record<string, string[]>;
   opcoes: { valor: string; texto: string }[];
   valorInicial?: string[];
+  permitirOutro?: boolean;
+  etiquetaOutro?: string;
+  placeholderOutro?: string;
 }) {
-  const [itens, setItens] = useState<string[]>(valorInicial);
+  const conhecidas = opcoes.map((o) => o.valor);
+  const outroInicial = permitirOutro
+    ? (valorInicial.find((v) => !conhecidas.includes(v)) ?? "")
+    : "";
+
+  const [itens, setItens] = useState<string[]>(
+    valorInicial.filter((v) => conhecidas.includes(v)),
+  );
+  const [querOutro, setQuerOutro] = useState(Boolean(outroInicial));
+  const [outro, setOutro] = useState(outroInicial);
   const erro = erros?.[nome]?.[0];
 
   const alternar = (v: string) => {
     setItens((atual) => (atual.includes(v) ? atual.filter((x) => x !== v) : [...atual, v]));
   };
+
+  const idOutro = `${nome}-outro`;
+  const outroLimpo = outro.trim();
 
   return (
     <fieldset className="flex flex-col gap-2.5">
@@ -326,6 +415,9 @@ export function CampoCaixas({
       {itens.map((v) => (
         <input key={v} type="hidden" name={nome} value={v} />
       ))}
+      {querOutro && outroLimpo && !itens.includes(outroLimpo) && (
+        <input type="hidden" name={nome} value={outroLimpo} />
+      )}
       <div className="flex flex-col gap-2.5">
         {opcoes.map((o) => {
           const id = `${nome}-${o.valor}`;
@@ -343,6 +435,34 @@ export function CampoCaixas({
             </div>
           );
         })}
+
+        {permitirOutro && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start gap-2.5">
+              <Checkbox
+                id={idOutro}
+                checked={querOutro}
+                onCheckedChange={(v) => setQuerOutro(v === true)}
+                className="mt-0.5 size-5 md:size-4"
+              />
+              <Label htmlFor={idOutro} className="py-0.5 text-sm leading-snug font-normal">
+                {etiquetaOutro}
+              </Label>
+            </div>
+            {querOutro && (
+              // Sem `name`: quem leva o valor ao servidor é o input escondido
+              // acima, já dentro da lista. Dois nomes para o mesmo texto davam
+              // duas versões dele no corpo do pedido.
+              <Input
+                value={outro}
+                placeholder={placeholderOutro}
+                onChange={(e) => setOutro(e.target.value)}
+                aria-label={etiquetaOutro}
+                className="sm:max-w-md"
+              />
+            )}
+          </div>
+        )}
       </div>
       {erro && (
         <p className="text-xs text-selo" role="alert">
@@ -359,30 +479,42 @@ export function CampoCaixa({
   erros,
   valorInicial = false,
   onChange,
+  desativado,
+  ajudaDesativado,
 }: {
   etiqueta: ReactNode;
   nome: string;
   erros?: Record<string, string[]>;
   valorInicial?: boolean;
   onChange?: (v: boolean) => void;
+  /** Trancada até uma condição ser cumprida — a leitura dos T&C, por exemplo. */
+  desativado?: boolean;
+  /** O que falta fazer para a destrancar. Só aparece enquanto estiver trancada. */
+  ajudaDesativado?: string;
 }) {
   const id = useId();
   const [ligado, setLigado] = useState(valorInicial);
   const erro = erros?.[nome]?.[0];
 
+  // Uma caixa que ficou marcada e passou a estar trancada não pode continuar a
+  // valer como aceitação: o valor submetido segue o estado visível.
+  const marcado = ligado && !desativado;
+
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-start gap-2.5">
-        <input type="hidden" name={nome} value={String(ligado)} />
+      <div className={cn("flex items-start gap-2.5", desativado && "opacity-55")}>
+        <input type="hidden" name={nome} value={String(marcado)} />
         <Checkbox
           id={id}
-          checked={ligado}
+          checked={marcado}
+          disabled={desativado}
           onCheckedChange={(v) => {
             const b = v === true;
             setLigado(b);
             onChange?.(b);
           }}
           aria-invalid={Boolean(erro)}
+          aria-describedby={desativado && ajudaDesativado ? `${id}-tranca` : undefined}
           // Alvo maior no telemóvel: 16px de caixa é pouco para acertar com o
           // dedo, e estas caixas são declarações que não se querem falhadas.
           className="mt-0.5 size-5 md:size-4"
@@ -391,6 +523,11 @@ export function CampoCaixa({
           {etiqueta}
         </Label>
       </div>
+      {desativado && ajudaDesativado && (
+        <p id={`${id}-tranca`} className="text-xs text-muted-foreground">
+          {ajudaDesativado}
+        </p>
+      )}
       {erro && (
         <p className="text-xs text-selo" role="alert">
           {erro}

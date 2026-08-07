@@ -35,8 +35,8 @@ import {
  * identificar o dossier na pasta. Fica de fora, deliberadamente, tudo o que a
  * pasta não precisa de ter em claro — a declaração de PPE, a origem de fundos,
  * o número e a validade do documento de identificação, a morada completa e a
- * rubrica. Esses vivem na aplicação, com o controlo de acesso por papel que a
- * pasta de um OneDrive não tem.
+ * rubrica. Esses vivem na aplicação, com o controlo de acesso por papel que
+ * uma pasta no servidor de arquivo não tem.
  */
 
 export type DadosResumo = {

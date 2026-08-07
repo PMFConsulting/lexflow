@@ -17,8 +17,8 @@ import { nomeSeguro, nomeSeguroDeFicheiro, type Ficheiro } from "./tipos";
  * sociedade, com o resumo e os anexos que o cliente carregou.
  *
  * A regra que manda em tudo o resto neste ficheiro: **isto nunca bloqueia uma
- * submissão**. O cliente já preencheu sete ecrãs e carregou o cartão de
- * cidadão; um refresh token expirado do lado da sociedade não pode ser o que
+ * submissão**. O cliente já preencheu os ecrãs todos e carregou o cartão de
+ * cidadão; uma palavra-passe mudada do lado da sociedade não pode ser o que
  * lhe aparece no fim. Falha o que falhar, fica em `evento_auditoria` com a
  * ação `armazenamento.erro` e na coluna `ultimo_erro` da configuração, que é
  * o que o back-office mostra.
@@ -33,9 +33,53 @@ const SUMARIO = "summary.pdf";
 
 /**
  * A capa da pasta. O nome não é escolha nossa: é o que o auxiliar em Python
- * já deixava em cada pasta do OneDrive, e é por ele que se procura o dossier.
+ * já deixava em cada pasta de cliente, e é por ele que se procura o dossier.
  */
 const CAPA = "dados_cliente.pdf";
+
+/**
+ * Os dados do resumo, lidos do processo.
+ *
+ * Separado da sincronização porque o mesmo resumo vai por dois caminhos — a
+ * pasta no arquivo e o anexo do email de boas-vindas — e o cliente e a
+ * sociedade não podem ficar com versões diferentes do mesmo documento.
+ */
+async function dadosDoResumo(
+  processo: typeof processoOnboarding.$inferSelect,
+): Promise<DadosResumo> {
+  const seccoes = await seccoesDoProcesso(processo.id);
+
+  return {
+    referencia: processo.referencia,
+    nome: seccoes.identificacao?.nome ?? "Sem nome",
+    tipoCliente: processo.tipoCliente,
+    nif: seccoes.fiscais?.nif ?? null,
+    email: seccoes.identificacao?.email ?? null,
+    telefone: seccoes.identificacao?.telefone ?? null,
+    nacionalidades: seccoes.nacionalidades,
+    servicos: seccoes.negocio?.servicos ?? null,
+    faturacaoNome: seccoes.faturacao?.nome ?? null,
+    faturacaoNif: seccoes.faturacao?.nif ?? null,
+    faturacaoEmail: seccoes.faturacao?.email ?? null,
+    origemContacto: seccoes.preferencias?.origemContacto ?? null,
+    areasInteresse: seccoes.areasInteresse,
+    newsletter: seccoes.preferencias?.newsletter ?? false,
+    submetidoEm: processo.submetidoEm,
+    documentos: seccoes.documentos.map((d) => ({
+      nome: d.nome,
+      tipo: d.tipo,
+      bytes: d.bytes,
+    })),
+    geradoEm: new Date(),
+  };
+}
+
+/** O `summary.pdf` de um processo, para quem o quiser fora da sincronização. */
+export async function resumoDoProcesso(
+  processo: typeof processoOnboarding.$inferSelect,
+): Promise<Buffer> {
+  return gerarResumoPdf(await dadosDoResumo(processo));
+}
 
 export async function sincronizarCliente(
   processo: typeof processoOnboarding.$inferSelect,
@@ -51,31 +95,7 @@ export async function sincronizarCliente(
   const base = db();
 
   try {
-    const seccoes = await seccoesDoProcesso(processo.id);
-
-    const dados: DadosResumo = {
-      referencia: processo.referencia,
-      nome: seccoes.identificacao?.nome ?? "Sem nome",
-      tipoCliente: processo.tipoCliente,
-      nif: seccoes.fiscais?.nif ?? null,
-      email: seccoes.identificacao?.email ?? null,
-      telefone: seccoes.identificacao?.telefone ?? null,
-      nacionalidades: seccoes.nacionalidades,
-      servicos: seccoes.negocio?.servicos ?? null,
-      faturacaoNome: seccoes.faturacao?.nome ?? null,
-      faturacaoNif: seccoes.faturacao?.nif ?? null,
-      faturacaoEmail: seccoes.faturacao?.email ?? null,
-      origemContacto: seccoes.preferencias?.origemContacto ?? null,
-      areasInteresse: seccoes.areasInteresse,
-      newsletter: seccoes.preferencias?.newsletter ?? false,
-      submetidoEm: processo.submetidoEm,
-      documentos: seccoes.documentos.map((d) => ({
-        nome: d.nome,
-        tipo: d.tipo,
-        bytes: d.bytes,
-      })),
-      geradoEm: new Date(),
-    };
+    const dados = await dadosDoResumo(processo);
 
     const pasta = nomeDaPasta(dados.nome, dados.nif);
     const raiz = config.pastaRaiz.split("/").filter(Boolean).map((s) => nomeSeguro(s, "Clientes"));
@@ -141,8 +161,8 @@ export async function sincronizarCliente(
       }),
     });
 
-    // Em série e não em paralelo: são poucos ficheiros, e um OneDrive
-    // respondeu com 429 a menos do que isto.
+    // Em série e não em paralelo: são poucos ficheiros, e cada um abre a sua
+    // sessão SSH — em paralelo, o servidor corta ligações a meio do envio.
     for (const ficheiro of ficheiros) {
       await destino.enviar(segmentos, ficheiro);
     }
@@ -159,7 +179,6 @@ export async function sincronizarCliente(
       entidade: "armazenamento_sociedade",
       entidadeId: config.id,
       valorNovo: {
-        tipo: config.tipo,
         pasta: segmentos.join("/"),
         ficheiros: ficheiros.map((f) => f.nome),
       },
@@ -183,7 +202,7 @@ export async function sincronizarCliente(
         acao: "armazenamento.erro",
         entidade: "armazenamento_sociedade",
         entidadeId: config.id,
-        valorNovo: { tipo: config.tipo, erro },
+        valorNovo: { erro },
       });
     } catch (interno) {
       console.error("[armazenamento] falha a registar o erro", mensagemSegura(interno));

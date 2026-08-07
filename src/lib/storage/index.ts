@@ -3,14 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { armazenamentoSociedade } from "@/db/schema/armazenamento";
 import { chaveDeAmbiente, decifrar } from "./cifra";
-import { criarDestinoOneDrive } from "./onedrive";
 import { criarDestinoServidor } from "./servidor";
-import {
-  parametrosOneDrive,
-  parametrosServidor,
-  type Destino,
-  type TipoArmazenamento,
-} from "./tipos";
+import { parametrosServidor, type Destino } from "./tipos";
 
 export type ConfiguracaoArmazenamento = typeof armazenamentoSociedade.$inferSelect;
 
@@ -71,14 +65,12 @@ export async function destinoDaOrganizacao(organizacaoId: string): Promise<{
   }
 
   const claros = decifrar(config.parametros, chave);
-  return { destino: criarDestino(config.tipo, claros), config };
+  return { destino: criarDestino(claros), config };
 }
 
-/** A fábrica por tipo. Os parâmetros revalidam-se aqui: vieram de fora do código. */
-export function criarDestino(tipo: TipoArmazenamento, parametros: unknown): Destino {
-  return tipo === "onedrive"
-    ? criarDestinoOneDrive(parametrosOneDrive.parse(parametros))
-    : criarDestinoServidor(parametrosServidor.parse(parametros));
+/** A fábrica. Os parâmetros revalidam-se aqui: vieram de fora do código. */
+export function criarDestino(parametros: unknown): Destino {
+  return criarDestinoServidor(parametrosServidor.parse(parametros));
 }
 
-export type { Destino, TipoArmazenamento } from "./tipos";
+export type { Destino } from "./tipos";

@@ -1,14 +1,12 @@
 import { z } from "zod";
 
 /**
- * O contrato que todos os destinos cumprem, e os nomes que lá chegam.
+ * O contrato que o destino cumpre, e os nomes que lá chegam.
  *
  * Nada aqui toca na base de dados nem na rede — é o que permite testar a
  * limpeza de nomes, que é a parte com mais arestas: o nome do cliente vem de
  * um formulário público e transforma-se num caminho de ficheiro.
  */
-
-export type TipoArmazenamento = "onedrive" | "servidor";
 
 /**
  * Envelope de cifra dos parâmetros, tal como fica na coluna JSONB.
@@ -30,38 +28,23 @@ export type EnvelopeCifrado = {
 /* --------------------------------------------------------------- parâmetros */
 
 /**
- * OneDrive / Microsoft Graph. O `tokenRefresh` obtém-se uma vez, no consentimento
- * inicial da sociedade, e é trocado por um access token a cada sincronização.
- */
-export const parametrosOneDrive = z.object({
-  tenantId: z.string().min(1, "tenant_id em falta"),
-  clientId: z.string().min(1, "client_id em falta"),
-  clientSecret: z.string().min(1).optional(),
-  tokenRefresh: z.string().min(1, "token_refresh em falta"),
-  /**
-   * Drive de destino. Sem valor, usa o OneDrive do utilizador que deu
-   * consentimento; com um id de drive, aponta para a biblioteca de documentos
-   * de um SharePoint.
-   */
-  driveId: z.string().min(1).optional(),
-});
-
-export type ParametrosOneDrive = z.infer<typeof parametrosOneDrive>;
-
-/**
- * Servidor à escolha da sociedade. Dois protocolos, ambos cifrados em trânsito:
- * WebDAV sobre HTTPS ou SFTP sobre SSH. Não há terceira opção de propósito —
- * FTP simples e HTTP não entram num sistema que transporta documentos de
- * identificação.
+ * Servidor dedicado da sociedade, por SFTP sobre SSH. Um só protocolo, e de
+ * propósito: FTP simples, HTTP e WebDAV em claro não entram num sistema que
+ * transporta documentos de identificação, e um serviço de terceiros como o
+ * OneDrive tira à sociedade o controlo de onde o dossier fica.
+ *
+ * O `protocolo` fica no schema, fixo em "sftp", para que a configuração já
+ * gravada e cifrada continue a ser lida — e para que uma configuração antiga
+ * noutro protocolo falhe à entrada em vez de ser tratada como SFTP.
  */
 export const parametrosServidor = z.object({
-  protocolo: z.enum(["webdav", "sftp"]),
+  protocolo: z.literal("sftp").default("sftp"),
   host: z.string().min(1, "host em falta"),
   porta: z.number().int().positive().max(65535).optional(),
   utilizador: z.string().min(1, "utilizador em falta"),
-  /** Palavra-passe (webdav e sftp) ou frase-passe da chave (sftp). */
+  /** Palavra-passe do utilizador, ou frase-passe da chave privada. */
   segredo: z.string().min(1).optional(),
-  /** Caminho de uma chave privada no servidor da aplicação — só sftp. */
+  /** Caminho de uma chave privada no servidor da aplicação. */
   chavePrivada: z.string().min(1).optional(),
   /**
    * SHA-256 da chave pública do host, como o `curl --hostpubsha256` a quer.
@@ -69,18 +52,16 @@ export const parametrosServidor = z.object({
    * responder — que é exatamente o buraco que o SSH existe para tapar.
    */
   impressaoDigitalHost: z.string().min(1).optional(),
-  /** Prefixo do WebDAV, quando o servidor o expõe fora da raiz. */
+  /** Prefixo do arquivo, quando a conta não aterra na raiz que interessa. */
   caminhoBase: z.string().optional(),
 });
 
 export type ParametrosServidor = z.infer<typeof parametrosServidor>;
 
-export type Parametros = ParametrosOneDrive | ParametrosServidor;
+export type Parametros = ParametrosServidor;
 
-export function validarParametros(tipo: TipoArmazenamento, valor: unknown): Parametros {
-  return tipo === "onedrive"
-    ? parametrosOneDrive.parse(valor)
-    : parametrosServidor.parse(valor);
+export function validarParametros(valor: unknown): Parametros {
+  return parametrosServidor.parse(valor);
 }
 
 /* ----------------------------------------------------------------- destinos */
@@ -94,7 +75,6 @@ export type Ficheiro = {
 export type Verificacao = { ok: boolean; detalhe: string };
 
 export interface Destino {
-  readonly tipo: TipoArmazenamento;
   /** Cria a pasta e as intermédias que faltarem. Idempotente. */
   garantirPasta(segmentos: string[]): Promise<void>;
   /** Escreve (ou substitui) um ficheiro dentro da pasta. */
@@ -111,7 +91,11 @@ const RESERVADOS_WINDOWS = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 /** Caracteres de controlo, incluindo o DEL. */
 const CONTROLO = new RegExp("[\u0000-\u001f\u007f]", "g");
 
-/** O que o Windows, o OneDrive e o SharePoint recusam num nome. */
+/**
+ * O que o Windows recusa num nome. O arquivo vive num servidor Linux, mas as
+ * pastas são abertas no Explorador de quem trabalha no escritório: um nome que
+ * o Windows não consegue copiar é um dossier que ninguém abre.
+ */
 const PROIBIDOS = /[\\/:*?"<>|#%~]/g;
 
 /**
@@ -120,8 +104,8 @@ const PROIBIDOS = /[\\/:*?"<>|#%~]/g;
  *
  * Tira separadores de caminho e reduz sequências de pontos (um nome como
  * `../../etc` não pode sair da pasta de destino), tira os caracteres que o
- * Windows e o SharePoint recusam, tira os de controlo, e corta o comprimento.
- * Devolve `alternativa` quando não sobra nada de útil.
+ * Windows recusa, tira os de controlo, e corta o comprimento. Devolve
+ * `alternativa` quando não sobra nada de útil.
  */
 export function nomeSeguro(bruto: string | null | undefined, alternativa = "Sem Nome"): string {
   const base = (bruto ?? "")
@@ -139,7 +123,7 @@ export function nomeSeguro(bruto: string | null | undefined, alternativa = "Sem 
   const oculto = /^\s*\./.test(base);
 
   let limpo = base
-    // O SharePoint recusa nomes com ponto ou espaço no início.
+    // Ponto ou espaço no início dá pastas que se comportam mal em quase todo o lado.
     .replace(/^[.\s]+/, "")
     .replace(/\s+$/, "")
     .slice(0, 120)

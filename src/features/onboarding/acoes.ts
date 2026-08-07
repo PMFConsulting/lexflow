@@ -6,8 +6,13 @@ import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { env } from "@/env";
-import { enviarEmail } from "@/lib/email";
-import { TERMOS_CONDICOES_EMAIL } from "@/lib/termos";
+import { enviarEmail, type AnexoEmail } from "@/lib/email";
+import {
+  ASSUNTO_BOAS_VINDAS,
+  ASSUNTO_CONFIRMACAO,
+  emailBoasVindas,
+  emailConfirmacaoRececao,
+} from "@/lib/emails/jmassano";
 import { assinatura } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import {
@@ -28,7 +33,7 @@ import { registarEvento } from "@/features/auditoria/registar";
 import { registarConsentimento } from "./consentimentos";
 import { processoPorToken, seccoesDoProcesso } from "./dados";
 import { SCHEMAS } from "./schemas";
-import { proximoPasso } from "./passos";
+import { passoAplicavel, proximoPasso } from "./passos";
 
 /**
  * Guardar um passo.
@@ -76,6 +81,19 @@ export async function guardarPasso(
   const schema = SCHEMAS[n as keyof typeof SCHEMAS];
   if (!schema) return { ok: false, erros: {}, mensagem: "Passo inválido." };
 
+  // O tipo de cliente decide o percurso, e é o passo 1 que o pode mudar a meio
+  // desta chamada — daí a variável, atualizada no `case 1` antes de se calcular
+  // qual é o passo seguinte.
+  let tipoCliente = processo.tipoCliente;
+
+  if (!passoAplicavel(n, tipoCliente)) {
+    return {
+      ok: false,
+      erros: {},
+      mensagem: "Este passo não se aplica a este processo.",
+    };
+  }
+
   const r = schema.safeParse(dados);
   if (!r.success) {
     const erros: Record<string, string[]> = {};
@@ -96,10 +114,12 @@ export async function guardarPasso(
 
   switch (n) {
     case 1: {
-      const { tipoCliente, nacionalidades, ...resto } = v as {
+      const { tipoCliente: escolhido, nacionalidades, ...resto } = v as {
         tipoCliente: "particular" | "empresa";
         nacionalidades: string[];
       } & Linha;
+
+      tipoCliente = escolhido;
 
       await base
         .insert(dadosIdentificacao)
@@ -136,6 +156,24 @@ export async function guardarPasso(
         .update(processoOnboarding)
         .set({ tipoCliente })
         .where(eq(processoOnboarding.id, processo.id));
+
+      // Trocar de empresa para pessoa singular tira o passo 3 do percurso. O
+      // que lá tivesse sido gravado deixa de ter sentido e não pode ficar a
+      // apodrecer no dossier: apareceria no PDF do arquivo e no back-office
+      // como se ainda descrevesse o processo.
+      if (tipoCliente === "particular") {
+        await base
+          .delete(representanteLegal)
+          .where(eq(representanteLegal.processoId, processo.id));
+        await base
+          .delete(nacionalidade)
+          .where(
+            and(
+              eq(nacionalidade.processoId, processo.id),
+              eq(nacionalidade.titular, "representante"),
+            ),
+          );
+      }
       break;
     }
 
@@ -162,10 +200,10 @@ export async function guardarPasso(
         return typeof bruto === "string" && bruto ? bruto : null;
       };
 
-      // Sem representante, o passo grava-se na mesma — com o interruptor a
-      // `false` e o resto a null. Uma linha em branco é a prova de que a
-      // pergunta foi feita e respondida; a ausência de linha não distingue
-      // "não tem" de "ainda não chegou aqui".
+      // Com "Sim" — quem preenche é o representante legal — o passo grava-se na
+      // mesma, com o interruptor a `true` e o resto a null. Uma linha em branco
+      // é a prova de que a pergunta foi feita e respondida; a ausência de linha
+      // não distingue isso de "ainda não chegou aqui".
       const valores = {
         eRepresentante,
         relacao: texto("relacao"),
@@ -200,7 +238,7 @@ export async function guardarPasso(
           ),
         );
 
-      if (eRepresentante && nacionalidades.length) {
+      if (!eRepresentante && nacionalidades.length) {
         await base.insert(nacionalidade).values(
           nacionalidades.map((pais) => ({
             processoId: processo.id,
@@ -391,7 +429,7 @@ export async function guardarPasso(
     userAgent,
   });
 
-  const seguinte = proximoPasso(n);
+  const seguinte = proximoPasso(n, tipoCliente);
 
   await base
     .update(processoOnboarding)
@@ -497,14 +535,24 @@ async function arquivarNoArmazenamento(processo: typeof processoOnboarding.$infe
 }
 
 /**
- * Emails de confirmação depois de o processo já estar submetido — uma falha
- * de envio não pode impedir a submissão, por isso vive à parte e nunca lança.
+ * Os emails que saem quando um processo é submetido.
+ *
+ * Dois para o cliente — a confirmação de receção e, logo a seguir, as
+ * boas-vindas com os anexos — e um para a sociedade. Nenhum deles pode impedir
+ * a submissão: o processo já está gravado, e um erro do Resend não transforma
+ * um formulário bem preenchido num ecrã de erro. Daí o `Promise.allSettled` e o
+ * facto de nada aqui lançar.
+ *
+ * A confirmação e as boas-vindas vão as duas na submissão porque a POC não tem
+ * passo de aprovação (D20) — não há um segundo momento em que dar as
+ * boas-vindas. Se o fluxo de aprovação voltar, o segundo email muda de sítio,
+ * não de conteúdo.
  */
 async function notificarSubmissao(processo: typeof processoOnboarding.$inferSelect) {
   const base = db();
 
   const [identificacao] = await base
-    .select({ email: dadosIdentificacao.email })
+    .select({ email: dadosIdentificacao.email, nome: dadosIdentificacao.nome })
     .from(dadosIdentificacao)
     .where(eq(dadosIdentificacao.processoId, processo.id))
     .limit(1);
@@ -516,6 +564,7 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
     .limit(1);
 
   const emailCliente = identificacao?.email ?? faturacao?.email;
+  const nomeCliente = identificacao?.nome ?? null;
   const emailBackoffice = env().EMAIL_NOTIFICACOES ?? "ummgames88@gmail.com";
 
   const envios: Promise<unknown>[] = [];
@@ -524,15 +573,12 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
     envios.push(
       enviarEmail({
         para: emailCliente,
-        assunto: `Processo ${processo.referencia} submetido com sucesso`,
-        html: `
-          <p>O seu processo <strong>${processo.referencia}</strong> foi submetido com sucesso.</p>
-          <p>A nossa equipa vai analisar os dados e documentos enviados. Entraremos em
-          contacto caso seja necessária alguma informação adicional.</p>
-          ${TERMOS_CONDICOES_EMAIL}
-        `,
+        assunto: ASSUNTO_CONFIRMACAO,
+        html: emailConfirmacaoRececao(),
       }),
     );
+
+    envios.push(enviarBoasVindas(processo, emailCliente, nomeCliente));
   }
 
   envios.push(
@@ -556,4 +602,72 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
       console.error("[email] falha ao notificar submissão", resultado.reason);
     }
   }
+}
+
+/**
+ * O email de boas-vindas, com os três anexos.
+ *
+ * O resumo das informações é o mesmo `summary.pdf` que vai para a pasta do
+ * cliente no arquivo — gerado do mesmo sítio, para o cliente e a sociedade não
+ * ficarem com versões diferentes do mesmo documento. Os T&C são a cópia do
+ * articulado que ele aceitou. A proposta de honorários é o PDF que está em
+ * `public/`, e é o único dos três que não é gerado: enquanto não houver
+ * proposta por cliente, é o mesmo documento para todos.
+ *
+ * Um anexo que falhe a gerar-se não trava o email — vale mais chegar com dois
+ * anexos e uma lista honesta do que não chegar de todo.
+ */
+async function enviarBoasVindas(
+  processo: typeof processoOnboarding.$inferSelect,
+  para: string,
+  nome: string | null,
+) {
+  const anexos: AnexoEmail[] = [];
+  const rotulos: string[] = [];
+
+  const juntar = async (
+    rotulo: string,
+    nomeFicheiro: string,
+    produzir: () => Promise<Buffer>,
+  ) => {
+    try {
+      anexos.push({ nome: nomeFicheiro, conteudo: await produzir() });
+      rotulos.push(rotulo);
+    } catch (e) {
+      console.error(`[email] anexo "${nomeFicheiro}" não foi gerado`, e);
+    }
+  };
+
+  // Os rótulos são os do documento de análise do cliente: é esta a lista que
+  // ele escreveu no corpo do email de boas-vindas.
+  await juntar(
+    "Resumo das informações fornecidas durante o processo de registo",
+    "resumo_do_processo.pdf",
+    async () => {
+      const { resumoDoProcesso } = await import("@/lib/storage/sincronizar");
+      return resumoDoProcesso(processo);
+    },
+  );
+
+  await juntar(
+    "Termos e Condições de Prestação de Serviços (T&C)",
+    "termos_e_condicoes.pdf",
+    async () => {
+      const { gerarTermosPdf } = await import("@/lib/storage/termos-pdf");
+      return gerarTermosPdf(new Date());
+    },
+  );
+
+  await juntar("Proposta de Honorários", "proposta_de_honorarios.pdf", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    return readFile(join(process.cwd(), "public", "custos.pdf"));
+  });
+
+  return enviarEmail({
+    para,
+    assunto: ASSUNTO_BOAS_VINDAS,
+    html: emailBoasVindas({ nome, referencia: processo.referencia, anexos: rotulos }),
+    anexos,
+  });
 }

@@ -6,6 +6,7 @@ import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { facetas, listarProcessos } from "@/features/processos/consultas";
 import { Filtros } from "@/features/processos/componentes/Filtros";
+import { passosAntesDe, passosDoProcesso } from "@/features/onboarding/passos";
 import { exigirSessao } from "@/lib/sessao";
 
 export const metadata = { title: "Processos" };
@@ -125,7 +126,10 @@ export default async function Processos({
                       <EstadoBadge estado={p.estado} />
                     </td>
                     <td className="px-3 py-2.5">
-                      <Carimbos concluidos={Math.max(0, p.passoAtual - 1)} />
+                      <Carimbos
+                        concluidos={passosAntesDe(p.passoAtual, p.tipoCliente)}
+                        total={passosDoProcesso(p.tipoCliente).length}
+                      />
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       <Ref className="text-xs text-muted-foreground">
