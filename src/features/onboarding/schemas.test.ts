@@ -101,6 +101,20 @@ describe("passo 2 — percurso Empresa", () => {
     expect(campos({ ...empresa, nif: "213456789" })).toEqual(["nif"]);
   });
 
+  /**
+   * Os três campos da entidade são `<select>`/`<input>` que mandam string vazia
+   * enquanto ninguém lhes tocar, e o `carga()` do `Formulario` converte-os para
+   * `undefined` com `|| undefined`. Sem essa conversão o `z.enum().optional()`
+   * recebe `""`, que não é opção nenhuma, e o passo trava num campo opcional que
+   * o cliente nunca abriu — "Falta corrigir um campo" sobre o Regime de IVA de
+   * quem nem sequer é empresa. É o guard que sustenta o teste acima; fica aqui
+   * fixado para não se perder numa simplificação do `carga()`.
+   */
+  it("um regime de IVA em branco não é o mesmo que ausente", () => {
+    expect(campos({ ...empresa, regimeIva: undefined })).toEqual([]);
+    expect(campos({ ...empresa, regimeIva: "" })).toEqual(["regimeIva"]);
+  });
+
   it("o tipo de documento por escolher trava o passo, com mensagem própria", () => {
     // O `<select>` manda string vazia enquanto ninguém escolher. Sem esta
     // mensagem o resumo dizia "Invalid option" e o campo continuava por

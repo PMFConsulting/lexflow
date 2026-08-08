@@ -281,6 +281,44 @@ Corrigido à volta disto:
   recusar o futuro. `docTipo` já estava certo — o `z.enum` recusa a opção vazia com mensagem
   própria; ficou um teste a fixá-la.
 
+### Atualização — o anexo do passo 2, segunda passagem
+
+08/08/2026. Relatado outra vez, agora com mais detalhe: `set_input_files` e
+`DOM.setFileInputFiles` devolvem OK sobre `#ficheiro-Documentação`, e a seguir `input.files.length`
+é 0 e `input.value` está vazio; o passo 2 não avança com "Falta corrigir um campo".
+
+**A conclusão da passagem anterior mantém-se, e agora está fixada em teste.** O anexo não é campo
+do passo: o input não tem `name`, não entra no `new FormData(form)` do `enviar`, o `carga(2, fd)`
+constrói nove campos e nenhum é ficheiro, e o `passo2` não pede documento nenhum. Nenhum anexo pode
+travar o passo 2 — em nenhum dos dois percursos.
+
+**`files.length === 0` é o estado final desejado, não a falha.** O `finally` do `escolher` limpa o
+campo de propósito, e limpar `value` esvazia o `FileList`. É isso que permite voltar a escolher o
+*mesmo* ficheiro depois de um erro — sem isso o `change` não volta a disparar, porque o valor não
+muda. Ler `files.length` a seguir a um upload mede o campo depois de ele ter feito o seu trabalho:
+quem quiser saber se o anexo entrou olha para a lista, ou para o `data-anexos` novo.
+
+Três coisas corrigidas à volta disto, nenhuma delas a causa do relato mas todas do mesmo tipo —
+o componente não dava sinal nenhum de si:
+
+- **Ids a partir de `useId()`** (D41), no lugar de `ficheiro-${titulo}` / `tipo-${titulo}`.
+- **`data-anexos` (contagem) e `data-estado`** (`pronto` / `a-carregar` / `erro`) na secção: o
+  sinal que faltava para confirmar um upload sem interrogar um campo que se limpa sozinho.
+- **O campo deixa de ser `disabled` durante a subida.** Uma segunda escolha a meio da primeira
+  desaparecia sem dizer nada; passa a dizer que há um ficheiro a carregar. Um campo que ora
+  aceita ora não aceita, sem explicação, é o mesmo defeito de silêncio com outra roupa.
+
+Fica também fixado em teste que **um `regimeIva` em branco não é o mesmo que ausente**: é o
+`|| undefined` do `carga()` que segura isto, e sem ele o `z.enum().optional()` recebe `""` e trava
+o passo num campo opcional que o cliente nunca abriu — que é exatamente a forma de "Falta corrigir
+um campo" mais difícil de reconhecer.
+
+**Por confirmar:** não foi possível correr `pnpm test` nem `pnpm typecheck` nesta sessão (as
+execuções ficaram bloqueadas por permissões). Correr antes de commit.
+
+**`pnpm test:e2e` não existe.** Está listado nos Comandos em baixo, mas não há script no
+`package.json` nem Playwright nas dependências — o percurso continua a ser conduzido por fora.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -370,6 +408,7 @@ altera o que se constrói à volta.
 | D38 | `textoEmVigor` procura por **chave e versão**, e não pela linha mais recente da chave. Assim não estava: bastava existir uma linha para ela ser devolvida para sempre, e mudar o articulado no código não tinha efeito nenhum numa instalação a correr — o cliente consentia o texto antigo enquanto o ecrã lhe mostrava o novo. Com a procura pela versão exata, subir a `versao` cria uma linha nova e os consentimentos anteriores continuam a apontar para o texto que quem os deu viu de facto, que é o que a D3 pede | `src/features/onboarding/consentimentos.ts` |
 | D39 | Extensões e MIME dos anexos numa fonte só (`formatos.ts`), com o `accept` do campo derivado dela. O MIME declarado manda quando é conhecido; só quando o browser não se compromete (`""`, `application/octet-stream`) é que a extensão decide — um ficheiro que se diz `text/html` e se chama `x.pdf` continua recusado. Estavam escritos em dois sítios e divergiram: o campo anunciava `.heic`, o servidor não o deixava entrar | `src/features/onboarding/formatos.ts` |
 | D40 | `naturezaJuridica` obrigatória para pessoa coletiva, no mesmo `superRefine` onde a pessoa singular já dá profissão, entidade patronal e data de nascimento. É forma jurídica, não campo acessório — decide quem pode obrigar a entidade, que é o que o passo 3 pergunta a seguir. Sem migração: a coluna existe e continua nullable, porque os rascunhos anteriores não podem ficar inválidos na base de dados; a exigência é do schema Zod, à entrada | `src/features/onboarding/schemas.ts` |
+| D41 | Os ids do `Anexos` saem do `useId()`, como já saíam os de todos os outros campos (`Campo.tsx`), e não de `ficheiro-${titulo}`. De um título português saía `id="ficheiro-Documentação"` — válido, mas frágil de endereçar: o `ç` e o `ã` têm duas representações Unicode (NFC e NFD) que se lêem iguais e não são a mesma sequência de code points, e o `querySelector` compara code points e não formas canónicas. Um seletor que passe por uma ferramenta que normalize para NFD não encontra um campo que está lá. O que dá ao campo um nome estável passa a ser o `data-campo`, que é ASCII e não muda com o texto do ecrã | `src/features/onboarding/componentes/Anexos.tsx` |
 | D33 | Os corpos dos três emails passam a ser os do documento de análise do cliente, à letra — assinatura em aberto ("Assinatura do Advogado gestor do Cliente") incluída, que é o espaço do advogado que gere cada cliente. Duas coisas caem por não constarem desse texto: a saudação deixa de levar o nome ("Caro(a) Sr.(a)," é o que lá está) e a referência do processo sai do corpo dos emails 2 e 3 — continua no assunto do aviso ao back-office e no resumo em anexo. O bloco-resumo dos T&C sai do email 2 pela mesma razão; os T&C completos vão em PDF no email 3. Os parâmetros `nome` e `referencia` ficam nas assinaturas, aceites e ignorados, para repor qualquer um sem mexer em quem chama | `src/lib/emails/jmassano.ts` |
 
 ## Decisões em aberto

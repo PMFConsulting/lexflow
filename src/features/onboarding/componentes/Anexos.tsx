@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { Paperclip, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -43,14 +43,42 @@ export function Anexos({
   ajuda?: string;
 }) {
   const [anexos, setAnexos] = useState<Anexo[]>(iniciais);
-  const [tipo, setTipo] = useState(tipos[0]);
+  const [tipo, setTipo] = useState(tipos[0] ?? "outro");
   const [erro, setErro] = useState<string | null>(null);
   const [aCarregar, transicao] = useTransition();
   const entrada = useRef<HTMLInputElement>(null);
 
+  /**
+   * Ids gerados, e não `ficheiro-${titulo}`.
+   *
+   * O título é texto português com acentos, e dele saía `id="ficheiro-Documentação"`.
+   * Um id assim é válido, mas é frágil de endereçar: o `ç` e o `ã` têm duas
+   * representações Unicode (NFC e NFD) que se lêem iguais no ecrã e não são a
+   * mesma sequência de code points. `querySelector` compara code points, não
+   * formas canónicas — um seletor que passou por uma ferramenta que normaliza
+   * para NFD não encontra o campo, e quem procura fica a olhar para um elemento
+   * que está lá e não aparece. Todos os outros campos do formulário já usavam
+   * `useId()` (ver `Campo.tsx`); este era o único que não.
+   */
+  const id = useId();
+  const idTipo = `${id}-tipo`;
+  const idFicheiro = `${id}-ficheiro`;
+
   const escolher = (lista: FileList | null) => {
     const f = lista?.[0];
     if (!f) return;
+
+    // Uma segunda escolha enquanto a primeira ainda sobe não pode desaparecer
+    // sem dizer nada: as duas partilham o `erro` e o campo que se limpa no fim,
+    // e a que chegasse a meio ficava sem sítio para aterrar. Antes o campo era
+    // `disabled` durante a subida, o que resolvia isto escondendo-o — e deixava
+    // o passo com um campo que ora aceita ora não aceita, sem explicação.
+    if (aCarregar) {
+      setErro("Há um ficheiro a carregar. Aguarde que termine para anexar o seguinte.");
+      if (entrada.current) entrada.current.value = "";
+      return;
+    }
+
     setErro(null);
 
     const fd = new FormData();
@@ -82,6 +110,15 @@ export function Anexos({
         // uma falha visível.
         setErro("Não foi possível carregar o ficheiro. Tente de novo.");
       } finally {
+        // Limpar o campo é o que permite voltar a escolher o *mesmo* ficheiro
+        // depois de um erro: sem isto o `change` não volta a disparar, porque o
+        // valor não muda.
+        //
+        // Consequência que já custou uma investigação inteira: a seguir a um
+        // upload, `input.files.length` é 0 e `input.value` é "". Esse é o estado
+        // final desejado, não sinal de que o `onChange` não correu. Quem quiser
+        // confirmar que o anexo entrou olha para a lista acima — ou para o
+        // `data-anexos` da secção, que traz a contagem.
         if (entrada.current) entrada.current.value = "";
       }
     });
@@ -94,7 +131,13 @@ export function Anexos({
     });
 
   return (
-    <section className="flex flex-col gap-3">
+    // `data-anexos` com a contagem: é o sinal que diz se um anexo entrou, sem
+    // depender de ler o `files` de um campo que se limpa de propósito.
+    <section
+      className="flex flex-col gap-3"
+      data-anexos={anexos.length}
+      data-estado={aCarregar ? "a-carregar" : erro ? "erro" : "pronto"}
+    >
       <div>
         <h2 className="text-lg">{titulo}</h2>
         {ajuda && <p className="mt-1 text-sm text-muted-foreground">{ajuda}</p>}
@@ -128,11 +171,12 @@ export function Anexos({
       <div className="border-linha bg-papel-alto flex flex-col gap-3 rounded-sm border border-dashed p-4">
         {tipos.length > 1 && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`tipo-${titulo}`} className="text-tinta-suave">
+            <Label htmlFor={idTipo} className="text-tinta-suave">
               Tipo de documento
             </Label>
             <select
-              id={`tipo-${titulo}`}
+              id={idTipo}
+              data-campo="anexo-tipo"
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
               className={cn(classeSelect, "sm:max-w-xs")}
@@ -147,15 +191,20 @@ export function Anexos({
         )}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`ficheiro-${titulo}`} className="text-tinta-suave">
+          <Label htmlFor={idFicheiro} className="text-tinta-suave">
             Ficheiro
           </Label>
+          {/* Sem `name`, e de propósito: o anexo não é campo deste passo. Sobe
+              pela sua própria Server Action (`carregarDocumento`) no `onChange`,
+              e o `passo2` não pede documento nenhum. Pô-lo no `FormData` do
+              formulário seria mandar o ficheiro em cada "Guardar e continuar".
+              O `data-campo` é o que lhe dá um nome estável para o endereçar. */}
           <input
-            id={`ficheiro-${titulo}`}
+            id={idFicheiro}
+            data-campo="anexo-ficheiro"
             ref={entrada}
             type="file"
             accept={ACCEPT}
-            disabled={aCarregar}
             onChange={(e) => escolher(e.target.files)}
             className="file:bg-tinta file:text-papel-alto text-sm file:mr-3 file:rounded-sm file:border-0 file:px-3 file:py-1.5 file:text-sm"
           />
