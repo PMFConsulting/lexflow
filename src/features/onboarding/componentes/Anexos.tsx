@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { classeSelect } from "./Campo";
 import { carregarDocumento, removerDocumento } from "../documentos";
+import { ACCEPT } from "../formatos";
 
 type Anexo = { id: string; nome: string; tipo: string; bytes: number };
 
@@ -68,7 +69,10 @@ export function Anexos({
       try {
         const r = await carregarDocumento(token, fd);
         if (!r.ok) {
-          setErro(r.erro);
+          // Com o nome do ficheiro à frente: o campo é limpo a seguir, e sem
+          // isto a mensagem ficava a falar de um ficheiro que já não se vê em
+          // lado nenhum — o que se leu como "carregar o ficheiro não faz nada".
+          setErro(`${f.name} — ${r.erro}`);
           return;
         }
         setAnexos((a) => [...a, { id: r.id, nome: r.nome, tipo, bytes: f.size }]);
@@ -150,7 +154,7 @@ export function Anexos({
             id={`ficheiro-${titulo}`}
             ref={entrada}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp,.heic"
+            accept={ACCEPT}
             disabled={aCarregar}
             onChange={(e) => escolher(e.target.files)}
             className="file:bg-tinta file:text-papel-alto text-sm file:mr-3 file:rounded-sm file:border-0 file:px-3 file:py-1.5 file:text-sm"

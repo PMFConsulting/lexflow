@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { documento } from "@/db/schema/documentos";
 import { registarEvento } from "@/features/auditoria/registar";
 import { processoPorToken } from "./dados";
+import { MENSAGEM_FORMATO, mimeAceite } from "./formatos";
 
 /**
  * Upload de documentos.
@@ -18,14 +19,6 @@ import { processoPorToken } from "./dados";
  */
 
 const MAX_BYTES = 4 * 1024 * 1024;
-
-const MIMES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-]);
 
 export type ResultadoUpload =
   | { ok: true; id: string; nome: string }
@@ -52,9 +45,13 @@ export async function carregarDocumento(
     return { ok: false, erro: `O ficheiro tem ${mb} MB. O máximo são 4 MB.` };
   }
   // O tipo declarado pelo browser não é prova de nada, mas filtra o acidente
-  // óbvio. A validação a sério é trabalho de quem revê o processo.
-  if (!MIMES.has(ficheiro.type)) {
-    return { ok: false, erro: "Aceitamos PDF, JPG, PNG, WEBP ou HEIC." };
+  // óbvio. A validação a sério é trabalho de quem revê o processo. Quando o
+  // browser não declara tipo nenhum — HEIC no Chrome, ficheiros vindos de
+  // automação — vale a extensão, senão recusávamos formatos que o próprio
+  // `accept` do campo anuncia. Ver `formatos.ts`.
+  const mime = mimeAceite(ficheiro.name, ficheiro.type);
+  if (!mime) {
+    return { ok: false, erro: MENSAGEM_FORMATO };
   }
 
   const bytes = Buffer.from(await ficheiro.arrayBuffer());
@@ -85,7 +82,7 @@ export async function carregarDocumento(
       processoId: processo.id,
       tipo: tipo as never,
       nomeOriginal: ficheiro.name.slice(0, 200),
-      mime: ficheiro.type,
+      mime,
       tamanhoBytes: ficheiro.size,
       hashSha256: hash,
       // Chave futura: quando houver bucket, é aqui que ela fica e `dados` some.

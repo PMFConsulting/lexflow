@@ -32,6 +32,12 @@ describe("validarNif", () => {
     if (!r.valido) expect(r.mensagem).toContain("não é válido");
   });
 
+  it("diz qual teria de ser o último dígito", () => {
+    // 2·9+1·8+3·7+4·6+5·5+6·4+7·3+8·2 = 157; 157 % 11 = 3, logo o controlo é 8.
+    const r = validarNif("213456789");
+    if (!r.valido) expect(r.mensagem).toContain("teria de ser 8 e não 9");
+  });
+
   it("rejeita primeiro dígito impossível", () => {
     const r = validarNif("400000000");
     expect(r.valido).toBe(false);

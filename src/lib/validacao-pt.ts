@@ -52,7 +52,13 @@ export function validarNif(valor: string): Resultado {
   const controlo = resto < 2 ? 0 : 11 - resto;
 
   if (controlo !== Number(nif[8])) {
-    return erro("O NIF não é válido — verifique se trocou algum dígito.");
+    // Dizer qual teria de ser o último dígito não enfraquece nada — o mod-11 é
+    // aritmética pública, e a validação existe para apanhar o dígito trocado,
+    // não para autenticar ninguém. O que muda é o cliente ficar a saber onde
+    // olhar: "não é válido" sozinho manda-o reler os nove dígitos às cegas.
+    return erro(
+      `O NIF não é válido — com estes oito primeiros dígitos, o último teria de ser ${controlo} e não ${nif[8]}. Verifique se trocou algum dígito.`,
+    );
   }
 
   return ok;

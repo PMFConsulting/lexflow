@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { unstable_rethrow, useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { ArrowLeft, ArrowRight, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -95,6 +95,22 @@ const bool = (fd: FormData, k: string) => fd.get(k) === "true";
 const txt = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const lista = (fd: FormData, k: string) => fd.getAll(k).map(String).filter(Boolean);
 
+/**
+ * Sim/Não que ainda não foi respondido é `undefined`, não `false`.
+ *
+ * O `CampoSimNao` sem resposta manda uma string vazia, e o `bool` acima
+ * lê-a como `false` — "não respondeu" e "respondeu Não" chegavam ao servidor
+ * indistinguíveis. Numa declaração isso não é um default benigno: é gravar uma
+ * resposta que o cliente nunca deu. Os schemas destas perguntas pedem um
+ * `z.boolean()` sem `.default()` precisamente para a exigirem; era esta
+ * conversão que lhes tirava a hipótese de o fazer.
+ *
+ * Não se aplica aos consentimentos do passo 6, que têm `.default(false)` de
+ * propósito: aí a ausência de resposta *é* a resposta, e é a que o RGPD manda
+ * assumir.
+ */
+const simNao = (fd: FormData, k: string) => (fd.get(k) ? bool(fd, k) : undefined);
+
 function carga(n: number, fd: FormData): unknown {
   const morada = {
     morada: txt(fd, "morada"),
@@ -135,10 +151,7 @@ function carga(n: number, fd: FormData): unknown {
       };
     case 3:
       return {
-        // `undefined` e não `false` quando não há resposta: o schema exige uma
-        // escolha explícita, e `bool` não distingue "respondeu Não" de "não
-        // respondeu" — as duas chegam aqui como string vazia.
-        eRepresentante: fd.get("eRepresentante") ? bool(fd, "eRepresentante") : undefined,
+        eRepresentante: simNao(fd, "eRepresentante"),
         relacao: txt(fd, "relacao") || undefined,
         nome: txt(fd, "nome") || undefined,
         dataNascimento: txt(fd, "dataNascimento") || undefined,
@@ -150,13 +163,18 @@ function carga(n: number, fd: FormData): unknown {
       };
     case 4:
       return {
-        ePpe: bool(fd, "ePpe"),
+        // Declarações, não consentimentos: sem resposta explícita o passo tem
+        // de parar. Ficar gravado `ePpe = false` porque ninguém carregou em
+        // nada é um falso negativo numa declaração da Lei 83/2017 — e, com o
+        // motor de risco a ler daqui, um processo que devia estar em risco
+        // elevado a passar por normal sem ninguém ter respondido nada.
+        ePpe: simNao(fd, "ePpe"),
         ppeCargo: txt(fd, "ppeCargo") || undefined,
         ppePais: txt(fd, "ppePais") || undefined,
         ppeEntidade: txt(fd, "ppeEntidade") || undefined,
         ppeInicio: txt(fd, "ppeInicio") || undefined,
         ppeFim: txt(fd, "ppeFim") || undefined,
-        eRelacionadoPpe: bool(fd, "eRelacionadoPpe"),
+        eRelacionadoPpe: simNao(fd, "eRelacionadoPpe"),
         relacaoPpe: txt(fd, "relacaoPpe") || undefined,
         ppeRelacionadaNome: txt(fd, "ppeRelacionadaNome") || undefined,
         ppeRelacionadaCargo: txt(fd, "ppeRelacionadaCargo") || undefined,
@@ -199,6 +217,81 @@ function carga(n: number, fd: FormData): unknown {
   }
 }
 
+/**
+ * Onde saltar quando um erro cai sobre um campo.
+ *
+ * `[name="x"]` não chega. Só as caixas de texto levam o `name` num campo que se
+ * vê: os sim/não, a escolha única, as listas e as caixas de aceitação levam-no
+ * num `input type="hidden"`, que o browser não desenha. `scrollIntoView` e
+ * `focus` sobre um elemento sem caixa não fazem rigorosamente nada — o resumo
+ * de erros tinha links mortos e o salto automático para o primeiro erro não
+ * saía do sítio, precisamente nos campos onde o vermelho é mais difícil de
+ * encontrar a olho ("Indique pelo menos uma nacionalidade", "Responda sim ou
+ * não").
+ *
+ * Encontrado o escondido, sobe-se ao contentor do campo e leva-se o foco ao
+ * primeiro controlo que se possa mesmo usar. Os campos de texto vêm à frente
+ * dos botões porque numa lista já preenchida o primeiro botão é o "Remover" da
+ * primeira etiqueta, e não é lá que se quer deixar quem vem corrigir.
+ */
+function alvoDoErro(campo: string) {
+  const el = document.querySelector<HTMLElement>(`[name="${CSS.escape(campo)}"]`);
+  if (!el) return null;
+
+  const escondido = el instanceof HTMLInputElement && el.type === "hidden";
+  if (!escondido) return { rolar: el, focar: el, rotulo: rotuloVisivel(el) };
+
+  const caixa = el.closest<HTMLElement>("fieldset, div");
+  if (!caixa) return null;
+
+  const focar =
+    caixa.querySelector<HTMLElement>(
+      'select:not([disabled]), textarea:not([disabled]), input:not([type="hidden"]):not([disabled])',
+    ) ?? caixa.querySelector<HTMLElement>("button:not([disabled])");
+
+  return { rolar: caixa, focar, rotulo: rotuloVisivel(el) };
+}
+
+/**
+ * A etiqueta que o cliente lê por cima do campo — "Número de contribuinte",
+ * "Nacionalidade(s)", a pergunta do sim/não.
+ *
+ * O resumo de erros listava só as mensagens. A maior parte nomeia-se a si
+ * própria ("O NIF não é válido…"), mas as que não o fazem — "Obrigatório.",
+ * "Data inválida.", "Responda sim ou não." — deixavam o cabeçalho "Falta
+ * corrigir um campo" a não dizer qual, que foi o que se relatou do passo 2.
+ *
+ * Vem do DOM e não de um mapa de nomes para rótulos: um mapa é uma segunda
+ * cópia dos textos, que envelhece à parte daquilo que está no ecrã. Aqui, se
+ * não houver etiqueta nenhuma, devolve-se `null` e a linha fica como estava —
+ * a mensagem sozinha é sempre melhor do que uma etiqueta errada.
+ */
+function rotuloVisivel(el: HTMLElement): string | null {
+  const escondido = el instanceof HTMLInputElement && el.type === "hidden";
+
+  // Campo que se vê: a etiqueta está ligada por `htmlFor`, como o `Campo` faz.
+  if (!escondido && el.id) {
+    const ligada = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+    if (ligada?.textContent) return limparRotulo(ligada.textContent);
+  }
+
+  // Sim/não, escolha única, listas e caixas de aceitação: o `name` está num
+  // input escondido, e a etiqueta é a `legend` do fieldset ou o `label` que
+  // lhe faz companhia dentro do mesmo contentor.
+  const caixa = el.closest("fieldset, div");
+  const solta = caixa?.querySelector("legend, label");
+  return solta?.textContent ? limparRotulo(solta.textContent) : null;
+}
+
+/** Sem o asterisco de obrigatório nem as quebras de linha da marcação. */
+function limparRotulo(texto: string) {
+  const limpo = texto.replace(/\s+/g, " ").replace(/\s*\*$/, "").trim();
+  // Uma declaração inteira como etiqueta ("Declaro que as informações
+  // prestadas são verdadeiras e assumo…") empurra a mensagem para fora da
+  // vista. Corta-se, que para localizar o campo o início chega.
+  return limpo.length > 60 ? `${limpo.slice(0, 59).trimEnd()}…` : limpo;
+}
+
 export function Formulario({
   token,
   n,
@@ -216,6 +309,32 @@ export function Formulario({
   const [erros, setErros] = useState<Erros>({});
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [aGuardar, transicao] = useTransition();
+
+  /**
+   * Etiqueta de cada campo em erro, para o resumo lá em cima poder dizer qual.
+   *
+   * Num efeito e não no próprio render porque sai do DOM: durante o render do
+   * servidor não há `document`, e durante o do cliente os campos deste render
+   * ainda não foram aplicados. Depois do commit estão lá os certos — incluindo
+   * os que só aparecem consoante as respostas dadas.
+   */
+  const [rotulos, setRotulos] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const campos = Object.keys(erros);
+    if (!campos.length) {
+      // Sem `{}` novo quando já estava vazio, senão o primeiro render de cada
+      // passo pedia um segundo sem nada ter mudado.
+      setRotulos((atuais) => (Object.keys(atuais).length ? {} : atuais));
+      return;
+    }
+    const novos: Record<string, string> = {};
+    for (const campo of campos) {
+      const rotulo = alvoDoErro(campo)?.rotulo;
+      if (rotulo) novos[campo] = rotulo;
+    }
+    setRotulos(novos);
+  }, [erros]);
 
   // estado local para os campos que fazem aparecer outros
   const [tipo, setTipo] = useState(tipoCliente);
@@ -342,9 +461,7 @@ export function Formulario({
         // leva o foco para o primeiro erro em vez de o deixar perdido
         const primeiro = Object.keys(r.erros)[0];
         if (primeiro) {
-          document
-            .querySelector<HTMLElement>(`[name="${primeiro}"]`)
-            ?.scrollIntoView({ block: "center", behavior: "smooth" });
+          alvoDoErro(primeiro)?.rolar.scrollIntoView({ block: "center", behavior: "smooth" });
         }
         return;
       }
@@ -401,13 +518,15 @@ export function Formulario({
                 <button
                   type="button"
                   onClick={() => {
-                    const alvo = document.querySelector<HTMLElement>(`[name="${campo}"]`);
-                    alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
-                    alvo?.focus();
+                    const alvo = alvoDoErro(campo);
+                    alvo?.rolar.scrollIntoView({ block: "center", behavior: "smooth" });
+                    // `preventScroll` senão o foco salta lá de imediato e come
+                    // a rolagem suave que acabámos de pedir.
+                    alvo?.focar?.focus({ preventScroll: true });
                   }}
                   className="text-selo/90 hover:text-selo text-left text-xs underline underline-offset-2"
                 >
-                  {msgs[0]}
+                  {rotulos[campo] ? `${rotulos[campo]} — ${msgs[0]}` : msgs[0]}
                 </button>
               </li>
             ))}
@@ -460,7 +579,7 @@ export function Formulario({
               </>
             ) : (
               <>
-                <CampoTexto etiqueta="Natureza jurídica" nome="naturezaJuridica" erros={erros} valorInicial={seccoes.identificacao?.naturezaJuridica ?? ""} />
+                <CampoTexto etiqueta="Natureza jurídica" nome="naturezaJuridica" erros={erros} obrigatorio ajuda="Forma jurídica da entidade — por exemplo Lda., S.A., Unipessoal Lda." valorInicial={seccoes.identificacao?.naturezaJuridica ?? ""} />
                 <CampoTexto etiqueta="Data de constituição" nome="dataConstituicao" tipo="date" erros={erros} valorInicial={seccoes.identificacao?.dataConstituicao ?? ""} />
               </>
             )}
@@ -479,8 +598,11 @@ export function Formulario({
       {n === 2 && (
         <>
           <div className="flex flex-wrap gap-6">
-            <CampoCaixa etiqueta="Número de contribuinte português?" nome="nifPortugues" valorInicial={nifPt} onChange={setNifPt} />
-            <CampoCaixa etiqueta="Reside em Portugal?" nome="resideEmPortugal" valorInicial={seccoes.fiscais?.resideEmPortugal ?? true} />
+            {/* `erros` também aqui: sem ele, um erro nestes campos ia parar ao
+                resumo lá em cima sem nada ficar marcado no ecrã — que é
+                exatamente o "falta corrigir um campo" que não diz qual. */}
+            <CampoCaixa etiqueta="Número de contribuinte português?" nome="nifPortugues" erros={erros} valorInicial={nifPt} onChange={setNifPt} />
+            <CampoCaixa etiqueta="Reside em Portugal?" nome="resideEmPortugal" erros={erros} valorInicial={seccoes.fiscais?.resideEmPortugal ?? true} />
           </div>
 
           <CampoTexto etiqueta="Número de contribuinte" nome="nif" erros={erros} obrigatorio mono ajuda={nifPt ? "Nove dígitos, validado por checksum." : "Número de identificação fiscal do país de residência."} valorInicial={seccoes.fiscais?.nif ?? ""} />
@@ -699,7 +821,7 @@ export function Formulario({
 
       {n === 5 && (
         <>
-          <CampoCaixa etiqueta="Os dados de faturação são os mesmos do cliente" nome="igualAoCliente" valorInicial={seccoes.faturacao?.igualAoCliente ?? false} onChange={preencherFaturacao} />
+          <CampoCaixa etiqueta="Os dados de faturação são os mesmos do cliente" nome="igualAoCliente" erros={erros} valorInicial={seccoes.faturacao?.igualAoCliente ?? false} onChange={preencherFaturacao} />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <CampoTexto etiqueta="Nome ou empresa" nome="nome" erros={erros} obrigatorio valorInicial={seccoes.faturacao?.nome ?? ""} className="sm:col-span-2" />
@@ -713,7 +835,7 @@ export function Formulario({
 
           <Separator />
           <h2 className="text-lg">Ao cuidado de</h2>
-          <CampoCaixa etiqueta="Os dados ao cuidado de são os mesmos do cliente" nome="acIgualAoCliente" valorInicial={seccoes.faturacao?.acIgualAoCliente ?? false} onChange={preencherAoCuidado} />
+          <CampoCaixa etiqueta="Os dados ao cuidado de são os mesmos do cliente" nome="acIgualAoCliente" erros={erros} valorInicial={seccoes.faturacao?.acIgualAoCliente ?? false} onChange={preencherAoCuidado} />
           <div className="grid gap-4 sm:grid-cols-3">
             <CampoTexto etiqueta="Nome" nome="acNome" erros={erros} valorInicial={seccoes.faturacao?.acNome ?? ""} />
             <CampoTexto etiqueta="Email" nome="acEmail" tipo="email" erros={erros} valorInicial={seccoes.faturacao?.acEmail ?? ""} />

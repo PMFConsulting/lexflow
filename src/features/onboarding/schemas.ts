@@ -137,6 +137,28 @@ export const passo1 = z
           message: "A data de nascimento não pode estar no futuro.",
         });
     }
+
+    // A pessoa coletiva não tinha exigência nenhuma neste passo além do nome:
+    // "Lda.", "S.A.", "Unipessoal" ou "Associação" ficavam por dizer, e o
+    // detalhe do back-office mostra a linha "Natureza jurídica" a vazio sem
+    // ninguém saber se foi esquecimento se não se aplica. É o simétrico do que
+    // já se pede a uma pessoa singular — profissão, entidade patronal, data de
+    // nascimento —, e é forma jurídica, não campo acessório: decide quem pode
+    // obrigar a entidade, que é o que o passo 3 vai a seguir perguntar.
+    if (v.tipoCliente === "empresa") {
+      if (!v.naturezaJuridica)
+        ctx.addIssue({
+          code: "custom",
+          path: ["naturezaJuridica"],
+          message: "A natureza jurídica é obrigatória — por exemplo Lda., S.A. ou Unipessoal Lda.",
+        });
+      if (v.dataConstituicao && new Date(v.dataConstituicao) > new Date())
+        ctx.addIssue({
+          code: "custom",
+          path: ["dataConstituicao"],
+          message: "A data de constituição não pode estar no futuro.",
+        });
+    }
   });
 
 /* ── passo 2 — fiscal ─────────────────────────────────────────────────── */

@@ -253,6 +253,34 @@ uma PPE era recolhido e nunca mostrado. O leitor de T&C, que liberta a aceitaç�
 contrato, não tinha armadilha de foco: o `Tab` saía para o formulário por baixo. Assenta agora
 no `Dialog`, com a medição da D30 intacta.
 
+### Atualização — passo 2 no percurso Empresa: o anexo era uma pista falsa
+
+08/08/2026. Relatado como "o campo de ficheiro do passo 2 é obrigatório e nunca fica preenchido —
+`set_input_files` e `DOM.setFileInputFiles` devolvem OK, mas `input.files.length` fica a 0".
+
+**O anexo não é campo do formulário.** O `Anexos` não vive dentro da carga do passo: o input não
+tem `name`, não entra no `new FormData(form)`, e o `passo2` não pede documento nenhum. O upload é
+uma Server Action à parte (`carregarDocumento`), disparada no `onChange`, e o campo é **limpo de
+propósito** no `finally` — é isso que permite voltar a escolher o mesmo ficheiro depois de um erro.
+`files.length === 0` a seguir ao upload é o estado esperado, não a falha. Quem travava o passo era
+o único campo que o schema recusava, e o "Falta corrigir um campo" não dizia qual.
+
+Corrigido à volta disto:
+
+- **A mensagem do NIF diz agora qual teria de ser o dígito de controlo** e o resumo de erros passa
+  a nomear o campo (`alvoDoErro`/`rotuloVisivel`, tirados do DOM e não de um mapa de rótulos que
+  envelhecia à parte). Os sim/não, as listas e as caixas levam o `name` num input escondido, que
+  não tem caixa: o `scrollIntoView` e o `focus` do resumo não saíam do sítio precisamente nos
+  campos onde o vermelho é mais difícil de encontrar a olho.
+- **Formatos aceites num sítio só** (D39): o `accept` do campo anunciava `.heic` e o servidor
+  recusava por MIME, com o Chrome a declarar `""` para HEIC e a automação a declarar
+  `application/octet-stream`. Ficheiros da própria lista dos aceites eram recusados — e, com o
+  campo a limpar-se a seguir, ficava a parecer que anexar não fazia nada. Um upload recusado
+  passa também a dizer **o nome do ficheiro** que recusou.
+- **`naturezaJuridica` obrigatória para pessoa coletiva** (D40), com a data de constituição a
+  recusar o futuro. `docTipo` já estava certo — o `z.enum` recusa a opção vazia com mensagem
+  própria; ficou um teste a fixá-la.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -340,6 +368,8 @@ altera o que se constrói à volta.
 | D36 | "Novo processo" é uma janela (`components/ui/dialog.tsx`, sobre o `radix-ui` que o `sheet` já usava) e não um bloco em linha. Aberto em linha, o formulário tinha a largura e o alinhamento do sítio onde calhasse estar, e o painel do link que se lhe seguia ficava no lugar do botão até alguém recarregar a página — o que impedia criar um segundo processo. O conteúdo só monta com a janela aberta: é isso que garante que ela reabre limpa | `src/features/processos/componentes/BotaoNovoProcesso.tsx` |
 | D37 | `EMAIL_NOTIFICACOES` sem valor por omissão. O que lá estava era um endereço pessoal escrito no código, e numa instalação a que faltasse a variável eram referências e links de dossiers de clientes a sair para a caixa de correio de quem escreveu o código. Sem destino configurado, o aviso ao back-office não sai e fica um `console.warn` — os dois emails ao cliente e o arquivo em SFTP não dependem dele. O endereço do link também deixou de estar escrito à mão: sai dos cabeçalhos do pedido, como já saía o do email de registo (`lib/origem.ts`, agora partilhado) | `src/features/onboarding/acoes.ts` |
 | D38 | `textoEmVigor` procura por **chave e versão**, e não pela linha mais recente da chave. Assim não estava: bastava existir uma linha para ela ser devolvida para sempre, e mudar o articulado no código não tinha efeito nenhum numa instalação a correr — o cliente consentia o texto antigo enquanto o ecrã lhe mostrava o novo. Com a procura pela versão exata, subir a `versao` cria uma linha nova e os consentimentos anteriores continuam a apontar para o texto que quem os deu viu de facto, que é o que a D3 pede | `src/features/onboarding/consentimentos.ts` |
+| D39 | Extensões e MIME dos anexos numa fonte só (`formatos.ts`), com o `accept` do campo derivado dela. O MIME declarado manda quando é conhecido; só quando o browser não se compromete (`""`, `application/octet-stream`) é que a extensão decide — um ficheiro que se diz `text/html` e se chama `x.pdf` continua recusado. Estavam escritos em dois sítios e divergiram: o campo anunciava `.heic`, o servidor não o deixava entrar | `src/features/onboarding/formatos.ts` |
+| D40 | `naturezaJuridica` obrigatória para pessoa coletiva, no mesmo `superRefine` onde a pessoa singular já dá profissão, entidade patronal e data de nascimento. É forma jurídica, não campo acessório — decide quem pode obrigar a entidade, que é o que o passo 3 pergunta a seguir. Sem migração: a coluna existe e continua nullable, porque os rascunhos anteriores não podem ficar inválidos na base de dados; a exigência é do schema Zod, à entrada | `src/features/onboarding/schemas.ts` |
 | D33 | Os corpos dos três emails passam a ser os do documento de análise do cliente, à letra — assinatura em aberto ("Assinatura do Advogado gestor do Cliente") incluída, que é o espaço do advogado que gere cada cliente. Duas coisas caem por não constarem desse texto: a saudação deixa de levar o nome ("Caro(a) Sr.(a)," é o que lá está) e a referência do processo sai do corpo dos emails 2 e 3 — continua no assunto do aviso ao back-office e no resumo em anexo. O bloco-resumo dos T&C sai do email 2 pela mesma razão; os T&C completos vão em PDF no email 3. Os parâmetros `nome` e `referencia` ficam nas assinaturas, aceites e ignorados, para repor qualquer um sem mexer em quem chama | `src/lib/emails/jmassano.ts` |
 
 ## Decisões em aberto
