@@ -3,6 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ExternalLink, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { TERMOS_CONDICOES, VERSAO_TERMOS } from "@/lib/termos";
 import { cn } from "@/lib/utils";
 
@@ -59,17 +66,33 @@ export function LeitorTermos({
         </p>
       )}
 
-      {aberto && (
-        <Modal
-          aoFechar={() => setAberto(false)}
-          lido={lido}
-          aoChegarAoFim={aoLer}
-        />
-      )}
+      <Dialog open={aberto} onOpenChange={setAberto}>
+        {aberto && (
+          <Modal
+            aoFechar={() => setAberto(false)}
+            lido={lido}
+            aoChegarAoFim={aoLer}
+          />
+        )}
+      </Dialog>
     </div>
   );
 }
 
+/**
+ * A janela do documento.
+ *
+ * Passou a assentar no `Dialog` da aplicação em vez de ser uma caixa `fixed`
+ * escrita à mão. O que se ganha não é aparência — é o que faltava: a armadilha
+ * de foco. Antes, o `Tab` dentro da janela saía para os campos do formulário
+ * por baixo, e quem navega por teclado ou leitor de ecrã podia estar a
+ * "percorrer o documento" sem nunca lá estar. Numa caixa que liberta a
+ * aceitação de um contrato, isso não é um pormenor. Escape e o bloqueio da
+ * rolagem de fundo deixam de ser código nosso: vêm do primitivo.
+ *
+ * A medição do fim do documento fica exatamente como estava — é ela que a D30
+ * descreve, e não havia razão para lhe tocar.
+ */
 function Modal({
   aoFechar,
   lido,
@@ -87,21 +110,6 @@ function Modal({
   // ref, o efeito corre uma vez e continua a chamar a versão mais recente.
   const avisar = useRef(aoChegarAoFim);
   avisar.current = aoChegarAoFim;
-
-  // Escape fecha, e o fundo da página não rola por baixo da janela — sem isto,
-  // no telemóvel, o dedo rola a página em vez do documento.
-  useEffect(() => {
-    const tecla = (e: KeyboardEvent) => {
-      if (e.key === "Escape") aoFechar();
-    };
-    document.addEventListener("keydown", tecla);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", tecla);
-      document.body.style.overflow = overflow;
-    };
-  }, [aoFechar]);
 
   const verificar = () => {
     const el = corpo.current;
@@ -127,61 +135,55 @@ function Modal({
   }, []);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/50 p-0 sm:items-center sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Termos e Condições"
+    <DialogContent
+      className="h-[92svh] max-w-3xl sm:h-[80svh]"
+      aria-describedby={undefined}
+      // O foco de partida é o próprio documento, e não o botão de fechar: quem
+      // abre isto vem para ler, e assim as setas e o Page Down rolam o texto
+      // sem ser preciso primeiro apanhar o painel com o rato.
+      onOpenAutoFocus={(e) => {
+        e.preventDefault();
+        corpo.current?.focus();
+      }}
     >
-      <div className="bg-papel-alto border-linha flex h-[92svh] w-full max-w-3xl flex-col rounded-t-sm border sm:h-[80svh] sm:rounded-sm">
-        <header className="border-linha flex items-start justify-between gap-3 border-b px-5 py-4">
-          <div>
-            <h2 className="text-lg leading-tight">Termos e Condições</h2>
-            <p className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
-              Versão {VERSAO_TERMOS}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={aoFechar}
-            className="text-sm text-muted-foreground hover:text-tinta"
-          >
-            Fechar
-          </button>
-        </header>
+      <DialogHeader>
+        <DialogTitle>Termos e Condições</DialogTitle>
+        <p className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+          Versão {VERSAO_TERMOS}
+        </p>
+      </DialogHeader>
 
-        <div
-          ref={corpo}
-          onScroll={verificar}
-          tabIndex={0}
-          className="flex-1 overflow-y-auto px-5 py-5 text-sm leading-relaxed"
-        >
-          {TERMOS_CONDICOES.map((seccao) => (
-            <section key={seccao.titulo} className="mb-6">
-              <h3 className="mb-2 font-medium">{seccao.titulo}</h3>
-              {seccao.paragrafos.map((p, i) => (
-                <p key={i} className="mb-2 text-muted-foreground">
-                  {p}
-                </p>
-              ))}
-            </section>
-          ))}
-        </div>
-
-        <footer className="border-linha flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3">
-          <p
-            className={cn("text-xs", chegouAoFim ? "text-arquivo" : "text-muted-foreground")}
-            aria-live="polite"
-          >
-            {chegouAoFim
-              ? "Chegou ao fim do documento."
-              : "Continue a percorrer o documento até ao fim."}
-          </p>
-          <Button type="button" onClick={aoFechar} disabled={!chegouAoFim}>
-            {chegouAoFim ? "Li e compreendi" : "Percorra até ao fim"}
-          </Button>
-        </footer>
+      <div
+        ref={corpo}
+        onScroll={verificar}
+        tabIndex={0}
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-sm leading-relaxed"
+      >
+        {TERMOS_CONDICOES.map((seccao) => (
+          <section key={seccao.titulo} className="mb-6">
+            <h3 className="mb-2 font-medium">{seccao.titulo}</h3>
+            {seccao.paragrafos.map((p, i) => (
+              <p key={i} className="mb-2 text-muted-foreground">
+                {p}
+              </p>
+            ))}
+          </section>
+        ))}
       </div>
-    </div>
+
+      <DialogFooter className="justify-between">
+        <p
+          className={cn("text-xs", chegouAoFim ? "text-arquivo" : "text-muted-foreground")}
+          aria-live="polite"
+        >
+          {chegouAoFim
+            ? "Chegou ao fim do documento."
+            : "Continue a percorrer o documento até ao fim."}
+        </p>
+        <Button type="button" onClick={aoFechar} disabled={!chegouAoFim}>
+          {chegouAoFim ? "Li e compreendi" : "Percorra até ao fim"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }

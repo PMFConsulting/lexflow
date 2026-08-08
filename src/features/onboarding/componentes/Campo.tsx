@@ -15,6 +15,22 @@ import { cn } from "@/lib/utils";
  * mais, e com o erro sempre ligado ao campo por `aria-describedby`.
  */
 
+/**
+ * O `<select>` nativo, com a mesma pele do `<Input>`.
+ *
+ * Tinha altura própria (`h-9` contra os `h-8` do input), cantos próprios e
+ * nenhum anel de foco: numa grelha de duas colunas, "Tipo de documento" ficava
+ * quatro píxeis mais alto do que "Número do documento" ao lado, e ao navegar
+ * por teclado o campo escolhido não se distinguia. São os mesmos estados do
+ * input — foco, inválido, desativado — porque é o mesmo tipo de campo.
+ */
+export const classeSelect =
+  "h-8 w-full min-w-0 rounded-lg border border-input bg-papel-alto px-2.5 py-1 text-base " +
+  "transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 " +
+  "focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed " +
+  "disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 " +
+  "aria-invalid:ring-destructive/20 md:text-sm";
+
 export function Campo({
   etiqueta,
   nome,
@@ -231,7 +247,7 @@ export function CampoEscolha({
           defaultValue={valorInicial}
           aria-invalid={invalido}
           aria-describedby={descrito || undefined}
-          className="border-input bg-papel-alto h-9 rounded-sm border px-3 text-sm"
+          className={classeSelect}
         >
           <option value="">Selecione…</option>
           {opcoes.map((o) => (
@@ -573,7 +589,10 @@ export function CampoLista({
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <Label htmlFor={id}>
+      {/* `text-tinta-suave` como no `Campo`: sem isto, a etiqueta de
+          "Nacionalidade(s)" saía a tinta cheia ao lado de "Nome completo" em
+          cinzento, na mesma grelha. */}
+      <Label htmlFor={id} className="text-tinta-suave">
         {etiqueta}
         {obrigatorio && <span className="text-selo"> *</span>}
       </Label>
@@ -606,7 +625,9 @@ export function CampoLista({
             id={id}
             value=""
             onChange={(e) => juntar(e.target.value)}
-            className="border-input bg-papel-alto h-9 flex-1 rounded-sm border px-3 text-sm"
+            aria-invalid={Boolean(erro)}
+            aria-describedby={erro ? `${id}-erro` : undefined}
+            className={cn(classeSelect, "flex-1")}
           >
             <option value="">Adicionar…</option>
             {sugestoes

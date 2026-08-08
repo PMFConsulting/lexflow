@@ -25,15 +25,15 @@ type Finalidade = (typeof finalidadeConsentimento.enumValues)[number];
 const TEXTOS: Record<string, { chave: string; versao: string; conteudo: string }> = {
   newsletter: {
     chave: "rgpd.newsletter",
-    versao: "2026-07-31.1",
+    versao: "2026-08-08.1",
     conteudo:
-      "Autorizo a PMF Consulting a enviar-me comunicações informativas e newsletters para os endereços de email que indiquei. Posso retirar esta autorização a qualquer momento.",
+      "Autorizo a JMASSANO — Escritório de Advogado a enviar-me comunicações informativas e newsletters para os endereços de email que indiquei. Posso retirar esta autorização a qualquer momento.",
   },
   convites_iniciativas: {
     chave: "rgpd.convites",
-    versao: "2026-08-02.1",
+    versao: "2026-08-08.1",
     conteudo:
-      "Autorizo a PMF Consulting a convidar-me para iniciativas — formações, webinars, workshops e outros eventos — através dos contactos que indiquei. Posso retirar esta autorização a qualquer momento.",
+      "Autorizo a JMASSANO — Escritório de Advogado a convidar-me para iniciativas — formações, webinars, workshops e outros eventos — através dos contactos que indiquei. Posso retirar esta autorização a qualquer momento.",
   },
   declaracao_veracidade: {
     chave: "declaracao_veracidade",
@@ -43,19 +43,36 @@ const TEXTOS: Record<string, { chave: string; versao: string; conteudo: string }
   },
 };
 
-/** A versão em vigor de um texto. Cria-a se ainda não existir. */
+/**
+ * A versão em vigor de um texto — a que este código declara. Cria-a se ainda
+ * não existir.
+ *
+ * A procura é por **chave e versão**, e não pela mais recente da chave. Assim
+ * não estava: bastava existir uma linha da chave para ela ser devolvida para
+ * sempre, e mudar o texto aqui não tinha efeito nenhuma numa instalação já a
+ * correr — o cliente continuava a consentir o articulado antigo enquanto o
+ * ecrã lhe mostrava o novo. Com a procura pela versão exata, subir a `versao`
+ * cria uma linha nova e os consentimentos anteriores continuam a apontar para
+ * o texto que quem os deu viu de facto, que é o que a D3 pede.
+ */
 async function textoEmVigor(finalidade: Finalidade) {
   const base = db();
   const modelo = TEXTOS[finalidade];
   if (!modelo) return null;
 
-  const [existente] = await base
-    .select()
-    .from(versaoTextoLegal)
-    .where(eq(versaoTextoLegal.chave, modelo.chave))
-    .orderBy(desc(versaoTextoLegal.vigenteDesde))
-    .limit(1);
+  const daVersao = () =>
+    base
+      .select()
+      .from(versaoTextoLegal)
+      .where(
+        and(
+          eq(versaoTextoLegal.chave, modelo.chave),
+          eq(versaoTextoLegal.versao, modelo.versao),
+        ),
+      )
+      .limit(1);
 
+  const [existente] = await daVersao();
   if (existente) return existente;
 
   const [criado] = await base
@@ -71,14 +88,20 @@ async function textoEmVigor(finalidade: Finalidade) {
 
   if (criado) return criado;
 
-  const [depois] = await base
+  // Corrida com outro pedido a criar a mesma linha: ela existe agora.
+  const [depois] = await daVersao();
+  if (depois) return depois;
+
+  // Rede de segurança — a linha da chave que houver, para não deixar o passo 6
+  // por gravar só porque o texto legal não resolveu.
+  const [qualquer] = await base
     .select()
     .from(versaoTextoLegal)
     .where(eq(versaoTextoLegal.chave, modelo.chave))
     .orderBy(desc(versaoTextoLegal.vigenteDesde))
     .limit(1);
 
-  return depois ?? null;
+  return qualquer ?? null;
 }
 
 /**

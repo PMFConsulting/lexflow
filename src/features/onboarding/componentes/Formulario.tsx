@@ -256,10 +256,11 @@ export function Formulario({
     const fis = seccoes.fiscais;
     const mapa: Record<string, string | null | undefined> = {
       nome: id?.nome,
-      // O passo de faturação valida o NIF por mod-11 português; copiar um NIF
-      // estrangeiro (nifPortugues=false) bloquearia o cliente sem forma de o
-      // perceber, porque o campo de destino nem mostra essa distinção.
-      nif: fis?.nifPortugues ? fis?.nif : undefined,
+      // O NIF estrangeiro passou a ser copiado como qualquer outro: o campo de
+      // destino já não impõe o mod-11 português a um número que nunca o podia
+      // cumprir. Antes ficava de fora, e o cliente que marcava "são os mesmos"
+      // via tudo preenchido menos o NIF, sem explicação nenhuma.
+      nif: fis?.nif,
       email: id?.email,
       morada: id?.morada,
       pais: id?.pais,
@@ -629,12 +630,20 @@ export function Formulario({
             onChange={setEPpe}
           />
 
+          {/* Sem falar de níveis de risco nem de aprovações: a aprovação foi
+              apagada da POC (D20) e o risco não é mostrado a ninguém (D21) —
+              muito menos ao próprio cliente. O que ele precisa de saber é
+              porque lhe estamos a fazer a pergunta e o que muda ao responder
+              Sim. */}
           <p className="border-linha bg-muted flex items-start gap-2 rounded-sm border p-3 text-xs text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" />
             <span>
-              Como é calculado o risco: o processo começa com risco baixo. Se declarar ser
-              pessoa politicamente exposta (PPE), é automaticamente marcado como risco elevado
-              e fica à espera de aprovação de um sócio ou administrador.
+              Pessoa politicamente exposta (PPE) é quem exerce ou exerceu funções públicas
+              de relevo — cargos governativos, parlamentares, judiciais, de direção em
+              empresas públicas ou em organizações internacionais. A pergunta é obrigatória
+              pela Lei 83/2017 e aplica-se a todos os clientes. Responder Sim não impede
+              nada: leva apenas à recolha dos dados do cargo, nos campos que se abrem
+              a seguir.
             </span>
           </p>
 
@@ -694,7 +703,7 @@ export function Formulario({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <CampoTexto etiqueta="Nome ou empresa" nome="nome" erros={erros} obrigatorio valorInicial={seccoes.faturacao?.nome ?? ""} className="sm:col-span-2" />
-            <CampoTexto etiqueta="NIF / NIPC" nome="nif" erros={erros} obrigatorio mono valorInicial={seccoes.faturacao?.nif ?? ""} />
+            <CampoTexto etiqueta="NIF / NIPC" nome="nif" erros={erros} obrigatorio mono ajuda="Português ou do país de residência." valorInicial={seccoes.faturacao?.nif ?? ""} />
             <CampoTexto etiqueta="Email para faturas" nome="email" tipo="email" erros={erros} obrigatorio valorInicial={seccoes.faturacao?.email ?? ""} />
           </div>
 

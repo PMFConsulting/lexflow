@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  normalizarNif,
   validarCodigoPostal,
   validarIban,
   validarNif,
@@ -30,10 +31,29 @@ const telefone = z.string().trim().superRefine((v, ctx) => {
   if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
 });
 
-const nif = z.string().trim().superRefine((v, ctx) => {
-  const r = validarNif(v);
-  if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
-});
+/**
+ * NIF de faturação — português *ou* estrangeiro.
+ *
+ * O mod-11 aqui era um beco sem saída: um cliente com número fiscal
+ * estrangeiro (que o passo 2 aceita de propósito, com `nifPortugues = false`)
+ * chegava ao passo 5, era obrigado a preencher um "NIF / NIPC" e não havia
+ * número nenhum que passasse — nem sequer o dele. Ficava preso a um passo do
+ * fim, sem forma de perceber porquê.
+ *
+ * A regra passa a olhar para a forma: nove dígitos é um número português e
+ * leva o checksum inteiro — que é o que apanha o dígito trocado, a razão de
+ * ser da validação. Qualquer outra forma é um número de outro país e só se
+ * exige que exista.
+ */
+const nifFaturacao = z
+  .string()
+  .trim()
+  .min(1, "O NIF / NIPC de faturação é obrigatório.")
+  .superRefine((v, ctx) => {
+    if (!/^\d{9}$/.test(normalizarNif(v))) return;
+    const r = validarNif(v);
+    if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
+  });
 
 const pais = z
   .string()
@@ -281,7 +301,7 @@ export const passo5 = z
   .object({
     igualAoCliente: z.boolean().default(false),
     nome: obrigatorio("A denominação de faturação"),
-    nif,
+    nif: nifFaturacao,
     ...morada,
     email,
     acIgualAoCliente: z.boolean().default(false),

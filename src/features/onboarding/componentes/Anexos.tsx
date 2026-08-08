@@ -3,6 +3,8 @@
 import { useRef, useState, useTransition } from "react";
 import { Paperclip, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { classeSelect } from "./Campo";
 import { carregarDocumento, removerDocumento } from "../documentos";
 
 type Anexo = { id: string; nome: string; tipo: string; bytes: number };
@@ -122,12 +124,14 @@ export function Anexos({
       <div className="border-linha bg-papel-alto flex flex-col gap-3 rounded-sm border border-dashed p-4">
         {tipos.length > 1 && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`tipo-${titulo}`}>Tipo de documento</Label>
+            <Label htmlFor={`tipo-${titulo}`} className="text-tinta-suave">
+              Tipo de documento
+            </Label>
             <select
               id={`tipo-${titulo}`}
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
-              className="border-input bg-papel-alto h-9 rounded-sm border px-3 text-sm"
+              className={cn(classeSelect, "sm:max-w-xs")}
             >
               {tipos.map((t) => (
                 <option key={t} value={t}>
@@ -139,7 +143,9 @@ export function Anexos({
         )}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`ficheiro-${titulo}`}>Ficheiro</Label>
+          <Label htmlFor={`ficheiro-${titulo}`} className="text-tinta-suave">
+            Ficheiro
+          </Label>
           <input
             id={`ficheiro-${titulo}`}
             ref={entrada}

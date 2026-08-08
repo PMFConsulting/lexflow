@@ -179,6 +179,80 @@ escrito a partir do que a lei obriga a constar. Ao substituí-lo, subir também 
 é essa versão que fica gravada junto do consentimento, e mudar o texto sem mudar a versão
 apaga a diferença entre o que o cliente aceitou e o que passou a estar escrito.
 
+### Atualização — diário de emails, logo no back-office
+
+08/08/2026.
+
+- **`email_log`** (D34): uma linha por tentativa de envio, escrita pelo próprio `enviarEmail` e
+  não por quem o chama — é isso que garante que um caminho de envio novo não pode nascer sem
+  entrar no diário. Sucesso e erro entram os dois, incluindo o caso da `RESEND_API_KEY` que
+  falta: a pergunta que se faz é "o cliente recebeu alguma coisa?", e ela só tem resposta se as
+  falhas ficarem gravadas com o motivo. Migração `0008`. Vinte-oito tabelas.
+- **`/emails`** no back-office, entre Clientes e Configuração: data, destinatário, assunto,
+  tipo, processo e estado, com o motivo da falha por baixo do assunto. Pesquisa por
+  destinatário/assunto/referência e filtros facetados por estado e por tipo, com o estado no
+  URL — mesmo padrão do `/processos`. **Só administração** (D35).
+- **Logo no back-office**: `public/logo_jm.png` passa a estar também no cabeçalho da barra
+  lateral, onde dizia "POC". Com os quatro sítios onde já estava — os sete passos do
+  onboarding, a entrada, os T&C — o logo está agora em todo o lado onde há cabeçalho.
+- **Verificado sem alterações**: os três emails a bater com o documento do cliente à letra,
+  remetente `POC@jmassano.pt`; passo 3 só para pessoas coletivas; "Cargo" no lugar de
+  "Relação"; nenhum bloco "Como funciona" na entrada; OneDrive/WebDAV sem vestígios no código
+  (o que resta são comentários, a migração `0006`/`0007` que é história, e o teste que confirma
+  que um `protocolo: "webdav"` é recusado à entrada).
+
+### Atualização — auditoria completa da plataforma
+
+08/08/2026. Varrimento de todas as páginas — painel, processos, clientes, configuração, emails,
+os sete passos do onboarding nos dois percursos, entrada, T&C, 404 e erro.
+
+**O modal "Novo processo" (D36).** Não era um modal: era um bloco que substituía o botão no
+sítio onde o botão estivesse. No painel abria encostado à direita dentro do cabeçalho e
+empurrava-o; no cartão vazio abria centrado e com outra largura. E, criado um processo, o
+painel do link ficava no lugar do botão até alguém recarregar a página — **não havia como criar
+um segundo processo**. Passou a janela a sério (`components/ui/dialog.tsx`, novo, sobre o
+`radix-ui` que o `sheet` já usava), com o mesmo par de fichas do passo 1 do onboarding para o
+tipo de cliente, `role="radiogroup"` em vez de dois `aria-pressed`, rodapé com os botões
+alinhados, e o email validado antes de haver processo criado.
+
+**Cinco defeitos funcionais:**
+
+1. **Risco só subia.** Declarar PPE punha o processo em risco elevado; voltar atrás e corrigir
+   para "Não" deixava-o elevado para sempre, com o fator "pessoa politicamente exposta
+   declarada" por baixo de uma declaração que dizia o contrário. Agora repõe-se, com
+   `risco.reposto` na auditoria.
+2. **Cliente estrangeiro bloqueado no passo 5.** O passo 2 aceita um número fiscal de outro país
+   (`nifPortugues = false`), mas a faturação impunha o mod-11 português a toda a gente: não
+   havia número que passasse, nem o dele. Passa a aplicar o checksum só a nove dígitos — que é
+   o que apanha o dígito trocado — e a aceitar qualquer outra forma. Testes em
+   `schemas.test.ts`.
+3. **Filtro de PPE aberto ao `assistente`.** O detalhe esconde-lhe o passo 4 e regista a
+   tentativa, mas `?ppe=sim` na listagem dava-lhe a mesma informação em bloco. O filtro é
+   ignorado no servidor e não aparece na barra.
+4. **Endereço pessoal escrito no código.** O aviso de submissão caía num Gmail pessoal quando
+   `EMAIL_NOTIFICACOES` faltava, com referência e link do dossier. Sem valor por omissão: não
+   havendo destino, o aviso não sai (D37).
+5. **Consentimento congelado.** `textoEmVigor` devolvia a linha mais recente da chave, por isso
+   mudar o texto aqui nunca chegava a uma instalação a correr — o cliente consentia o
+   articulado antigo. Passou a procurar por chave *e* versão (D38).
+
+**Textos.** "POC Consulting" no ecrã de submissão e "PMF Consulting" nos consentimentos RGPD e
+nos cabeçalhos dos dois PDFs passaram a JMASSANO. O passo 4 prometia "aprovação de um sócio ou
+administrador" (apagada na D20) e explicava o cálculo do risco ao cliente (escondido na D21) —
+passou a explicar o que é uma PPE e porque a pergunta é obrigatória. O 404 oferecia "Pedir novo
+link" para `/entrar`, que é a entrada da equipa.
+
+**Visual e acessibilidade.** Logo JM no 404 e no ecrã de erro, os dois últimos sítios onde
+ainda dizia "POC" — com o título do separador, agora "· JMASSANO". Os `<select>` tinham `h-9`
+contra os `h-8` do `Input` e ficavam desalinhados na mesma linha da grelha, sem anel de foco:
+partilham agora a pele do input (`classeSelect`). Etiquetas de `CampoLista`, `Anexos` e
+`Assinatura` alinhadas em `text-tinta-suave` com as do `Campo`. Os três grupos de pastilhas do
+filtro de processos ganharam rótulo — liam-se como uma fila só. Um processo em rascunho abria
+com seis cartões vazios no detalhe; dizem "passo ainda por preencher". O fim do exercício de
+uma PPE era recolhido e nunca mostrado. O leitor de T&C, que liberta a aceitação de um
+contrato, não tinha armadilha de foco: o `Tab` saía para o formulário por baixo. Assenta agora
+no `Dialog`, com a medição da D30 intacta.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -261,6 +335,11 @@ altera o que se constrói à volta.
 | D30 | A caixa de aceitação dos T&C só se destranca depois de o documento ser aberto e percorrido até ao fim, estilo banca. O texto é renderizado dentro do leitor e não num `iframe`: assim o fim do documento é uma medição do próprio elemento, sem depender de o browser deixar ler o `scrollTop` de outro documento. Um documento que caiba todo no ecrã conta como lido — senão a caixa ficava trancada para sempre num monitor grande. O mesmo texto está em `/termos-condicoes` e vai em PDF no email de boas-vindas, os três da mesma fonte | `src/lib/termos.ts` |
 | D31 | Três emails ao cliente, todos em `src/lib/emails/jmassano.ts`: **JMASSANO \| Registro** (com o link, no momento em que a sociedade cria o processo), **JMASSANO \| Confirmação de Receção dos seus Dados** e **Bem-vindo à JMASSANO Escritório de Advogado** (com resumo, T&C e proposta de honorários em anexo). Os dois últimos saem os dois na submissão porque a POC não tem passo de aprovação (D20) — não há um segundo momento em que dar as boas-vindas. O resumo anexado é o mesmo `summary.pdf` que vai para o arquivo, gerado do mesmo sítio, para o cliente e a sociedade não ficarem com versões diferentes do mesmo documento | `src/lib/emails/jmassano.ts` |
 | D32 | Um só destino de armazenamento: o servidor da sociedade, por SFTP. O OneDrive e o WebDAV saíram do código, do schema (a coluna `tipo` e o enum `tipo_armazenamento` foram removidos na migração `0007`) e dos scripts (`gera_pasta_cliente.py` apagado). O `protocolo` fica no schema Zod fixo em `z.literal("sftp")`, e não desaparece: é o que faz uma configuração antiga noutro protocolo rebentar à entrada em vez de ser tratada como SFTP. A migração apaga as credenciais das linhas que estavam em `onedrive` — um segredo do Graph sem finalidade não fica gravado | `src/db/migrations/0007_armazenamento_so_sftp.sql` |
+| D34 | `email_log` é escrita dentro de `enviarEmail` e não nos sítios que enviam, e o `template` é parâmetro obrigatório: um caminho de envio novo não compila sem responder "que email é este", o que fecha a porta a envios por registar. Não é auditoria e não a substitui — `evento_auditoria` continua append-only com cadeia de hashes e é o que a lei obriga a conservar; isto é o diário técnico do canal, que se trunca sem consequência. Guarda o **hash** do token e nunca o token em claro (senão bastava ler a tabela para entrar em qualquer dossier, contra a D4), e não guarda o corpo das mensagens — duplicar dados pessoais numa tabela de diagnóstico é multiplicar superfície RGPD sem nada ganhar. A gravação nunca lança: um email que não sai *porque* o registo falhou é pior do que um email por registar | `src/lib/email.ts` |
+| D35 | `/emails` é só para o papel `admin`, com o guard na página (`exigirAdmin`) e não só na barra lateral — esconder a entrada da navegação não fecha o endereço a quem o escreva à mão. A lista mostra endereços de clientes lado a lado, é de diagnóstico e não de trabalho diário. Os valores de `?estado=` e `?template=` são filtrados contra o enum antes de chegarem ao `inArray`: sem isso, um parâmetro escrito à mão era um 500 a partir do URL | `src/app/(backoffice)/emails/page.tsx` |
+| D36 | "Novo processo" é uma janela (`components/ui/dialog.tsx`, sobre o `radix-ui` que o `sheet` já usava) e não um bloco em linha. Aberto em linha, o formulário tinha a largura e o alinhamento do sítio onde calhasse estar, e o painel do link que se lhe seguia ficava no lugar do botão até alguém recarregar a página — o que impedia criar um segundo processo. O conteúdo só monta com a janela aberta: é isso que garante que ela reabre limpa | `src/features/processos/componentes/BotaoNovoProcesso.tsx` |
+| D37 | `EMAIL_NOTIFICACOES` sem valor por omissão. O que lá estava era um endereço pessoal escrito no código, e numa instalação a que faltasse a variável eram referências e links de dossiers de clientes a sair para a caixa de correio de quem escreveu o código. Sem destino configurado, o aviso ao back-office não sai e fica um `console.warn` — os dois emails ao cliente e o arquivo em SFTP não dependem dele. O endereço do link também deixou de estar escrito à mão: sai dos cabeçalhos do pedido, como já saía o do email de registo (`lib/origem.ts`, agora partilhado) | `src/features/onboarding/acoes.ts` |
+| D38 | `textoEmVigor` procura por **chave e versão**, e não pela linha mais recente da chave. Assim não estava: bastava existir uma linha para ela ser devolvida para sempre, e mudar o articulado no código não tinha efeito nenhum numa instalação a correr — o cliente consentia o texto antigo enquanto o ecrã lhe mostrava o novo. Com a procura pela versão exata, subir a `versao` cria uma linha nova e os consentimentos anteriores continuam a apontar para o texto que quem os deu viu de facto, que é o que a D3 pede | `src/features/onboarding/consentimentos.ts` |
 | D33 | Os corpos dos três emails passam a ser os do documento de análise do cliente, à letra — assinatura em aberto ("Assinatura do Advogado gestor do Cliente") incluída, que é o espaço do advogado que gere cada cliente. Duas coisas caem por não constarem desse texto: a saudação deixa de levar o nome ("Caro(a) Sr.(a)," é o que lá está) e a referência do processo sai do corpo dos emails 2 e 3 — continua no assunto do aviso ao back-office e no resumo em anexo. O bloco-resumo dos T&C sai do email 2 pela mesma razão; os T&C completos vão em PDF no email 3. Os parâmetros `nome` e `referencia` ficam nas assinaturas, aceites e ignorados, para repor qualquer um sem mexer em quem chama | `src/lib/emails/jmassano.ts` |
 
 ## Decisões em aberto
@@ -297,10 +376,10 @@ pnpm db:validar           # aplica as migrações a um Postgres em WASM e verifi
 pnpm auditoria:verificar  # revalida a cadeia de hashes de evento_auditoria
 ```
 
-`pnpm db:validar` não precisa de servidor nenhum: corre as três migrações num PGlite efémero e
-confirma que as 27 tabelas existem, que a auditoria recusa mesmo UPDATE e DELETE, e que a
-pesquisa resolve acentos e maiúsculas. É o que garante que o primeiro `db:migrate` contra o
-Supabase não rebenta.
+`pnpm db:validar` não precisa de servidor nenhum: corre todas as migrações num PGlite efémero e
+conta as tabelas (28, desde a `0008`), confirma que a auditoria recusa mesmo UPDATE e DELETE, e
+que a pesquisa resolve acentos e maiúsculas. É o que garante que o primeiro `db:migrate` contra
+o Postgres de produção não rebenta.
 
 ## Convenções
 

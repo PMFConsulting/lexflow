@@ -6,8 +6,9 @@ import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { facetas, listarProcessos } from "@/features/processos/consultas";
 import { Filtros } from "@/features/processos/componentes/Filtros";
+import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 import { passosAntesDe, passosDoProcesso } from "@/features/onboarding/passos";
-import { exigirSessao } from "@/lib/sessao";
+import { exigirSessao, podeVerPpe } from "@/lib/sessao";
 
 export const metadata = { title: "Processos" };
 export const dynamic = "force-dynamic";
@@ -30,11 +31,21 @@ export default async function Processos({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigirSessao();
+  const { eu } = await exigirSessao();
   const sp = await searchParams;
 
-  const ppe: "sim" | "nao" | undefined =
-    sp.ppe === "sim" ? "sim" : sp.ppe === "nao" ? "nao" : undefined;
+  // O papel `assistente` não vê declarações de PPE no detalhe — e não pode
+  // vê-las por outra porta: filtrar a lista por `?ppe=sim` dava-lhe exatamente
+  // a mesma informação, só que em bloco. O filtro é ignorado, e não devolve
+  // erro: quem lá chegar por um link partilhado vê a lista toda.
+  const vePpe = podeVerPpe(eu.papel);
+  const ppe: "sim" | "nao" | undefined = !vePpe
+    ? undefined
+    : sp.ppe === "sim"
+      ? "sim"
+      : sp.ppe === "nao"
+        ? "nao"
+        : undefined;
 
   const filtros = {
     q: typeof sp.q === "string" ? sp.q : undefined,
@@ -73,9 +84,12 @@ export default async function Processos({
             {filtros.q && ` para “${filtros.q}”`}
           </p>
         </div>
+        {/* O sítio natural para criar um processo é a lista deles, e não só o
+            painel — era preciso voltar atrás para chegar ao botão. */}
+        <BotaoNovoProcesso />
       </div>
 
-      <Filtros facetas={f} />
+      <Filtros facetas={f} vePpe={vePpe} />
 
       {linhas.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 py-14 text-center">

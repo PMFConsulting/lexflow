@@ -45,6 +45,23 @@ const moldura = (conteudo: string) => `
 const p = (texto: string) =>
   `<p style="font-size:14px;line-height:1.7;margin:0 0 14px;">${texto}</p>`;
 
+/**
+ * Escape do que vem de fora antes de entrar no HTML.
+ *
+ * O corpo destes emails é texto nosso, à letra; o único valor interpolado é o
+ * `link`, e o anfitrião dele sai dos cabeçalhos do pedido
+ * (`origemPublica`, em `features/processos/acoes.ts`). Um `Host` com aspas
+ * fechava o `href` e o resto da etiqueta passava a ser atributo — barato de
+ * evitar, e não há razão para confiar num cabeçalho que o cliente controla.
+ */
+const escapar = (v: string) =>
+  v
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const saudacao = () => p("Caro(a) Sr.(a),");
 
 const despedida = () =>
@@ -55,6 +72,7 @@ const despedida = () =>
 export const ASSUNTO_REGISTO = "JMASSANO | Registro";
 
 export function emailRegisto({ link }: { nome?: string | null; link: string }): string {
+  const href = escapar(link);
   return moldura(`
     ${saudacao()}
     ${p(
@@ -67,7 +85,7 @@ export function emailRegisto({ link }: { nome?: string | null; link: string }): 
       "Para iniciarmos o acompanhamento do seu processo e cumprirmos as obrigações legais e regulamentares aplicáveis, solicitamos que efetue o seu registo através da nossa plataforma online:",
     )}
     <p style="margin:0 0 14px;">
-      <a href="${link}"
+      <a href="${href}"
          style="display:inline-block;background:${TINTA};color:#fff;text-decoration:none;
                 padding:12px 22px;border-radius:2px;font-family:Helvetica,Arial,sans-serif;
                 font-size:14px;">
@@ -76,7 +94,7 @@ export function emailRegisto({ link }: { nome?: string | null; link: string }): 
     </p>
     ${p(
       `Se o botão não funcionar, copie este endereço para o seu navegador:<br />
-       <span style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;">${link}</span>`,
+       <span style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;">${href}</span>`,
     )}
     ${p(
       "O processo é simples e permitirá a recolha segura das informações e documentos necessários para a formalização da nossa relação profissional.",

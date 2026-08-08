@@ -1,5 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
-import { FileText, LayoutDashboard, Settings, Users } from "lucide-react";
+import { FileText, LayoutDashboard, Mail, Settings, Users, type LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -17,13 +18,24 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { exigirSessao } from "@/lib/sessao";
+import { exigirSessao, podeVerEmails } from "@/lib/sessao";
 import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
 
-const NAVEGACAO = [
+type Entrada = {
+  titulo: string;
+  href: string;
+  icone: LucideIcon;
+  /** Entradas sem isto são para toda a equipa. */
+  soAdmin?: boolean;
+};
+
+const NAVEGACAO: Entrada[] = [
   { titulo: "Painel", href: "/", icone: LayoutDashboard },
   { titulo: "Processos", href: "/processos", icone: FileText },
   { titulo: "Clientes", href: "/clientes", icone: Users },
+  // Só administração — a página tem o seu próprio guard (`exigirAdmin`), e
+  // esconder a entrada aqui é cortesia, não segurança.
+  { titulo: "Emails", href: "/emails", icone: Mail, soAdmin: true },
   { titulo: "Configuração", href: "/configuracao", icone: Settings },
 ];
 
@@ -46,12 +58,26 @@ export default async function LayoutBackoffice({
       <SidebarProvider>
         <Sidebar collapsible="icon">
           <SidebarHeader className="px-3 py-4">
-            {/* A lombada do dossier: tinta sólida, marca em display. */}
-            <Link href="/" className="flex flex-col gap-0.5">
-              <span className="font-display text-lg leading-none">
-                POC
+            {/* A lombada do dossier, agora com a marca da sociedade — o mesmo
+                logo do onboarding, da entrada e dos T&C. O fundo da barra é
+                tinta sólida, e o logo tem fundo próprio: daí a caixa clara por
+                trás, sem a qual ele desaparecia no escuro.
+
+                `group-data-[collapsible=icon]` é o estado recolhido da barra:
+                aí só cabe a marca, e a linha de baixo sairia por cima do
+                ícone seguinte. */}
+            <Link href="/" className="flex items-center gap-2.5">
+              <span className="bg-papel-alto flex shrink-0 items-center justify-center rounded-sm p-1">
+                <Image
+                  src="/logo_jm.png"
+                  alt="JMASSANO — Escritório de Advogado"
+                  width={202}
+                  height={171}
+                  priority
+                  className="h-7 w-auto"
+                />
               </span>
-              <span className="font-mono text-2xs tracking-[0.16em] uppercase opacity-60">
+              <span className="font-mono text-2xs tracking-[0.16em] uppercase opacity-60 group-data-[collapsible=icon]:hidden">
                 Processos
               </span>
             </Link>
@@ -62,7 +88,9 @@ export default async function LayoutBackoffice({
               <SidebarGroupLabel>Onboarding</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {NAVEGACAO.map((item) => (
+                  {NAVEGACAO.filter(
+                    (item) => !item.soAdmin || podeVerEmails(eu.papel),
+                  ).map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton asChild tooltip={item.titulo}>
                         <Link href={item.href}>

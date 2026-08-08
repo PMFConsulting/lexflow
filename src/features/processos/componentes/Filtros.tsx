@@ -28,8 +28,11 @@ const ROTULOS: Record<string, string> = {
  */
 export function Filtros({
   facetas,
+  vePpe = true,
 }: {
   facetas: { porEstado: Faceta[]; porTipo: Faceta[] };
+  /** O papel `assistente` não vê PPE: o filtro nem lhe aparece. */
+  vePpe?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -55,9 +58,19 @@ export function Filtros({
   const ativo = (campo: string, valor: string) => sp.getAll(campo).includes(valor);
   const temFiltros = ["estado", "tipo", "ppe", "q"].some((c) => sp.has(c));
 
-  const grupo = (campo: string, itens: Faceta[]) =>
+  /**
+   * Três conjuntos de pastilhas lado a lado sem rótulo nenhum não se
+   * distinguiam: "Rascunho / Submetido", "Particular / Empresa" e "PPE sim /
+   * não" liam-se como uma fila só. O rótulo diz de que pergunta é cada grupo,
+   * e nomeia-o para quem navega por leitor de ecrã.
+   */
+  const grupo = (campo: string, rotulo: string, itens: Faceta[]) =>
     itens.length === 0 ? null : (
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-col gap-1.5" role="group" aria-label={rotulo}>
+        <p className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+          {rotulo}
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
         {itens.map((i) => (
           <button
             key={i.chave}
@@ -75,6 +88,7 @@ export function Filtros({
             <span className="font-mono tabular-nums opacity-60">{i.n}</span>
           </button>
         ))}
+        </div>
       </div>
     );
 
@@ -100,43 +114,55 @@ export function Filtros({
         />
       </form>
 
-      <div className="flex flex-wrap gap-x-5 gap-y-2">
-        {grupo("estado", facetas.porEstado)}
-        {grupo("tipo", facetas.porTipo)}
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+        {grupo("estado", "Estado", facetas.porEstado)}
+        {grupo("tipo", "Tipo de cliente", facetas.porTipo)}
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(["sim", "nao"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() =>
-                aplicar((p) => (p.get("ppe") === v ? p.delete("ppe") : p.set("ppe", v)))
-              }
-              aria-pressed={sp.get("ppe") === v}
-              className={cn(
-                "border-linha rounded-sm border px-2 py-1 text-xs transition-colors",
-                sp.get("ppe") === v
-                  ? "border-tinta bg-tinta text-papel-alto"
-                  : "bg-papel-alto hover:border-tinta-suave",
-              )}
-            >
-              PPE {v === "sim" ? "sim" : "não"}
-            </button>
-          ))}
-        </div>
-
-        {temFiltros && (
-          <button
-            type="button"
-            onClick={() => transicao(() => router.push("/processos"))}
-            className="text-muted-foreground hover:text-selo inline-flex items-center gap-1 text-xs"
-          >
-            <X className="size-3" />
-            Limpar
-          </button>
+        {vePpe && (
+          <div className="flex flex-col gap-1.5" role="group" aria-label="PPE">
+            <p className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+              PPE
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(["sim", "nao"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() =>
+                    aplicar((p) => {
+                      if (p.get("ppe") === v) p.delete("ppe");
+                      else p.set("ppe", v);
+                    })
+                  }
+                  aria-pressed={sp.get("ppe") === v}
+                  className={cn(
+                    "border-linha rounded-sm border px-2 py-1 text-xs transition-colors",
+                    sp.get("ppe") === v
+                      ? "border-tinta bg-tinta text-papel-alto"
+                      : "bg-papel-alto hover:border-tinta-suave",
+                  )}
+                >
+                  {v === "sim" ? "Sim" : "Não"}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
-        {aFiltrar && <span className="text-xs text-muted-foreground">a filtrar…</span>}
+        <div className="flex items-center gap-3 self-end pb-1">
+          {temFiltros && (
+            <button
+              type="button"
+              onClick={() => transicao(() => router.push("/processos"))}
+              className="text-muted-foreground hover:text-selo inline-flex items-center gap-1 text-xs"
+            >
+              <X className="size-3" />
+              Limpar
+            </button>
+          )}
+
+          {aFiltrar && <span className="text-xs text-muted-foreground">a filtrar…</span>}
+        </div>
       </div>
     </div>
   );

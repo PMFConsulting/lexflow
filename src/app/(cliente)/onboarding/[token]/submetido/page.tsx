@@ -12,6 +12,17 @@ const formatadorAssinatura = new Intl.DateTimeFormat("pt-PT", {
   timeZone: "Europe/Lisbon",
 });
 
+/**
+ * Também com fuso fixo, e não `toLocaleString` sem opções: isto renderiza no
+ * servidor, e um contentor a correr em UTC dava ao cliente uma hora de
+ * submissão uma hora abaixo da que ele viu no relógio.
+ */
+const formatadorSubmissao = new Intl.DateTimeFormat("pt-PT", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "Europe/Lisbon",
+});
+
 export default async function Submetido({
   params,
 }: {
@@ -30,9 +41,9 @@ export default async function Submetido({
       <div>
         <h1 className="text-2xl">Recebemos o seu processo</h1>
         <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-          A partir de agora o processo fica em revisão pela equipa da POC
-          Consulting. Se faltar alguma coisa ou for preciso corrigir um dado,
-          entramos em contacto pelo email que indicou.
+          A partir de agora o processo fica em análise pela equipa da JMASSANO
+          Escritório de Advogado. Se faltar alguma coisa ou for preciso corrigir
+          um dado, entramos em contacto pelo email que indicou.
         </p>
       </div>
 
@@ -46,12 +57,7 @@ export default async function Submetido({
         <div className="bg-papel-alto flex justify-between gap-4 p-3">
           <dt className="text-muted-foreground">Submetido em</dt>
           <dd>
-            <Ref>
-              {(processo.submetidoEm ?? new Date()).toLocaleString("pt-PT", {
-                dateStyle: "short",
-                timeStyle: "short",
-              })}
-            </Ref>
+            <Ref>{formatadorSubmissao.format(processo.submetidoEm ?? new Date())}</Ref>
           </dd>
         </div>
       </dl>

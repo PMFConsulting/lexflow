@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -12,10 +13,18 @@ export default function ErrorGlobal({
   return (
     <div className="bg-papel grid min-h-svh place-items-center px-4 py-10">
       <div className="w-full max-w-sm text-center">
-        <p className="font-display text-2xl leading-none">POC</p>
-        <p className="text-2xs text-muted-foreground mt-1 mb-8 font-mono tracking-[0.16em] uppercase">
-          Processos · Onboarding
-        </p>
+        <div className="mb-8 flex flex-col items-center">
+          <Image
+            src="/logo_jm.png"
+            alt="JMASSANO — Escritório de Advogado"
+            width={202}
+            height={171}
+            className="h-14 w-auto"
+          />
+          <p className="text-2xs text-muted-foreground mt-3 font-mono tracking-[0.16em] uppercase">
+            Processos · Onboarding
+          </p>
+        </div>
 
         <div className="border-linha bg-papel-alto rounded-sm border p-6">
           <p className="text-2xs text-selo font-mono tracking-[0.16em] uppercase">Erro</p>

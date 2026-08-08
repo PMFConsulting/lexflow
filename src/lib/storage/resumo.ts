@@ -138,7 +138,7 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
 
   /* --------------------------------------------------------------- cabeça */
 
-  escrever("PMF CONSULTING · DOSSIER DO CLIENTE", MARGEM.x, y, corpo, 8, SELO, 2.2);
+  escrever("JMASSANO · DOSSIER DO CLIENTE", MARGEM.x, y, corpo, 8, SELO, 2.2);
   y -= 26;
 
   escrever(d.nome, MARGEM.x, y, serifa, 22);

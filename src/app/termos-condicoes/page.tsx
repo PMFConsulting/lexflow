@@ -2,8 +2,8 @@ import Image from "next/image";
 import { TERMOS_CONDICOES, VERSAO_TERMOS } from "@/lib/termos";
 
 export const metadata = {
-  // Absoluto: o `template` do layout de raiz acrescenta "· POC" ao título, e
-  // este documento é para o cliente guardar ou imprimir.
+  // Absoluto: o `template` do layout de raiz acrescenta "· JMASSANO" ao
+  // título, e este documento é para o cliente guardar ou imprimir.
   title: { absolute: "Termos e Condições — JMASSANO" },
   description: "Condições de prestação de serviços jurídicos.",
 };

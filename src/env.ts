@@ -11,7 +11,14 @@ const esquema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET precisa de pelo menos 32 caracteres"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
   RESEND_API_KEY: z.string().optional(),
-  EMAIL_REMETENTE: z.string().email().default("onboarding@resend.dev"),
+  /**
+   * Remetente dos emails ao cliente. O valor por omissão é o da sociedade e não
+   * o `onboarding@resend.dev` do arranque: uma instalação a que falte a variável
+   * mandava os três emails da JMASSANO com o remetente da Resend, e um cliente
+   * que recebe um pedido de dados pessoais de um domínio que não conhece faz
+   * bem em não responder. Continua a poder ser trocado por `.env`.
+   */
+  EMAIL_REMETENTE: z.string().email().default("POC@jmassano.pt"),
   EMAIL_NOTIFICACOES: z.string().email().optional(),
   /** Chave AES-256 (64 carateres hex) para cifrar credenciais de armazenamento. Gera com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. */
   ARMAZENAMENTO_CHAVE: z

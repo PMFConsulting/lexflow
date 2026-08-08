@@ -117,7 +117,7 @@ export function Assinatura({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <Label htmlFor="rubrica">
+        <Label htmlFor="rubrica" className="text-tinta-suave">
           Assinatura<span className="text-selo"> *</span>
         </Label>
         {dados && (

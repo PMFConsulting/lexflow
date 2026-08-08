@@ -69,6 +69,29 @@ export const finalidadeConsentimento = pgEnum("finalidade_consentimento", [
   "proposta",
 ]);
 
+/**
+ * Que email é que a linha do `email_log` regista.
+ *
+ * São os três do documento da JMASSANO (D31) mais o aviso interno que sai para
+ * a sociedade quando um processo é submetido — esse não é dela, mas sai pelo
+ * mesmo canal e falha pelas mesmas razões, e um diário de emails que o omitisse
+ * mentia por omissão.
+ */
+export const templateEmail = pgEnum("template_email", [
+  "registo",
+  "confirmacao_rececao",
+  "boas_vindas",
+  "notificacao_backoffice",
+]);
+
+/**
+ * Como correu a tentativa de envio. Só dois valores: ou o fornecedor aceitou a
+ * mensagem, ou não aceitou. O que acontece depois de aceite — entregue, aberta,
+ * devolvida — é do lado do Resend e viria por webhook; enquanto não houver,
+ * `enviado` quer dizer "entregue ao fornecedor" e não "chegou à caixa".
+ */
+export const estadoEmail = pgEnum("estado_email", ["enviado", "erro"]);
+
 /** Regime de IVA — percurso Empresa. Por validar contra imagem (A18). */
 export const regimeIva = pgEnum("regime_iva", [
   "normal",

@@ -42,13 +42,23 @@ function Linha({ k, v }: { k: string; v: React.ReactNode }) {
   );
 }
 
+/**
+ * Um bloco por passo.
+ *
+ * `preenchido` é o que distingue "o cliente ainda não chegou aqui" de "chegou
+ * e não havia nada a dizer". Sem isso, um processo em rascunho abria com seis
+ * cartões vazios, só com o título — e um cartão vazio lê-se como avaria, não
+ * como passo por dar.
+ */
 function Bloco({
   titulo,
   passo,
+  preenchido,
   children,
 }: {
   titulo: string;
   passo: number;
+  preenchido: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -59,9 +69,13 @@ function Bloco({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[minmax(0,13rem)_1fr]">
-          {children}
-        </dl>
+        {preenchido ? (
+          <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[minmax(0,13rem)_1fr]">
+            {children}
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">Passo ainda por preencher.</p>
+        )}
       </CardContent>
     </Card>
   );
@@ -148,7 +162,7 @@ export default async function Processo({
 
       {/* ── dados ─────────────────────────────────────────────────────── */}
       <div className="grid gap-3">
-        <Bloco titulo="Identificação" passo={1}>
+        <Bloco titulo="Identificação" passo={1} preenchido={Boolean(s.identificacao)}>
           <Linha k="Nome" v={s.identificacao?.nome} />
           <Linha k="Profissão" v={s.identificacao?.profissao} />
           <Linha k="Entidade patronal" v={s.identificacao?.entidadePatronal} />
@@ -166,7 +180,7 @@ export default async function Processo({
           />
         </Bloco>
 
-        <Bloco titulo="Fiscal" passo={2}>
+        <Bloco titulo="Fiscal" passo={2} preenchido={Boolean(s.fiscais)}>
           <Linha k="NIF / NIPC" v={<Ref>{s.fiscais?.nif}</Ref>} />
           <Linha k="NIF português" v={s.fiscais ? (s.fiscais.nifPortugues ? "Sim" : "Não") : null} />
           <Linha k="Reside em Portugal" v={s.fiscais ? (s.fiscais.resideEmPortugal ? "Sim" : "Não") : null} />
@@ -179,7 +193,7 @@ export default async function Processo({
         {/* O passo 3 só existe para pessoas coletivas: uma pessoa singular
             representa-se a si própria, e o bloco em branco só diria isso. */}
         {processo.tipoCliente === "empresa" && (
-        <Bloco titulo="Representante Legal" passo={3}>
+        <Bloco titulo="Representante Legal" passo={3} preenchido={Boolean(s.representante)}>
           <Linha
             k="Quem preencheu é o representante legal"
             v={s.representante ? (s.representante.eRepresentante ? "Sim" : "Não") : null}
@@ -208,12 +222,23 @@ export default async function Processo({
         {/* O passo 4 é o mais sensível do sistema. O papel `assistente` não o vê
             — nem aqui, nem por URL direto, nem por chamada à API. */}
         {vePpe ? (
-          <Bloco titulo="PPE e relação de negócio" passo={4}>
+          <Bloco titulo="PPE e relação de negócio" passo={4} preenchido={Boolean(s.ppe ?? s.negocio)}>
             <Linha k="Pessoa politicamente exposta" v={s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null} />
             <Linha k="Cargo" v={s.ppe?.ppeCargo} />
             <Linha k="Entidade" v={s.ppe?.ppeEntidade} />
             <Linha k="País" v={s.ppe?.ppePais} />
-            <Linha k="Exercício" v={s.ppe?.ppeInicio && `desde ${s.ppe.ppeInicio}`} />
+            {/* O fim do exercício era recolhido no passo 4 e não aparecia em
+                lado nenhum: um cargo que já terminou lia-se aqui como um cargo
+                em curso. */}
+            <Linha
+              k="Exercício"
+              v={
+                s.ppe?.ppeInicio &&
+                (s.ppe.ppeFim
+                  ? `${s.ppe.ppeInicio} a ${s.ppe.ppeFim}`
+                  : `desde ${s.ppe.ppeInicio} (em exercício)`)
+              }
+            />
             <Linha
               k="Familiar ou associado de PPE"
               v={s.ppe ? (s.ppe.eRelacionadoPpe ? "Sim" : "Não") : null}
@@ -234,14 +259,14 @@ export default async function Processo({
           </Card>
         )}
 
-        <Bloco titulo="Faturação" passo={5}>
+        <Bloco titulo="Faturação" passo={5} preenchido={Boolean(s.faturacao)}>
           <Linha k="Nome ou empresa" v={s.faturacao?.nome} />
           <Linha k="NIF" v={<Ref>{s.faturacao?.nif}</Ref>} />
           <Linha k="Email" v={s.faturacao?.email} />
           <Linha k="Ao cuidado de" v={s.faturacao?.acNome} />
         </Bloco>
 
-        <Bloco titulo="RGPD — consentimentos" passo={6}>
+        <Bloco titulo="RGPD — consentimentos" passo={6} preenchido={Boolean(s.preferencias)}>
           <Linha k="Como chegou até nós" v={ORIGEM_CONTACTO_TEXTO[s.preferencias?.origemContacto ?? ""]} />
           <Linha
             k={
@@ -259,7 +284,11 @@ export default async function Processo({
           <Linha k="Contacto para convites" v={s.preferencias?.convitesNome} />
         </Bloco>
 
-        <Bloco titulo="T&C, aceitação de proposta e assinatura digital" passo={7}>
+        <Bloco
+          titulo="T&C, aceitação de proposta e assinatura digital"
+          passo={7}
+          preenchido={Boolean(s.fecho ?? assinatura)}
+        >
           <Linha
             k="Termos e condições e proposta"
             v={s.fecho?.tcAceitacao ? "Aceite" : "Por aceitar"}
@@ -336,6 +365,9 @@ export default async function Processo({
           <CardTitle className="text-base">Auditoria</CardTitle>
         </CardHeader>
         <CardContent>
+          {eventos.length === 0 && (
+            <p className="text-sm text-muted-foreground">Ainda não há eventos registados.</p>
+          )}
           <ol className="border-linha ml-1 border-l">
             {eventos.map((e) => (
               <li key={e.id} className="relative py-2.5 pl-5">

@@ -4,30 +4,13 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { env } from "@/env";
 import { contadorReferencia, organizacao } from "@/db/schema/organizacao";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
 import { enviarEmail } from "@/lib/email";
 import { ASSUNTO_REGISTO, emailRegisto } from "@/lib/emails/jmassano";
+import { origemPublica } from "@/lib/origem";
 import { expiraDaquiA, gerarToken, hashToken } from "@/lib/token";
-
-/**
- * O endereço público desta instalação, para montar o link que vai no email.
- *
- * Sai dos cabeçalhos do pedido e não de uma constante: entre o `localhost` do
- * desenvolvimento e o `poc.terlicalabs.com` de produção, um valor fixo mandava
- * metade dos clientes para o sítio errado. O `BETTER_AUTH_URL` fica como
- * recurso para quando isto correr fora de um pedido.
- */
-async function origemPublica(): Promise<string> {
-  const h = await headers();
-  const anfitriao = h.get("x-forwarded-host") ?? h.get("host");
-  if (!anfitriao) return env().BETTER_AUTH_URL.replace(/\/+$/, "");
-
-  const protocolo = h.get("x-forwarded-proto") ?? (anfitriao.startsWith("localhost") ? "http" : "https");
-  return `${protocolo}://${anfitriao}`;
-}
 
 /**
  * Cria um processo e devolve o link mágico.
@@ -126,6 +109,13 @@ export async function criarProcesso(
       para: emailCliente,
       assunto: ASSUNTO_REGISTO,
       html: emailRegisto({ nome: nomeCliente, link }),
+      template: "registo",
+      organizacaoId: org.id,
+      processoId: processo.id,
+      // O mesmo hash que ficou em `processo_onboarding.token_acesso_hash`: é o
+      // que permite dizer "foi este link que saiu nesta mensagem" sem guardar
+      // o token em claro em mais um sítio (D4).
+      tokenHash: processo.tokenAcessoHash,
     });
     emailEnviado = r.ok;
 

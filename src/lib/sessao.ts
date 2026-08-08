@@ -43,3 +43,28 @@ export async function exigirSessao() {
 export function podeVerPpe(papel: string) {
   return papel !== "assistente";
 }
+
+/**
+ * O diário de emails é de administração.
+ *
+ * A lista mostra para quem é que a sociedade escreveu e quando — endereços de
+ * clientes, lado a lado, numa página só. É de diagnóstico, não de trabalho
+ * diário, e não há razão para estar ao alcance de quem preenche processos.
+ */
+export function podeVerEmails(papel: string) {
+  return papel === "admin";
+}
+
+/**
+ * Exige sessão *e* o papel de administrador.
+ *
+ * Um não-administrador vai para o painel, e não para o ecrã de entrada: já tem
+ * sessão válida, e mandá-lo autenticar-se outra vez sugeria que o problema era
+ * a sessão. O guard tem de ficar na página e não só na navegação — esconder a
+ * entrada da barra lateral não fecha o endereço a quem o escreva à mão.
+ */
+export async function exigirAdmin() {
+  const s = await exigirSessao();
+  if (!podeVerEmails(s.eu.papel)) redirect("/");
+  return s;
+}

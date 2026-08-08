@@ -37,8 +37,10 @@ export const PASSOS = [
     chave: "ppe",
     titulo: "PPE e relação de negócio",
     curto: "PPE",
+    // Sem promessa de aprovação (D20: o fluxo foi apagado) e sem falar de
+    // nível de risco (D21: não é mostrado a ninguém, muito menos ao cliente).
     descricao:
-      "Diligência de KYC. Se declarar ser pessoa politicamente exposta, o processo fica com risco elevado e exige aprovação da sociedade.",
+      "Declaração exigida pela Lei 83/2017, e os serviços que nos confia. Responder Sim não impede nada — só obriga a sociedade a recolher mais alguns dados.",
   },
   {
     n: 5,

@@ -13,6 +13,7 @@ import {
   emailBoasVindas,
   emailConfirmacaoRececao,
 } from "@/lib/emails/jmassano";
+import { origemPublica } from "@/lib/origem";
 import { assinatura } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import {
@@ -272,8 +273,17 @@ export async function guardarPasso(
           set: { servicos, origemFundos },
         });
 
-      // Regra de negócio que não é opcional: PPE declarada força risco elevado
-      // e tira a aprovação das mãos de quem não é sócio.
+      // Regra de negócio que não é opcional: PPE declarada força risco elevado.
+      //
+      // E o inverso também tem de valer. Antes, o risco só subia: quem
+      // respondesse Sim, voltasse atrás e corrigisse para Não ficava com o
+      // processo marcado como elevado para sempre, com um fator de risco a
+      // dizer "pessoa politicamente exposta declarada" por baixo de uma
+      // declaração que dizia o contrário. O risco não é mostrado em lado
+      // nenhum (D21), o que torna isto ainda mais difícil de apanhar a olho —
+      // mas é o valor gravado, e é dele que qualquer relatório vai viver.
+      const eraElevado = processo.nivelRisco === "elevado";
+
       if (ppe.ePpe === true) {
         await base
           .update(processoOnboarding)
@@ -289,13 +299,32 @@ export async function guardarPasso(
           })
           .where(eq(processoOnboarding.id, processo.id));
 
+        if (!eraElevado) {
+          await registarEvento({
+            organizacaoId: processo.organizacaoId,
+            processoId: processo.id,
+            acao: "risco.elevado",
+            entidade: "processo_onboarding",
+            entidadeId: processo.id,
+            valorNovo: { nivelRisco: "elevado", motivo: "ppe" },
+            ip,
+            userAgent,
+          });
+        }
+      } else if (eraElevado) {
+        await base
+          .update(processoOnboarding)
+          .set({ nivelRisco: "baixo", fatoresRisco: [] })
+          .where(eq(processoOnboarding.id, processo.id));
+
         await registarEvento({
           organizacaoId: processo.organizacaoId,
           processoId: processo.id,
-          acao: "risco.elevado",
+          acao: "risco.reposto",
           entidade: "processo_onboarding",
           entidadeId: processo.id,
-          valorNovo: { nivelRisco: "elevado", motivo: "ppe" },
+          valorAnterior: { nivelRisco: "elevado", motivo: "ppe" },
+          valorNovo: { nivelRisco: "baixo", motivo: "ppe_retirada" },
           ip,
           userAgent,
         });
@@ -565,7 +594,13 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
 
   const emailCliente = identificacao?.email ?? faturacao?.email;
   const nomeCliente = identificacao?.nome ?? null;
-  const emailBackoffice = env().EMAIL_NOTIFICACOES ?? "ummgames88@gmail.com";
+
+  // Sem valor por omissão. Aqui estava um endereço pessoal escrito à mão, e
+  // numa instalação a que faltasse a variável eram os dados de processos de
+  // clientes — referência, tipo, link para o dossier — a sair para a caixa de
+  // correio de quem escreveu o código. Não havendo destino configurado, o
+  // aviso não sai: os dois emails ao cliente e o arquivo não dependem disto.
+  const emailBackoffice = env().EMAIL_NOTIFICACOES;
 
   const envios: Promise<unknown>[] = [];
 
@@ -575,26 +610,44 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
         para: emailCliente,
         assunto: ASSUNTO_CONFIRMACAO,
         html: emailConfirmacaoRececao(),
+        template: "confirmacao_rececao",
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
       }),
     );
 
     envios.push(enviarBoasVindas(processo, emailCliente, nomeCliente));
   }
 
-  envios.push(
-    enviarEmail({
-      para: emailBackoffice,
-      assunto: `Novo processo submetido: ${processo.referencia}`,
-      html: `
+  if (emailBackoffice) {
+    // O anfitrião sai dos cabeçalhos do pedido, como o link do email de
+    // registo: estava aqui `https://poc.terlicalabs.com` escrito à mão, e numa
+    // segunda instalação o aviso mandava a equipa para o dossier da primeira.
+    const endereco = await origemPublica();
+    envios.push(
+      enviarEmail({
+        para: emailBackoffice,
+        template: "notificacao_backoffice",
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+        assunto: `Novo processo submetido: ${processo.referencia}`,
+        html: `
         <p>Foi submetido um novo processo de onboarding.</p>
         <ul>
           <li>Referência: <strong>${processo.referencia}</strong></li>
-          <li>Tipo de cliente: ${processo.tipoCliente}</li>
+          <li>Tipo de cliente: ${
+            processo.tipoCliente === "empresa" ? "Empresa / Entidade Coletiva" : "Pessoa Singular"
+          }</li>
         </ul>
-        <p><a href="https://poc.terlicalabs.com/processos/${processo.id}">Ver processo no back-office</a></p>
+        <p><a href="${endereco}/processos/${processo.id}">Ver processo no back-office</a></p>
       `,
-    }),
-  );
+      }),
+    );
+  } else {
+    console.warn(
+      "[email] EMAIL_NOTIFICACOES não está configurada — o aviso ao back-office não foi enviado.",
+    );
+  }
 
   const resultados = await Promise.allSettled(envios);
   for (const resultado of resultados) {
@@ -669,5 +722,8 @@ async function enviarBoasVindas(
     assunto: ASSUNTO_BOAS_VINDAS,
     html: emailBoasVindas({ nome, referencia: processo.referencia, anexos: rotulos }),
     anexos,
+    template: "boas_vindas",
+    organizacaoId: processo.organizacaoId,
+    processoId: processo.id,
   });
 }
