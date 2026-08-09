@@ -1,7 +1,19 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
-import { Check, Copy, ExternalLink, Mail, Plus, TriangleAlert } from "lucide-react";
+import { useId, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
+import {
+  Building2,
+  Check,
+  CircleCheck,
+  Copy,
+  ExternalLink,
+  FilePlus,
+  LoaderCircle,
+  Mail,
+  Plus,
+  TriangleAlert,
+  UserRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,12 +61,14 @@ const TIPOS = [
   {
     v: "particular",
     t: "Pessoa Singular",
-    d: "Cliente individual ou particular",
+    d: "Cliente individual, identificado por nome e NIF",
+    icone: UserRound,
   },
   {
     v: "empresa",
-    t: "Empresa / Entidade Coletiva",
-    d: "Sociedade comercial ou outra pessoa coletiva",
+    t: "Empresa",
+    d: "Sociedade ou outra pessoa coletiva, com NIPC",
+    icone: Building2,
   },
 ] as const;
 
@@ -103,6 +117,106 @@ export function BotaoNovoProcesso({ tamanho = "default" }: { tamanho?: "default"
   );
 }
 
+/**
+ * O cabeçalho da janela: emblema, título e uma linha que diz o que vai
+ * acontecer ao carregar no botão.
+ *
+ * O emblema não é decoração — é o que dá à janela uma âncora visual à esquerda
+ * do título e o que distingue de relance o ecrã do formulário do ecrã do
+ * processo criado, que partilham a mesma moldura.
+ */
+function Cabecalho({
+  icone: Icone,
+  tom = "tinta",
+  titulo,
+  children,
+}: {
+  icone: typeof FilePlus;
+  tom?: "tinta" | "arquivo";
+  titulo: string;
+  children: ReactNode;
+}) {
+  return (
+    <DialogHeader className="flex-row items-start gap-3">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-sm border",
+          tom === "arquivo"
+            ? "border-arquivo/30 bg-arquivo/10 text-arquivo"
+            : "border-linha bg-muted text-tinta",
+        )}
+      >
+        <Icone className="size-4.5" />
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <DialogTitle>{titulo}</DialogTitle>
+        <DialogDescription className="leading-snug">{children}</DialogDescription>
+      </div>
+    </DialogHeader>
+  );
+}
+
+/**
+ * Um campo da janela: etiqueta, caixa, e por baixo o erro *ou* a ajuda.
+ *
+ * Os três campos escreviam este mesmo bloco à mão, e divergiam — um tinha linha
+ * de ajuda, os outros não, e a marca de obrigatório era um "(opcional)" em
+ * texto corrido só num deles. Aqui a etiqueta diz sempre o mesmo tipo de coisa
+ * no mesmo sítio: `*` a carmim quando é obrigatório, "opcional" em versalete
+ * quando não é.
+ */
+function Campo({
+  id,
+  etiqueta,
+  opcional,
+  erro,
+  ajuda,
+  children,
+}: {
+  id: string;
+  etiqueta: string;
+  opcional?: boolean;
+  erro?: string;
+  ajuda?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id} className="text-tinta-suave gap-1.5">
+        {etiqueta}
+        {opcional ? (
+          <span className="text-2xs font-mono tracking-[0.12em] text-muted-foreground uppercase">
+            opcional
+          </span>
+        ) : (
+          <>
+            <span className="text-selo" aria-hidden="true">
+              *
+            </span>
+            <span className="sr-only">obrigatório</span>
+          </>
+        )}
+      </Label>
+
+      {children}
+
+      {erro ? (
+        <p id={`${id}-erro`} className="text-selo flex items-start gap-1.5 text-xs" role="alert">
+          <TriangleAlert className="mt-px size-3 shrink-0" />
+          <span>{erro}</span>
+        </p>
+      ) : (
+        ajuda && (
+          <p id={`${id}-ajuda`} className="text-xs leading-snug text-muted-foreground">
+            {ajuda}
+          </p>
+        )
+      )}
+    </div>
+  );
+}
+
 function Conteudo({ aoFechar }: { aoFechar: () => void }) {
   const idNome = useId();
   const idNif = useId();
@@ -116,6 +230,8 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
   const [erro, setErro] = useState<string | null>(null);
   const [erros, setErros] = useState<Erros>({});
   const [copiado, setCopiado] = useState(false);
+  /** As duas fichas, para as setas do teclado poderem levar o foco com elas. */
+  const fichas = useRef<(HTMLButtonElement | null)[]>([]);
 
   const empresa = tipoCliente === "empresa";
 
@@ -131,6 +247,24 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
     setTipoCliente(v);
     setErros({});
     setErro(null);
+  };
+
+  /**
+   * Setas a mudar de ficha, e o foco a ir com a escolha.
+   *
+   * Um `role="radiogroup"` promete isto a quem navega por teclado: `Tab` entra
+   * no grupo uma vez e as setas percorrem-no. Sem o `tabIndex` móvel e sem este
+   * `onKeyDown`, o grupo anunciava-se como radiogroup e comportava-se como dois
+   * botões soltos — que é a forma de acessibilidade que engana quem confia nela.
+   */
+  const navegar = (e: KeyboardEvent<HTMLButtonElement>, indice: number) => {
+    const avanca = e.key === "ArrowRight" || e.key === "ArrowDown";
+    const recua = e.key === "ArrowLeft" || e.key === "ArrowUp";
+    if (!avanca && !recua) return;
+    e.preventDefault();
+    const seguinte = (indice + (avanca ? 1 : -1) + TIPOS.length) % TIPOS.length;
+    trocarTipo(TIPOS[seguinte].v);
+    fichas.current[seguinte]?.focus();
   };
 
   const criar = () => {
@@ -214,6 +348,20 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
     });
   };
 
+  /**
+   * `Enter` numa caixa cria o processo.
+   *
+   * Isto não é um `<form>` — os campos são controlados e a criação passa por uma
+   * Server Action chamada à mão —, e sem este atalho o `Enter` não fazia
+   * absolutamente nada, que é o comportamento que faz um formulário parecer
+   * avariado a quem preenche sem tirar as mãos do teclado.
+   */
+  const aoTeclarNoCampo = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Enter" || aCriar) return;
+    e.preventDefault();
+    criar();
+  };
+
   const copiar = async () => {
     if (!resultado) return;
     await navigator.clipboard.writeText(resultado.link);
@@ -224,22 +372,36 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
   if (resultado) {
     return (
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Processo criado</DialogTitle>
-          <DialogDescription>
-            <Ref>{resultado.referencia}</Ref> ·{" "}
-            {tipoCliente === "empresa" ? "Empresa" : "Pessoa Singular"}
-            {resultado.nome && ` · ${resultado.nome}`}
-            {resultado.nif && (
-              <>
-                {" · "}
-                <Ref>{resultado.nif}</Ref>
-              </>
-            )}
-          </DialogDescription>
-        </DialogHeader>
+        <Cabecalho icone={CircleCheck} tom="arquivo" titulo="Processo criado">
+          O dossier está aberto e à espera do cliente. Guarde o link antes de fechar.
+        </Cabecalho>
 
         <DialogBody>
+          <dl className="border-linha bg-muted/40 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-sm border p-3 text-xs">
+            <dt className="text-muted-foreground">Referência</dt>
+            <dd>
+              <Ref>{resultado.referencia}</Ref>
+            </dd>
+            <dt className="text-muted-foreground">Tipo</dt>
+            <dd>{tipoCliente === "empresa" ? "Empresa" : "Pessoa Singular"}</dd>
+            {resultado.nome && (
+              <>
+                <dt className="text-muted-foreground">
+                  {tipoCliente === "empresa" ? "Denominação" : "Nome"}
+                </dt>
+                <dd className="min-w-0 break-words">{resultado.nome}</dd>
+              </>
+            )}
+            {resultado.nif && (
+              <>
+                <dt className="text-muted-foreground">NIPC</dt>
+                <dd>
+                  <Ref>{resultado.nif}</Ref>
+                </dd>
+              </>
+            )}
+          </dl>
+
           {resultado.para && <AvisoEmail r={resultado} />}
 
           <div className="flex flex-col gap-1.5">
@@ -255,11 +417,15 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                 className="border-linha bg-muted focus-visible:border-ring focus-visible:ring-ring/50 h-9 min-w-0 flex-1 rounded-sm border px-2.5 font-mono text-xs outline-none focus-visible:ring-3"
               />
               <Button type="button" variant="outline" size="lg" onClick={copiar}>
-                {copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                {copiado ? (
+                  <Check className="text-arquivo size-3.5" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
                 {copiado ? "Copiado" : "Copiar"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs leading-snug text-muted-foreground">
               Envie este link ao cliente. Não volta a ser mostrado — na base de dados fica
               só o resumo criptográfico. Expira em 30 dias.
             </p>
@@ -267,7 +433,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
 
           <a
             href={resultado.link}
-            className="text-arquivo inline-flex w-fit items-center gap-1.5 text-sm underline underline-offset-4"
+            className="text-arquivo hover:text-arquivo/80 inline-flex w-fit items-center gap-1.5 text-sm underline underline-offset-4 transition-colors"
             target="_blank"
             rel="noopener"
           >
@@ -277,7 +443,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
         </DialogBody>
 
         <DialogFooter>
-          <Button type="button" size="lg" onClick={aoFechar}>
+          <Button type="button" size="lg" className="min-w-28 px-4" onClick={aoFechar}>
             Concluir
           </Button>
         </DialogFooter>
@@ -287,12 +453,10 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
 
   return (
     <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Novo processo</DialogTitle>
-        <DialogDescription>
-          Cria o processo e gera o link de preenchimento para o cliente.
-        </DialogDescription>
-      </DialogHeader>
+      <Cabecalho icone={FilePlus} titulo="Novo processo">
+        Abre o dossier e gera o link de preenchimento que o cliente usa para se
+        identificar. Leva menos de um minuto.
+      </Cabecalho>
 
       <DialogBody>
         {/* Escolha única, e não dois interruptores: `role="radiogroup"` com
@@ -301,39 +465,71 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
             mesma forma. */}
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-sm font-medium">Quem é o cliente final?</legend>
-          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tipo de cliente">
-            {TIPOS.map((o) => (
-              <button
-                key={o.v}
-                type="button"
-                role="radio"
-                aria-checked={tipoCliente === o.v}
-                onClick={() => trocarTipo(o.v)}
-                className={cn(
-                  "border-linha bg-papel-alto rounded-sm border p-3 text-left transition-colors",
-                  tipoCliente === o.v
-                    ? "border-tinta ring-tinta ring-1"
-                    : "hover:border-tinta-suave",
-                )}
-              >
-                <span className="block text-sm font-medium">{o.t}</span>
-                <span className="block text-xs text-muted-foreground">{o.d}</span>
-              </button>
-            ))}
+          <div
+            className="grid gap-2 sm:grid-cols-2"
+            role="radiogroup"
+            aria-label="Tipo de cliente"
+          >
+            {TIPOS.map((o, i) => {
+              const escolhido = tipoCliente === o.v;
+              const Icone = o.icone;
+              return (
+                <button
+                  key={o.v}
+                  ref={(el) => {
+                    fichas.current[i] = el;
+                  }}
+                  type="button"
+                  role="radio"
+                  aria-checked={escolhido}
+                  tabIndex={escolhido ? 0 : -1}
+                  onClick={() => trocarTipo(o.v)}
+                  onKeyDown={(e) => navegar(e, i)}
+                  className={cn(
+                    "group border-linha bg-papel-alto relative flex items-start gap-3 rounded-sm border p-3.5 pr-9 text-left transition-colors outline-none",
+                    "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3",
+                    escolhido
+                      ? "border-tinta ring-tinta/20 ring-2"
+                      : "hover:border-tinta-suave hover:bg-muted/50",
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-sm border transition-colors",
+                      escolhido
+                        ? "border-tinta bg-tinta text-papel-alto"
+                        : "border-linha text-tinta-suave group-hover:border-tinta-suave",
+                    )}
+                  >
+                    <Icone className="size-4" />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-sm font-medium">{o.t}</span>
+                    <span className="text-xs leading-snug text-muted-foreground">{o.d}</span>
+                  </span>
+                  {escolhido && (
+                    <Check className="text-tinta absolute top-3 right-3 size-4" aria-hidden="true" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </fieldset>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={idNome} className="text-tinta-suave">
-              {empresa ? (
-                "Denominação social"
-              ) : (
-                <>
-                  Nome do cliente <span className="text-muted-foreground">(opcional)</span>
-                </>
-              )}
-            </Label>
+        {/* `Enter` em qualquer caixa cria o processo — ver `aoTeclarNoCampo`. */}
+        <div className="flex flex-col gap-4" onKeyDown={aoTeclarNoCampo}>
+          <Campo
+            id={idNome}
+            etiqueta={empresa ? "Denominação social" : "Nome do cliente"}
+            opcional={!empresa}
+            erro={erros.nome}
+            ajuda={
+              empresa
+                ? "Como consta na certidão permanente, com a forma jurídica incluída."
+                : "Se ainda não souber, deixe em branco — o cliente identifica-se no passo 1."
+            }
+          >
             <Input
               id={idNome}
               value={nome}
@@ -341,27 +537,29 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                 setNome(e.target.value);
                 setErros((s) => ({ ...s, nome: undefined }));
               }}
-              placeholder={empresa ? "Silva & Costa, Lda." : "Maria Silva"}
+              // Instrução e não exemplo: um "Maria Silva" a cinzento lê-se como
+              // um valor já preenchido, e quem o lê assim fecha a janela
+              // convencido de que gravou um nome que nunca escreveu.
+              placeholder={
+                empresa ? "Denominação social completa" : "Nome completo do cliente"
+              }
               className="h-9"
               aria-invalid={Boolean(erros.nome)}
-              aria-describedby={erros.nome ? `${idNome}-erro` : undefined}
+              aria-describedby={erros.nome ? `${idNome}-erro` : `${idNome}-ajuda`}
             />
-            {erros.nome && (
-              <p id={`${idNome}-erro`} className="text-selo text-xs" role="alert">
-                {erros.nome}
-              </p>
-            )}
-          </div>
+          </Campo>
 
           {/* Só à pessoa coletiva, e obrigatório: é pelo NIPC que a sociedade
               identifica a entidade antes de o cliente tocar no formulário. A
               uma pessoa singular não se pergunta — o NIF dela vem no passo 2,
               declarado por ela. */}
           {empresa && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={idNif} className="text-tinta-suave">
-                NIPC
-              </Label>
+            <Campo
+              id={idNif}
+              etiqueta="NIPC"
+              erro={erros.nif}
+              ajuda="Nove dígitos, sem espaços. O dígito de controlo é verificado aqui."
+            >
               <Input
                 id={idNif}
                 inputMode="numeric"
@@ -370,23 +568,21 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                   setNif(e.target.value);
                   setErros((s) => ({ ...s, nif: undefined }));
                 }}
-                placeholder="500000000"
-                className="h-9 font-mono"
+                placeholder="Nove dígitos"
+                className="h-9 font-mono tracking-tight tabular-nums"
                 aria-invalid={Boolean(erros.nif)}
-                aria-describedby={erros.nif ? `${idNif}-erro` : undefined}
+                aria-describedby={erros.nif ? `${idNif}-erro` : `${idNif}-ajuda`}
               />
-              {erros.nif && (
-                <p id={`${idNif}-erro`} className="text-selo text-xs" role="alert">
-                  {erros.nif}
-                </p>
-              )}
-            </div>
+            </Campo>
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={idEmail} className="text-tinta-suave">
-              Email para enviar o link <span className="text-muted-foreground">(opcional)</span>
-            </Label>
+          <Campo
+            id={idEmail}
+            etiqueta="Email para enviar o link"
+            opcional
+            erro={erros.email}
+            ajuda="Com email preenchido, o link segue na mensagem «JMASSANO | Registro». Sem email, fica só no ecrã para copiar."
+          >
             <Input
               id={idEmail}
               type="email"
@@ -395,30 +591,21 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                 setEmail(e.target.value);
                 setErros((s) => ({ ...s, email: undefined }));
               }}
-              placeholder="maria@exemplo.pt"
+              placeholder="Endereço de email do cliente"
               className="h-9"
               aria-invalid={Boolean(erros.email)}
               aria-describedby={erros.email ? `${idEmail}-erro` : `${idEmail}-ajuda`}
             />
-            {erros.email ? (
-              <p id={`${idEmail}-erro`} className="text-selo text-xs" role="alert">
-                {erros.email}
-              </p>
-            ) : (
-              <p id={`${idEmail}-ajuda`} className="text-xs text-muted-foreground">
-                Com email preenchido, o link segue na mensagem «JMASSANO | Registro». Sem
-                email, fica só no ecrã para copiar.
-              </p>
-            )}
-          </div>
+          </Campo>
         </div>
 
         {erro && (
           <p
-            className="border-selo/40 bg-selo/5 text-selo rounded-sm border p-3 text-sm"
+            className="border-selo/40 bg-selo/5 text-selo flex items-start gap-2 rounded-sm border p-3 text-sm"
             role="alert"
           >
-            {erro}
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+            <span>{erro}</span>
           </p>
         )}
       </DialogBody>
@@ -427,8 +614,21 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
         <Button type="button" variant="outline" size="lg" onClick={aoFechar}>
           Cancelar
         </Button>
-        <Button type="button" size="lg" onClick={criar} disabled={aCriar}>
-          <Plus className="size-4" />
+        <Button
+          type="button"
+          size="lg"
+          onClick={criar}
+          disabled={aCriar}
+          // A ação principal da janela pesa mais do que o "Cancelar" ao lado:
+          // largura fixa (que não encolhe ao trocar o rótulo por "A criar…"),
+          // respiro nos lados e a sombra que a levanta do rodapé.
+          className="min-w-36 px-4 font-semibold shadow-xs"
+        >
+          {aCriar ? (
+            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Plus className="size-4" aria-hidden="true" />
+          )}
           {aCriar ? "A criar…" : "Criar processo"}
         </Button>
       </DialogFooter>
