@@ -61,13 +61,13 @@ const TIPOS = [
   {
     v: "particular",
     t: "Pessoa Singular",
-    d: "Cliente individual, identificado por nome e NIF",
+    d: "Cliente individual, identificado pelo NIF.",
     icone: UserRound,
   },
   {
     v: "empresa",
     t: "Empresa",
-    d: "Sociedade ou outra pessoa coletiva, com NIPC",
+    d: "Sociedade ou outra pessoa coletiva, com NIPC.",
     icone: Building2,
   },
 ] as const;
@@ -123,35 +123,36 @@ export function BotaoNovoProcesso({ tamanho = "default" }: { tamanho?: "default"
  *
  * O emblema não é decoração — é o que dá à janela uma âncora visual à esquerda
  * do título e o que distingue de relance o ecrã do formulário do ecrã do
- * processo criado, que partilham a mesma moldura.
+ * processo criado, que partilham a mesma moldura. O tom carrega o sentido: a
+ * terracota da marca no formulário, o verde-arquivo no processo já criado.
  */
 function Cabecalho({
   icone: Icone,
-  tom = "tinta",
+  tom = "marca",
   titulo,
   children,
 }: {
   icone: typeof FilePlus;
-  tom?: "tinta" | "arquivo";
+  tom?: "marca" | "arquivo";
   titulo: string;
   children: ReactNode;
 }) {
   return (
-    <DialogHeader className="flex-row items-start gap-3">
+    <DialogHeader className="flex-row items-start gap-3 py-4.5">
       <span
         aria-hidden="true"
         className={cn(
-          "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-sm border",
+          "mt-px flex size-9 shrink-0 items-center justify-center rounded-sm border",
           tom === "arquivo"
             ? "border-arquivo/30 bg-arquivo/10 text-arquivo"
-            : "border-linha bg-muted text-tinta",
+            : "border-marca/30 bg-marca/10 text-marca",
         )}
       >
         <Icone className="size-4.5" />
       </span>
       <div className="flex min-w-0 flex-col gap-1">
-        <DialogTitle>{titulo}</DialogTitle>
-        <DialogDescription className="leading-snug">{children}</DialogDescription>
+        <DialogTitle className="text-lg leading-6 tracking-tight">{titulo}</DialogTitle>
+        <DialogDescription className="text-xs leading-relaxed">{children}</DialogDescription>
       </div>
     </DialogHeader>
   );
@@ -163,8 +164,22 @@ function Cabecalho({
  * Os três campos escreviam este mesmo bloco à mão, e divergiam — um tinha linha
  * de ajuda, os outros não, e a marca de obrigatório era um "(opcional)" em
  * texto corrido só num deles. Aqui a etiqueta diz sempre o mesmo tipo de coisa
- * no mesmo sítio: `*` a carmim quando é obrigatório, "opcional" em versalete
- * quando não é.
+ * no mesmo sítio: `*` a carmim quando é obrigatório, uma pastilha cinzenta
+ * "Opcional" quando não é.
+ *
+ * A pastilha é cinzenta e em caixa de frase de propósito. O que aqui estava —
+ * `OPCIONAL` em versalete, mono e espaçado — tinha o peso de um aviso e lia-se
+ * com mais força do que o próprio nome do campo, quando a coisa que anuncia é
+ * precisamente a menos importante da linha. O versalete continua a ser a voz
+ * dos rótulos de arquivo (Carimbos, cabeçalhos de tabela); dentro de um
+ * formulário não é.
+ *
+ * Sem `placeholder` nos campos: a linha de ajuda é o único texto de apoio. Com
+ * os dois, "Nome do cliente" tinha por baixo "Nome completo do cliente" dentro
+ * da caixa e uma terceira frase por baixo dela — três maneiras de dizer o
+ * mesmo, e a única que carrega informação a sério é a de baixo, que é também a
+ * única que não desaparece ao começar a escrever e a única que um leitor de
+ * ecrã anuncia como ajuda (`aria-describedby`).
  */
 function Campo({
   id,
@@ -183,11 +198,11 @@ function Campo({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id} className="text-tinta-suave gap-1.5">
+      <Label htmlFor={id} className="text-tinta gap-1.5 text-sm font-medium">
         {etiqueta}
         {opcional ? (
-          <span className="text-2xs font-mono tracking-[0.12em] text-muted-foreground uppercase">
-            opcional
+          <span className="border-linha bg-muted/60 text-2xs rounded-full border px-1.5 py-px font-normal text-muted-foreground">
+            Opcional
           </span>
         ) : (
           <>
@@ -208,7 +223,7 @@ function Campo({
         </p>
       ) : (
         ajuda && (
-          <p id={`${id}-ajuda`} className="text-xs leading-snug text-muted-foreground">
+          <p id={`${id}-ajuda`} className="text-xs leading-relaxed text-muted-foreground">
             {ajuda}
           </p>
         )
@@ -405,7 +420,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           {resultado.para && <AvisoEmail r={resultado} />}
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="np-link" className="text-tinta-suave">
+            <Label htmlFor="np-link" className="text-tinta text-sm font-medium">
               Link de preenchimento
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -416,7 +431,13 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                 onFocus={(e) => e.currentTarget.select()}
                 className="border-linha bg-muted focus-visible:border-ring focus-visible:ring-ring/50 h-9 min-w-0 flex-1 rounded-sm border px-2.5 font-mono text-xs outline-none focus-visible:ring-3"
               />
-              <Button type="button" variant="outline" size="lg" onClick={copiar}>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={copiar}
+                className="min-w-24"
+              >
                 {copiado ? (
                   <Check className="text-arquivo size-3.5" />
                 ) : (
@@ -425,7 +446,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                 {copiado ? "Copiado" : "Copiar"}
               </Button>
             </div>
-            <p className="text-xs leading-snug text-muted-foreground">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               Envie este link ao cliente. Não volta a ser mostrado — na base de dados fica
               só o resumo criptográfico. Expira em 30 dias.
             </p>
@@ -442,8 +463,13 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           </a>
         </DialogBody>
 
-        <DialogFooter>
-          <Button type="button" size="lg" className="min-w-28 px-4" onClick={aoFechar}>
+        <DialogFooter className="py-4">
+          <Button
+            type="button"
+            size="lg"
+            className="h-10 min-w-32 px-5 font-semibold shadow-sm"
+            onClick={aoFechar}
+          >
             Concluir
           </Button>
         </DialogFooter>
@@ -454,8 +480,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
   return (
     <DialogContent>
       <Cabecalho icone={FilePlus} titulo="Novo processo">
-        Abre o dossier e gera o link de preenchimento que o cliente usa para se
-        identificar. Leva menos de um minuto.
+        Abre o dossier e gera o link de preenchimento que o cliente usa para se identificar.
       </Cabecalho>
 
       <DialogBody>
@@ -463,10 +488,12 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
             setas do teclado é o que um leitor de ecrã espera aqui. As duas
             fichas repetem o padrão do passo 1 do onboarding — mesma pergunta,
             mesma forma. */}
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-sm font-medium">Quem é o cliente final?</legend>
+        <fieldset className="flex flex-col">
+          <legend className="text-tinta mb-2.5 text-sm font-medium">
+            Quem é o cliente final?
+          </legend>
           <div
-            className="grid gap-2 sm:grid-cols-2"
+            className="grid gap-3 sm:grid-cols-2"
             role="radiogroup"
             aria-label="Tipo de cliente"
           >
@@ -485,31 +512,42 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                   tabIndex={escolhido ? 0 : -1}
                   onClick={() => trocarTipo(o.v)}
                   onKeyDown={(e) => navegar(e, i)}
+                  // A borda é `tinta/15` e não `linha`: sobre o branco da janela
+                  // o cinzento-régua do dossier quase não se vê, e uma ficha
+                  // sem contorno não se lê como coisa em que se carrega. A
+                  // escolhida é a terracota da marca — a tinta que aqui estava
+                  // é a cor do texto à volta, e um contorno da cor do texto diz
+                  // "moldura", não "escolhido".
                   className={cn(
-                    "group border-linha bg-papel-alto relative flex items-start gap-3 rounded-sm border p-3.5 pr-9 text-left transition-colors outline-none",
+                    "group bg-papel-alto relative flex h-full items-start gap-3 rounded-sm border p-3.5 pr-9 text-left transition-all duration-150 outline-none",
                     "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3",
                     escolhido
-                      ? "border-tinta ring-tinta/20 ring-2"
-                      : "hover:border-tinta-suave hover:bg-muted/50",
+                      ? "border-marca bg-marca/5 ring-marca/25 shadow-xs ring-2"
+                      : "border-tinta/15 hover:border-tinta-suave/60 hover:bg-muted/40 hover:shadow-xs",
                   )}
                 >
+                  {/* `mt-px` e não alinhamento ao centro: o emblema encosta à
+                      linha do título, como no cabeçalho da janela. */}
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-sm border transition-colors",
+                      "mt-px flex size-8 shrink-0 items-center justify-center rounded-sm border transition-colors",
                       escolhido
-                        ? "border-tinta bg-tinta text-papel-alto"
-                        : "border-linha text-tinta-suave group-hover:border-tinta-suave",
+                        ? "border-marca bg-marca text-papel-alto"
+                        : "border-tinta/15 text-tinta-suave group-hover:border-tinta-suave/60 group-hover:text-tinta",
                     )}
                   >
                     <Icone className="size-4" />
                   </span>
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-sm font-medium">{o.t}</span>
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="text-tinta text-sm leading-5 font-medium">{o.t}</span>
                     <span className="text-xs leading-snug text-muted-foreground">{o.d}</span>
                   </span>
                   {escolhido && (
-                    <Check className="text-tinta absolute top-3 right-3 size-4" aria-hidden="true" />
+                    <Check
+                      className="text-marca absolute top-3.5 right-3 size-4"
+                      aria-hidden="true"
+                    />
                   )}
                 </button>
               );
@@ -517,17 +555,26 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           </div>
         </fieldset>
 
-        {/* `Enter` em qualquer caixa cria o processo — ver `aoTeclarNoCampo`. */}
-        <div className="flex flex-col gap-4" onKeyDown={aoTeclarNoCampo}>
+        {/* `Enter` em qualquer caixa cria o processo — ver `aoTeclarNoCampo`.
+            A régua por cima separa a escolha do tipo dos campos que ela
+            comanda: sem ela, o "Denominação social" que aparece e desaparece ao
+            trocar de ficha lia-se como parte do mesmo bloco. */}
+        <div
+          className="border-linha flex flex-col gap-4 border-t pt-5"
+          onKeyDown={aoTeclarNoCampo}
+        >
           <Campo
             id={idNome}
             etiqueta={empresa ? "Denominação social" : "Nome do cliente"}
             opcional={!empresa}
             erro={erros.nome}
+            // Duas frases inteiras, e não um travessão adentro: a segunda
+            // metade caía sozinha para a linha de baixo e lia-se como um texto
+            // cortado a começar em minúscula.
             ajuda={
               empresa
                 ? "Como consta na certidão permanente, com a forma jurídica incluída."
-                : "Se ainda não souber, deixe em branco — o cliente identifica-se no passo 1."
+                : "Se ainda não souber, deixe em branco. O cliente identifica-se no passo 1."
             }
           >
             <Input
@@ -537,12 +584,6 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                 setNome(e.target.value);
                 setErros((s) => ({ ...s, nome: undefined }));
               }}
-              // Instrução e não exemplo: um "Maria Silva" a cinzento lê-se como
-              // um valor já preenchido, e quem o lê assim fecha a janela
-              // convencido de que gravou um nome que nunca escreveu.
-              placeholder={
-                empresa ? "Denominação social completa" : "Nome completo do cliente"
-              }
               className="h-9"
               aria-invalid={Boolean(erros.nome)}
               aria-describedby={erros.nome ? `${idNome}-erro` : `${idNome}-ajuda`}
@@ -568,7 +609,6 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                   setNif(e.target.value);
                   setErros((s) => ({ ...s, nif: undefined }));
                 }}
-                placeholder="Nove dígitos"
                 className="h-9 font-mono tracking-tight tabular-nums"
                 aria-invalid={Boolean(erros.nif)}
                 aria-describedby={erros.nif ? `${idNif}-erro` : `${idNif}-ajuda`}
@@ -581,7 +621,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
             etiqueta="Email para enviar o link"
             opcional
             erro={erros.email}
-            ajuda="Com email preenchido, o link segue na mensagem «JMASSANO | Registro». Sem email, fica só no ecrã para copiar."
+            ajuda="Com email, o link segue na mensagem «JMASSANO | Registro». Sem email, fica só neste ecrã para copiar."
           >
             <Input
               id={idEmail}
@@ -591,7 +631,6 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                 setEmail(e.target.value);
                 setErros((s) => ({ ...s, email: undefined }));
               }}
-              placeholder="Endereço de email do cliente"
               className="h-9"
               aria-invalid={Boolean(erros.email)}
               aria-describedby={erros.email ? `${idEmail}-erro` : `${idEmail}-ajuda`}
@@ -610,8 +649,14 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
         )}
       </DialogBody>
 
-      <DialogFooter>
-        <Button type="button" variant="outline" size="lg" onClick={aoFechar}>
+      <DialogFooter className="py-4">
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          onClick={aoFechar}
+          className="h-10 min-w-24 px-4"
+        >
           Cancelar
         </Button>
         <Button
@@ -620,9 +665,11 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           onClick={criar}
           disabled={aCriar}
           // A ação principal da janela pesa mais do que o "Cancelar" ao lado:
-          // largura fixa (que não encolhe ao trocar o rótulo por "A criar…"),
-          // respiro nos lados e a sombra que a levanta do rodapé.
-          className="min-w-36 px-4 font-semibold shadow-xs"
+          // mais alta do que a `size="lg"` de série, largura fixa (que não
+          // encolhe ao trocar o rótulo por "A criar…"), respiro nos lados e a
+          // sombra que a levanta do rodapé. Os dois à mesma altura, senão o
+          // rodapé fica com dois patamares.
+          className="h-10 min-w-40 px-5 font-semibold shadow-sm"
         >
           {aCriar ? (
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />

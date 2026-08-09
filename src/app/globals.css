@@ -18,6 +18,13 @@
   --latao: #a9884f; /* latão — pendente, atenção, foco */
   --linha: #d6dad2; /* réguas e divisórias, 1px, sempre */
 
+  /* Terracota da marca — a única cor da paleta que não codifica estado.
+     Marca escolha do utilizador (a ficha selecionada, o emblema da janela) onde
+     a tinta dizia só "ativo" e se confundia com o texto à volta. Fica em token
+     e não escrita à mão nos componentes: o logo JMASSANO é verde-arquivo e
+     latão, e trocar isto por var(--latao) é uma linha. */
+  --marca: #d9694b;
+
   /* derivados, para superfícies intermédias */
   --papel-fundo: #e4e7e0;
   --papel-tinta: #dde1d9;
@@ -79,6 +86,9 @@
   --selo: #c05561;
   --arquivo: #4f9481;
   --latao: #c8a86a;
+  /* Mais claro do que em papel branco: o mesmo #d9694b sobre tinta cai para
+     4,8:1 e o ícone dentro da ficha escolhida deixa de se ler. */
+  --marca: #e07a5f;
 
   --background: var(--papel);
   --foreground: var(--tinta);
@@ -146,6 +156,7 @@
   --color-arquivo: var(--arquivo);
   --color-latao: var(--latao);
   --color-linha: var(--linha);
+  --color-marca: var(--marca);
 
   --font-sans: var(--fonte-corpo);
   --font-mono: var(--fonte-mono);
