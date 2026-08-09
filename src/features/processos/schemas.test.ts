@@ -168,6 +168,11 @@ describe("novoProcesso — pessoa coletiva", () => {
 
     expect(r.success).toBe(true);
     if (!r.success) return;
+    // `novoProcesso` é uma união discriminada e o NIPC só existe no ramo
+    // `empresa`. O narrow é também asserção: se o discriminante saísse errado,
+    // o teste passava a verde sem chegar a olhar para o número.
+    expect(r.data.tipoCliente).toBe("empresa");
+    if (r.data.tipoCliente !== "empresa") return;
     expect(r.data.nif).toBe("501442600");
   });
 
