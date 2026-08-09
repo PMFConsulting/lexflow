@@ -23,12 +23,7 @@ export default async function Configuracao() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
-      <div>
-        <h1 className="text-2xl">Configuração</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          O arquivo dos dossiers é configurado no servidor. Aqui fica o registo de cada envio.
-        </p>
-      </div>
+      <h1 className="text-2xl">Configuração</h1>
 
       <Card>
         <CardHeader className="pb-2">
