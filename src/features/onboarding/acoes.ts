@@ -534,7 +534,16 @@ export async function submeter(token: string): Promise<Resultado> {
     userAgent,
   });
 
-  await notificarSubmissao(processo);
+  // Guardado, apesar de o `notificarSubmissao` prometer não lançar: a promessa
+  // já não era verdade (o `env()` do destino do aviso interno lança, e lançava
+  // *antes* de os emails ao cliente estarem sequer na fila), e uma submissão
+  // gravada não pode virar ecrã de erro por causa de um email. O mesmo contrato
+  // do `arquivarNoArmazenamento`, aqui em baixo.
+  try {
+    await notificarSubmissao(processo);
+  } catch (e) {
+    console.error(`[email] ${processo.referencia}: os emails de submissão não correram`, e);
+  }
   await arquivarNoArmazenamento(submetido ?? processo);
 
   revalidatePath(`/onboarding/${token}`, "layout");
@@ -600,7 +609,18 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
   // clientes — referência, tipo, link para o dossier — a sair para a caixa de
   // correio de quem escreveu o código. Não havendo destino configurado, o
   // aviso não sai: os dois emails ao cliente e o arquivo não dependem disto.
-  const emailBackoffice = env().EMAIL_NOTIFICACOES;
+  //
+  // Dentro de um `try` porque o `env()` **lança** — valida o ambiente inteiro,
+  // e uma variável qualquer inválida rebentava aqui, três linhas antes de os
+  // dois emails ao cliente entrarem na fila. O aviso interno é o acessório
+  // desta função; deixá-lo derrubar o principal era ter a prioridade ao
+  // contrário.
+  let emailBackoffice: string | undefined;
+  try {
+    emailBackoffice = env().EMAIL_NOTIFICACOES;
+  } catch (e) {
+    console.error("[email] o ambiente não valida — o aviso ao back-office não sai", e);
+  }
 
   const envios: Promise<unknown>[] = [];
 
@@ -623,7 +643,14 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
     // O anfitrião sai dos cabeçalhos do pedido, como o link do email de
     // registo: estava aqui `https://poc.terlicalabs.com` escrito à mão, e numa
     // segunda instalação o aviso mandava a equipa para o dossier da primeira.
-    const endereco = await origemPublica();
+    // Falhar a lê-lo dá um link relativo no aviso interno, não um `allSettled`
+    // por correr com os dois emails do cliente já em voo e sem ninguém a ouvir.
+    let endereco = "";
+    try {
+      endereco = await origemPublica();
+    } catch (e) {
+      console.error("[email] origemPublica falhou; o aviso interno leva link relativo", e);
+    }
     envios.push(
       enviarEmail({
         para: emailBackoffice,

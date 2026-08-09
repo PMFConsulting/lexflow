@@ -413,6 +413,55 @@ fazer deploy. Testar a POC contra uma imagem que não tem as correções mede o 
 **Por confirmar (outra vez):** `pnpm test` e `pnpm typecheck` continuaram bloqueados por
 permissões nesta sessão. Nenhuma das alterações acima foi executada.
 
+### Atualização — quarta passagem: o envio não falhava, nunca era alcançado
+
+09/08/2026, mais tarde. Confirmado em produção com browser: cinco processos criados pelo modal
+com endereço preenchido, `/emails` a mostrar **uma** mensagem — a do `scripts/testar_email.mjs` —
+e nenhum email em caixa nenhuma.
+
+**As três passagens anteriores leram sempre o mesmo troço de código, e o troço estava certo.**
+`enviarEmail` grava em `email_log` em todos os caminhos (D42), `criarProcesso` chama-o quando há
+endereço, o schema preserva o email com a carga exata que a janela constrói (D44, fixado em
+teste). Nada disso é o defeito, e é por isso que corrigi-lo não mudou nada.
+
+**O defeito está antes.** O envio vive atrás de um `if`, e entre o `INSERT` do processo e esse
+`if` havia três `await` sem rede por baixo — `headers()`, o `registarEvento` do `processo.criado`
+e o `origemPublica()`. **Nenhum dos três tem nada a ver com email**, e qualquer um deles a lançar
+produzia, ponto por ponto, o ecrã relatado: o processo gravado e visível em `/processos`, o
+`/emails` a zero (porque quem escreve a linha é o `enviarEmail`, e ele nunca foi chamado), nem
+`link.enviado` nem `link.envio_falhou` nem `link.sem_email`, e a janela a dizer «o servidor não
+respondeu» — uma frase que se lê como falha de rede e não como *este email nunca vai sair*. Uma
+avaria em código de auditoria a apresentar-se como avaria de email, e a apagar o próprio rasto
+pelo caminho.
+
+- **Tudo o que corre depois do processo gravado passa a correr dentro do seu próprio `try`**
+  (D46): os cabeçalhos, cada evento de auditoria (`auditar`), o `origemPublica`, o envio e o
+  `revalidatePath`. A partir do INSERT, `criarProcesso` só tem uma saída, e leva sempre consigo
+  o token em claro — que só existe nessa chamada.
+- **O `console.info` de entrada passa a ser a primeira instrução da ação** e regista a **forma**
+  da carga, não só os valores. Estava depois do `safeParse`, e por isso uma carga recusada pelo
+  schema não deixava linha nenhuma. Se algum dia aparecer `carga=string:particular` em vez de
+  `carga={tipoCliente,nome,email}`, está respondida sem investigação a única hipótese que
+  sobrava: um separador aberto de antes de um deploy a chamar a assinatura antiga, de três
+  argumentos posicionais, contra um servidor que já espera um objeto.
+- **A mesma classe de defeito no `submeter`**: o `notificarSubmissao` promete no comentário não
+  lançar e lançava — o `env()` que lê o destino do aviso interno valida o ambiente inteiro e
+  rebentava **três linhas antes** de os dois emails ao cliente entrarem na fila. Guardado, e o
+  `origemPublica` do aviso interno com ele.
+- **`src/features/processos/acoes.test.ts`**, novo: mocka a base, a auditoria e o canal de email
+  e fixa a regra em seis casos — auditoria a rebentar, `headers()` a rebentar, `origemPublica` a
+  rebentar, `revalidatePath` a rebentar, `link.enviado` a rebentar, `enviarEmail` a rebentar. Em
+  todos, **o email foi tentado à mesma** e a ação devolveu o link.
+
+**Como confirmar em produção, sem base de dados à mão:** abrir `/processos/<id>` de um dos cinco
+e olhar para a auditoria. Se **não** houver `processo.criado`, a ação morria no `registarEvento`
+e é isto. Se houver `processo.criado` e nenhum `link.*`, o `if (emailCliente)` não abriu e a
+imagem em execução é anterior à `6c12b47`. Nos logs do contentor, um `grep` a
+`[processo] pedido de criação recebido` dá a mesma resposta em uma linha.
+
+**Por confirmar (terceira vez):** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por
+permissões. Correr antes de commit — há um ficheiro de testes novo.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -507,6 +556,7 @@ altera o que se constrói à volta.
 | D43 | O motivo da falha sai do servidor e chega à janela, e há um `pnpm email:testar <destino>` dentro da imagem de produção. As três causas de "o cliente não recebeu nada" — chave que não chega ao ambiente do contentor, domínio do `EMAIL_REMETENTE` por verificar no Resend (403, e `POC@jmassano.pt` é um valor por omissão de que ninguém desconfia), saída para a Internet fechada — dizem-se todas «não foi possível enviar» e resolvem-se de três maneiras diferentes. O script grava em `email_log` com a mesma forma de linha: se ele aparece no `/emails` e um processo criado não aparece, o problema está a montante do envio | `scripts/testar_email.mjs` |
 | D44 | Um processo criado **sem** endereço escreve `link.sem_email` em `evento_auditoria`, e a Server Action devolve `paraServidor` — o endereço que o servidor recebeu, ao lado do que a janela mandou. Os dois fecham o último sítio onde a plataforma podia ficar calada: `email_log` regista tentativas de envio e não pode registar um envio que nunca foi pedido, por isso «0 mensagens» no `/emails` dizia ao mesmo tempo "não havia endereço" e "havia endereço e perdeu-se a caminho" — que se resolvem em sítios diferentes (recarregar a página contra ir ao painel do Resend). A janela deixa de acusar o envio de uma falha do pedido | `src/features/processos/acoes.ts` |
 | D33 | Os corpos dos três emails passam a ser os do documento de análise do cliente, à letra — assinatura em aberto ("Assinatura do Advogado gestor do Cliente") incluída, que é o espaço do advogado que gere cada cliente. Duas coisas caem por não constarem desse texto: a saudação deixa de levar o nome ("Caro(a) Sr.(a)," é o que lá está) e a referência do processo sai do corpo dos emails 2 e 3 — continua no assunto do aviso ao back-office e no resumo em anexo. O bloco-resumo dos T&C sai do email 2 pela mesma razão; os T&C completos vão em PDF no email 3. Os parâmetros `nome` e `referencia` ficam nas assinaturas, aceites e ignorados, para repor qualquer um sem mexer em quem chama | `src/lib/emails/jmassano.ts` |
+| D46 | A partir do `INSERT` do processo, **cada passo de `criarProcesso` corre dentro do seu próprio `try`** e a ação tem uma saída só. O envio do email está atrás de um `if`, e chegar lá dependia de três `await` sem rede — `headers()`, o `registarEvento` do `processo.criado` e o `origemPublica()`. Nenhum tem que ver com email, e qualquer um a lançar dava o mesmo ecrã: processo em `/processos`, `/emails` a zero (quem grava a linha é o `enviarEmail`, e ele não era chamado), nenhum `link.*` em auditoria, e «o servidor não respondeu» na janela. Foi por isso que três passagens a ler o caminho do envio não fecharam o caso — o caminho do envio estava certo e não era percorrido. A auditoria continua a ser escrita pelo mesmo `registarEvento`, com a mesma cadeia; o que deixa de poder é interromper o resto. Mesmo arranjo no `submeter`, onde o `env()` do aviso interno rebentava antes de os dois emails ao cliente entrarem na fila | `src/features/processos/acoes.ts` |
 | D45 | `--marca` (terracota `#d9694b`, `#e07a5f` em modo escuro) é a única cor da paleta que **não** codifica estado — marca escolha do utilizador, e por agora só na janela "Novo processo": a ficha selecionada e o emblema do cabeçalho. O que lá estava era `border-tinta`, a cor do texto à volta, e um contorno da cor do texto lê-se como moldura e não como "escolhido". Fica em token e não escrita à mão nos componentes por duas razões: o modo escuro precisa de um valor diferente (o mesmo hex sobre tinta cai para 4,8:1 e o ícone dentro da ficha deixa de se ler), e o logo JMASSANO é **verde-arquivo e latão** — trocar isto por `var(--latao)`, que é literalmente o dourado do logo, é uma linha. A terracota fica em contorno, emblema e visto, nunca em texto corrido: 3,46:1 sobre branco chega para elemento de interface, não para corpo de texto | `src/app/globals.css` |
 
 ## Decisões em aberto
