@@ -64,6 +64,13 @@
       "when": 1786310000000,
       "tag": "0008_email_log",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786396000000,
+      "tag": "0009_dados_abertura",
+      "breakpoints": true
     }
   ]
 }

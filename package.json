@@ -18,6 +18,7 @@
     "db:validar": "tsx scripts/validar-migracoes.ts",
     "auditoria:verificar": "tsx scripts/verificar-auditoria.ts",
     "armazenamento": "tsx scripts/armazenamento.ts",
+    "email:testar": "node scripts/testar_email.mjs",
     "utilizador:criar": "node scripts/criar_utilizador.mjs",
     "utilizador:hash": "node scripts/verificar_hash.mjs"
   },

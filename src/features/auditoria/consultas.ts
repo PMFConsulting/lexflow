@@ -28,6 +28,7 @@ export const ACOES: Record<string, string> = {
   "processo.criado": "Processo criado",
   "link.enviado": "Link de registo enviado ao cliente",
   "link.envio_falhou": "Falha ao enviar o link de registo",
+  "link.sem_email": "Processo criado sem endereço — link entregue por outra via",
   "processo.submetido": "Processo submetido pelo cliente",
   "email.confirmacao_enviado": "Email de confirmação de receção enviado",
   "email.boas_vindas_enviado": "Email de boas-vindas enviado",

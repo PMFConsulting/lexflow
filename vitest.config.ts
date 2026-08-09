@@ -16,6 +16,16 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      /**
+       * O `server-only` real resolve para um módulo que lança de propósito —
+       * é assim que impede um ficheiro de servidor de entrar no pacote do
+       * cliente. Fora do Next não há condição `react-server` que o desvie, e
+       * qualquer teste sobre um módulo de servidor (`lib/email.ts`, por
+       * exemplo) morria na importação, antes da primeira asserção.
+       */
+      "server-only": fileURLToPath(
+        new URL("./src/test/server-only-vazio.ts", import.meta.url),
+      ),
     },
   },
 });

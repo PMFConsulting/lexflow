@@ -31,6 +31,19 @@ export const processoOnboarding = pgTable(
     /** PMF-2026-0142 — única por organização. */
     referencia: text("referencia").notNull(),
     tipoCliente: tipoCliente("tipo_cliente").notNull(),
+    /**
+     * Dados de abertura: o que a sociedade sabia do cliente no momento em que
+     * criou o processo, antes de o cliente preencher fosse o que fosse.
+     *
+     * Anuláveis e à parte das secções de propósito. Não são o que o cliente
+     * declarou — são o que a sociedade escreveu ao abrir o dossier, e as duas
+     * coisas têm de continuar distinguíveis. Numa pessoa coletiva o NIPC e a
+     * denominação são obrigatórios à abertura; numa pessoa singular o nome é
+     * opcional e não há NIF nenhum a pedir.
+     */
+    nomeCliente: text("nome_cliente"),
+    nifCliente: text("nif_cliente"),
+    emailCliente: text("email_cliente"),
     estado: estadoProcesso("estado").notNull().default("rascunho"),
     passoAtual: smallint("passo_atual").notNull().default(1),
     responsavelId: uuid("responsavel_id").references(() => utilizador.id, {

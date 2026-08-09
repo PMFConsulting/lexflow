@@ -58,6 +58,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/src/db/migrations ./migracoes
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrar.mjs ./scripts/migrar.mjs
 
+# O teste do canal de email. Vai na imagem de propósito: as três causas de "o
+# cliente não recebeu nada" — chave que não chega ao ambiente, domínio por
+# verificar no Resend, saída para a Internet fechada — só se distinguem de
+# dentro do contentor, e diagnosticá-las a criar processos a sério é caro e
+# deixa lixo na base de dados.
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/testar_email.mjs ./scripts/testar_email.mjs
+
 # O `output: standalone` só inclui o que a aplicação importa, e ela nunca
 # importa o migrador. Estes dois pacotes vêm explicitamente para o
 # scripts/migrar.mjs ter com que trabalhar.

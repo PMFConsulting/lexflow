@@ -319,6 +319,100 @@ execuções ficaram bloqueadas por permissões). Correr antes de commit.
 **`pnpm test:e2e` não existe.** Está listado nos Comandos em baixo, mas não há script no
 `package.json` nem Playwright nas dependências — o percurso continua a ser conduzido por fora.
 
+### Atualização — o email de registo que não sai, e o silêncio à volta dele
+
+09/08/2026. Relatado: cinco processos criados em produção com endereços temporários, link gerado
+em todos, `/emails` a dizer «0 mensagens» e nenhuma caixa a receber nada. `RESEND_API_KEY`
+confirmada no contentor.
+
+**A leitura do código não fecha o caso, e é isso que é o defeito.** O caminho — janela →
+`criarProcesso` → `enviarEmail` → `email_log` — está correto de ponta a ponta: a janela manda o
+email, a ação chama o envio quando ele existe, e o envio grava sempre a linha. Duas hipóteses
+sobram, e a plataforma **não deixava distingui-las**:
+
+1. o `enviarEmail` nunca foi chamado — o endereço não chegou ao servidor (o
+   `Failed to find Server Action` dos logs aponta para um separador aberto de antes de um deploy,
+   que manda um identificador de ação que o servidor já não conhece);
+2. foi chamado, falhou, e a gravação em `email_log` **também** falhou — o `catch` do `registar`
+   engolia-a com um `console.error` sem destinatário nem template.
+
+As duas dão exatamente o mesmo ecrã: «0 mensagens». Foi por isso que a investigação não
+convergiu, e é o que fica corrigido — o diagnóstico é o produto, não o remendo.
+
+- **`enviarEmail` deixa de poder rebentar** (D42). O `tentarEnviar` lê o ambiente *antes* do seu
+  próprio `try`, e o `env()` lança quando falta uma variável: essa exceção saltava por cima da
+  gravação **e** propagava-se, transformando um email falhado em criação de processo falhada.
+- **Tempo limite de 15s no `fetch` ao Resend** (D42). Sem ele, uma saída para a Internet fechada
+  no servidor não dava erro nenhum — o pedido ficava pendurado, e com ele a Server Action.
+- **Uma linha na consola por tentativa**, com template e destinatário, e a falha da gravação a
+  ser gritada com os mesmos campos. É o que separa "nem se tentou" de "tentou e não gravou" sem
+  base de dados à mão.
+- **O motivo viaja até à janela.** «Não foi possível enviar o email» sozinho manda quem o lê aos
+  logs do contentor; um 403 do Resend com o remetente à frente resolve-se no segundo em que se lê.
+  O 403 é a causa mais provável e a menos visível: `POC@jmassano.pt` é um valor **por omissão** que
+  ninguém escreveu, e o Resend recusa qualquer domínio que não esteja verificado na conta.
+- **`pnpm email:testar <destino>`** (D43), também dentro da imagem: envia a sério pela mesma API e
+  grava a linha em `email_log` com a mesma forma. Separa as três causas — chave que não chega ao
+  ambiente, domínio por verificar, saída fechada — em segundos, sem criar processos a sério.
+- **A janela apanha a rejeição da Server Action.** Sem `catch`, uma ação que rebenta deixava o
+  botão a sair de "A criar…" e mais nada — nem link, nem aviso. É este o silêncio que faz uma
+  falha de servidor parecer um clique perdido.
+
+**Fechado a caminho:** a janela "Novo processo" estava a meio da alteração dos dados de abertura —
+pedia NIPC no schema e no servidor e **não tinha campo nenhum para o escrever**, e ainda lia um
+`erroEmail` que já não existia. Ficaram o campo, os erros por baixo da caixa que os causou e o
+`trocarTipo` a limpar os erros do percurso anterior sem apagar os valores.
+
+**Por confirmar:** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por permissões nesta
+sessão. Correr antes de commit — há testes novos em `src/lib/email.test.ts` e
+`src/features/processos/schemas.test.ts`, e o `vitest.config.ts` passou a desviar o `server-only`
+para um módulo vazio (o verdadeiro lança de propósito, e sem o desvio nenhum módulo de servidor é
+testável).
+
+### Atualização — o email de registo, terceira passagem: a hipótese que sobrou
+
+09/08/2026, mais tarde. Prova nova: o `scripts/testar_email.mjs` enviou de facto para
+`teste1@emalupe.com`, a mensagem chegou à caixa, e a linha entrou em `email_log`. **Isso mata a
+hipótese 2 inteira** — o Resend aceita o remetente, a chave chega ao ambiente, o servidor tem
+saída para a `api.resend.com`, e a gravação do diário funciona. Nada disto é o problema.
+
+**Sobra a hipótese 1, e o código diz que ela é a única possível.** Com o `emailCliente`
+preenchido, `criarProcesso` chama `enviarEmail`, e o `enviarEmail` grava em `email_log` em
+**todos** os caminhos de saída, incluindo o da exceção (D42). Não há caminho por onde um envio
+tentado deixe o `/emails` a zero. Logo: **o `if (emailCliente)` nunca abriu** — o endereço não
+estava no servidor no momento da decisão.
+
+O que estava por corrigir era isto: **esse ramo não deixava rasto nenhum.** Nem em `email_log`,
+que só regista tentativas de envio e não pode inventar uma que ninguém pediu, nem em
+`evento_auditoria`. E a janela, que só sabia do endereço que ela própria escreveu, mostrava
+«Não foi possível enviar o email para X» — a acusar o envio de uma falha que era do pedido, com
+o `erroEmail` vazio, porque não houve envio nenhum a produzir um motivo. Três avarias com um
+ecrã só, outra vez.
+
+- **`link.sem_email`** em `evento_auditoria` (D44) quando um processo nasce sem endereço, com um
+  `console.warn` a acompanhar. O dossier passa a responder "foi dado endereço?" por escrito.
+- **`paraServidor` na resposta da Server Action** (D44): o endereço que o servidor recebeu, e não
+  o que a janela julga ter mandado. É a comparação entre os dois que separa "o envio falhou" de
+  "o endereço não chegou cá" — e a janela passa a dizer qual dos dois, com a saída certa para
+  cada um (recarregar a página num, ir ao Resend no outro).
+- **`console.info` à entrada da ação**, com o tipo e o endereço recebidos, antes de haver
+  processo. Um `grep` aos logs do contentor fecha a questão sem base de dados à mão.
+- **Testes com a carga exata que a janela constrói**, chave a chave — incluindo
+  `{ nome: undefined, email: "…" }`, que não é o mesmo objeto que `{ email: "…" }` para um
+  `z.preprocess`. É a única forma de o email se perder entre a caixa e o `if` sem ninguém dar
+  por ela, e agora está fixada em teste.
+
+**Nota de deploy, e é capaz de ser a resposta toda:** nada do trabalho de 09/08 — nem os arranjos
+da D42/D43, nem a migração `0009`, nem estes — está commitado, e por isso **nunca foi construído
+nem foi para produção**. O que lá corre é `7dc7dc7` ou anterior, onde o `enviarEmail` não tinha
+`try` à volta do `tentarEnviar`, o `criarProcesso` não tinha `try` à volta do bloco de email e a
+janela não tinha `catch` — a combinação que cria o processo, perde o link e não diz nada. Antes de
+voltar a testar em produção: correr `pnpm test` e `pnpm typecheck`, commitar, aplicar a `0009` e
+fazer deploy. Testar a POC contra uma imagem que não tem as correções mede o defeito antigo.
+
+**Por confirmar (outra vez):** `pnpm test` e `pnpm typecheck` continuaram bloqueados por
+permissões nesta sessão. Nenhuma das alterações acima foi executada.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -409,6 +503,9 @@ altera o que se constrói à volta.
 | D39 | Extensões e MIME dos anexos numa fonte só (`formatos.ts`), com o `accept` do campo derivado dela. O MIME declarado manda quando é conhecido; só quando o browser não se compromete (`""`, `application/octet-stream`) é que a extensão decide — um ficheiro que se diz `text/html` e se chama `x.pdf` continua recusado. Estavam escritos em dois sítios e divergiram: o campo anunciava `.heic`, o servidor não o deixava entrar | `src/features/onboarding/formatos.ts` |
 | D40 | `naturezaJuridica` obrigatória para pessoa coletiva, no mesmo `superRefine` onde a pessoa singular já dá profissão, entidade patronal e data de nascimento. É forma jurídica, não campo acessório — decide quem pode obrigar a entidade, que é o que o passo 3 pergunta a seguir. Sem migração: a coluna existe e continua nullable, porque os rascunhos anteriores não podem ficar inválidos na base de dados; a exigência é do schema Zod, à entrada | `src/features/onboarding/schemas.ts` |
 | D41 | Os ids do `Anexos` saem do `useId()`, como já saíam os de todos os outros campos (`Campo.tsx`), e não de `ficheiro-${titulo}`. De um título português saía `id="ficheiro-Documentação"` — válido, mas frágil de endereçar: o `ç` e o `ã` têm duas representações Unicode (NFC e NFD) que se lêem iguais e não são a mesma sequência de code points, e o `querySelector` compara code points e não formas canónicas. Um seletor que passe por uma ferramenta que normalize para NFD não encontra um campo que está lá. O que dá ao campo um nome estável passa a ser o `data-campo`, que é ASCII e não muda com o texto do ecrã | `src/features/onboarding/componentes/Anexos.tsx` |
+| D42 | `enviarEmail` não propaga nunca e não espera para sempre: o `tentarEnviar` corre dentro de um `try` (o `env()` lança *antes* do `try` interno, e essa exceção saltava por cima da gravação e rebentava a criação do processo) e o `fetch` leva `AbortSignal.timeout(15s)` (sem ele, uma saída para a Internet fechada pendurava a Server Action sem erro nenhum). Cada tentativa deixa uma linha na consola com template e destinatário, e a falha da gravação é gritada com os mesmos campos — sem isso, «0 mensagens» no `/emails` significa ao mesmo tempo "nem se tentou" e "tentou e não gravou", que é a diferença que uma investigação precisa de ver | `src/lib/email.ts` |
+| D43 | O motivo da falha sai do servidor e chega à janela, e há um `pnpm email:testar <destino>` dentro da imagem de produção. As três causas de "o cliente não recebeu nada" — chave que não chega ao ambiente do contentor, domínio do `EMAIL_REMETENTE` por verificar no Resend (403, e `POC@jmassano.pt` é um valor por omissão de que ninguém desconfia), saída para a Internet fechada — dizem-se todas «não foi possível enviar» e resolvem-se de três maneiras diferentes. O script grava em `email_log` com a mesma forma de linha: se ele aparece no `/emails` e um processo criado não aparece, o problema está a montante do envio | `scripts/testar_email.mjs` |
+| D44 | Um processo criado **sem** endereço escreve `link.sem_email` em `evento_auditoria`, e a Server Action devolve `paraServidor` — o endereço que o servidor recebeu, ao lado do que a janela mandou. Os dois fecham o último sítio onde a plataforma podia ficar calada: `email_log` regista tentativas de envio e não pode registar um envio que nunca foi pedido, por isso «0 mensagens» no `/emails` dizia ao mesmo tempo "não havia endereço" e "havia endereço e perdeu-se a caminho" — que se resolvem em sítios diferentes (recarregar a página contra ir ao painel do Resend). A janela deixa de acusar o envio de uma falha do pedido | `src/features/processos/acoes.ts` |
 | D33 | Os corpos dos três emails passam a ser os do documento de análise do cliente, à letra — assinatura em aberto ("Assinatura do Advogado gestor do Cliente") incluída, que é o espaço do advogado que gere cada cliente. Duas coisas caem por não constarem desse texto: a saudação deixa de levar o nome ("Caro(a) Sr.(a)," é o que lá está) e a referência do processo sai do corpo dos emails 2 e 3 — continua no assunto do aviso ao back-office e no resumo em anexo. O bloco-resumo dos T&C sai do email 2 pela mesma razão; os T&C completos vão em PDF no email 3. Os parâmetros `nome` e `referencia` ficam nas assinaturas, aceites e ignorados, para repor qualquer um sem mexer em quem chama | `src/lib/emails/jmassano.ts` |
 
 ## Decisões em aberto
@@ -443,7 +540,13 @@ pnpm db:migrate           # aplica migrações
 pnpm db:seed              # só com NODE_ENV=development
 pnpm db:validar           # aplica as migrações a um Postgres em WASM e verifica-as
 pnpm auditoria:verificar  # revalida a cadeia de hashes de evento_auditoria
+pnpm email:testar <destino>  # envia um email de teste e grava-o em email_log
 ```
+
+`pnpm email:testar` corre também dentro do contentor (`node scripts/testar_email.mjs`), que é onde
+interessa: mostra se a `RESEND_API_KEY` chega ao ambiente do Node, se o Resend aceita o remetente
+e se o servidor tem saída para a `api.resend.com` — as três causas de "o cliente não recebeu nada",
+que de fora se dizem todas da mesma maneira. `--sem-bd` faz o teste sem tocar no Postgres.
 
 `pnpm db:validar` não precisa de servidor nenhum: corre todas as migrações num PGlite efémero e
 conta as tabelas (28, desde a `0008`), confirma que a auditoria recusa mesmo UPDATE e DELETE, e
