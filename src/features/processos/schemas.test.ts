@@ -184,3 +184,60 @@ describe("novoProcesso — pessoa coletiva", () => {
     expect(r.data.email).toBeUndefined();
   });
 });
+
+/**
+ * O discriminante e os limites.
+ *
+ * `tipoCliente` não é um campo entre outros: é ele que escolhe qual dos dois
+ * objetos da união se aplica, e portanto se o NIPC é obrigatório ou nem sequer
+ * existe. Um valor fora dos dois tem de parar aqui — a jusante, `criarProcesso`
+ * grava-o em `processo_onboarding.tipo_cliente`, que é um enum do Postgres, e o
+ * que se ganharia era um 500 em vez de um erro por baixo da caixa certa.
+ */
+describe("novoProcesso — o discriminante e os limites", () => {
+  it("recusa um tipo de cliente que não é nenhum dos dois", () => {
+    expect(novoProcesso.safeParse({ tipoCliente: "particular " }).success).toBe(false);
+    expect(novoProcesso.safeParse({ tipoCliente: "sociedade" }).success).toBe(false);
+  });
+
+  it("recusa a carga sem tipo de cliente nenhum", () => {
+    expect(novoProcesso.safeParse({ email: "maria@exemplo.pt" }).success).toBe(false);
+    expect(novoProcesso.safeParse({}).success).toBe(false);
+  });
+
+  /** 200 é o que a coluna aceita; deixar passar mais é trocar um erro por um 500. */
+  it("trava o nome nos 200 caracteres, nos dois percursos", () => {
+    const comprido = "a".repeat(201);
+
+    const particular = novoProcesso.safeParse({ tipoCliente: "particular", nome: comprido });
+    expect(particular.success).toBe(false);
+    if (!particular.success) expect(particular.error.issues[0]?.path).toEqual(["nome"]);
+
+    const empresa = novoProcesso.safeParse({
+      tipoCliente: "empresa",
+      nome: comprido,
+      nif: "501442600",
+    });
+    expect(empresa.success).toBe(false);
+    if (!empresa.success) expect(empresa.error.issues[0]?.path).toEqual(["nome"]);
+  });
+
+  it("aceita exatamente 200 caracteres", () => {
+    const limite = "a".repeat(200);
+    expect(novoProcesso.safeParse({ tipoCliente: "particular", nome: limite }).success).toBe(true);
+  });
+
+  /**
+   * Uma denominação de uma letra não é denominação. O `min(2)` é o que separa
+   * "ainda estou a escrever" de "está escrito" — e no percurso Empresa a
+   * denominação é o que identifica a entidade antes de o cliente tocar no
+   * formulário.
+   */
+  it("uma denominação social de uma letra não passa", () => {
+    const r = novoProcesso.safeParse({ tipoCliente: "empresa", nome: "S", nif: "501442600" });
+
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    expect(r.error.issues[0]?.path).toEqual(["nome"]);
+  });
+});
