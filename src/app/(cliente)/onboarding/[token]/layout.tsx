@@ -31,16 +31,20 @@ export default async function LayoutOnboarding({
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           {/* O cabeçalho é o mesmo em todos os passos — vive no layout, e é por
               isso que basta trocá-lo aqui para o logo aparecer nos sete. */}
-          <div className="flex items-center gap-3">
+          {/* `min-w-0` no grupo e `shrink-0` no logo: o logo é item de flex e,
+              sem isso, é ele que encolhe primeiro num ecrã estreito — a altura
+              fica presa no `h-11` e a largura cede, que é o logo esticado. Quem
+              encolhe passa a ser o texto ao lado, que tem por onde. */}
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Image
               src="/logo_jm.png"
               alt="JMASSANO — Escritório de Advogado"
               width={202}
               height={171}
               priority
-              className="h-11 w-auto"
+              className="h-9 w-auto max-w-[40vw] shrink-0 object-contain sm:h-11"
             />
-            <p className="text-2xs font-mono tracking-[0.16em] text-muted-foreground uppercase">
+            <p className="text-2xs min-w-0 truncate font-mono tracking-[0.16em] text-muted-foreground uppercase">
               Onboarding de cliente
             </p>
           </div>

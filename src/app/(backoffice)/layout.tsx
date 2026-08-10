@@ -57,7 +57,7 @@ export default async function LayoutBackoffice({
     <TooltipProvider delayDuration={300}>
       <SidebarProvider>
         <Sidebar collapsible="icon">
-          <SidebarHeader className="px-3 py-4">
+          <SidebarHeader className="px-3 py-4 group-data-[collapsible=icon]:px-1.5">
             {/* A lombada do dossier, agora com a marca da sociedade — o mesmo
                 logo do onboarding, da entrada e dos T&C. O fundo da barra é
                 tinta sólida, e o logo tem fundo próprio: daí a caixa clara por
@@ -65,8 +65,16 @@ export default async function LayoutBackoffice({
 
                 `group-data-[collapsible=icon]` é o estado recolhido da barra:
                 aí só cabe a marca, e a linha de baixo sairia por cima do
-                ícone seguinte. */}
-            <Link href="/" className="flex items-center gap-2.5">
+                ícone seguinte.
+
+                A barra recolhida são 3rem, e o `px-3` deixava 24px de largura
+                útil para uma caixa que media 41 (o logo a `h-7` dá 33 de
+                largura, mais o `p-1`): a caixa saía para fora da barra e ficava
+                cortada pelo conteúdo ao lado. Nesse estado o logo desce a
+                `h-5` e o cabeçalho aperta os lados, e a caixa cabe. O
+                `shrink-0` no próprio `Image` é o que impede a alternativa —
+                encolher só a largura e entregar o logo esticado. */}
+            <Link href="/" className="flex min-w-0 items-center gap-2.5">
               <span className="bg-papel-alto flex shrink-0 items-center justify-center rounded-sm p-1">
                 <Image
                   src="/logo_jm.png"
@@ -74,10 +82,10 @@ export default async function LayoutBackoffice({
                   width={202}
                   height={171}
                   priority
-                  className="h-7 w-auto"
+                  className="h-7 w-auto shrink-0 object-contain group-data-[collapsible=icon]:h-5"
                 />
               </span>
-              <span className="font-mono text-2xs tracking-[0.16em] uppercase opacity-60 group-data-[collapsible=icon]:hidden">
+              <span className="font-mono text-2xs truncate tracking-[0.16em] uppercase opacity-60 group-data-[collapsible=icon]:hidden">
                 Processos
               </span>
             </Link>

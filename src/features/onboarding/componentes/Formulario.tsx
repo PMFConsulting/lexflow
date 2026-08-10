@@ -336,8 +336,15 @@ export function Formulario({
     setRotulos(novos);
   }, [erros]);
 
+  // O tipo de cliente não tem estado local: vem do processo que o escritório
+  // criou e é imutável durante o onboarding. Era `useState`, com dois botões a
+  // mudá-lo, o que deixava o cliente final trocar um particular por uma empresa
+  // a meio do preenchimento — e com isso o percurso de passos, os campos
+  // obrigatórios e os documentos pedidos deixavam de ser os do processo que
+  // está gravado do outro lado. Lê-se a prop `tipoCliente` diretamente.
+
   // estado local para os campos que fazem aparecer outros
-  const [tipo, setTipo] = useState(tipoCliente);
+  //
   // Sem resposta de partida: é uma declaração sobre quem age em nome de quem.
   // "Sim" fecha o passo num clique, "Não" abre os dados do representante.
   const [eRepresentante, setERepresentante] = useState<boolean | null>(
@@ -353,16 +360,15 @@ export function Formulario({
   const [newsletter, setNewsletter] = useState(seccoes.preferencias?.newsletter ?? null);
   const [convites, setConvites] = useState(seccoes.preferencias?.convitesIniciativas ?? null);
 
-  const anterior = passoAnterior(n, tipo);
+  const anterior = passoAnterior(n, tipoCliente);
   const passo = PASSOS.find((p) => p.n === n)!;
 
   // A contagem do cabeçalho é a do percurso deste cliente, não a dos sete
   // passos que existem: uma pessoa singular não passa pelo Representante Legal
-  // e prometer-lhe "de 07" é prometer um ecrã que nunca vai ver. O `tipo` é
-  // estado local, por isso a contagem acompanha a escolha no passo 1 em direto.
-  const percurso = passosDoProcesso(tipo);
+  // e prometer-lhe "de 07" é prometer um ecrã que nunca vai ver.
+  const percurso = passosDoProcesso(tipoCliente);
   const posicao = percurso.findIndex((p) => p.n === n) + 1;
-  const eUltimo = n === ultimoPasso(tipo);
+  const eUltimo = n === ultimoPasso(tipoCliente);
 
   /**
    * Marcar "os dados de faturação são os mesmos do cliente" devia preencher
@@ -536,34 +542,26 @@ export function Formulario({
 
       {n === 1 && (
         <>
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 text-sm font-medium">Quem é o cliente final?</legend>
-            <input type="hidden" name="tipoCliente" value={tipo} />
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                { v: "particular", t: "Pessoa Singular", d: "Cliente individual ou particular" },
-                { v: "empresa", t: "Empresa / Entidade Coletiva", d: "Sociedade comercial ou outra pessoa coletiva" },
-              ].map((o) => (
-                <button
-                  key={o.v}
-                  type="button"
-                  onClick={() => setTipo(o.v as "particular" | "empresa")}
-                  aria-pressed={tipo === o.v}
-                  className={
-                    "border-linha bg-papel-alto rounded-sm border p-3 text-left transition-colors " +
-                    (tipo === o.v ? "border-tinta ring-tinta ring-1" : "hover:border-tinta-suave")
-                  }
-                >
-                  <span className="block text-sm font-medium">{o.t}</span>
-                  <span className="block text-xs text-muted-foreground">{o.d}</span>
-                </button>
-              ))}
-            </div>
-          </fieldset>
+          {/* Informação, não escolha. O tipo de cliente é fixado quando o
+              escritório abre o processo e vem na prop; o que estava aqui eram
+              dois botões que o deixavam ser trocado a meio do onboarding, com
+              o percurso de passos, os campos obrigatórios e os documentos
+              pedidos a mudarem por baixo de um processo já criado. O `input`
+              escondido fica: o `passo1` continua a exigir o campo, e agora
+              leva sempre o valor da prop. */}
+          <div className="border-linha bg-papel-alto flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-sm border px-3 py-2">
+            <input type="hidden" name="tipoCliente" value={tipoCliente} />
+            <span className="text-2xs font-mono tracking-[0.16em] text-muted-foreground uppercase">
+              Cliente
+            </span>
+            <span className="text-sm font-medium">
+              {tipoCliente === "empresa" ? "Empresa / Entidade Coletiva" : "Pessoa Singular"}
+            </span>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <CampoTexto
-              etiqueta={tipo === "empresa" ? "Denominação social" : "Nome completo"}
+              etiqueta={tipoCliente === "empresa" ? "Denominação social" : "Nome completo"}
               nome="nome"
               erros={erros}
               obrigatorio
@@ -571,7 +569,7 @@ export function Formulario({
               className="sm:col-span-2"
             />
 
-            {tipo === "particular" ? (
+            {tipoCliente === "particular" ? (
               <>
                 <CampoTexto etiqueta="Profissão" nome="profissao" erros={erros} obrigatorio valorInicial={seccoes.identificacao?.profissao ?? ""} />
                 <CampoTexto etiqueta="Entidade patronal" nome="entidadePatronal" erros={erros} obrigatorio ajuda="Caso não se aplique, preencha com N/A." valorInicial={seccoes.identificacao?.entidadePatronal ?? ""} />
@@ -627,7 +625,7 @@ export function Formulario({
             titulo="Documentação"
             ajuda="Anexe a cópia do documento de identificação válido e legível, e o comprovativo de NIF obtido no portal da Autoridade Tributária com emissão dos últimos 6 meses."
             tipos={
-              tipo === "empresa"
+              tipoCliente === "empresa"
                 ? ["identificacao", "comprovativo_nif", "certidao_permanente", "outro"]
                 : ["identificacao", "comprovativo_nif", "outro"]
             }
@@ -636,7 +634,7 @@ export function Formulario({
             )}
           />
 
-          {tipo === "empresa" && (
+          {tipoCliente === "empresa" && (
             <>
               <Separator />
               <h2 className="text-lg">Dados da entidade</h2>
@@ -960,7 +958,7 @@ export function Formulario({
           <Revisao
             token={token}
             seccoes={seccoes}
-            tipoCliente={tipo}
+            tipoCliente={tipoCliente}
             referencia={referencia}
           />
 
