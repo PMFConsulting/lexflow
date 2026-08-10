@@ -56,12 +56,16 @@ const mascarar = (v) =>
   !v ? "(vazia)" : v.length <= 8 ? "********" : `${v.slice(0, 4)}…${v.slice(-4)} (${v.length} car.)`;
 
 const chaveBrevo = process.env.BREVO_API_KEY;
+const chaveMailjet = process.env.MAILJET_API_KEY;
+const segredoMailjet = process.env.MAILJET_SECRET_KEY;
 const chaveResend = process.env.RESEND_API_KEY;
 const remetente = process.env.EMAIL_REMETENTE || "POC@jmassano.pt";
 const urlBd = process.env.DATABASE_URL;
 
 console.log("Ambiente");
 console.log(`  BREVO_API_KEY     ${mascarar(chaveBrevo)}`);
+console.log(`  MAILJET_API_KEY   ${mascarar(chaveMailjet)}`);
+console.log(`  MAILJET_SECRET_KEY ${mascarar(segredoMailjet)}`);
 console.log(`  RESEND_API_KEY    ${mascarar(chaveResend)}`);
 console.log(`  EMAIL_REMETENTE   ${remetente}${process.env.EMAIL_REMETENTE ? "" : "  (por omissão — não está no ambiente)"}`);
 console.log(`  EMAIL_NOTIFICACOES ${process.env.EMAIL_NOTIFICACOES || "(vazia — o aviso interno não sai)"}`);
@@ -113,6 +117,29 @@ async function enviar() {
         to: [{ email: destino }],
         subject: assunto,
         htmlContent: html,
+      },
+    });
+  }
+  if (chaveMailjet && segredoMailjet) {
+    canais.push({
+      nome: "Mailjet",
+      chave: "mailjet",
+      campoId: "MessageID",
+      anfitriao: "api.mailjet.com",
+      url: "https://api.mailjet.com/v3.1/send",
+      cabecalhos: {
+        Authorization: `Basic ${Buffer.from(`${chaveMailjet}:${segredoMailjet}`).toString("base64")}`,
+        "Content-Type": "application/json",
+      },
+      corpo: {
+        Messages: [
+          {
+            From: { Email: remetente, Name: "JMASSANO" },
+            To: [{ Email: destino }],
+            Subject: assunto,
+            HTMLPart: html,
+          },
+        ],
       },
     });
   }
@@ -174,7 +201,8 @@ async function tentar(canal) {
     let mensagemId = null;
     try {
       const json = JSON.parse(corpo);
-      const valor = json?.[canal.campoId];
+      // O Mailjet aninha o id: Messages[0].To[0].MessageID.
+      const valor = json?.[canal.campoId] ?? json?.Messages?.[0]?.To?.[0]?.MessageID;
       mensagemId = typeof valor === "string" && valor ? valor : json?.messageIds?.[0] ?? null;
     } catch {
       /* corpo não-JSON: aceite continua a ser aceite, só deixa de ser seguível */
