@@ -11,6 +11,8 @@ const esquema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET precisa de pelo menos 32 caracteres"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
   RESEND_API_KEY: z.string().optional(),
+  /** Alternativa ao Resend (Brevo, 300 emails/dia no plano gratuito). Se estiver presente, tem prioridade. */
+  BREVO_API_KEY: z.string().optional(),
   /**
    * Remetente dos emails ao cliente. O valor por omissão é o da sociedade e não
    * o `onboarding@resend.dev` do arranque: uma instalação a que falte a variável

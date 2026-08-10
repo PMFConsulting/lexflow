@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/db";
 import { emailLog } from "@/db/schema/email";
 import type { templateEmail } from "@/db/schema/enums";
-import { env } from "@/env";
+import { env, type Ambiente } from "@/env";
 
 export type ResultadoEnvio = { ok: true } | { ok: false; erro: string };
 
@@ -139,6 +139,12 @@ async function tentarEnviar({
 }: ParametrosEmail): Promise<ResultadoEnvio> {
   const ambiente = env();
 
+  // Brevo primeiro: se a chave estiver configurada, é o canal ativo (300
+  // emails/dia no plano gratuito, contra os 100/dia do Resend).
+  if (ambiente.BREVO_API_KEY) {
+    return tentarEnviarBrevo({ para, assunto, html, anexos }, ambiente, ambiente.BREVO_API_KEY);
+  }
+
   if (!ambiente.RESEND_API_KEY) {
     const lista = anexos?.length ? ` anexos=${anexos.map((a) => a.nome).join(",")}` : "";
     console.log(`[email] (sem chave) para=${para} assunto="${assunto}"${lista}`);
@@ -192,6 +198,57 @@ async function tentarEnviar({
       return {
         ok: false,
         erro: `A api.resend.com não respondeu em ${TEMPO_LIMITE_MS / 1000}s — verifique a saída para a Internet do servidor.`,
+      };
+    }
+    return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
+  }
+}
+
+/** Envio via Brevo (ex-Sendinblue): `api-key` no header, anexos em `attachment`. */
+async function tentarEnviarBrevo(
+  { para, assunto, html, anexos }: Omit<ParametrosEmail, "template">,
+  ambiente: Ambiente,
+  chave: string,
+): Promise<ResultadoEnvio> {
+  try {
+    const resposta = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+      headers: {
+        "api-key": chave,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { email: ambiente.EMAIL_REMETENTE },
+        to: [{ email: para }],
+        subject: assunto,
+        htmlContent: html,
+        // O Brevo quer o conteúdo em base64, no campo `attachment`.
+        ...(anexos?.length
+          ? {
+              attachment: anexos.map((a) => ({
+                name: a.nome,
+                content: a.conteudo.toString("base64"),
+              })),
+            }
+          : {}),
+      }),
+    });
+
+    if (!resposta.ok) {
+      const corpo = await resposta.text();
+      return {
+        ok: false,
+        erro: `Brevo devolveu ${resposta.status} (de=${ambiente.EMAIL_REMETENTE}): ${corpo}`,
+      };
+    }
+
+    return { ok: true };
+  } catch (erro) {
+    if (erro instanceof Error && erro.name === "TimeoutError") {
+      return {
+        ok: false,
+        erro: `A api.brevo.com não respondeu em ${TEMPO_LIMITE_MS / 1000}s — verifique a saída para a Internet do servidor.`,
       };
     }
     return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };

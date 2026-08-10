@@ -687,13 +687,17 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
         )}
       </DialogBody>
 
-      <DialogFooter className="py-4">
+      {/* No telemóvel os dois botões empilham-se a largura inteira (alvo de
+          toque de 44px+), com o "Criar processo" no fundo — é a ação que se
+          quer alcançar com o polegar. Em ecrãs maiores voltam a ficar lado a
+          lado à direita. */}
+      <DialogFooter className="flex-col py-4 sm:flex-row">
         <Button
           type="button"
           variant="outline"
           size="lg"
           onClick={aoFechar}
-          className="h-10 min-w-24 px-4"
+          className="h-11 min-w-24 px-4 sm:h-10 sm:w-auto"
         >
           Cancelar
         </Button>
@@ -707,7 +711,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           // encolhe ao trocar o rótulo por "A criar…"), respiro nos lados e a
           // sombra que a levanta do rodapé. Os dois à mesma altura, senão o
           // rodapé fica com dois patamares.
-          className="h-10 min-w-40 px-5 font-semibold shadow-sm"
+          className="h-11 min-w-40 px-5 font-semibold shadow-sm sm:h-10 sm:w-auto"
         >
           {aCriar ? (
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
