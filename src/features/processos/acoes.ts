@@ -7,14 +7,21 @@ import { db } from "@/db";
 import { contadorReferencia, organizacao } from "@/db/schema/organizacao";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
+import { acessoPorToken } from "@/features/onboarding/dados";
 import { enviarEmail } from "@/lib/email";
 import { ASSUNTO_REGISTO, emailRegisto } from "@/lib/emails/jmassano";
 import { origemPublica } from "@/lib/origem";
-import { expiraDaquiA, gerarToken, hashToken } from "@/lib/token";
+import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
 import { novoProcesso, type NovoProcesso } from "./schemas";
 
 /** Mesma forma em todas as saídas por erro — o `campo` fica sempre no tipo. */
 const falha = (erro: string, campo?: string) => ({ ok: false as const, erro, campo });
+
+/** O nome da restrição que um 23505 violou, venha ele em que campo vier. */
+function restricaoViolada(erro: unknown): string {
+  const e = erro as { constraint_name?: string; constraint?: string; message?: string };
+  return e.constraint_name ?? e.constraint ?? e.message ?? "";
+}
 
 /**
  * Cria um processo e devolve o link mágico.
@@ -103,7 +110,19 @@ export async function criarProcesso(entrada: NovoProcesso) {
     .values({ organizacaoId: org.id, ano, ultimo: 0 })
     .onConflictDoNothing({ target: [contadorReferencia.organizacaoId, contadorReferencia.ano] });
 
-  const token = gerarToken();
+  /*
+   * O token e o seu hash saem do mesmo sítio e da mesma chamada.
+   *
+   * Estavam em duas linhas — `gerarToken()` aqui, `hashToken(token)` lá em
+   * baixo, dentro do `values` — e enquanto ninguém lhes tocasse davam sempre o
+   * mesmo par. O que se guarda contra é o dia em que deixem de dar: um token
+   * gravado com o hash de outra coisa é um processo real, visível em
+   * `/processos`, com um link que a consulta por hash nunca encontra. O cliente
+   * carrega no botão do email e leva com um ecrã de "não existe" — e não há
+   * nada, do lado dele, que possa estar errado.
+   */
+  const { token, hash } = novoTokenAcesso();
+  const expiraEm = expiraDaquiA(30);
 
   let processo: typeof processoOnboarding.$inferSelect | undefined;
   let referencia = "";
@@ -129,25 +148,62 @@ export async function criarProcesso(entrada: NovoProcesso) {
           nomeCliente: nome ?? null,
           nifCliente: nif ?? null,
           emailCliente: emailCliente ?? null,
-          tokenAcessoHash: hashToken(token),
-          expiraEm: expiraDaquiA(30),
+          tokenAcessoHash: hash,
+          expiraEm,
         })
         .returning();
       break;
     } catch (erro) {
-      if ((erro as { code?: string }).code === "23505" && tentativa < 5) {
-        continue;
-      }
-      if ((erro as { code?: string }).code === "23505") {
+      if ((erro as { code?: string }).code !== "23505") throw erro;
+
+      /*
+       * Duas restrições únicas nesta tabela, e a diferença entre elas é a
+       * diferença entre repetir e não poder repetir.
+       *
+       * `processo_referencia_org` é a colisão que se espera — dois pedidos ao
+       * mesmo tempo a apanharem o mesmo número — e a resposta é tirar outro
+       * número e tentar de novo, que é o que já estava.
+       *
+       * `processo_token` é outra coisa: significa que **já existe uma linha
+       * gravada com este token**, quase sempre porque o INSERT anterior chegou
+       * a ser confirmado pelo Postgres e a resposta perdeu-se a caminho.
+       * Repetir com o mesmo token nunca pode funcionar, e o que estava aqui
+       * repetia-o mais quatro vezes e desistia com "tente novamente" — deixando
+       * atrás um processo real, a que ninguém volta a chegar, porque o único
+       * token que o abre estava nesta chamada e ia ser deitado fora com ela.
+       * Recupera-se a linha pelo mesmo caminho que o cliente vai usar.
+       */
+      if (restricaoViolada(erro).includes("processo_token")) {
+        const recuperado = await acessoPorToken(token);
+        if (recuperado.estado === "ok") {
+          console.warn(
+            `[processo] o INSERT colidiu no token; recuperada a linha ${recuperado.processo.referencia}`,
+          );
+          processo = recuperado.processo;
+          referencia = recuperado.processo.referencia;
+          break;
+        }
         return falha("Não foi possível criar o processo. Tente novamente.");
       }
-      throw erro;
+
+      if (tentativa >= 5) {
+        return falha("Não foi possível criar o processo. Tente novamente.");
+      }
     }
   }
 
   if (!processo) {
     return falha("Não foi possível criar o processo. Tente novamente.");
   }
+
+  /**
+   * A mesma linha, numa constante.
+   *
+   * O `processo` é um `let` — tem de ser, o ciclo atribui-lhe —, e o
+   * TypeScript não leva a garantia de "já não é `undefined`" para dentro de uma
+   * função criada a seguir. O `auditar` aqui em baixo é uma dessas funções.
+   */
+  const dossier = processo;
 
   /*
    * ------------------------------------------------------------------------
@@ -180,6 +236,53 @@ export async function criarProcesso(entrada: NovoProcesso) {
    * ------------------------------------------------------------------------
    */
 
+  /*
+   * O link é experimentado **antes** de ser entregue a alguém.
+   *
+   * Toda a gente confia neste caminho porque ele é curto: gera-se o token,
+   * grava-se o hash, devolve-se o token. Só que entre as duas pontas está o
+   * Postgres, e o que sai de lá pode não ser o que se pensa que entrou — uma
+   * coluna que o schema mudou, um trigger, um `apagado_em` com valor por
+   * omissão, um `expira_em` que o relógio do contentor põe no passado. Em
+   * qualquer desses casos o processo fica gravado, a janela mostra um link com
+   * ar perfeitamente normal, e o 404 só aparece do lado do cliente — dias
+   * depois, e sem ninguém saber ligá-lo ao momento em que o processo nasceu.
+   *
+   * Uma consulta, pela mesma função que serve a página do cliente. Se a linha
+   * não responder a este token, repõe-se o hash e a validade uma vez; e se nem
+   * assim, quem criou o processo fica a saber **no ecrã** que o link não abre,
+   * em vez de o enviar ao cliente e descobrir pela reclamação.
+   *
+   * Dentro de `try`, como tudo o resto daqui para baixo: uma verificação que
+   * rebentasse repunha, sozinha, o defeito que esta função inteira existe para
+   * não ter — a consulta a matar o email do cliente por não ter que ver com ele.
+   */
+  const linkAbre = async () => {
+    try {
+      return (await acessoPorToken(token)).estado === "ok";
+    } catch (erro) {
+      console.error(`[processo] ${referencia}: não foi possível verificar o link`, erro);
+      return false;
+    }
+  };
+
+  let linkVerificado = await linkAbre();
+
+  if (!linkVerificado) {
+    console.error(
+      `[processo] ${referencia}: o token gravado não abre o processo — a repor o hash`,
+    );
+    try {
+      await base
+        .update(processoOnboarding)
+        .set({ tokenAcessoHash: hash, expiraEm, apagadoEm: null })
+        .where(eq(processoOnboarding.id, dossier.id));
+      linkVerificado = await linkAbre();
+    } catch (erro) {
+      console.error(`[processo] ${referencia}: a reposição do token falhou`, erro);
+    }
+  }
+
   /** Cabeçalhos do pedido, para a auditoria. Falhar aqui não custa um email. */
   let ip: string | null = null;
   let userAgent: string | null = null;
@@ -204,10 +307,10 @@ export async function criarProcesso(entrada: NovoProcesso) {
     try {
       await registarEvento({
         organizacaoId: org.id,
-        processoId: processo.id,
+        processoId: dossier.id,
         acao,
         entidade: "processo_onboarding",
-        entidadeId: processo.id,
+        entidadeId: dossier.id,
         valorNovo,
         ip,
         userAgent,
@@ -226,21 +329,41 @@ export async function criarProcesso(entrada: NovoProcesso) {
     nif: nif ?? null,
   });
 
+  // Um link que não resolveu à primeira é um acontecimento do dossier, não uma
+  // linha de log: é a prova escrita de que o acesso esteve em risco, e a única
+  // maneira de o descobrir mais tarde sem ter a consola do contentor à mão.
+  if (!linkVerificado) {
+    await auditar("link.nao_resolve", { referencia });
+  }
+
+  /*
+   * O link, uma vez só, para os dois destinos.
+   *
+   * Estava dentro do `if (emailCliente)`, e por isso a janela não recebia link
+   * nenhum: montava-o à parte, com o `window.location.origin` do browser de
+   * quem estava a criar o processo. Os dois coincidem quase sempre e é por isso
+   * que a diferença passa despercebida — até alguém abrir o back-office por um
+   * túnel, por `localhost`, por um IP ou por um segundo domínio que aponte para
+   * a mesma instalação. Aí o link copiado da janela leva o anfitrião do
+   * back-office e o link do email leva o do pedido: o cliente recebe um
+   * endereço que não existe para ele, e o que vê é um 404. Um só sítio a
+   * montá-lo é um só endereço possível.
+   */
+  let link = `/onboarding/${token}`;
+  try {
+    link = `${await origemPublica()}/onboarding/${token}`;
+  } catch (erro) {
+    // Um link com o anfitrião em falta ainda se corrige a olho; um email que
+    // não sai por causa disso não se corrige de todo. A janela completa-o com
+    // a própria origem, que é o que ela sabe de melhor.
+    console.error(`[processo] ${referencia}: origemPublica falhou; link relativo`, erro);
+  }
+
   let emailEnviado = false;
   /** O motivo, quando não saiu. Vai para a janela — ver a nota em baixo. */
   let erroEmail: string | undefined;
 
   if (emailCliente) {
-    // O endereço público sai dos cabeçalhos, e sair mal não pode ser razão para
-    // não haver email nenhum: um link com o anfitrião errado ainda se corrige a
-    // olho na caixa de correio, um email que não sai não se corrige de todo.
-    let link = `/onboarding/${token}`;
-    try {
-      link = `${await origemPublica()}/onboarding/${token}`;
-    } catch (erro) {
-      console.error(`[processo] ${referencia}: origemPublica falhou; link relativo`, erro);
-    }
-
     // O `enviarEmail` já promete não propagar (D42) e o `auditar` também. Este
     // `try` é o terceiro fecho, para o dia em que um deles deixe de o cumprir:
     // o token em claro só existe nesta chamada, e uma exceção aqui não pode
@@ -252,11 +375,15 @@ export async function criarProcesso(entrada: NovoProcesso) {
         html: emailRegisto({ nome, link }),
         template: "registo",
         organizacaoId: org.id,
-        processoId: processo.id,
+        processoId: dossier.id,
         // O mesmo hash que ficou em `processo_onboarding.token_acesso_hash`: é o
         // que permite dizer "foi este link que saiu nesta mensagem" sem guardar
-        // o token em claro em mais um sítio (D4).
-        tokenHash: processo.tokenAcessoHash,
+        // o token em claro em mais um sítio (D4). Vem da constante e não da
+        // linha devolvida pelo INSERT — é o hash **deste** token, o mesmo que a
+        // verificação em cima experimentou, e não o que a base de dados diz ter
+        // gravado. Divergindo os dois, o diário do canal apontaria para um link
+        // que não é o que saiu na mensagem.
+        tokenHash: hash,
       });
       emailEnviado = r.ok;
       if (!r.ok) erroEmail = r.erro;
@@ -302,7 +429,21 @@ export async function criarProcesso(entrada: NovoProcesso) {
     ok: true as const,
     referencia,
     token,
-    processoId: processo.id,
+    /**
+     * O link tal e qual como ele vai no email. A janela mostra este, e não um
+     * que monte por sua conta — o que se copia do ecrã e o que o cliente recebe
+     * têm de ser o mesmo texto, senão há dois links a existir e só um funciona.
+     * Relativo (`/onboarding/…`) quando o anfitrião não se conseguiu apurar; a
+     * janela completa-o com a origem dela.
+     */
+    link,
+    /**
+     * Se o link chegou a ser experimentado com sucesso contra a base de dados.
+     * A falso, o processo existe e o link **não abre** — quem o está a criar
+     * precisa de o saber antes de o enviar, não depois da reclamação.
+     */
+    linkVerificado,
+    processoId: dossier.id,
     emailEnviado,
     /**
      * O endereço que o **servidor** recebeu, e não o que a janela julga ter

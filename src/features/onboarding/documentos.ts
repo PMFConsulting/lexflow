@@ -7,7 +7,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { documento } from "@/db/schema/documentos";
 import { registarEvento } from "@/features/auditoria/registar";
-import { processoPorToken } from "./dados";
+import { acessoPorToken, motivoDoAcesso } from "./dados";
 import { MENSAGEM_FORMATO, mimeAceite } from "./formatos";
 
 /**
@@ -25,11 +25,16 @@ export type ResultadoUpload =
   | { ok: false; erro: string };
 
 export async function carregarDocumento(
-  token: string,
+  bruto: string,
   formData: FormData,
 ): Promise<ResultadoUpload> {
-  const processo = await processoPorToken(token);
-  if (!processo) return { ok: false, erro: "Este link já não é válido." };
+  const acesso = await acessoPorToken(bruto);
+  if (acesso.estado !== "ok") {
+    const { titulo, descricao } = motivoDoAcesso(acesso);
+    return { ok: false, erro: `${titulo} ${descricao}` };
+  }
+
+  const { processo, token } = acesso;
   if (processo.estado !== "rascunho" && processo.estado !== "pendente_cliente") {
     return { ok: false, erro: "Este processo já foi submetido." };
   }
@@ -108,10 +113,14 @@ export async function carregarDocumento(
 }
 
 /** Remoção pelo cliente: soft delete, porque a lei manda reter. */
-export async function removerDocumento(token: string, id: string) {
-  const processo = await processoPorToken(token);
-  if (!processo) return { ok: false as const, erro: "Este link já não é válido." };
+export async function removerDocumento(bruto: string, id: string) {
+  const acesso = await acessoPorToken(bruto);
+  if (acesso.estado !== "ok") {
+    const { titulo, descricao } = motivoDoAcesso(acesso);
+    return { ok: false as const, erro: `${titulo} ${descricao}` };
+  }
 
+  const { processo, token } = acesso;
   const base = db();
   const [alvo] = await base
     .select()

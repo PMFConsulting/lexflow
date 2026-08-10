@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
-import { processoPorToken, seccoesDoProcesso } from "@/features/onboarding/dados";
+import { acessoPorToken, seccoesDoProcesso } from "@/features/onboarding/dados";
 import { Formulario } from "@/features/onboarding/componentes/Formulario";
+import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndisponivel";
 import {
   passoAplicavel,
   passoPorNumero,
@@ -12,13 +13,19 @@ export default async function PaginaPasso({
 }: {
   params: Promise<{ token: string; n: string }>;
 }) {
-  const { token, n: bruto } = await params;
+  const { token: recebido, n: bruto } = await params;
   const n = Number(bruto);
 
-  if (!Number.isInteger(n) || !passoPorNumero(n)) notFound();
+  const acesso = await acessoPorToken(recebido);
+  if (acesso.estado !== "ok") return <LinkIndisponivel acesso={acesso} />;
 
-  const processo = await processoPorToken(token);
-  if (!processo) notFound();
+  const { processo, token } = acesso;
+
+  // Um número de passo inventado continua a ser 404, e é o que deve ser: aqui
+  // o link está bom e o que está errado é o endereço. A ordem importa — a
+  // verificação do token vem primeiro para que um link expirado com um passo
+  // impossível diga que expirou, que é o problema que o cliente tem de facto.
+  if (!Number.isInteger(n) || !passoPorNumero(n)) notFound();
 
   if (processo.estado === "submetido" || processo.estado === "aprovado") {
     redirect(`/onboarding/${token}/submetido`);

@@ -36,6 +36,21 @@ let cabecalhosRebentam = false;
 let origemRebenta = false;
 let revalidacaoRebenta = false;
 
+/**
+ * O estado do "vai lá ver se o link abre".
+ *
+ * `acessoPorToken` é a mesma função que serve a página do cliente, e é ela que
+ * `criarProcesso` usa para experimentar o link antes de o entregar a alguém.
+ * Aqui controla-se o que ela responde: `ok` no percurso normal, `desconhecido`
+ * para encenar um token que ficou gravado e não abre.
+ */
+let acessoDevolve: "ok" | "desconhecido" | "ok-depois-de-repor" = "ok";
+let acessosPedidos = 0;
+const atualizacoes: Record<string, unknown>[] = [];
+
+/** Quantas vezes o INSERT do processo rebenta antes de deixar passar, e com que erro. */
+let insercoesQueRebentam: { code: string; constraint_name: string }[] = [];
+
 vi.mock("next/cache", () => ({
   revalidatePath: () => {
     if (revalidacaoRebenta) throw new Error("revalidatePath fora de contexto");
@@ -70,15 +85,40 @@ vi.mock("@/db", () => ({
       values: (v: Record<string, unknown>) => ({
         onConflictDoNothing: async () => undefined,
         returning: async () => {
+          const rebenta = insercoesQueRebentam.shift();
+          if (rebenta) throw Object.assign(new Error("duplicate key"), rebenta);
           processosInseridos.push(v);
           return [{ ...v, id: "proc-1" }];
         },
       }),
     }),
     update: () => ({
-      set: () => ({ where: () => ({ returning: async () => [{ ultimo: 7 }] }) }),
+      set: (v: Record<string, unknown>) => ({
+        where: () => {
+          // O contador da referência pede `returning()`; a reposição do token
+          // não pede nada e é esperada tal como está. Guardar o `set` é o que
+          // permite ver **o quê** é que a reposição escreveu.
+          atualizacoes.push(v);
+          return { returning: async () => [{ ultimo: 7 }] };
+        },
+      }),
     }),
   }),
+}));
+
+vi.mock("@/features/onboarding/dados", () => ({
+  acessoPorToken: async (token: string) => {
+    acessosPedidos++;
+    if (acessoDevolve === "ok-depois-de-repor" && acessosPedidos === 1) {
+      return { estado: "desconhecido" };
+    }
+    if (acessoDevolve === "desconhecido") return { estado: "desconhecido" };
+    return {
+      estado: "ok",
+      token,
+      processo: { id: "proc-1", referencia: "JM-2026-0007", tokenAcessoHash: "sha256-do-token" },
+    };
+  },
 }));
 
 vi.mock("@/features/auditoria/registar", () => ({
@@ -110,9 +150,12 @@ vi.mock("@/lib/origem", () => ({
   },
 }));
 
+/**
+ * O par sai da mesma chamada — é esse o ponto de `novoTokenAcesso`, e é por
+ * isso que o mock não tem como devolver um hash que não seja o daquele token.
+ */
 vi.mock("@/lib/token", () => ({
-  gerarToken: () => "token-em-claro",
-  hashToken: () => "sha256-do-token",
+  novoTokenAcesso: () => ({ token: "token-em-claro", hash: "sha256-do-token" }),
   expiraDaquiA: () => new Date("2027-01-01T00:00:00.000Z"),
 }));
 
@@ -136,6 +179,10 @@ beforeEach(() => {
   cabecalhosRebentam = false;
   origemRebenta = false;
   revalidacaoRebenta = false;
+  acessoDevolve = "ok";
+  acessosPedidos = 0;
+  atualizacoes.length = 0;
+  insercoesQueRebentam = [];
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -305,5 +352,106 @@ describe("criarProcesso — o que o schema recusa, recusa antes de haver process
 
     expect(r.ok).toBe(false);
     expect(enviados).toHaveLength(0);
+  });
+});
+
+/**
+ * O link mágico, do lado em que ele dá 404.
+ *
+ * Um processo criado com um link que não abre é a avaria que só se manifesta
+ * do lado do cliente, dias depois, e que do lado de cá não deixa nada: o
+ * processo está em `/processos`, a janela mostrou um endereço com ar normal, e
+ * quem o recebeu é que fica sem forma de provar que carregou no botão certo.
+ * Cada bloco em baixo fecha uma das maneiras de lá chegar.
+ */
+describe("criarProcesso — o link entregue é o link que abre", () => {
+  it("o link da janela é exatamente o que segue no email", async () => {
+    const r = await criarProcesso(carga("teste1@emalupe.com"));
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.link).toBe("https://poc.terlicalabs.com/onboarding/token-em-claro");
+    // O mesmo texto nos dois sítios. Montado em dois sítios, bastava o
+    // back-office estar aberto noutro anfitrião para passarem a ser dois.
+    expect(enviados[0].html).toContain(r.link);
+  });
+
+  it("o link é montado mesmo quando não há email a enviar", async () => {
+    const r = await criarProcesso(carga(undefined));
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.link).toBe("https://poc.terlicalabs.com/onboarding/token-em-claro");
+    expect(r.linkVerificado).toBe(true);
+  });
+
+  it("o token gravado é experimentado antes de ser entregue", async () => {
+    const r = await criarProcesso(carga("teste1@emalupe.com"));
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(acessosPedidos).toBeGreaterThanOrEqual(1);
+    expect(r.linkVerificado).toBe(true);
+  });
+
+  it("um token que não abre é reposto, e a reposição escreve o hash daquele token", async () => {
+    acessoDevolve = "ok-depois-de-repor";
+
+    const r = await criarProcesso(carga("teste1@emalupe.com"));
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(atualizacoes).toContainEqual(
+      expect.objectContaining({ tokenAcessoHash: "sha256-do-token", apagadoEm: null }),
+    );
+    expect(r.linkVerificado).toBe(true);
+  });
+
+  it("um token que não abre nem depois de reposto avisa a janela e a auditoria", async () => {
+    acessoDevolve = "desconhecido";
+
+    const r = await criarProcesso(carga("teste1@emalupe.com"));
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // O processo existe — não se desfaz um INSERT confirmado —, mas quem o
+    // criou fica a saber no ecrã que o link não serve, em vez de o enviar.
+    expect(r.linkVerificado).toBe(false);
+    expect(auditados.map((e) => e.acao)).toContain("link.nao_resolve");
+  });
+
+  it("uma colisão na referência tira outro número e mantém o mesmo token", async () => {
+    insercoesQueRebentam = [
+      { code: "23505", constraint_name: "processo_referencia_org" },
+    ];
+
+    const r = await criarProcesso(carga("teste1@emalupe.com"));
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(processosInseridos).toHaveLength(1);
+    expect(r.token).toBe("token-em-claro");
+    expect(enviados).toHaveLength(1);
+  });
+
+  it("uma colisão no token recupera a linha que já lá está, em vez de desistir", async () => {
+    // O INSERT chegou a ser confirmado pelo Postgres e a resposta perdeu-se:
+    // a linha existe com este token. Repetir com o mesmo token nunca podia
+    // funcionar, e o que estava aqui repetia-o quatro vezes e desistia — com um
+    // processo real do outro lado a que ninguém voltava a chegar, porque o
+    // único token que o abre estava nesta chamada.
+    insercoesQueRebentam = Array.from({ length: 5 }, () => ({
+      code: "23505",
+      constraint_name: "processo_token",
+    }));
+
+    const r = await criarProcesso(carga("teste1@emalupe.com"));
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.referencia).toBe("JM-2026-0007");
+    expect(r.token).toBe("token-em-claro");
+    expect(r.linkVerificado).toBe(true);
+    expect(enviados).toHaveLength(1);
   });
 });

@@ -1,6 +1,6 @@
 import Image from "next/image";
-import { notFound } from "next/navigation";
-import { processoPorToken, passosGravados, seccoesDoProcesso } from "@/features/onboarding/dados";
+import { acessoPorToken, passosGravados, seccoesDoProcesso } from "@/features/onboarding/dados";
+import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndisponivel";
 import { Lombada } from "@/features/onboarding/componentes/Lombada";
 import { Ref } from "@/components/ref-processo";
 
@@ -13,9 +13,14 @@ export default async function LayoutOnboarding({
   children: React.ReactNode;
   params: Promise<{ token: string }>;
 }) {
-  const { token } = await params;
-  const processo = await processoPorToken(token);
-  if (!processo) notFound();
+  const acesso = await acessoPorToken((await params).token);
+  // O layout é o primeiro a decidir: sem `{children}`, o que a página tivesse
+  // renderizado não chega ao ecrã. É por isso que o motivo tem de ser dito
+  // aqui e não só nas páginas — e é aqui que ele fica sem a lombada à volta,
+  // que não faz sentido nenhum num processo a que não se tem acesso.
+  if (acesso.estado !== "ok") return <LinkIndisponivel acesso={acesso} />;
+
+  const { processo, token } = acesso;
 
   const seccoes = await seccoesDoProcesso(processo.id);
   const gravados = passosGravados(seccoes, processo.tipoCliente);

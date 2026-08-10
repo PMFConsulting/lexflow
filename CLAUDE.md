@@ -462,6 +462,43 @@ imagem em execução é anterior à `6c12b47`. Nos logs do contentor, um `grep` 
 **Por confirmar (terceira vez):** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por
 permissões. Correr antes de commit — há um ficheiro de testes novo.
 
+### Atualização — o 404 no link de onboarding
+
+10/08/2026. Relatado: um link de onboarding a dar 404. Varrimento do caminho inteiro do token,
+da geração à página do cliente. Cinco maneiras de um link **válido** não abrir, e as cinco a
+apresentarem-se com o mesmo ecrã — "esta página não existe" —, que é a razão de o relato não
+se conseguir reproduzir a olho: o URL, a olho, parece bem.
+
+1. **O token apanha sujidade a caminho** (D47). Um token são 43 caracteres de `base64url`, e o
+   que chega ao servidor passou por um cliente de email e por uma colagem: traz o ponto final
+   da frase, os `<>` do Outlook, um espaço duro, um `​` do webmail, a barra que o browser
+   acrescenta. Nenhum pode existir num token, e qualquer um muda o SHA-256 por inteiro.
+2. **O token e o hash eram duas linhas** (D47). `gerarToken()` em cima, `hashToken(token)` lá em
+   baixo dentro do `values` — o dia em que uma delas hashe outra coisa dá um processo real com
+   um link que a consulta nunca encontra. Passam a sair do mesmo `novoTokenAcesso()`.
+3. **Uma colisão no `processo_token` deixava um processo órfão** (D48). O `catch` do 23505
+   tratava as duas restrições únicas como uma: repetia o INSERT com o **mesmo** token mais
+   quatro vezes e desistia — enquanto a linha existia do outro lado, e o único token que a abre
+   ia ser deitado fora com a chamada. Passa a distinguir a restrição e a recuperar a linha.
+4. **Ninguém experimentava o link antes de o entregar** (D48). Faz-se agora uma consulta, pela
+   mesma função que serve a página do cliente; a falhar, repõe-se o hash e a validade; a falhar
+   outra vez, a janela diz **no ecrã** que o link não abre e fica `link.nao_resolve` na
+   auditoria. Um link que não resolve deixa de ser descoberto pela reclamação.
+5. **Havia dois links** (D48). O do email saía do `origemPublica()` e o da janela era montado no
+   browser com `window.location.origin`. Coincidem quase sempre — até alguém abrir o
+   back-office por `localhost`, por um túnel, por um IP ou por um segundo domínio. O servidor
+   passa a devolver o link, e é esse que a janela mostra.
+
+E o 404 em si (D49): `processoPorToken` devolvia `null` para tudo e as quatro rotas
+respondiam-lhe com `notFound()`. Passa a `acessoPorToken`, com quatro estados — `ok`,
+`expirado`, `arquivado`, `desconhecido` —, e o cliente vê o que aconteceu e o que fazer a
+seguir. As Server Actions dizem o mesmo texto, da mesma fonte.
+
+**Por confirmar (quarta vez):** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por
+permissões. Nenhuma destas alterações foi executada. Há dois ficheiros de testes novos
+(`src/lib/token.test.ts`, `src/features/onboarding/dados.test.ts`) e
+`src/features/processos/acoes.test.ts` mudou de mocks.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -557,6 +594,9 @@ altera o que se constrói à volta.
 | D44 | Um processo criado **sem** endereço escreve `link.sem_email` em `evento_auditoria`, e a Server Action devolve `paraServidor` — o endereço que o servidor recebeu, ao lado do que a janela mandou. Os dois fecham o último sítio onde a plataforma podia ficar calada: `email_log` regista tentativas de envio e não pode registar um envio que nunca foi pedido, por isso «0 mensagens» no `/emails` dizia ao mesmo tempo "não havia endereço" e "havia endereço e perdeu-se a caminho" — que se resolvem em sítios diferentes (recarregar a página contra ir ao painel do Resend). A janela deixa de acusar o envio de uma falha do pedido | `src/features/processos/acoes.ts` |
 | D33 | Os corpos dos três emails passam a ser os do documento de análise do cliente, à letra — assinatura em aberto ("Assinatura do Advogado gestor do Cliente") incluída, que é o espaço do advogado que gere cada cliente. Duas coisas caem por não constarem desse texto: a saudação deixa de levar o nome ("Caro(a) Sr.(a)," é o que lá está) e a referência do processo sai do corpo dos emails 2 e 3 — continua no assunto do aviso ao back-office e no resumo em anexo. O bloco-resumo dos T&C sai do email 2 pela mesma razão; os T&C completos vão em PDF no email 3. Os parâmetros `nome` e `referencia` ficam nas assinaturas, aceites e ignorados, para repor qualquer um sem mexer em quem chama | `src/lib/emails/jmassano.ts` |
 | D46 | A partir do `INSERT` do processo, **cada passo de `criarProcesso` corre dentro do seu próprio `try`** e a ação tem uma saída só. O envio do email está atrás de um `if`, e chegar lá dependia de três `await` sem rede — `headers()`, o `registarEvento` do `processo.criado` e o `origemPublica()`. Nenhum tem que ver com email, e qualquer um a lançar dava o mesmo ecrã: processo em `/processos`, `/emails` a zero (quem grava a linha é o `enviarEmail`, e ele não era chamado), nenhum `link.*` em auditoria, e «o servidor não respondeu» na janela. Foi por isso que três passagens a ler o caminho do envio não fecharam o caso — o caminho do envio estava certo e não era percorrido. A auditoria continua a ser escrita pelo mesmo `registarEvento`, com a mesma cadeia; o que deixa de poder é interromper o resto. Mesmo arranjo no `submeter`, onde o `env()` do aviso interno rebentava antes de os dois emails ao cliente entrarem na fila | `src/features/processos/acoes.ts` |
+| D47 | O token em claro e o hash saem do mesmo `novoTokenAcesso()`, e todo o token vindo de fora passa por `normalizarToken` antes de ser procurado. As duas metades do mesmo defeito: um hash que não é o daquele token, e um token que não é o que saiu daqui. A limpeza é **só nas pontas** — cortar o meio faria de um token corrompido um token possivelmente válido, que é esconder a avaria; nas pontas não há esse risco, porque o comprimento é fixo e nenhum token é prefixo de outro. O `hashToken` normaliza antes de calcular, o que torna a procura idempotente: o link com o ponto final colado da frase do email encontra a mesma linha que o link limpo | `src/lib/token.ts` |
+| D48 | `criarProcesso` **experimenta o link antes de o entregar**, pela mesma `acessoPorToken` que serve a página do cliente — não por uma segunda consulta escrita à parte, que divergiria e divergiria justamente do lado que não está no caminho do cliente. Falhando, repõe o hash e a validade uma vez; falhando outra vez, devolve `linkVerificado: false`, a janela avisa em vermelho e fica `link.nao_resolve` na auditoria. Na mesma passagem: o 23505 passa a distinguir `processo_referencia_org` (repetir com outro número) de `processo_token` (a linha já existe — recuperá-la, porque repetir com o mesmo token nunca podia funcionar e desistir deixava um processo a que ninguém voltava a chegar), e o link passa a ser montado **uma vez só, no servidor**, e devolvido à janela em vez de reconstruído no browser | `src/features/processos/acoes.ts` |
+| D49 | `acessoPorToken` devolve quatro estados — `ok`, `expirado`, `arquivado`, `desconhecido` — no lugar do `Processo \| null`, e as quatro rotas do onboarding mostram o `LinkIndisponivel` em vez de `notFound()`. Um `null` obriga quem o recebe a inventar a razão, e o que cada rota inventava era um 404: a mesma frase para "o link expirou", "o dossier foi arquivado" e "escreveu mal o domínio", que se resolvem em três sítios diferentes. Os filtros de apagado e de validade saíram do `where` — lá dentro, um processo arquivado e um token inventado devolviam os dois zero linhas e nenhum ecrã os conseguia distinguir. **Não se revela nada de novo:** quem anda a adivinhar tokens continua a receber `desconhecido`; os outros três só são alcançáveis por quem já traz um token que bate certo | `src/features/onboarding/dados.ts` |
 | D45 | `--marca` (terracota `#d9694b`, `#e07a5f` em modo escuro) é a única cor da paleta que **não** codifica estado — marca escolha do utilizador, e por agora só na janela "Novo processo": a ficha selecionada e o emblema do cabeçalho. O que lá estava era `border-tinta`, a cor do texto à volta, e um contorno da cor do texto lê-se como moldura e não como "escolhido". Fica em token e não escrita à mão nos componentes por duas razões: o modo escuro precisa de um valor diferente (o mesmo hex sobre tinta cai para 4,8:1 e o ícone dentro da ficha deixa de se ler), e o logo JMASSANO é **verde-arquivo e latão** — trocar isto por `var(--latao)`, que é literalmente o dourado do logo, é uma linha. A terracota fica em contorno, emblema e visto, nunca em texto corrido: 3,46:1 sobre branco chega para elemento de interface, não para corpo de texto | `src/app/globals.css` |
 
 ## Decisões em aberto

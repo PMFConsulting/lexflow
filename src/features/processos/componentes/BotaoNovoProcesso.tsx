@@ -78,7 +78,19 @@ type Resultado = {
   referencia: string;
   nome: string;
   nif: string;
+  /**
+   * O link **que o servidor montou**, o mesmo que seguiu no email.
+   *
+   * Era construído aqui, com `window.location.origin`, enquanto o do email saía
+   * dos cabeçalhos do pedido. Coincidem quase sempre — e quando não coincidem
+   * (back-office aberto por `localhost`, por um túnel, por um IP, por um
+   * segundo domínio a apontar à mesma instalação) passam a existir dois links
+   * para o mesmo processo, e o que a sociedade copia do ecrã não é o que o
+   * cliente consegue abrir.
+   */
   link: string;
+  /** A falso, o processo existe mas o link não resolve. Ver o aviso. */
+  linkVerificado: boolean;
   emailEnviado: boolean;
   /** O motivo, quando o email não saiu. Vem do servidor. */
   erroEmail?: string;
@@ -338,7 +350,12 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           referencia: r.referencia,
           nome: nomeLimpo,
           nif: empresa ? nifLimpo : "",
-          link: `${window.location.origin}/onboarding/${r.token}`,
+          // Só se completa o que o servidor não conseguiu apurar: quando ele
+          // não chegou ao anfitrião, o link vem relativo (`/onboarding/…`) e a
+          // origem desta janela é o melhor palpite que resta. Nos outros casos
+          // usa-se o dele à letra, que é o que o cliente tem na caixa.
+          link: r.link.startsWith("/") ? `${window.location.origin}${r.link}` : r.link,
+          linkVerificado: r.linkVerificado,
           emailEnviado: r.emailEnviado,
           erroEmail: r.erroEmail,
           para: destinatario,
@@ -416,6 +433,27 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
               </>
             )}
           </dl>
+
+          {/* Primeiro que tudo, porque desmente o resto do ecrã: se o link não
+              abre, a referência e o email por baixo dele são detalhes. */}
+          {!resultado.linkVerificado && (
+            <div
+              className="border-selo/40 bg-selo/5 text-selo flex items-start gap-2 rounded-sm border p-3 text-xs"
+              role="alert"
+            >
+              <TriangleAlert className="mt-px size-3.5 shrink-0" />
+              <div className="flex min-w-0 flex-col gap-1">
+                <span>
+                  O processo foi criado, mas o link em baixo <strong>não abre</strong> — foi
+                  experimentado contra a base de dados e não encontrou o dossier.
+                </span>
+                <span className="opacity-80">
+                  Não o envie ao cliente. Crie o processo outra vez; se voltar a acontecer, o
+                  problema é da base de dados e fica registado na auditoria deste processo.
+                </span>
+              </div>
+            </div>
+          )}
 
           {resultado.para && <AvisoEmail r={resultado} />}
 

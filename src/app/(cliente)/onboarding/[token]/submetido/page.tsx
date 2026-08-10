@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
-import { assinaturaDoProcesso, processoPorToken } from "@/features/onboarding/dados";
+import { acessoPorToken, assinaturaDoProcesso } from "@/features/onboarding/dados";
+import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndisponivel";
 import { Carimbo } from "@/components/carimbo";
 import { Ref } from "@/components/ref-processo";
 
@@ -28,10 +28,10 @@ export default async function Submetido({
 }: {
   params: Promise<{ token: string }>;
 }) {
-  const { token } = await params;
-  const processo = await processoPorToken(token);
-  if (!processo) notFound();
+  const acesso = await acessoPorToken((await params).token);
+  if (acesso.estado !== "ok") return <LinkIndisponivel acesso={acesso} />;
 
+  const { processo } = acesso;
   const assinatura = await assinaturaDoProcesso(processo.id);
 
   return (

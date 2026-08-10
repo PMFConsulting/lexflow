@@ -32,7 +32,12 @@ import {
 import { canonico } from "@/features/auditoria/hash";
 import { registarEvento } from "@/features/auditoria/registar";
 import { registarConsentimento } from "./consentimentos";
-import { processoPorToken, seccoesDoProcesso } from "./dados";
+import {
+  acessoPorToken,
+  motivoDoAcesso,
+  seccoesDoProcesso,
+  type AcessoOnboarding,
+} from "./dados";
 import { SCHEMAS } from "./schemas";
 import { passoAplicavel, proximoPasso } from "./passos";
 
@@ -58,19 +63,27 @@ async function contexto() {
   };
 }
 
+/**
+ * A mesma explicação que a página dá, para a Server Action não dizer outra.
+ *
+ * Um cliente que veja "o link expirou" no ecrã e "este link já não é válido"
+ * ao carregar em Guardar não tem como saber que é o mesmo problema — e a
+ * segunda frase, sozinha, não diz o que fazer a seguir.
+ */
+function recusaDeAcesso(acesso: AcessoOnboarding): Resultado {
+  const { titulo, descricao } = motivoDoAcesso(acesso);
+  return { ok: false, erros: {}, mensagem: `${titulo} ${descricao}` };
+}
+
 export async function guardarPasso(
-  token: string,
+  bruto: string,
   n: number,
   dados: unknown,
 ): Promise<Resultado> {
-  const processo = await processoPorToken(token);
-  if (!processo) {
-    return {
-      ok: false,
-      erros: {},
-      mensagem: "Este link já não é válido. Peça um novo ao seu contacto.",
-    };
-  }
+  const acesso = await acessoPorToken(bruto);
+  if (acesso.estado !== "ok") return recusaDeAcesso(acesso);
+
+  const { processo, token } = acesso;
   if (processo.estado !== "rascunho" && processo.estado !== "pendente_cliente") {
     return {
       ok: false,
@@ -470,11 +483,11 @@ export async function guardarPasso(
 }
 
 /** Submissão final: fecha o processo e passa-o para a fila de revisão. */
-export async function submeter(token: string): Promise<Resultado> {
-  const processo = await processoPorToken(token);
-  if (!processo) {
-    return { ok: false, erros: {}, mensagem: "Este link já não é válido." };
-  }
+export async function submeter(bruto: string): Promise<Resultado> {
+  const acesso = await acessoPorToken(bruto);
+  if (acesso.estado !== "ok") return recusaDeAcesso(acesso);
+
+  const { processo, token } = acesso;
 
   const [fecho] = await db()
     .select()
