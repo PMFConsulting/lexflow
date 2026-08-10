@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, EyeOff, FileText, Lock, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Download, EyeOff, FileText, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Carimbos } from "@/components/carimbo";
@@ -344,17 +344,21 @@ export default async function Processo({
                       {d.tipo} · {kb(d.bytes)} · <Ref>{d.hash.slice(0, 16)}…</Ref>
                     </p>
                   </div>
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Lock className="size-3" />
-                    URL assinado
-                  </span>
+                  <a
+                    href={`/processos/${processo.id}/documentos/${d.id}`}
+                    download
+                    className="text-marca hover:text-marca/80 inline-flex items-center gap-1.5 text-xs font-medium"
+                  >
+                    <Download className="size-3.5" />
+                    Descarregar
+                  </a>
                 </li>
               ))}
             </ul>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            Nenhum documento é acessível por URL público. O download por URL assinado e o seu
-            registo em auditoria entram com o armazenamento dedicado.
+            O download no painel vem da base de dados, com sessão exigida. O URL assinado do
+            armazenamento dedicado fica para quando houver object storage.
           </p>
         </CardContent>
       </Card>
