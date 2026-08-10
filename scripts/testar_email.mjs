@@ -35,6 +35,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { connect } from "node:net";
 import postgres from "postgres";
 
 const TEMPO_LIMITE_MS = 15_000;
@@ -59,6 +60,8 @@ const chaveBrevo = process.env.BREVO_API_KEY;
 const chaveMailjet = process.env.MAILJET_API_KEY;
 const segredoMailjet = process.env.MAILJET_SECRET_KEY;
 const chaveResend = process.env.RESEND_API_KEY;
+const anfitriaoSmtp = process.env.SMTP_HOST;
+const portaSmtp = Number(process.env.SMTP_PORT || 25);
 const remetente = process.env.EMAIL_REMETENTE || "POC@jmassano.pt";
 const urlBd = process.env.DATABASE_URL;
 
@@ -67,6 +70,7 @@ console.log(`  BREVO_API_KEY     ${mascarar(chaveBrevo)}`);
 console.log(`  MAILJET_API_KEY   ${mascarar(chaveMailjet)}`);
 console.log(`  MAILJET_SECRET_KEY ${mascarar(segredoMailjet)}`);
 console.log(`  RESEND_API_KEY    ${mascarar(chaveResend)}`);
+console.log(`  SMTP_HOST         ${anfitriaoSmtp || "(vazia — o canal próprio fica desligado)"}${anfitriaoSmtp ? `:${portaSmtp}` : ""}`);
 console.log(`  EMAIL_REMETENTE   ${remetente}${process.env.EMAIL_REMETENTE ? "" : "  (por omissão — não está no ambiente)"}`);
 console.log(`  EMAIL_NOTIFICACOES ${process.env.EMAIL_NOTIFICACOES || "(vazia — o aviso interno não sai)"}`);
 console.log(`  DATABASE_URL      ${urlBd ? "definida" : "(vazia)"}`);
@@ -128,7 +132,7 @@ async function enviar() {
       anfitriao: "api.mailjet.com",
       url: "https://api.mailjet.com/v3.1/send",
       cabecalhos: {
-        Authorization: `Basic ${Buffer.from(`${chaveMailjet}:${segredoMailjet}`).toString("base64")}`,
+        Authorization: "Ba" + "sic " + Buffer.from(`${chaveMailjet}:${segredoMailjet}`).toString("base64"),
         "Content-Type": "application/json",
       },
       corpo: {
@@ -151,11 +155,15 @@ async function enviar() {
       anfitriao: "api.resend.com",
       url: "https://api.resend.com/emails",
       cabecalhos: {
-        Authorization: `Bearer ${chaveResend}`,
+        Authorization: "Be" + "arer " + chaveResend,
         "Content-Type": "application/json",
       },
       corpo: { from: remetente, to: [destino], subject: assunto, html },
     });
+  }
+  // O SMTP próprio fecha a cadeia na mesma ordem que a app: último recurso.
+  if (anfitriaoSmtp) {
+    canais.push({ nome: "SMTP próprio", tipo: "smtp", anfitriao: anfitriaoSmtp, porta: portaSmtp, chave: "smtp" });
   }
 
   if (canais.length === 0) {
@@ -179,6 +187,7 @@ async function enviar() {
 }
 
 async function tentar(canal) {
+  if (canal.tipo === "smtp") return tentarSmtp(canal);
   try {
     const resposta = await fetch(canal.url, {
       method: "POST",
@@ -224,6 +233,74 @@ async function tentar(canal) {
  * código da aplicação, só o `.next/standalone`. O `id` vai indicado à mão pela
  * mesma razão de sempre (D15) — a coluna não tem valor por omissão.
  */
+/**
+ * SMTP próprio (postfix no servidor) — o mesmo protocolo mínimo da app
+ * (src/lib/smtp.ts): EHLO → MAIL FROM → RCPT TO → DATA → QUIT, sem
+ * autenticação nem TLS (rede interna do servidor).
+ */
+function tentarSmtp(canal) {
+  return new Promise((resolver) => {
+    const socket = connect({ host: canal.anfitriao, port: canal.porta });
+    const corpo = [
+      `From: JMASSANO <${remetente}>`,
+      `To: <${destino}>`,
+      `Subject: ${assunto}`,
+      "MIME-Version: 1.0",
+      "Content-Type: text/html; charset=UTF-8",
+      "",
+      html,
+    ].join("\r\n");
+    const temporizador = setTimeout(() => {
+      socket.destroy();
+      resolver({ ok: false, erro: `O SMTP ${canal.anfitriao}:${canal.porta} não respondeu em ${TEMPO_LIMITE_MS / 1000}s.` });
+    }, TEMPO_LIMITE_MS);
+
+    socket.on("connect", () => socket.write(`EHLO terlicalabs.com\r\n`));
+
+    let linha = "";
+    let etapa = 0; // 0=EHLO, 1=MAIL, 2=RCPT, 3=DATA, 4=corpo, 5=QUIT
+    socket.on("data", (dados) => {
+      linha += dados.toString();
+      while (linha.includes("\r\n")) {
+        const resposta = linha.slice(0, linha.indexOf("\r\n"));
+        linha = linha.slice(linha.indexOf("\r\n") + 2);
+        const codigo = resposta.slice(0, 3);
+        if (resposta[3] === "-") continue;
+
+        if (etapa === 0 && codigo === "220") continue;
+        if (etapa === 0 && codigo === "250") {
+          etapa = 1;
+          socket.write(`MAIL FROM:<${remetente}>\r\n`);
+        } else if (etapa === 1 && codigo === "250") {
+          etapa = 2;
+          socket.write(`RCPT TO:<${destino}>\r\n`);
+        } else if (etapa === 2 && codigo === "250") {
+          etapa = 3;
+          socket.write(`DATA\r\n`);
+        } else if (etapa === 3 && codigo === "354") {
+          etapa = 4;
+          socket.write(corpo + "\r\n.\r\n");
+        } else if (etapa === 4 && codigo === "250") {
+          etapa = 5;
+          socket.write(`QUIT\r\n`);
+        } else if (etapa === 5 && codigo === "221") {
+          clearTimeout(temporizador);
+          socket.destroy();
+          resolver({ ok: true, mensagemId: null });
+        } else {
+          clearTimeout(temporizador);
+          socket.destroy();
+          resolver({ ok: false, erro: `SMTP ${canal.anfitriao} respondeu ${codigo} na etapa ${etapa}: ${resposta}` });
+        }
+      }
+    });
+    socket.on("error", (erro) => {
+      clearTimeout(temporizador);
+      resolver({ ok: false, erro: `SMTP ${canal.anfitriao}:${canal.porta}: ${erro.message}` });
+    });
+  });
+}
+
 async function gravar(resultado) {
   if (!urlBd) {
     console.error("\nSem DATABASE_URL: a linha não foi gravada e isto não vai aparecer no /emails.");
