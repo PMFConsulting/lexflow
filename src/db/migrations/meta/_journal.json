@@ -85,6 +85,13 @@
       "when": 1786392459107,
       "tag": "0011_canal_mailjet",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786393924917,
+      "tag": "0012_canal_smtp",
+      "breakpoints": true
     }
   ]
 }

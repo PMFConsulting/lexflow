@@ -49,4 +49,5 @@ export const ROTULOS_CANAL: Record<CanalEmail, string> = {
   brevo: "Brevo",
   resend: "Resend",
   mailjet: "Mailjet",
+  smtp: "SMTP próprio",
 };

@@ -4,6 +4,7 @@ import { uuidv7 } from "uuidv7";
 import { db } from "@/db";
 import { emailLog } from "@/db/schema/email";
 import type { canalEmail, estadoEmail, templateEmail } from "@/db/schema/enums";
+import { enviarSmtp } from "@/lib/smtp";
 import { env, type Ambiente } from "@/env";
 
 export type CanalEmail = (typeof canalEmail.enumValues)[number];
@@ -242,6 +243,14 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     const chave = ambiente.RESEND_API_KEY;
     canais.push({ nome: "Resend", enviar: () => tentarEnviarResend(msg, ambiente, chave) });
   }
+  // O SMTP próprio (postfix no servidor do cliente) é o último recurso: não
+  // tem quota de terceiros, mas a entrega é menos vigiada (sem DKIM do
+  // domínio), por isso só entra quando os fornecedores falharem todos.
+  if (ambiente.SMTP_HOST) {
+    const anfitriao = ambiente.SMTP_HOST;
+    const porta = ambiente.SMTP_PORT ?? 25;
+    canais.push({ nome: "SMTP próprio", enviar: () => tentarEnviarSmtp(msg, anfitriao, porta) });
+  }
 
   if (canais.length === 0) {
     const lista = p.anexos?.length ? ` anexos=${p.anexos.map((a) => a.nome).join(",")}` : "";
@@ -249,7 +258,7 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     return {
       ok: false,
       erro:
-        "Nenhuma chave de email configurada (BREVO_API_KEY, MAILJET_API_KEY+MAILJET_SECRET_KEY ou RESEND_API_KEY)",
+        "Nenhuma chave de email configurada (BREVO_API_KEY, MAILJET_API_KEY+MAILJET_SECRET_KEY, RESEND_API_KEY ou SMTP_HOST)",
     };
   }
 
@@ -519,6 +528,29 @@ async function tentarEnviarMailjet(
     }
     return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
   }
+}
+
+/**
+ * Envio pelo SMTP próprio (postfix no servidor). Sem id de fornecedor: o
+ * postfix não tem API — aceite é aceite, e a entrega em si fica sem rasto
+ * (`mensagemId` `null`, e o `confirmarEntrega` salta estas linhas).
+ */
+async function tentarEnviarSmtp(
+  { para, assunto, html, anexos }: Mensagem,
+  anfitriao: string,
+  porta: number,
+): Promise<ResultadoEnvio> {
+  const resultado = await enviarSmtp(anfitriao, porta, {
+    de: env().EMAIL_REMETENTE,
+    para,
+    assunto,
+    html,
+    anexos: anexos?.map((a) => ({ nome: a.nome, conteudoBase64: a.conteudo.toString("base64") })),
+  });
+  if (!resultado.ok) {
+    return { ok: false, erro: resultado.erro ?? "SMTP próprio recusou a mensagem sem detalhe." };
+  }
+  return { ok: true, canal: "smtp", mensagemId: null };
 }
 
 /* ------------------------------------------------------------------ entrega */

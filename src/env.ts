@@ -15,10 +15,17 @@ const esquema = z.object({
   BREVO_API_KEY: z.string().optional(),
   /**
    * Alternativa ao Resend (Mailjet, 200 emails/dia no plano gratuito). Só é
-   * usado com as duas — sem o segredo, a chave não autentica nada.
+   * usado com a chave E o segredo.
    */
   MAILJET_API_KEY: z.string().optional(),
   MAILJET_SECRET_KEY: z.string().optional(),
+  /**
+   * Último recurso: SMTP próprio (postfix no servidor do cliente). Sem quota
+   * de terceiros, mas a entrega é menos vigiada — por isso fica no fim da
+   * cadeia. `SMTP_PORT` é opcional (25 por omissão).
+   */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().max(65535).optional(),
   /**
    * Remetente dos emails ao cliente. O valor por omissão é o da sociedade e não
    * o `onboarding@resend.dev` do arranque: uma instalação a que falte a variável
