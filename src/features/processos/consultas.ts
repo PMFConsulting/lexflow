@@ -68,8 +68,8 @@ export async function listarProcessos(f: Filtros) {
         passoAtual: processoOnboarding.passoAtual,
         submetidoEm: processoOnboarding.submetidoEm,
         atualizadoEm: processoOnboarding.atualizadoEm,
-        nome: dadosIdentificacao.nome,
-        nif: dadosFiscais.nif,
+        nome: sql<string>`coalesce(${dadosIdentificacao.nome}, ${processoOnboarding.nomeCliente})`,
+        nif: sql<string>`coalesce(${dadosFiscais.nif}, ${processoOnboarding.nifCliente})`,
         responsavel: utilizador.nome,
       })
       .from(processoOnboarding)

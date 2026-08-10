@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Custo Total da Solução — Edição Completa</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --verde:#22382E;
+    --verde-med:#3d5a4b;
+    --verde-suave:#6b7d72;
+    --latao:#C9B27F;
+    --latao-claro:#e3d5b4;
+    --latao-fundo:rgba(201,178,127,.16);
+    --terracota:#AB5644;
+    --terracota-claro:#c98d5f;
+    --papel:#f3eee4;
+    --papel-claro:#FCFAF6;
+    --papel-fundo:#f6f2e9;
+    --tinta:#2f2f2d;
+    --tinta-suave:#5c5c58;
+    --linha:#e0d9cb;
+    --linha-forte:#cec4b0;
+    --track:#e9e3d6;
+  }
+
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--tinta);
+    background: #e8e4da;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 20mm 22mm 36mm;
+    position: relative;
+    page-break-after: always;
+    overflow: hidden;
+    background: linear-gradient(163deg, #FEFDFA 0%, var(--papel-claro) 44%, #F7F2E7 100%);
+    margin: 0 auto;
+  }
+  .page:last-child { page-break-after: auto; }
+  @media screen { .page { box-shadow: 0 2mm 8mm rgba(34,56,46,.14); margin-bottom: 8mm; } }
+
+  /* marca de água discreta no canto inferior das páginas de conteúdo */
+  .page::after {
+    content:''; position:absolute; right:-26mm; bottom:-26mm;
+    width:88mm; height:88mm; border-radius:50%;
+    background: radial-gradient(circle at 30% 30%, rgba(201,178,127,.13), rgba(201,178,127,0) 68%);
+    pointer-events:none;
+  }
+  .page.cover::after { display:none; }
+
+  svg { display:block; }
+  .ico-svg { fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ─────────────────────────── CAPA ─────────────────────────── */
+  .cover {
+    background:
+      radial-gradient(58% 40% at 82% 12%, rgba(201,178,127,.20) 0%, rgba(201,178,127,0) 62%),
+      radial-gradient(52% 38% at 14% 86%, rgba(171,86,68,.22) 0%, rgba(171,86,68,0) 64%),
+      radial-gradient(118% 88% at 50% -12%, #33513F 0%, #22382E 50%, #16241D 100%);
+    color: var(--papel);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; padding: 20mm;
+  }
+  .cover::before { content:''; position:absolute; inset:11mm; border:1px solid rgba(201,178,127,.5); }
+  .cover .frame2 { position:absolute; inset:13mm; border:1px solid rgba(201,178,127,.20); pointer-events:none; }
+  .cover .tick { position:absolute; width:5mm; height:5mm; border-color:var(--latao); border-style:solid; border-width:0; z-index:2; }
+  .cover .tick.tl { top:9.4mm; left:9.4mm;  border-top-width:1.4px; border-left-width:1.4px; }
+  .cover .tick.tr { top:9.4mm; right:9.4mm; border-top-width:1.4px; border-right-width:1.4px; }
+  .cover .tick.bl { bottom:9.4mm; left:9.4mm;  border-bottom-width:1.4px; border-left-width:1.4px; }
+  .cover .tick.br { bottom:9.4mm; right:9.4mm; border-bottom-width:1.4px; border-right-width:1.4px; }
+
+  .seal {
+    width: 30mm; height: 30mm; border-radius: 50%;
+    border: 1px solid rgba(201,178,127,.85);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    margin-bottom: 10mm; position: relative;
+    background: radial-gradient(circle at 50% 24%, rgba(201,178,127,.16), rgba(201,178,127,0) 70%);
+    color: var(--latao); font-family: 'Cormorant Garamond', serif;
+    font-size: 15pt; font-weight: 600; letter-spacing: .18em; text-indent: .18em;
+  }
+  .seal::before { content:''; position:absolute; inset:2.2mm; border-radius:50%; border:1px solid rgba(201,178,127,.32); }
+  .seal .rule { width:8mm; height:1px; background:rgba(201,178,127,.6); margin-top:1.6mm; }
+  .seal .yr { font-family:'JetBrains Mono', monospace; font-size:5.4pt; letter-spacing:.22em; text-indent:.22em; margin-top:1.4mm; color:rgba(201,178,127,.85); }
+
+  .cover .kicker {
+    display:flex; align-items:center; justify-content:center; gap:5mm;
+    font-family: 'JetBrains Mono', monospace; font-size: 8.4pt; font-weight: 500;
+    letter-spacing: .34em; color: var(--latao); text-transform: uppercase;
+    text-indent: .34em; margin-bottom: 8mm;
+  }
+  .cover .kicker::before, .cover .kicker::after { content:''; width:13mm; height:1px; background:rgba(201,178,127,.55); }
+
+  .cover h1 {
+    font-family: 'Cormorant Garamond', serif; font-size: 40pt; font-weight: 600;
+    line-height: 1.14; letter-spacing: -.005em; max-width: 155mm;
+    text-shadow: 0 .6mm 2.4mm rgba(0,0,0,.18);
+  }
+  .cover h1 em {
+    font-style: italic; font-weight: 500;
+    background: linear-gradient(96deg, #E8D9B4 0%, var(--latao) 46%, #B99B63 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .cover .divisor { width: 26mm; height: 1px; background: rgba(201,178,127,.6); margin: 8mm 0; position: relative; }
+  .cover .divisor::after {
+    content:''; position:absolute; left:50%; top:50%; width:2.4mm; height:2.4mm;
+    background: var(--latao); transform: translate(-50%,-50%) rotate(45deg);
+  }
+
+  .cover .sub { font-size: 10.6pt; color: rgba(243,238,228,.80); max-width: 140mm; line-height: 1.68; }
+
+  .cover-figs {
+    display: flex; align-items: stretch; gap: 0; margin-top: 12mm;
+    border-top: 1px solid rgba(201,178,127,.28); border-bottom: 1px solid rgba(201,178,127,.28);
+    padding: 5mm 0;
+  }
+  .cover-figs > div { padding: 0 9mm; text-align: center; position: relative; }
+  .cover-figs > div + div::before { content:''; position:absolute; left:0; top:12%; bottom:12%; width:1px; background:rgba(201,178,127,.3); }
+  .cover-figs b {
+    display:block; font-family:'Cormorant Garamond', serif; font-size: 17pt; font-weight: 600;
+    color: var(--latao-claro); line-height: 1; letter-spacing:-.01em;
+  }
+  .cover-figs span {
+    display:block; margin-top: 2mm; font-family:'JetBrains Mono', monospace;
+    font-size: 6.2pt; letter-spacing: .18em; text-transform: uppercase;
+    color: rgba(243,238,228,.6); text-indent:.18em;
+  }
+
+  .cover .meta {
+    position: absolute; bottom: 24mm; left: 0; right: 0;
+    font-family: 'JetBrains Mono', monospace; font-size: 7.4pt; letter-spacing: .26em;
+    color: rgba(201,178,127,.72); text-transform: uppercase; text-indent: .26em;
+  }
+
+  /* ────────────────── CABEÇALHO / RODAPÉ ────────────────── */
+  .hdr {
+    position: relative;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.6pt; font-weight: 500;
+    letter-spacing: .2em; text-transform: uppercase; color: var(--verde-suave);
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--linha); padding-bottom: 2.6mm; margin-bottom: 6.5mm;
+  }
+  .hdr::after {
+    content:''; position:absolute; left:0; bottom:-1px; width:36mm; height:1.5px;
+    background: linear-gradient(90deg, var(--latao) 0%, rgba(201,178,127,0) 100%);
+  }
+  .hdr .doc { color: var(--terracota); }
+
+  .foot {
+    position: absolute; bottom: 13mm; left: 22mm; right: 22mm;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.4pt; color: #a49c8c;
+    letter-spacing: .16em; display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid var(--linha); padding-top: 2.8mm; text-transform: uppercase;
+  }
+  .foot .pg { color: var(--verde); font-weight: 600; letter-spacing: .1em; display:flex; align-items:center; gap:2mm; }
+  .foot .pg::before { content:''; width:1.6mm; height:1.6mm; background:var(--latao); transform:rotate(45deg); }
+
+  /* ────────────────── TÍTULOS ────────────────── */
+  .chapter {
+    position: relative; display: flex; align-items: center; gap: 4mm;
+    margin-bottom: 5.2mm; padding-bottom: 3mm; border-bottom: 1px solid var(--linha);
+  }
+  .chapter::after {
+    content:''; position:absolute; left:0; bottom:-1px; width:28mm; height:2px;
+    background: linear-gradient(90deg, var(--terracota) 0%, rgba(171,86,68,.15) 100%);
+  }
+  .chapter .mark {
+    flex: 0 0 auto; width: 9.4mm; height: 9.4mm; border-radius: 1.6mm;
+    background: linear-gradient(148deg, #35543F 0%, #22382E 62%, #1a2b23 100%);
+    color: var(--latao); display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 .5mm 1.6mm rgba(34,56,46,.24), inset 0 0 0 .3mm rgba(201,178,127,.22);
+  }
+  .chapter .mark svg { width: 5mm; height: 5mm; }
+  .chapter .txt { flex: 1 1 auto; }
+  .chapter .n {
+    font-family: 'JetBrains Mono', monospace; font-size: 6.6pt; font-weight: 600;
+    color: var(--latao); letter-spacing: .3em; display: block; margin-bottom: 1.1mm;
+    text-transform: uppercase; text-indent: .3em;
+  }
+  .chapter h2 {
+    font-family: 'Cormorant Garamond', serif; font-size: 18.5pt; font-weight: 600;
+    color: var(--verde); line-height: 1.16; letter-spacing: -.004em;
+  }
+
+  h3.sub {
+    font-family: 'Cormorant Garamond', serif; font-size: 14.5pt; font-weight: 600;
+    color: var(--verde); line-height: 1.2; margin: 5.6mm 0 3mm;
+    padding-left: 6mm; position: relative;
+  }
+  h3.sub::before {
+    content:''; position:absolute; left:0; top:.5em;
+    width: 2.4mm; height: 2.4mm; background: var(--terracota); transform: rotate(45deg);
+  }
+  h3.sub .hint {
+    font-family:'JetBrains Mono', monospace; font-size: 6.4pt; font-weight: 500;
+    color: #a49c8c; letter-spacing: .14em; text-transform: uppercase; margin-left: 2.5mm;
+  }
+
+  /* ────────────────── TEXTO ────────────────── */
+  p { font-size: 9.5pt; line-height: 1.6; color: var(--tinta-suave); }
+  p.lede { font-size: 9.6pt; line-height: 1.6; color: #4a4a46; margin-bottom: 4.2mm; max-width: 160mm; }
+  p.lede strong { color: var(--verde); font-weight: 600; }
+
+  ul { list-style: none; margin: 1mm 0 0; }
+  li {
+    font-size: 9pt; color: var(--tinta-suave); line-height: 1.46;
+    padding-left: 6mm; position: relative; margin-bottom: 2.3mm;
+  }
+  li:last-child { margin-bottom: 0; }
+  li::before {
+    content:''; position:absolute; left:0; top:.54em;
+    width: 1.9mm; height: 1.9mm; background: var(--latao); transform: rotate(45deg);
+  }
+  li strong { color: var(--verde); font-weight: 600; }
+
+  /* ────────────────── TABELAS ────────────────── */
+  table {
+    width: 100%; border-collapse: separate; border-spacing: 0; margin: 0;
+    page-break-inside: avoid; font-variant-numeric: tabular-nums;
+  }
+  thead th {
+    font-family: 'JetBrains Mono', monospace; font-size: 6.4pt; font-weight: 600;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--verde-suave);
+    text-align: left; padding: 0 2mm 2.2mm; border-bottom: 1.2px solid var(--verde);
+    vertical-align: bottom;
+  }
+  thead th.r { text-align: right; }
+  thead th.c { text-align: center; }
+  tbody td {
+    font-size: 8.7pt; line-height: 1.38; color: var(--tinta-suave);
+    padding: 2.3mm 2mm; border-bottom: 1px solid var(--linha); vertical-align: top;
+  }
+  tbody td:first-child { padding-left: 0; }
+  tbody td:last-child { padding-right: 0; }
+  thead th:first-child { padding-left: 0; }
+  thead th:last-child { padding-right: 0; }
+  tbody tr:last-child td { border-bottom: 1px solid var(--linha-forte); }
+
+  td .nome { color: var(--verde); font-weight: 600; font-size: 9pt; display: block; line-height: 1.28; }
+  td .nome small { display:block; font-weight: 400; font-size: 6.9pt; color: #9a9284; letter-spacing:.02em; margin-top:.4mm; }
+
+  td.num {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5pt; font-weight: 600;
+    color: var(--verde); white-space: nowrap; text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  td.num.left { text-align: left; }
+  td.mut { font-family: 'JetBrains Mono', monospace; font-size: 8.2pt; color: #8d8577; white-space: nowrap; text-align: right; }
+
+  /* linha em destaque (a nossa opção) */
+  tr.destaque td { background: linear-gradient(90deg, #F2EFE4 0%, #F8F5EC 100%); }
+  tr.destaque td:first-child { box-shadow: inset 2.4px 0 0 var(--terracota); padding-left: 3mm; border-radius: 1mm 0 0 1mm; }
+  tr.destaque td:last-child { border-radius: 0 1mm 1mm 0; }
+  tr.destaque .nome { color: var(--verde); }
+
+  /* célula de subtotal */
+  td.tot {
+    background: var(--papel-fundo); font-family: 'JetBrains Mono', monospace;
+    font-weight: 600; color: var(--verde); text-align: right; white-space: nowrap; font-size: 8.5pt;
+  }
+
+  /* linha de TOTAL — máximo destaque */
+  tr.total td {
+    background: linear-gradient(96deg, #22382E 0%, #2C4739 58%, #22382E 100%);
+    color: rgba(243,238,228,.86); border-bottom: none;
+    padding: 3.2mm 2mm; font-size: 8.6pt; vertical-align: middle;
+  }
+  tr.total td:first-child { border-radius: 1.4mm 0 0 1.4mm; padding-left: 3.4mm; box-shadow: inset 2.6px 0 0 var(--latao); }
+  tr.total td:last-child { border-radius: 0 1.4mm 1.4mm 0; padding-right: 3.4mm; }
+  tr.total .nome { color: #fff; font-size: 9.4pt; }
+  tr.total .nome small { color: rgba(201,178,127,.8); }
+  tr.total td.num {
+    color: var(--latao-claro); font-size: 10.4pt; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  tr.total td.num.big { font-size: 11.6pt; color: #fff; }
+
+  /* ────────────────── BARRAS ────────────────── */
+  .bar { display: flex; align-items: center; gap: 2mm; }
+  .bar .track {
+    flex: 1 1 auto; height: 2.1mm; background: var(--track);
+    border-radius: 1.2mm; overflow: hidden; min-width: 12mm;
+  }
+  .bar .fill {
+    display: block; height: 100%; border-radius: 1.2mm;
+    background: linear-gradient(90deg, #4B6D58 0%, var(--verde) 100%);
+  }
+  .bar .fill.gold { background: linear-gradient(90deg, var(--latao-claro) 0%, var(--latao) 100%); }
+  .bar .fill.terra { background: linear-gradient(90deg, var(--terracota-claro) 0%, var(--terracota) 100%); }
+  .bar .v {
+    font-family: 'JetBrains Mono', monospace; font-size: 7.8pt; font-weight: 600;
+    color: var(--verde); flex: 0 0 auto; width: 12mm; text-align: right; letter-spacing: -.01em;
+  }
+  .bar .v.terra { color: var(--terracota); }
+
+  /* ────────────────── CHIPS / BADGES ────────────────── */
+  .chip {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 7.3pt;
+    font-weight: 600; padding: .8mm 2mm; border-radius: 1mm; letter-spacing: .04em;
+    background: #eeeade; color: var(--verde-med);
+  }
+  .chip.base { background: rgba(201,178,127,.3); color: #7a6534; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 1.3mm;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.1pt;
+    font-weight: 600; padding: 1mm 2.1mm; border-radius: 1mm; letter-spacing: .12em;
+    text-transform: uppercase; white-space: nowrap; border: 1px solid transparent;
+  }
+  .badge::before { content:''; width:1.4mm; height:1.4mm; border-radius:50%; background:currentColor; }
+  .badge.leader { background: linear-gradient(180deg,#EBF2ED,#E1EBE4); color: #2C5B40; border-color:#D3E2D8; }
+  .badge.alt    { background: linear-gradient(180deg,#FAEDE7,#F5E2DA); color: var(--terracota); border-color:#EED6CB; }
+  .badge.info   { background: linear-gradient(180deg,#F1EFE8,#E9E6DC); color: #6f6a5f; border-color:#DFDACB; }
+  .badge.gold   { background: linear-gradient(180deg,#F6EFDD,#EFE5CD); color: #7a6534; border-color:#E5D8B8; }
+
+  /* ícone pequeno dentro de célula */
+  .cel-ico { display: flex; align-items: flex-start; gap: 2.4mm; }
+  .cel-ico .g {
+    flex: 0 0 auto; width: 5.6mm; height: 5.6mm; border-radius: 1.2mm; margin-top: .2mm;
+    background: linear-gradient(150deg, #F0EBDD, #E6DFCC); color: var(--verde-med);
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid #E2DAC6;
+  }
+  .cel-ico .g svg { width: 3.3mm; height: 3.3mm; }
+  tr.destaque .cel-ico .g { background: linear-gradient(150deg,#F4EDDC,#E9DEC2); color: var(--terracota); border-color:#E2D4B4; }
+
+  /* ────────────────── NOTA ────────────────── */
+  .nota {
+    border-left: 2.4px solid var(--terracota);
+    background: linear-gradient(96deg, var(--papel-fundo) 0%, #FBF8F1 100%);
+    padding: 2.9mm 4.2mm; font-size: 8.2pt; line-height: 1.52; color: #5d574c;
+    margin: 4mm 0 0; page-break-inside: avoid; border-radius: 0 1.4mm 1.4mm 0;
+  }
+  .nota strong { color: var(--verde); font-weight: 600; }
+  .nota em { color: #6b6459; }
+  .nota.gold { border-left-color: var(--latao); }
+
+  /* ────────────────── RESUMO ────────────────── */
+  .resumo {
+    background:
+      radial-gradient(70% 160% at 92% 10%, rgba(201,178,127,.16) 0%, rgba(201,178,127,0) 60%),
+      linear-gradient(100deg, #22382E 0%, #2A4437 52%, #1B2E25 100%);
+    color: var(--papel); padding: 4.6mm 5.5mm; border-radius: 1.8mm;
+    margin-top: 5.2mm; display: flex; align-items: center; gap: 5.5mm;
+    page-break-inside: avoid; position: relative; overflow: hidden;
+    box-shadow: 0 .8mm 2.4mm rgba(34,56,46,.18);
+  }
+  .resumo::before { content:''; position:absolute; left:0; top:0; bottom:0; width:1.5mm; background: linear-gradient(180deg, var(--latao-claro), var(--latao) 55%, #A98F55); }
+  .resumo .val { padding-left: 2mm; flex: 0 0 auto; }
+  .resumo .r-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 6.1pt; font-weight: 600;
+    letter-spacing: .24em; text-transform: uppercase; color: var(--latao);
+    margin-bottom: 1.8mm; text-indent: .24em;
+  }
+  .resumo .r-valor {
+    font-family: 'Cormorant Garamond', serif; font-size: 22pt; font-weight: 600;
+    line-height: 1; color: #fff; white-space: nowrap; letter-spacing: -.01em;
+  }
+  .resumo .r-valor span {
+    font-size: 11pt; font-style: italic; font-weight: 500;
+    color: var(--latao-claro); letter-spacing: 0;
+  }
+  .resumo .sep { width: 1px; align-self: stretch; background: rgba(201,178,127,.3); flex: 0 0 auto; }
+  .resumo p { color: rgba(243,238,228,.82); font-size: 8.3pt; margin: 0; line-height: 1.58; }
+  .resumo p strong { color: var(--latao-claro); font-weight: 600; }
+
+  /* ────────────────── CARDS ────────────────── */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4.5mm; margin-top: 4.2mm; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3.4mm; margin-top: 4.2mm; }
+
+  .card {
+    border: 1px solid var(--linha); border-radius: 1.8mm; padding: 3.8mm 4.4mm 4.2mm;
+    page-break-inside: avoid; position: relative; overflow: hidden;
+    background: linear-gradient(168deg, #FFFFFF 0%, #FCFAF4 62%, #F8F4EA 100%);
+    box-shadow: 0 .4mm 1.2mm rgba(34,56,46,.05);
+  }
+  .card::before {
+    content:''; position:absolute; top:0; left:0; width:11mm; height:2px;
+    background: linear-gradient(90deg, var(--latao), rgba(201,178,127,0));
+  }
+  .card.terra::before { background: linear-gradient(90deg, var(--terracota), rgba(171,86,68,0)); }
+  .card .tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 6.1pt; font-weight: 600;
+    color: var(--terracota); letter-spacing: .22em; text-transform: uppercase;
+    text-indent: .22em; margin-bottom: 1.8mm;
+  }
+  .card h4 {
+    font-family: 'Cormorant Garamond', serif; font-size: 13pt; font-weight: 600;
+    color: var(--verde); line-height: 1.15; margin-bottom: 2.2mm;
+  }
+  .card .calc {
+    font-family: 'JetBrains Mono', monospace; font-size: 7.2pt; color: #857d6f;
+    line-height: 1.48; padding-bottom: 2.2mm; margin-bottom: 2.2mm;
+    border-bottom: 1px solid var(--linha);
+  }
+  .card .valor {
+    font-family: 'Cormorant Garamond', serif; font-size: 19pt; font-weight: 600;
+    color: var(--verde); line-height: 1;
+  }
+  .card .valor span { font-family: 'DM Sans', sans-serif; font-size: 8.5pt; font-weight: 500; color: var(--verde-suave); }
+  .card .ano {
+    font-family: 'JetBrains Mono', monospace; font-size: 7.1pt; color: #9a9284;
+    letter-spacing: .06em; margin-top: 1.4mm;
+  }
+  .card ul { margin-top: 1.4mm; }
+  .card li { font-size: 8.1pt; line-height: 1.42; margin-bottom: 1.8mm; padding-left: 4.6mm; }
+  .card li::before { width: 1.5mm; height: 1.5mm; top: .5em; }
+
+  /* cartões de estatística */
+  .stat {
+    border: 1px solid var(--linha); border-radius: 1.8mm; padding: 3.2mm 3.4mm 3.6mm;
+    background: linear-gradient(168deg, #FFFFFF 0%, #FBF8F1 100%);
+    position: relative; overflow: hidden;
+  }
+  .stat .g {
+    width: 6.4mm; height: 6.4mm; border-radius: 1.3mm; margin-bottom: 2.4mm;
+    background: linear-gradient(148deg, #35543F, #22382E); color: var(--latao);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stat .g svg { width: 3.6mm; height: 3.6mm; }
+  .stat.gold .g { background: linear-gradient(148deg, #D8C393, #BFA467); color: #2A3F32; }
+  .stat.terra .g { background: linear-gradient(148deg, #C0705A, #9C4B3B); color: #FBEDE7; }
+  .stat .v {
+    font-family: 'Cormorant Garamond', serif; font-size: 18.5pt; font-weight: 600;
+    color: var(--verde); line-height: 1; letter-spacing: -.012em;
+  }
+  .stat .v small { font-family:'DM Sans', sans-serif; font-size: 7.6pt; font-weight: 500; color: var(--verde-suave); letter-spacing: 0; }
+  .stat .l {
+    font-family: 'JetBrains Mono', monospace; font-size: 5.9pt; font-weight: 600;
+    letter-spacing: .16em; text-transform: uppercase; color: #a09884;
+    margin-top: 1.8mm; text-indent: .16em;
+  }
+  .stat .d { font-size: 7.6pt; line-height: 1.4; color: var(--tinta-suave); margin-top: 1.6mm; }
+
+  /* ────────────────── GRÁFICO COMPARATIVO ────────────────── */
+  .chart { margin-top: 4.4mm; }
+  .chart .legend {
+    display: flex; gap: 6mm; margin-bottom: 3.4mm;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.3pt;
+    letter-spacing: .14em; text-transform: uppercase; color: #8d8577;
+  }
+  .chart .legend i { display:inline-block; width:3.4mm; height:1.8mm; border-radius:.9mm; margin-right:1.6mm; vertical-align:middle; }
+  .chart .legend i.g { background: linear-gradient(90deg,#4B6D58,var(--verde)); }
+  .chart .legend i.t { background: linear-gradient(90deg,var(--terracota-claro),var(--terracota)); }
+  .chart .grp {
+    display: grid; grid-template-columns: 17mm 1fr; gap: 3.5mm; align-items: center;
+    padding: 2.4mm 0; border-bottom: 1px solid var(--linha);
+  }
+  .chart .grp:last-of-type { border-bottom: none; }
+  .chart .gl {
+    font-family: 'Cormorant Garamond', serif; font-size: 12pt; font-weight: 600; color: var(--verde);
+  }
+  .chart .gl em { display:block; font-family:'JetBrains Mono', monospace; font-size:5.9pt; font-style:normal; color:#a09884; letter-spacing:.14em; text-transform:uppercase; margin-top:.4mm; }
+  .chart .b { display: flex; align-items: center; gap: 2.4mm; margin-bottom: 1.6mm; }
+  .chart .b:last-child { margin-bottom: 0; }
+  .chart .b .t { height: 3.4mm; border-radius: .9mm; flex: 0 0 auto; }
+  .chart .b .t.g { background: linear-gradient(90deg,#4B6D58,var(--verde)); }
+  .chart .b .t.t2 { background: linear-gradient(90deg,var(--terracota-claro),var(--terracota)); }
+  .chart .b .n {
+    font-family: 'JetBrains Mono', monospace; font-size: 7.4pt; font-weight: 600;
+    color: var(--verde); white-space: nowrap;
+  }
+  .chart .b .n.t { color: var(--terracota); }
+  .chart .b .n em { font-style: normal; color: #a09884; font-weight: 400; }
+
+  /* ────────────────── FAQ ────────────────── */
+  .faq { margin-top: 1mm; }
+  .faq .item { padding: 0 0 2.4mm; margin-bottom: 2.4mm; border-bottom: 1px solid var(--linha); }
+  .faq .item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .faq .q {
+    font-family: 'Cormorant Garamond', serif; font-size: 11.4pt; font-weight: 600;
+    color: var(--verde); line-height: 1.22; margin-bottom: 1.1mm;
+    padding-left: 7mm; position: relative;
+  }
+  .faq .q::before {
+    content: attr(data-n); position: absolute; left: 0; top: .16em;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.8pt; font-weight: 600;
+    color: var(--latao); letter-spacing: .04em;
+  }
+  .faq .a { font-size: 8.6pt; line-height: 1.48; color: var(--tinta-suave); padding-left: 7mm; }
+  .faq .a strong { color: var(--verde); font-weight: 600; }
+
+  .fontes { margin-top: 1mm; }
+  .fontes li { font-size: 8.3pt; margin-bottom: 1.8mm; color: #6b655a; }
+  .fontes li::before { width: 1.6mm; height: 1.6mm; top: .58em; }
+  .fontes .url { font-family: 'JetBrains Mono', monospace; font-size: 7.6pt; color: #8d8577; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════ PÁGINA 1 · CAPA ══════════════════════ -->
+<div class="page cover">
+  <div class="frame2"></div>
+  <span class="tick tl"></span><span class="tick tr"></span>
+  <span class="tick bl"></span><span class="tick br"></span>
+
+  <div class="seal">
+    JM
+    <span class="rule"></span>
+    <span class="yr">2026</span>
+  </div>
+
+  <div class="kicker">Custo Total da Solu&ccedil;&atilde;o</div>
+  <h1>Cloud Enterprise &amp;<br><em>Custo de Tudo</em> &mdash; Edi&ccedil;&atilde;o Completa</h1>
+  <div class="divisor"></div>
+  <p class="sub">Quem domina o mercado cloud e a que pre&ccedil;o. O mesmo servidor cotado em quatro fornecedores, o custo de cada componente da solu&ccedil;&atilde;o, exemplos de c&aacute;lculo reais e a proje&ccedil;&atilde;o do gasto &agrave; medida que a equipa cresce.</p>
+
+  <div class="cover-figs">
+    <div><b>11,80 &euro;</b><span>Infra fixa / m&ecirc;s</span></div>
+    <div><b>26,80 &euro;</b><span>Total &middot; 5 membros</span></div>
+    <div><b>4&ndash;5&times;</b><span>Mais caro na AWS</span></div>
+    <div><b>100&nbsp;%</b><span>Dados na Uni&atilde;o Europeia</span></div>
+  </div>
+
+  <div class="meta">An&aacute;lise t&eacute;cnica completa &middot; Doc. 004-B &middot; 2026</div>
+</div>
+
+<!-- ══════════════════════ PÁGINA 2 · SUMÁRIO EXECUTIVO ══════════════════════ -->
+<div class="page">
+  <div class="hdr"><span>JMASSANO &middot; Custo Total &mdash; Edi&ccedil;&atilde;o Completa</span><span class="doc">DOC &middot; 004-B</span></div>
+
+  <div class="chapter">
+    <span class="mark"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M6 3h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span>
+    <span class="txt">
+      <span class="n">Sum&aacute;rio &middot; 00</span>
+      <h2>Os n&uacute;meros, numa p&aacute;gina</h2>
+    </span>
+  </div>
+
+  <p class="lede">A solu&ccedil;&atilde;o corre num servidor europeu independente, com backup encriptado fora do servidor e acompanhamento cont&iacute;nuo. <strong>A infraestrutura n&atilde;o cresce com a equipa</strong> — o &uacute;nico valor vari&aacute;vel &eacute; o acompanhamento, cobrado por membro.</p>
+
+  <div class="grid4">
+    <div class="stat">
+      <span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>
+      <div class="v">11,80 <small>&euro;/m&ecirc;s</small></div>
+      <div class="l">Infra fixa</div>
+      <div class="d">Servidor, dom&iacute;nio, backup e armazenamento. Igual para 1 ou 50 pessoas.</div>
+    </div>
+    <div class="stat gold">
+      <span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
+      <div class="v">3 <small>&euro;/membro</small></div>
+      <div class="l">Acompanhamento</div>
+      <div class="d">Manuten&ccedil;&atilde;o, corre&ccedil;&otilde;es e melhorias cont&iacute;nuas da aplica&ccedil;&atilde;o.</div>
+    </div>
+    <div class="stat">
+      <span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span>
+      <div class="v">26,80 <small>&euro;/m&ecirc;s</small></div>
+      <div class="l">Total &middot; 5 membros</div>
+      <div class="d">321,60 &euro;/ano com tudo inclu&iacute;do — 0,89 &euro; por dia.</div>
+    </div>
+    <div class="stat terra">
+      <span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M12 4v16M6 7h12"/><path d="M6 7l-3 6h6zM18 7l-3 6h6z"/><path d="M8 20h8"/></svg></span>
+      <div class="v">4&ndash;5&times;</div>
+      <div class="l">Cust&aacute;ria nos gigantes</div>
+      <div class="d">O mesmo servidor na AWS, Azure ou Google Cloud, sem vantagem pr&aacute;tica.</div>
+    </div>
+  </div>
+
+  <h3 class="sub">O que este documento responde <span class="hint">seis cap&iacute;tulos</span></h3>
+  <ul>
+    <li><strong>Quem domina o mercado cloud</strong> e porqu&ecirc; — AWS, Azure e Google Cloud somam cerca de 69&nbsp;% de tudo o que se aluga no mundo; os restantes ~31&nbsp;% dividem-se por dezenas de fornecedores, entre eles os europeus independentes.</li>
+    <li><strong>Quanto custa o mesmo servidor</strong> em cada um dos quatro fornecedores, com a mesma configura&ccedil;&atilde;o e sem letra pequena.</li>
+    <li><strong>O que a fatura dos gigantes esconde</strong> — transfer&ecirc;ncia de dados, endere&ccedil;os IP, c&oacute;pias de disco e planos de suporte cobrados &agrave; parte.</li>
+    <li><strong>Quanto custa cada componente</strong> da solu&ccedil;&atilde;o, o que faz e porque &eacute; que existe.</li>
+    <li><strong>Como evolui o gasto</strong> de 1 at&eacute; 50 membros, e a que ponto os n&uacute;meros mudam.</li>
+  </ul>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="tag">Recomenda&ccedil;&atilde;o</div>
+      <h4>Manter o servidor europeu atual</h4>
+      <p style="font-size:8.4pt;line-height:1.5">Mesmo enquadramento RGPD, pre&ccedil;o 4&ndash;5&times; inferior e fatura previs&iacute;vel ao c&ecirc;ntimo. A capacidade instalada chega folgadamente at&eacute; aos 50 membros.</p>
+    </div>
+    <div class="card terra">
+      <div class="tag">Sem depend&ecirc;ncia</div>
+      <h4>Nada aqui prende a sociedade</h4>
+      <p style="font-size:8.4pt;line-height:1.5">Linux, PostgreSQL e formatos abertos. Se um dia fizer sentido mudar de fornecedor, migra-se — n&atilde;o se recome&ccedil;a.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>JMASSANO &middot; Custo Total &mdash; 2026</span><span class="pg">P&aacute;gina 2</span></div>
+</div>
+
+<!-- ══════════════════════ PÁGINA 3 · MERCADO ══════════════════════ -->
+<div class="page">
+  <div class="hdr"><span>JMASSANO &middot; Custo Total &mdash; Edi&ccedil;&atilde;o Completa</span><span class="doc">DOC &middot; 004-B</span></div>
+
+  <div class="chapter">
+    <span class="mark"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14.5 2.6A8 8 0 0 1 21.4 9.5h-6.9z"/></svg></span>
+    <span class="txt">
+      <span class="n">Cap&iacute;tulo &middot; 01</span>
+      <h2>O mercado cloud: quem manda e porqu&ecirc;</h2>
+    </span>
+  </div>
+
+  <p class="lede">Em 2026, tr&ecirc;s gigantes controlam a esmagadora maioria do mercado cloud mundial. Todos t&ecirc;m datacenters na Europa e conformidade RGPD — mas as suas estrat&eacute;gias e pre&ccedil;os s&atilde;o muito diferentes dos fornecedores europeus independentes.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:18%">Fornecedor</th>
+        <th style="width:36%">Perfil / quem usa</th>
+        <th style="width:23%">Quota de mercado</th>
+        <th style="width:23%">For&ccedil;as</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="nome">AWS<small>Amazon</small></span></td>
+        <td>O l&iacute;der absoluto — Netflix, Spotify, bancos, quase metade do mercado. Mais de 200 servi&ccedil;os e o ecossistema mais maduro do mundo.</td>
+        <td><span class="bar"><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">~30&nbsp;%</span></span></td>
+        <td>Maior gama de servi&ccedil;os; mercado de talento; maturidade.</td>
+      </tr>
+      <tr>
+        <td><span class="nome">Microsoft Azure</span></td>
+        <td>O preferido de empresas que vivem no ecossistema Microsoft (Windows, Office, Teams) — dominante na banca, seguros e setor p&uacute;blico.</td>
+        <td><span class="bar"><span class="track"><span class="fill" style="width:83%"></span></span><span class="v">~25&nbsp;%</span></span></td>
+        <td>Integra&ccedil;&atilde;o nativa com Windows/Office; contratos empresariais.</td>
+      </tr>
+      <tr>
+        <td><span class="nome">Google Cloud</span></td>
+        <td>O especialista em crescimento r&aacute;pido — l&iacute;der em IA e an&aacute;lise de dados. 75&nbsp;% dos clientes j&aacute; usam produtos de IA na plataforma.</td>
+        <td><span class="bar"><span class="track"><span class="fill" style="width:47%"></span></span><span class="v">~14&nbsp;%</span></span></td>
+        <td>IA/ML de topo; pre&ccedil;os competitivos em dados; inova&ccedil;&atilde;o r&aacute;pida.</td>
+      </tr>
+      <tr class="destaque">
+        <td><span class="nome">Hetzner<small>servidor atual</small></span></td>
+        <td>Fornecedor europeu independente (Alemanha) — o que a sociedade j&aacute; usa. Sem marketing gigante, mas com o melhor pre&ccedil;o/qualidade da Europa.</td>
+        <td><span class="bar"><span class="track"><span class="fill terra" style="width:4%"></span></span><span class="v terra">&lt;1&nbsp;%</span></span></td>
+        <td>Pre&ccedil;o imbat&iacute;vel na UE; RGPD nativo; simples.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="nota"><strong>Fonte:</strong> quotas de mercado Q1 2026 — Synergy Research Group (AWS ~30&nbsp;%, Azure ~25&nbsp;%, Google Cloud ~14&nbsp;%). As barras est&atilde;o &agrave; escala do l&iacute;der. Quota de mercado mede volume de faturaç&atilde;o mundial, <em>n&atilde;o</em> qualidade t&eacute;cnica nem adequa&ccedil;&atilde;o a um caso concreto.</div>
+
+  <h3 class="sub">Porque &eacute; que isto importa para a POC</h3>
+  <ul>
+    <li><strong>Os gigantes vendem escala, n&atilde;o pre&ccedil;o</strong> — o mesmo servidor custa 4 a 5 vezes mais na AWS/Azure/GCP do que num europeu independente. Est&atilde;o desenhados para quem precisa de 30 pa&iacute;ses e picos de milh&otilde;es de utilizadores.</li>
+    <li><strong>Para um escrit&oacute;rio</strong>, as vantagens dos gigantes (escala global, integra&ccedil;&otilde;es empresariais, contratos anuais, dezenas de regi&otilde;es) n&atilde;o trazem benef&iacute;cio pr&aacute;tico — paga-se capacidade que nunca chega a ser usada.</li>
+    <li><strong>O RGPD n&atilde;o obriga aos gigantes</strong> — um datacenter na Alemanha/Finl&acirc;ndia cumpre exatamente as mesmas regras, e um fornecedor de capital europeu evita a discuss&atilde;o sobre legisla&ccedil;&atilde;o de acesso extraterritorial.</li>
+    <li><strong>Comit&eacute; de fatura&ccedil;&atilde;o</strong> — os gigantes cobram por transfer&ecirc;ncia de dados e por chamada de API, o que torna a fatura imprevis&iacute;vel; os europeus independentes t&ecirc;m pre&ccedil;os planos: o valor de janeiro &eacute; o valor de dezembro.</li>
+    <li><strong>Complexidade tem custo humano</strong> — a consola da AWS tem mais de 200 servi&ccedil;os e a configura&ccedil;&atilde;o errada &eacute; f&aacute;cil. Uma m&aacute;quina simples &eacute; menos superf&iacute;cie de erro e menos horas de administra&ccedil;&atilde;o.</li>
+  </ul>
+
+  <div class="foot"><span>JMASSANO &middot; Custo Total &mdash; 2026</span><span class="pg">P&aacute;gina 3</span></div>
+</div>
+
+<!-- ══════════════════════ PÁGINA 4 · COMPARATIVO ══════════════════════ -->
+<div class="page">
+  <div class="hdr"><span>JMASSANO &middot; Custo Total &mdash; Edi&ccedil;&atilde;o Completa</span><span class="doc">DOC &middot; 004-B</span></div>
+
+  <div class="chapter">
+    <span class="mark"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M12 4v16M6 7h12"/><path d="M6 7l-3 6h6zM18 7l-3 6h6z"/><path d="M8 20h8"/></svg></span>
+    <span class="txt">
+      <span class="n">Cap&iacute;tulo &middot; 02</span>
+      <h2>O mesmo servidor, quatro fornecedores</h2>
+    </span>
+  </div>
+
+  <p class="lede">O servidor atual da sociedade (2 vCPU, 4 GB RAM, disco SSD, processador AMD EPYC) cotado nos quatro fornecedores. Onde a inst&acirc;ncia equivalente n&atilde;o existe com a mesma mem&oacute;ria, cotou-se a mais pr&oacute;xima acima — ou seja, <strong>a compara&ccedil;&atilde;o favorece os gigantes</strong>.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:17%">Fornecedor</th>
+        <th style="width:18%">Inst&acirc;ncia</th>
+        <th style="width:20%">Especifica&ccedil;&otilde;es</th>
+        <th class="r" style="width:15%">Mensal</th>
+        <th style="width:30%">Custo relativo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="nome">AWS</span></td>
+        <td class="num left">t3.small</td>
+        <td>2 vCPU, 2 GB RAM</td>
+        <td class="num">~18 USD</td>
+        <td><span class="bar"><span class="track"><span class="fill" style="width:72%"></span></span><span class="v">3,6&times;</span></span></td>
+      </tr>
+      <tr>
+        <td><span class="nome">Azure</span></td>
+        <td class="num left">B2s</td>
+        <td>2 vCPU, 4 GB RAM</td>
+        <td class="num">~22 USD</td>
+        <td><span class="bar"><span class="track"><span class="fill" style="width:88%"></span></span><span class="v">4,4&times;</span></span></td>
+      </tr>
+      <tr>
+        <td><span class="nome">Google Cloud</span></td>
+        <td class="num left">e2-standard-2</td>
+        <td>2 vCPU, 8 GB RAM</td>
+        <td class="num">~25 USD</td>
+        <td><span class="bar"><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">5,0&times;</span></span></td>
+      </tr>
+      <tr class="destaque">
+        <td><span class="nome">Hetzner<small>atual</small></span></td>
+        <td class="num left">CX/CPX dedicado</td>
+        <td>2 vCPU, 4 GB RAM, EPYC</td>
+        <td class="tot">~5 &euro;</td>
+        <td><span class="bar"><span class="track"><span class="fill gold" style="width:20%"></span></span><span class="v">1&times;</span></span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="nota"><strong>Nota importante:</strong> os pre&ccedil;os da AWS/Azure/GCP s&atilde;o on-demand sem compromisso e n&atilde;o incluem <em>egress</em> (transfer&ecirc;ncia de dados para fora), que nos tr&ecirc;s gigantes pode duplicar a fatura. O Hetzner inclui 20 TB de transfer&ecirc;ncia no pre&ccedil;o base.</div>
+
+  <h3 class="sub">O que est&aacute; dentro e o que &eacute; cobrado &agrave; parte</h3>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="tag">Inclu&iacute;do no pre&ccedil;o base</div>
+      <h4>Europeu independente</h4>
+      <ul>
+        <li><strong>20 TB de transfer&ecirc;ncia</strong> por m&ecirc;s, entrada e sa&iacute;da.</li>
+        <li><strong>Endere&ccedil;o IP p&uacute;blico</strong> e certificado SSL sem custo adicional.</li>
+        <li><strong>Fatura plana</strong> — o mesmo valor todos os meses, sem surpresas.</li>
+        <li><strong>Sem compromisso</strong> de perman&ecirc;ncia nem contrato anual.</li>
+      </ul>
+    </div>
+    <div class="card terra">
+      <div class="tag">Faturado &agrave; parte</div>
+      <h4>Nos tr&ecirc;s gigantes</h4>
+      <ul>
+        <li><strong>Transfer&ecirc;ncia de sa&iacute;da</strong> ao GB — a rubrica que mais cresce sem aviso.</li>
+        <li><strong>Endere&ccedil;o IPv4</strong> p&uacute;blico e c&oacute;pias de disco (<em>snapshots</em>) ao GB/m&ecirc;s.</li>
+        <li><strong>Suporte t&eacute;cnico</strong> real &eacute; um plano pago, n&atilde;o vem inclu&iacute;do.</li>
+        <li><strong>Descontos</strong> s&oacute; com compromisso de 1 a 3 anos pago &agrave; cabe&ccedil;a.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="nota gold">Uma fatura que varia com o uso obriga a vigi&acirc;-la; uma fatura plana n&atilde;o. Para um escrit&oacute;rio sem equipa de infraestrutura, <strong>previsibilidade &eacute; uma funcionalidade</strong>, n&atilde;o um detalhe contabil&iacute;stico.</div>
+
+  <div class="foot"><span>JMASSANO &middot; Custo Total &mdash; 2026</span><span class="pg">P&aacute;gina 4</span></div>
+</div>
+
+<!-- ══════════════════════ PÁGINA 5 · HORIZONTE ══════════════════════ -->
+<div class="page">
+  <div class="hdr"><span>JMASSANO &middot; Custo Total &mdash; Edi&ccedil;&atilde;o Completa</span><span class="doc">DOC &middot; 004-B</span></div>
+
+  <div class="chapter">
+    <span class="mark"><svg viewBox="0 0 24 24" class="ico-svg"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+    <span class="txt">
+      <span class="n">Cap&iacute;tulo &middot; 03</span>
+      <h2>O que a diferen&ccedil;a significa em euros</h2>
+    </span>
+  </div>
+
+  <p class="lede">A mesma capacidade, acumulada ao longo do tempo. Os valores em USD est&atilde;o convertidos &agrave; taxa usada em todo o documento.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%">Cen&aacute;rio</th>
+        <th class="r" style="width:24%">Hetzner (atual)</th>
+        <th class="r" style="width:32%">AWS equivalente</th>
+        <th class="r" style="width:22%">Diferen&ccedil;a/ano</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="nome">1 ano</span></td>
+        <td class="num">60 &euro;</td>
+        <td class="mut">~198 USD (~180 &euro;)</td>
+        <td class="tot">+120 &euro;</td>
+      </tr>
+      <tr>
+        <td><span class="nome">3 anos</span></td>
+        <td class="num">180 &euro;</td>
+        <td class="mut">~594 USD (~540 &euro;)</td>
+        <td class="tot">+360 &euro;</td>
+      </tr>
+      <tr>
+        <td><span class="nome">5 anos</span></td>
+        <td class="num">300 &euro;</td>
+        <td class="mut">~990 USD (~900 &euro;)</td>
+        <td class="tot">+600 &euro;</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">Custo acumulado, lado a lado <span class="hint">escala comum</span></h3>
+
+  <div class="chart">
+    <div class="legend">
+      <span><i class="g"></i>Hetzner &middot; atual</span>
+      <span><i class="t"></i>AWS equivalente</span>
+    </div>
+
+    <div class="grp">
+      <div class="gl">1 ano<em>12 meses</em></div>
+      <div>
+        <div class="b"><span class="t g" style="width:6.7%"></span><span class="n">60 &euro;</span></div>
+        <div class="b"><span class="t t2" style="width:20%"></span><span class="n t">~180 &euro; <em>&middot; +120 &euro;</em></span></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="gl">3 anos<em>36 meses</em></div>
+      <div>
+        <div class="b"><span class="t g" style="width:20%"></span><span class="n">180 &euro;</span></div>
+        <div class="b"><span class="t t2" style="width:60%"></span><span class="n t">~540 &euro; <em>&middot; +360 &euro;</em></span></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="gl">5 anos<em>60 meses</em></div>
+      <div>
+        <div class="b"><span class="t g" style="width:33.3%"></span><span class="n">300 &euro;</span></div>
+        <div class="b"><span class="t t2" style="width:100%"></span><span class="n t">~900 &euro; <em>&middot; +600 &euro;</em></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nota">Estes valores comparam <strong>apenas o servidor</strong>, na hip&oacute;tese mais favor&aacute;vel aos gigantes: pre&ccedil;o on-demand, sem transfer&ecirc;ncia de dados, sem endere&ccedil;o IPv4 faturado, sem c&oacute;pias de disco e sem plano de suporte. Com essas rubricas, a distância aumenta.</div>
+
+  <div class="resumo">
+    <div class="val">
+      <div class="r-label">Conclus&atilde;o</div>
+      <div class="r-valor">4&ndash;5&times; <span>mais caro</span></div>
+    </div>
+    <div class="sep"></div>
+    <p>Em 5 anos, a mesma capacidade nos gigantes custa mais <strong>600&ndash;900 &euro;</strong> do que no servidor europeu atual — dinheiro que n&atilde;o compra qualquer vantagem para um escrit&oacute;rio de advogados.</p>
+  </div>
+
+  <div class="foot"><span>JMASSANO &middot; Custo Total &mdash; 2026</span><span class="pg">P&aacute;gina 5</span></div>
+</div>
+
+<!-- ══════════════════════ PÁGINA 6 · BREAKDOWN ══════════════════════ -->
+<div class="page">
+  <div class="hdr"><span>JMASSANO &middot; Custo Total &mdash; Edi&ccedil;&atilde;o Completa</span><span class="doc">DOC &middot; 004-B</span></div>
+
+  <div class="chapter">
+    <span class="mark"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>
+    <span class="txt">
+      <span class="n">Cap&iacute;tulo &middot; 04</span>
+      <h2>Custo de tudo, componente a componente</h2>
+    </span>
+  </div>
+
+  <p class="lede">Cada componente da solu&ccedil;&atilde;o, o que faz, porque &eacute; necess&aacute;rio e quanto custa:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:25%">Componente</th>
+        <th style="width:42%">O que &eacute; / porque &eacute; necess&aacute;rio</th>
+        <th class="r" style="width:16%">Custo</th>
+        <th class="r" style="width:17%">Tipo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="cel-ico"><span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span><span class="nome">Servidor VPS</span></span></td>
+        <td>Onde corre a aplica&ccedil;&atilde;o, a base de dados e o armazenamento ativo. 2 vCPU, 4 GB RAM, SSD — o atual j&aacute; instalado.</td>
+        <td class="num">~5 &euro;/m&ecirc;s</td>
+        <td class="num"><span class="badge leader">Fixo</span></td>
+      </tr>
+      <tr>
+        <td><span class="cel-ico"><span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg></span><span class="nome">Dom&iacute;nio</span></span></td>
+        <td>Registo anual do dom&iacute;nio da sociedade (ex.: jmassano.pt) — o endere&ccedil;o p&uacute;blico da plataforma e dos e-mails oficiais.</td>
+        <td class="num">1 &euro;/m&ecirc;s</td>
+        <td class="num"><span class="badge leader">Fixo</span></td>
+      </tr>
+      <tr>
+        <td><span class="cel-ico"><span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M17.5 19a4.5 4.5 0 0 0 .3-9A6 6 0 0 0 6.2 10.6 3.9 3.9 0 0 0 6.5 19z"/><path d="M12 11v5m0 0l-1.8-1.8M12 16l1.8-1.8"/></svg></span><span class="nome">Backup cloud externo</span></span></td>
+        <td>Hetzner Storage Box 1 TB — c&oacute;pia encriptada fora do servidor (regra 3-2-1: 3 c&oacute;pias, 2 meios, 1 fora).</td>
+        <td class="num">3,80 &euro;/m&ecirc;s</td>
+        <td class="num"><span class="badge leader">Fixo</span></td>
+      </tr>
+      <tr>
+        <td><span class="cel-ico"><span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="1.9"/><path d="M12 15v2"/></svg></span><span class="nome">Armazenamento SFTP</span></span></td>
+        <td>Pastas dedicadas por cliente com os dossiers e documentos anexados, acesso restrito e trilho de auditoria.</td>
+        <td class="num">2 &euro;/m&ecirc;s</td>
+        <td class="num"><span class="badge leader">Fixo</span></td>
+      </tr>
+      <tr>
+        <td><span class="cel-ico"><span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M3 7.5l9 6 9-6"/></svg></span><span class="nome">E-mail transacional</span></span></td>
+        <td>Envios autom&aacute;ticos (Registro, Confirma&ccedil;&atilde;o, Boas-vindas) — plano gratuito cobre o volume de um escrit&oacute;rio.</td>
+        <td class="num">0 &euro;/m&ecirc;s</td>
+        <td class="num"><span class="badge info">Gr&aacute;tis</span></td>
+      </tr>
+      <tr>
+        <td><span class="cel-ico"><span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M12 3l8 3v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="nome">Certificado SSL</span></span></td>
+        <td>HTTPS / encripta&ccedil;&atilde;o em tr&acirc;nsito — emitido automaticamente, sem custo.</td>
+        <td class="num">0 &euro;/m&ecirc;s</td>
+        <td class="num"><span class="badge info">Gr&aacute;tis</span></td>
+      </tr>
+      <tr>
+        <td><span class="cel-ico"><span class="g"><svg viewBox="0 0 24 24" class="ico-svg"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3m0 13v3M2.5 12h3m13 0h3M5.1 5.1l2.1 2.1m9.6 9.6l2.1 2.1M18.9 5.1L16.8 7.2M7.2 16.8l-2.1 2.1"/></svg></span><span class="nome">Acompanhamento</span></span></td>
+        <td>Desenvolvimento cont&iacute;nuo, corre&ccedil;&otilde;es e melhorias — por membro da equipa.</td>
+        <td class="num">3 &euro;/membro/m&ecirc;s</td>
+        <td class="num"><span class="badge alt">Por membro</span></td>
+      </tr>
+      <tr class="total">
+        <td><span class="nome">Infra fixa<small>independente do n.&ordm; de membros</small></span></td>
+        <td>Servidor + dom&iacute;nio + backup + armazenamento. N&atilde;o muda com o crescimento da equipa.</td>
+        <td class="num big">11,80 &euro;/m&ecirc;s</td>
+        <td class="num">141,60 &euro;/ano</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="nota"><strong>Nota:</strong> a implementa&ccedil;&atilde;o inicial &eacute; or&ccedil;amentada em fase pr&oacute;pria — estes s&atilde;o apenas os custos mensais de opera&ccedil;&atilde;o recorrente. O e-mail transacional e o certificado SSL est&atilde;o a <em>zero</em> porque os planos gratuitos cobrem folgadamente o volume de um escrit&oacute;rio, n&atilde;o porque estejam subsidiados por outra rubrica.</div>
+
+  <div class="foot"><span>JMASSANO &middot; Custo Total &mdash; 2026</span><span class="pg">P&aacute;gina 6</span></div>
+</div>
+
+<!-- ══════════════════════ PÁGINA 7 · ESCALA ══════════════════════ -->
+<div class="page">
+  <div class="hdr"><span>JMASSANO &middot; Custo Total &mdash; Edi&ccedil;&atilde;o Completa</span><span class="doc">DOC &middot; 004-B</span></div>
+
+  <div class="chapter">
+    <span class="mark"><svg viewBox="0 0 24 24" class="ico-svg"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span>
+    <span class="txt">
+      <span class="n">Cap&iacute;tulo &middot; 05</span>
+      <h2>Proje&ccedil;&atilde;o em escala e exemplos de c&aacute;lculo</h2>
+    </span>
+  </div>
+
+  <div class="grid2" style="margin-top:0">
+    <div class="card">
+      <div class="tag">Exemplo A</div>
+      <h4>Escrit&oacute;rio de 1 membro</h4>
+      <div class="calc">Infra fixa (11,80 &euro;) + acompanhamento 1 &times; 3 &euro;</div>
+      <div class="valor">14,80 &euro; <span>/m&ecirc;s</span></div>
+      <div class="ano">177,60 &euro;/ano &middot; 14,80 &euro; por membro</div>
+    </div>
+    <div class="card terra">
+      <div class="tag">Exemplo B</div>
+      <h4>Escrit&oacute;rio de 5 membros</h4>
+      <div class="calc">Infra fixa (11,80 &euro;) + acompanhamento 5 &times; 3 &euro;</div>
+      <div class="valor">26,80 &euro; <span>/m&ecirc;s</span></div>
+      <div class="ano">321,60 &euro;/ano &middot; 5,36 &euro; por membro</div>
+    </div>
+  </div>
+
+  <h3 class="sub">Como evolui o custo com a equipa <span class="hint">custo por membro desce</span></h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:13%">Membros</th>
+        <th class="r" style="width:16%">Infra fixa</th>
+        <th class="r" style="width:19%">Acompanhamento</th>
+        <th class="r" style="width:18%">Total mensal</th>
+        <th class="r" style="width:18%">Anual</th>
+        <th class="r" style="width:16%">Por membro</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="num left">1</td><td class="mut">11,80 &euro;</td><td class="mut">3 &euro;</td><td class="tot">14,80 &euro;</td><td class="num">177,60 &euro;</td><td class="mut">14,80 &euro;</td></tr>
+      <tr><td class="num left">2</td><td class="mut">11,80 &euro;</td><td class="mut">6 &euro;</td><td class="tot">17,80 &euro;</td><td class="num">213,60 &euro;</td><td class="mut">8,90 &euro;</td></tr>
+      <tr class="destaque"><td class="num left">5</td><td class="mut">11,80 &euro;</td><td class="mut">15 &euro;</td><td class="tot">26,80 &euro;</td><td class="num">321,60 &euro;</td><td class="mut">5,36 &euro;</td></tr>
+      <tr><td class="num left">10</td><td class="mut">11,80 &euro;</td><td class="mut">30 &euro;</td><td class="tot">41,80 &euro;</td><td class="num">501,60 &euro;</td><td class="mut">4,18 &euro;</td></tr>
+      <tr><td class="num left">20</td><td class="mut">11,80 &euro;</td><td class="mut">60 &euro;</td><td class="tot">71,80 &euro;</td><td class="num">861,60 &euro;</td><td class="mut">3,59 &euro;</td></tr>
+      <tr><td class="num left">50</td><td class="mut">11,80 &euro;</td><td class="mut">150 &euro;</td><td class="tot">161,80 &euro;</td><td class="num">1.941,60 &euro;</td><td class="mut">3,24 &euro;</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">Quando &eacute; que os n&uacute;meros mudam</h3>
+  <ul>
+    <li><strong>At&eacute; 50 membros</strong> — o servidor atual aguenta; a infra fixa mant&eacute;m-se em 11,80 &euro;.</li>
+    <li><strong>50&ndash;200 membros</strong> — upgrade de servidor (mais CPU/RAM) e armazenamento dedicado: +20 a +40 &euro;/m&ecirc;s estimados.</li>
+    <li><strong>+200 membros</strong> — arquitetura de alta disponibilidade (2+ servidores, balanceamento): proposta pr&oacute;pria.</li>
+    <li><strong>E-mail transacional</strong> — o plano gratuito cobre milhares de envios/m&ecirc;s; acima disso, planos pagos desde ~20 &euro;/m&ecirc;s.</li>
+    <li><strong>Armazenamento</strong> — se os dossiers ultrapassarem 1 TB, o Storage Box seguinte custa ~7 &euro;/m&ecirc;s (5 TB).</li>
+  </ul>
+
+  <div class="resumo">
+    <div class="val">
+      <div class="r-label">Total &mdash; 5 membros</div>
+      <div class="r-valor">26,80 &euro;<span>/m&ecirc;s</span></div>
+    </div>
+    <div class="sep"></div>
+    <p>Todo o sistema com backup cloud, encripta&ccedil;&atilde;o e acompanhamento — menos do que uma &uacute;nica inst&acirc;ncia AWS equivalente, e com o custo por membro a <strong>descer</strong> &agrave; medida que a equipa cresce.</p>
+  </div>
+
+  <div class="foot"><span>JMASSANO &middot; Custo Total &mdash; 2026</span><span class="pg">P&aacute;gina 7</span></div>
+</div>
+
+<!-- ══════════════════════ PÁGINA 8 · FAQ ══════════════════════ -->
+<div class="page">
+  <div class="hdr"><span>JMASSANO &middot; Custo Total &mdash; Edi&ccedil;&atilde;o Completa</span><span class="doc">DOC &middot; 004-B</span></div>
+
+  <div class="chapter">
+    <span class="mark"><svg viewBox="0 0 24 24" class="ico-svg"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3 2.5v1.4"/><path d="M12 17h.01"/></svg></span>
+    <span class="txt">
+      <span class="n">Cap&iacute;tulo &middot; 06</span>
+      <h2>Perguntas frequentes e fontes</h2>
+    </span>
+  </div>
+
+  <div class="faq">
+    <div class="item">
+      <div class="q" data-n="01">Porque &eacute; que os gigantes s&atilde;o t&atilde;o mais caros?</div>
+      <div class="a">Vendem escala global, servi&ccedil;os geridos e integra&ccedil;&otilde;es empresariais — custos de opera&ccedil;&atilde;o que o escrit&oacute;rio n&atilde;o precisa nesta fase.</div>
+    </div>
+    <div class="item">
+      <div class="q" data-n="02">Os dados ficam na Europa?</div>
+      <div class="a">Sim — Alemanha e Finl&acirc;ndia (Hetzner), com conformidade RGPD nativa e sem transfer&ecirc;ncia para pa&iacute;ses terceiros.</div>
+    </div>
+    <div class="item">
+      <div class="q" data-n="03">E se um dia precisarmos de migrar?</div>
+      <div class="a">A solu&ccedil;&atilde;o usa padr&otilde;es abertos (Linux, PostgreSQL, S3-compat&iacute;vel) — migrar para qualquer fornecedor &eacute; um processo conhecido, n&atilde;o um recome&ccedil;o.</div>
+    </div>
+    <div class="item">
+      <div class="q" data-n="04">O que acontece se o servidor avariar?</div>
+      <div class="a">O backup cloud externo (3-2-1) permite restaurar tudo noutra m&aacute;quina em horas — testado periodicamente.</div>
+    </div>
+    <div class="item">
+      <div class="q" data-n="05">H&aacute; custos escondidos?</div>
+      <div class="a">N&atilde;o — os valores s&atilde;o os listados: infra fixa + acompanhamento por membro. Os gigantes &eacute; que t&ecirc;m custos escondidos (transfer&ecirc;ncia, API calls).</div>
+    </div>
+    <div class="item">
+      <div class="q" data-n="06">O que inclui o acompanhamento?</div>
+      <div class="a">Manuten&ccedil;&atilde;o, corre&ccedil;&otilde;es, melhorias da aplica&ccedil;&atilde;o e suporte cont&iacute;nuo.</div>
+    </div>
+    <div class="item">
+      <div class="q" data-n="07">O valor sobe se entrarem mais advogados?</div>
+      <div class="a">S&oacute; a parcela de acompanhamento (3 &euro; por membro). A infra fixa mant&eacute;m-se em <strong>11,80 &euro;</strong> at&eacute; aos 50 membros — por isso o custo <em>por pessoa</em> desce de 14,80 &euro; para 3,24 &euro;.</div>
+    </div>
+  </div>
+
+  <h3 class="sub">Fontes</h3>
+  <ul class="fontes">
+    <li><strong>Quotas de mercado:</strong> Synergy Research Group, Q1 2026.</li>
+    <li><strong>Pre&ccedil;os cloud:</strong> <span class="url">aws.amazon.com/ec2/pricing</span>, <span class="url">azure.microsoft.com/pricing</span>, <span class="url">cloud.google.com/pricing</span> (estimativas on-demand, 2026).</li>
+    <li><strong>Hetzner:</strong> <span class="url">hetzner.com/cloud</span> + <span class="url">hetzner.com/storage/storage-box</span> (pre&ccedil;os vigentes 2026).</li>
+  </ul>
+
+  <div class="resumo">
+    <div class="val">
+      <div class="r-label">Veredicto</div>
+      <div class="r-valor">Hetzner <span>vence</span></div>
+    </div>
+    <div class="sep"></div>
+    <p>Para um escrit&oacute;rio de advogados, o servidor europeu atual &eacute; a escolha racional: mesmo RGPD, pre&ccedil;o <strong>4-5&times; inferior</strong> e fatura previs&iacute;vel. A poupan&ccedil;a n&atilde;o custa uma &uacute;nica funcionalidade.</p>
+  </div>
+
+  <div class="foot"><span>JMASSANO &middot; Custo Total &mdash; 2026</span><span class="pg">P&aacute;gina 8</span></div>
+</div>
+
+</body>
+</html>

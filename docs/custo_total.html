@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Custo Total da Solu&ccedil;&atilde;o &mdash; Cloud Enterprise &amp; Servidor</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --verde: #22382E;
+    --verde-claro: #2f4a3d;
+    --latao: #C9B27F;
+    --terracota: #AB5644;
+    --papel: #f3eee4;
+    --tinta: #2b2b2b;
+    --tinta-suave: #5a5a54;
+    --linha: rgba(34, 56, 46, .12);
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--tinta);
+    background: #d8d3c8;
+    -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 17mm 20mm 20mm;
+    position: relative;
+    page-break-after: always;
+    overflow: hidden;
+    background: var(--papel);
+    margin: 0 auto;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ------------------------------------------------------------ CAPA */
+  .cover {
+    padding: 0;
+    background: radial-gradient(115% 75% at 50% 28%, #2b4739 0%, #22382E 58%, #1c2f27 100%);
+    color: var(--papel);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center;
+  }
+  .cover::before { content: ''; position: absolute; inset: 11mm; border: .6pt solid rgba(201,178,127,.55); pointer-events: none; }
+  .cover::after  { content: ''; position: absolute; inset: 13.5mm; border: .4pt solid rgba(201,178,127,.22); pointer-events: none; }
+
+  .seal { position: relative; width: 30mm; height: 30mm; margin-bottom: 12mm; display: flex; align-items: center; justify-content: center; }
+  .seal::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: .8pt solid rgba(201,178,127,.85); }
+  .seal::after  { content: ''; position: absolute; inset: 2.2mm; border-radius: 50%; border: .4pt solid rgba(201,178,127,.35); }
+  .seal span { font-family: 'Cormorant Garamond', serif; font-size: 17pt; font-weight: 500; letter-spacing: .16em; text-indent: .16em; color: var(--latao); }
+
+  .cover .kicker {
+    display: flex; align-items: center; gap: 5mm;
+    font-family: 'JetBrains Mono', monospace; font-size: 8pt; font-weight: 500;
+    letter-spacing: .34em; text-indent: .34em; text-transform: uppercase;
+    color: var(--latao); margin-bottom: 9mm;
+  }
+  .cover .kicker i { display: block; width: 14mm; height: .5pt; background: rgba(201,178,127,.5); }
+
+  .cover h1 {
+    font-family: 'Cormorant Garamond', serif; font-size: 44pt; font-weight: 500;
+    line-height: 1.08; letter-spacing: .005em;
+  }
+  .cover h1 em { display: block; color: var(--latao); font-style: italic; font-weight: 500; }
+
+  .cover .hairline { width: 26mm; height: .8pt; background: rgba(201,178,127,.75); margin: 9mm 0 8mm; }
+
+  .cover .sub {
+    font-size: 11pt; font-weight: 400; line-height: 1.78;
+    color: rgba(243,238,228,.72); max-width: 122mm;
+  }
+
+  .cover .figures { display: flex; align-items: stretch; gap: 12mm; margin-top: 13mm; }
+  .cover .fig { text-align: center; }
+  .cover .fig .v { font-family: 'Cormorant Garamond', serif; font-size: 24pt; font-weight: 500; color: var(--papel); line-height: 1; white-space: nowrap; }
+  .cover .fig .v small { font-family: 'DM Sans', sans-serif; font-size: 9pt; color: rgba(243,238,228,.55); letter-spacing: .02em; }
+  .cover .fig .l { font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; letter-spacing: .2em; text-indent: .2em; text-transform: uppercase; color: rgba(201,178,127,.85); margin-top: 3mm; }
+  .cover .figures .div { width: .4pt; background: rgba(201,178,127,.28); }
+
+  .cover .meta {
+    position: absolute; bottom: 19mm; left: 0; right: 0;
+    font-family: 'JetBrains Mono', monospace; font-size: 7pt;
+    letter-spacing: .24em; text-indent: .24em; text-transform: uppercase;
+    color: rgba(243,238,228,.5);
+  }
+
+  /* -------------------------------------------------- CABEÇALHO / RODAPÉ */
+  .hdr {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; font-weight: 500;
+    letter-spacing: .24em; text-indent: .24em; text-transform: uppercase;
+    color: var(--terracota);
+    border-bottom: .5pt solid var(--linha);
+    padding-bottom: 3.5mm; margin-bottom: 6mm;
+  }
+  .hdr .brand { display: flex; align-items: center; gap: 2.5mm; color: var(--verde); }
+  .hdr .brand i { display: block; width: 1.8mm; height: 1.8mm; background: var(--terracota); transform: rotate(45deg); }
+
+  .foot {
+    position: absolute; bottom: 12mm; left: 20mm; right: 20mm;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5pt;
+    letter-spacing: .16em; text-indent: .16em; color: rgba(34,56,46,.42);
+    border-top: .5pt solid var(--linha); padding-top: 3.5mm;
+  }
+  .foot .pg { color: var(--verde); font-weight: 500; }
+
+  /* ------------------------------------------------------- TÍTULOS */
+  .sec { display: flex; align-items: center; gap: 5mm; margin-bottom: 2mm; }
+  .sec-num { font-family: 'Cormorant Garamond', serif; font-size: 21pt; font-weight: 500; color: var(--latao); line-height: .8; }
+  .sec-line { flex: 1; height: .5pt; background: var(--linha); }
+
+  h2 { font-family: 'Cormorant Garamond', serif; font-size: 18pt; font-weight: 600; color: var(--verde); line-height: 1.16; letter-spacing: .005em; max-width: 150mm; }
+  h2 small { display: block; font-family: 'DM Sans', sans-serif; font-size: 8.5pt; font-weight: 400; color: var(--tinta-suave); letter-spacing: .01em; margin-top: 1.6mm; }
+  .rule { width: 14mm; height: 1.6pt; background: var(--terracota); margin: 2.5mm 0 3.5mm; }
+
+  .lead { font-size: 9pt; line-height: 1.68; color: var(--tinta-suave); max-width: 146mm; margin-bottom: 4mm; }
+
+  /* ------------------------------------------------------- TABELAS */
+  .card {
+    background: #fffdf9;
+    border: .5pt solid var(--linha);
+    border-radius: 1.5mm;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; font-weight: 500;
+    letter-spacing: .18em; text-indent: .18em; text-transform: uppercase;
+    color: var(--latao); background: var(--verde);
+    text-align: left; padding: 2.7mm 4mm; white-space: nowrap;
+  }
+  td {
+    font-size: 9pt; line-height: 1.46; color: var(--tinta-suave);
+    padding: 2.5mm 4mm; border-bottom: .5pt solid rgba(34,56,46,.09);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  th.r, td.r { text-align: right; }
+  th.c, td.c { text-align: center; }
+  .comp { color: var(--verde); font-weight: 600; font-size: 9.5pt; display: block; letter-spacing: .005em; }
+  .comp em { display: block; font-family: 'JetBrains Mono', monospace; font-size: 6.2pt; font-style: normal; font-weight: 500; letter-spacing: .16em; text-indent: .16em; text-transform: uppercase; color: rgba(90,90,84,.6); margin-top: 1.2mm; }
+  td.num { font-family: 'JetBrains Mono', monospace; font-size: 9pt; font-weight: 500; color: var(--verde); white-space: nowrap; }
+  td.num u { text-decoration: none; font-size: 7pt; font-weight: 400; color: rgba(90,90,84,.7); }
+
+  /* quota de mercado — barra proporcional */
+  .quota { display: block; }
+  .quota .v { font-family: 'JetBrains Mono', monospace; font-size: 10pt; font-weight: 600; color: var(--verde); }
+  .quota .bar { display: block; height: 1.1mm; background: rgba(34,56,46,.09); border-radius: .6mm; margin-top: 1.8mm; overflow: hidden; }
+  .quota .bar i { display: block; height: 100%; background: var(--latao); border-radius: .6mm; }
+  .quota.top .bar i { background: var(--verde); }
+
+  /* linha em destaque — a opção atual */
+  tr.dest td { background: rgba(201,178,127,.13); }
+  tr.dest td:first-child { box-shadow: inset 1.4pt 0 0 var(--latao); }
+
+  /* linha de total */
+  tr.total td { background: var(--verde); border-top: 1pt solid var(--latao); border-bottom: 0; color: rgba(243,238,228,.7); padding-top: 4.6mm; padding-bottom: 4.6mm; }
+  tr.total .comp { color: var(--papel); }
+  tr.total .comp em { color: rgba(201,178,127,.75); }
+  tr.total td.num { color: var(--latao); font-weight: 600; font-size: 11.5pt; }
+  tr.total td.num u { color: rgba(201,178,127,.6); }
+
+  /* ------------------------------------------------------- BADGES */
+  .badge {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 5.8pt; font-weight: 500;
+    padding: .8mm 1.9mm; border-radius: .8mm; letter-spacing: .14em; text-indent: .14em;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .badge.leader { background: rgba(34,56,46,.09); color: var(--verde); }
+  .badge.alt    { background: rgba(171,86,68,.1); color: var(--terracota); }
+  .badge.info   { background: rgba(90,90,84,.08); color: rgba(90,90,84,.85); }
+  .badge.marca  { background: rgba(201,178,127,.28); color: #7d6733; }
+
+  /* ------------------------------------------------------- NOTAS */
+  .nota {
+    border-left: 1.4pt solid var(--terracota);
+    background: rgba(171,86,68,.045);
+    padding: 3.4mm 5mm;
+    font-size: 8.5pt; line-height: 1.62; color: var(--tinta-suave);
+    margin-top: 4mm;
+    page-break-inside: avoid;
+  }
+  .nota strong { color: var(--verde); font-weight: 600; }
+  .nota .src { font-family: 'JetBrains Mono', monospace; font-size: 7.6pt; color: var(--verde); }
+
+  /* ------------------------------------------------------- RESUMO */
+  .resumo {
+    display: flex; align-items: center; justify-content: space-between; gap: 10mm;
+    background: var(--verde); color: var(--papel);
+    border-radius: 1.5mm; border-top: 1pt solid var(--latao);
+    padding: 5.5mm 7.5mm; margin-top: 5mm;
+    page-break-inside: avoid;
+  }
+  .resumo .r-label { font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; font-weight: 500; letter-spacing: .24em; text-indent: .24em; text-transform: uppercase; color: var(--latao); margin-bottom: 2.2mm; }
+  .resumo p { font-size: 8.2pt; line-height: 1.58; color: rgba(243,238,228,.68); max-width: 112mm; }
+  .resumo .r-valor { font-family: 'Cormorant Garamond', serif; font-size: 32pt; font-weight: 500; line-height: .95; color: #fff; white-space: nowrap; text-align: right; }
+  .resumo .r-valor small { display: block; font-family: 'DM Sans', sans-serif; font-size: 9pt; font-weight: 400; color: rgba(243,238,228,.6); letter-spacing: .02em; margin-top: 2mm; }
+  .resumo.grande { padding: 8mm; margin-top: 8mm; }
+  .resumo.grande .r-valor { font-size: 40pt; }
+  .resumo.grande p { font-size: 8.5pt; line-height: 1.62; max-width: 98mm; }
+
+  .bloco { margin-top: 6mm; }
+
+  /* página 3 — tabela com mais respiro */
+  .larga td { padding: 4.3mm 4mm; }
+  .larga tr.total td { padding-top: 5.4mm; padding-bottom: 5.4mm; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ CAPA ═══ -->
+<div class="page cover">
+  <div class="seal"><span>JM</span></div>
+
+  <div class="kicker"><i></i>POC &middot; CUSTO TOTAL<i></i></div>
+
+  <h1>Cloud Enterprise<em>&amp; Custo de Tudo</em></h1>
+
+  <div class="hairline"></div>
+
+  <p class="sub">Os fornecedores cloud mais usados pelas grandes empresas, os seus pre&ccedil;os, e o custo completo da solu&ccedil;&atilde;o equivalente ao servidor atual da sociedade.</p>
+
+  <div class="figures">
+    <div class="fig">
+      <div class="v">~28 &euro;<small>/m&ecirc;s</small></div>
+      <div class="l">Custo total</div>
+    </div>
+    <div class="div"></div>
+    <div class="fig">
+      <div class="v">4&ndash;5&times;</div>
+      <div class="l">Cloud vs. servidor</div>
+    </div>
+    <div class="div"></div>
+    <div class="fig">
+      <div class="v">3</div>
+      <div class="l">Gigantes analisados</div>
+    </div>
+  </div>
+
+  <div class="meta">An&aacute;lise t&eacute;cnica &middot; 2026</div>
+</div>
+
+<!-- ═════════════════════════════════════════ PÁGINA 2 · ENTERPRISE ═══ -->
+<div class="page">
+  <div class="hdr">
+    <span class="brand"><i></i>JMASSANO &middot; Custo Total</span>
+    <span>DOC &middot; 004</span>
+  </div>
+
+  <div class="sec"><span class="sec-num">01</span><span class="sec-line"></span></div>
+  <h2>O que as grandes empresas usam<small>Panorama do mercado cloud &mdash; 2026</small></h2>
+  <div class="rule"></div>
+  <p class="lead">Tr&ecirc;s fornecedores dominam o mercado cloud mundial &mdash; todos com datacenters na Europa e conformidade RGPD.</p>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:24%">Fornecedor</th>
+          <th style="width:45%">Perfil / quem usa</th>
+          <th class="r" style="width:16%">Quota</th>
+          <th class="r" style="width:15%">N&iacute;vel</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="comp">AWS<em>Amazon</em></span></td>
+          <td>O l&iacute;der global &mdash; Netflix, Spotify, bancos e quase metade do mercado. A gama mais vasta de servi&ccedil;os e o ecossistema mais maduro.</td>
+          <td class="r"><span class="quota top"><span class="v">~30%</span><span class="bar"><i style="width:100%"></i></span></span></td>
+          <td class="r"><span class="badge leader">L&Iacute;DER</span></td>
+        </tr>
+        <tr>
+          <td><span class="comp">Microsoft Azure<em>Microsoft</em></span></td>
+          <td>O preferido das empresas que j&aacute; vivem no ecossistema Microsoft (Office, Windows) &mdash; muito usado na banca e setor p&uacute;blico.</td>
+          <td class="r"><span class="quota"><span class="v">~25%</span><span class="bar"><i style="width:83%"></i></span></span></td>
+          <td class="r"><span class="badge alt">MAJOR</span></td>
+        </tr>
+        <tr>
+          <td><span class="comp">Google Cloud<em>Google</em></span></td>
+          <td>O especialista em crescimento r&aacute;pido &mdash; l&iacute;der em IA e an&aacute;lise de dados. 75% dos clientes j&aacute; usam produtos de IA na plataforma.</td>
+          <td class="r"><span class="quota"><span class="v">~14%</span><span class="bar"><i style="width:47%"></i></span></span></td>
+          <td class="r"><span class="badge alt">CRESCENTE</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota"><strong>Fonte:</strong> quotas de mercado <span class="src">Q1 2026</span> &mdash; Synergy Research Group (AWS ~30%, Azure ~25%, Google Cloud ~14%).</div>
+
+  <div class="bloco">
+    <h2>Compara&ccedil;&atilde;o de pre&ccedil;os<small>Servidor pequeno, equivalente ao atual &middot; pre&ccedil;o de tabela on-demand</small></h2>
+    <div class="rule"></div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:24%">Fornecedor</th>
+            <th style="width:40%">Inst&acirc;ncia equivalente</th>
+            <th class="r" style="width:20%">Custo estimado</th>
+            <th class="r" style="width:16%">Nota</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="comp">AWS</span></td>
+            <td>t3.small &mdash; 2 vCPU, 2 GB</td>
+            <td class="num r">~18 <u>USD/m&ecirc;s</u></td>
+            <td class="r"><span class="badge info">ON-DEMAND</span></td>
+          </tr>
+          <tr>
+            <td><span class="comp">Azure</span></td>
+            <td>B2s &mdash; 2 vCPU, 4 GB</td>
+            <td class="num r">~22 <u>USD/m&ecirc;s</u></td>
+            <td class="r"><span class="badge info">ON-DEMAND</span></td>
+          </tr>
+          <tr>
+            <td><span class="comp">Google Cloud</span></td>
+            <td>e2-standard-2 &mdash; 2 vCPU, 8 GB</td>
+            <td class="num r">~25 <u>USD/m&ecirc;s</u></td>
+            <td class="r"><span class="badge info">ON-DEMAND</span></td>
+          </tr>
+          <tr class="dest">
+            <td><span class="comp">Hetzner<em>Atual</em></span></td>
+            <td>2 vCPU, 4 GB (EPYC)</td>
+            <td class="num r">~5 <u>&euro;/m&ecirc;s</u></td>
+            <td class="r"><span class="badge marca">ECON&Oacute;MICO</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="resumo">
+    <div>
+      <div class="r-label">Leitura r&aacute;pida</div>
+      <p>A mesma capacidade nos tr&ecirc;s gigantes custa 4 a 5 vezes mais do que o servidor europeu atual &mdash; sem vantagem pr&aacute;tica para uma POC de escrit&oacute;rio. A escolha dos gigantes faz sentido por escala global, redund&acirc;ncia e integra&ccedil;&otilde;es, n&atilde;o por pre&ccedil;o.</p>
+    </div>
+    <div class="r-valor">4&ndash;5&times;<small>mais caro</small></div>
+  </div>
+
+  <div class="foot">
+    <span>JMASSANO &middot; Custo Total &mdash; 2026</span>
+    <span class="pg">02</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ PÁGINA 3 · CUSTO TOTAL ═══ -->
+<div class="page">
+  <div class="hdr">
+    <span class="brand"><i></i>JMASSANO &middot; Custo Total</span>
+    <span>DOC &middot; 004</span>
+  </div>
+
+  <div class="sec"><span class="sec-num">02</span><span class="sec-line"></span></div>
+  <h2>Custo total da solu&ccedil;&atilde;o<small>Tudo inclu&iacute;do &middot; com o servidor atual como base</small></h2>
+  <div class="rule"></div>
+  <p class="lead">O custo completo, m&ecirc;s a m&ecirc;s, com o servidor atual como base:</p>
+
+  <div class="card">
+    <table class="larga">
+      <thead>
+        <tr>
+          <th style="width:30%">Componente</th>
+          <th style="width:48%">Descri&ccedil;&atilde;o</th>
+          <th class="r" style="width:22%">Custo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="comp">Servidor (atual)</span></td>
+          <td>2 vCPU, 4 GB RAM, disco SSD &mdash; aplica&ccedil;&atilde;o + base de dados.</td>
+          <td class="num r">~5 <u>&euro;/m&ecirc;s</u></td>
+        </tr>
+        <tr>
+          <td><span class="comp">Dom&iacute;nio</span></td>
+          <td>Registo anual do dom&iacute;nio da sociedade.</td>
+          <td class="num r">1 <u>&euro;/m&ecirc;s</u></td>
+        </tr>
+        <tr>
+          <td><span class="comp">Backup cloud externo</span></td>
+          <td>Hetzner Storage Box 1 TB &mdash; c&oacute;pia encriptada fora do servidor (3-2-1).</td>
+          <td class="num r">3,80 <u>&euro;/m&ecirc;s</u></td>
+        </tr>
+        <tr>
+          <td><span class="comp">Armazenamento SFTP</span></td>
+          <td>Pastas por cliente com os dossiers e documentos.</td>
+          <td class="num r">2 <u>&euro;/m&ecirc;s</u></td>
+        </tr>
+        <tr>
+          <td><span class="comp">E-mail transacional</span></td>
+          <td>Registro / Confirma&ccedil;&atilde;o / Boas-vindas (plano gratuito).</td>
+          <td class="num r">0 <u>&euro;/m&ecirc;s</u></td>
+        </tr>
+        <tr>
+          <td><span class="comp">Acompanhamento</span></td>
+          <td>Desenvolvimento cont&iacute;nuo e manuten&ccedil;&atilde;o da aplica&ccedil;&atilde;o.</td>
+          <td class="num r">3 <u>&euro;/membro/m&ecirc;s</u></td>
+        </tr>
+        <tr class="total">
+          <td><span class="comp">Custo total<em>Tudo inclu&iacute;do</em></span></td>
+          <td>Escrit&oacute;rio com 5 membros.</td>
+          <td class="num r">27,80 <u>&euro;/m&ecirc;s</u></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota"><strong>Nota:</strong> os valores dos gigantes (AWS/Azure/GCP) s&atilde;o estimativas on-demand de 2026 e n&atilde;o incluem transfer&ecirc;ncia de dados, que nos tr&ecirc;s pode duplicar a fatura &mdash; mais um motivo para o servidor europeu nesta fase.</div>
+
+  <div class="resumo grande">
+    <div>
+      <div class="r-label">Resumo</div>
+      <p>Todo o sistema &mdash; servidor, dom&iacute;nio, backup cloud, armazenamento, e-mails e acompanhamento &mdash; por menos do que um &uacute;nico EC2 da AWS equivalente.</p>
+    </div>
+    <div class="r-valor">~28 &euro;<small>por m&ecirc;s</small></div>
+  </div>
+
+  <div class="foot">
+    <span>JMASSANO &middot; Custo Total &mdash; 2026</span>
+    <span class="pg">03</span>
+  </div>
+</div>
+
+</body>
+</html>

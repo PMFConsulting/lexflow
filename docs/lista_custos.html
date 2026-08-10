@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Lista de Custos — POC JMASSANO</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+
+  :root {
+    --verde: #22382E;
+    --latao: #C9B27F;
+    --terracota: #AB5644;
+    --papel: #f3eee4;
+    --papel-claro: #FBF8F2;
+    --tinta: #2f2c27;
+    --tinta-suave: #6a645b;
+    --tinta-tenue: #9a9385;
+    --linha: #ded6c7;
+    --linha-fina: #ebe4d7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { background: #d9d2c6; }
+  body {
+    font-family: 'DM Sans', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--tinta);
+    font-size: 9.3pt;
+    -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 16mm 20mm 20mm;
+    position: relative;
+    overflow: hidden;
+    background: var(--papel-claro);
+    page-break-after: always;
+    margin: 0 auto;
+  }
+  .page:last-of-type { page-break-after: auto; }
+  @media screen {
+    .page { box-shadow: 0 2mm 8mm rgba(0,0,0,.22); margin: 6mm auto; }
+  }
+
+  /* ─────────── Capa ─────────── */
+  .cover {
+    background: var(--verde);
+    background-image: radial-gradient(120% 82% at 50% 16%, #2c4839 0%, #22382E 56%, #1a2c24 100%);
+    color: var(--papel);
+    padding: 0;
+  }
+  .cover::before { content: ''; position: absolute; inset: 12mm; border: .5pt solid rgba(201,178,127,.5); }
+  .cover::after  { content: ''; position: absolute; inset: 14mm; border: .5pt solid rgba(201,178,127,.2); }
+
+  .cover-inner {
+    position: absolute; inset: 12mm;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center;
+    padding: 46mm 24mm 0;
+  }
+
+  .seal {
+    width: 25mm; height: 25mm; border-radius: 50%;
+    border: .75pt solid var(--latao);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    color: var(--latao);
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 13pt; font-weight: 600; letter-spacing: .18em; text-indent: .18em;
+    margin-bottom: 13mm;
+  }
+  .seal::before {
+    content: ''; position: absolute; inset: 1.6mm;
+    border-radius: 50%; border: .5pt solid rgba(201,178,127,.32);
+  }
+
+  .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5pt; font-weight: 500;
+    letter-spacing: .44em; text-indent: .44em;
+    color: var(--latao); text-transform: uppercase;
+    margin-bottom: 8mm;
+  }
+
+  .cover h1 {
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 46pt; font-weight: 500; line-height: 1.04;
+    margin-bottom: 6mm;
+  }
+  .cover h1 em { display: block; color: var(--latao); font-style: italic; font-weight: 600; letter-spacing: .015em; }
+
+  .divisor { width: 20mm; height: .75pt; background: var(--latao); opacity: .85; margin-bottom: 7mm; }
+
+  .cover .sub {
+    font-size: 10.5pt; line-height: 1.8;
+    color: rgba(243,238,228,.7);
+    max-width: 112mm; margin: 0;
+  }
+
+  .cover-meta {
+    position: absolute; left: 14mm; right: 14mm; bottom: 14mm;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-top: .5pt solid rgba(201,178,127,.28);
+    padding-top: 5mm;
+  }
+  .cover-meta div { padding: 0 5mm; }
+  .cover-meta div + div { border-left: .5pt solid rgba(201,178,127,.2); }
+  .cover-meta .rot {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6pt; letter-spacing: .26em; text-transform: uppercase;
+    color: rgba(201,178,127,.75); margin-bottom: 2mm;
+  }
+  .cover-meta .val {
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 11.5pt; color: rgba(243,238,228,.92);
+  }
+
+  /* ─────────── Cabeçalho e rodapé ─────────── */
+  .hdr {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6.5pt; letter-spacing: .24em; text-transform: uppercase;
+    color: var(--tinta-suave);
+    border-bottom: .5pt solid var(--linha);
+    padding-bottom: 2.5mm; margin-bottom: 8mm;
+  }
+  .hdr .marca { color: var(--verde); font-weight: 600; }
+  .hdr .doc { color: var(--terracota); }
+
+  .foot {
+    position: absolute; bottom: 12mm; left: 20mm; right: 20mm;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6.5pt; letter-spacing: .16em;
+    color: var(--tinta-tenue);
+    border-top: .5pt solid var(--linha-fina);
+    padding-top: 3mm;
+  }
+  .foot .pg { color: var(--verde); font-weight: 600; }
+  .foot .pg span { color: #b6ae9e; font-weight: 400; }
+
+  /* ─────────── Títulos ─────────── */
+  .sec { margin-bottom: 5mm; }
+  .sec-head { display: flex; align-items: baseline; gap: 4.5mm; }
+  .sec-num {
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 24pt; font-weight: 500; line-height: 1;
+    color: var(--latao); flex: none;
+  }
+  h2 {
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 20pt; font-weight: 600; line-height: 1.1;
+    color: var(--verde);
+  }
+  .rule { width: 13mm; height: 1.5pt; background: var(--terracota); margin-top: 3mm; }
+
+  p { font-size: 9.3pt; line-height: 1.65; color: var(--tinta-suave); margin-bottom: 4mm; }
+  p.intro { max-width: 148mm; }
+
+  /* ─────────── Tabela ─────────── */
+  table { width: 100%; border-collapse: collapse; margin: 0 0 4mm; }
+  thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6.2pt; font-weight: 500;
+    letter-spacing: .2em; text-transform: uppercase;
+    color: var(--tinta-tenue);
+    text-align: left; vertical-align: bottom;
+    padding: 0 2mm 2.2mm;
+    border-bottom: 1pt solid var(--verde);
+  }
+  thead th.r { text-align: right; }
+  td {
+    font-size: 9pt; line-height: 1.5;
+    padding: 2.8mm 2mm;
+    border-bottom: .5pt solid var(--linha-fina);
+    vertical-align: top;
+    color: var(--tinta-suave);
+  }
+  td .rubrica {
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 13pt; font-weight: 600; line-height: 1.25;
+    color: var(--verde);
+  }
+  td.num {
+    text-align: right; white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--verde);
+  }
+  td.num .v { font-size: 11.5pt; font-weight: 600; }
+  td.num .u {
+    display: block; font-size: 6pt; font-weight: 400;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--tinta-tenue); margin-top: 1mm;
+  }
+
+  tr.total td { background: var(--papel); border-top: .5pt solid var(--linha); border-bottom: 1pt solid var(--verde); }
+  tr.total td.num .v { font-size: 13pt; }
+
+  .badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 5.8pt; font-weight: 500;
+    letter-spacing: .18em; text-transform: uppercase;
+    padding: .8mm 2mm .6mm;
+    border-radius: .8mm;
+    margin-left: 2mm; vertical-align: 2pt;
+  }
+  .badge.fixo { background: rgba(34,56,46,.08); color: var(--verde); }
+  .badge.var  { background: rgba(171,86,68,.1); color: var(--terracota); }
+
+  /* ─────────── Listas ─────────── */
+  ul.marcas { list-style: none; margin: 0 0 4mm; }
+  ul.marcas li {
+    font-size: 9.3pt; line-height: 1.6; color: var(--tinta-suave);
+    padding-left: 6mm; position: relative; margin-bottom: 2.2mm;
+  }
+  ul.marcas li::before {
+    content: ''; position: absolute; left: 0; top: 1.5mm;
+    width: 1.9mm; height: 1.9mm; background: var(--latao); transform: rotate(45deg);
+  }
+
+  ol.passos { list-style: none; counter-reset: passo; margin: 0 0 4mm; }
+  ol.passos li {
+    counter-increment: passo;
+    position: relative; padding-left: 11mm;
+    margin-bottom: 3.4mm;
+    font-size: 9.3pt; line-height: 1.6; color: var(--tinta-suave);
+  }
+  ol.passos li::before {
+    content: counter(passo, decimal-leading-zero);
+    position: absolute; left: 0; top: -.6mm;
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 14pt; font-weight: 600; color: var(--latao);
+    font-variant-numeric: tabular-nums;
+  }
+  ol.passos li strong { font-weight: 600; color: var(--verde); }
+  ol.passos li strong::after { content: ' — '; color: var(--tinta-tenue); font-weight: 400; }
+
+  dl.faq { margin: 0 0 5mm; }
+  dl.faq dt {
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 13pt; font-weight: 600; color: var(--verde);
+    margin-bottom: 1.2mm;
+  }
+  dl.faq dd {
+    font-size: 9.3pt; line-height: 1.6; color: var(--tinta-suave);
+    padding-bottom: 3.4mm; margin-bottom: 3.4mm;
+    border-bottom: .5pt solid var(--linha-fina);
+  }
+  dl.faq dd:last-of-type { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+
+  /* ─────────── Notas ─────────── */
+  .nota {
+    border-left: 1.5pt solid var(--terracota);
+    background: var(--papel);
+    padding: 3.6mm 5mm;
+    font-size: 8.6pt; line-height: 1.6; color: var(--tinta-suave);
+    margin: 0 0 6mm;
+  }
+  .nota strong { color: var(--verde); font-weight: 600; }
+  .nota .rot {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6pt; letter-spacing: .24em; text-transform: uppercase;
+    color: var(--terracota); margin-right: 2.5mm;
+  }
+  .nota.bloco .rot { display: block; margin-bottom: 1.6mm; }
+  .nota.fim { margin-bottom: 0; }
+
+  /* ─────────── Resumo ─────────── */
+  .resumo {
+    background: var(--verde);
+    background-image: radial-gradient(90% 150% at 86% 0%, #2e4a3c 0%, #22382E 62%);
+    color: var(--papel);
+    padding: 6.5mm 7.5mm;
+    position: relative;
+    margin-top: 7mm;
+  }
+  .resumo::after {
+    content: ''; position: absolute; inset: 2mm;
+    border: .5pt solid rgba(201,178,127,.26); pointer-events: none;
+  }
+  .r-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6.2pt; letter-spacing: .26em; text-transform: uppercase;
+    color: var(--latao); margin-bottom: 3.5mm;
+  }
+  .r-grid { display: flex; align-items: flex-end; justify-content: space-between; gap: 12mm; }
+  .r-linhas { flex: 1; }
+  .r-linha {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 8.6pt; color: rgba(243,238,228,.75);
+    padding-bottom: 1.8mm; margin-bottom: 1.8mm;
+    border-bottom: .5pt solid rgba(201,178,127,.18);
+  }
+  .r-linha:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+  .r-linha span {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.2pt;
+    font-variant-numeric: tabular-nums; color: var(--papel);
+  }
+  .r-total { text-align: right; flex: none; }
+  .r-total .v {
+    display: block;
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    font-size: 33pt; font-weight: 600; line-height: .95; color: #fff;
+  }
+  .r-total .u {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6.2pt; letter-spacing: .26em; text-transform: uppercase;
+    color: var(--latao); margin-top: 2.5mm;
+  }
+</style>
+</head>
+<body>
+
+<!-- CAPA -->
+<div class="page cover">
+  <div class="cover-inner">
+    <div class="seal">JM</div>
+    <div class="kicker">POC &middot; Custos</div>
+    <h1>Lista de Custos<em>JMASSANO</em></h1>
+    <div class="divisor"></div>
+    <p class="sub">Estrutura de custos mensais da solu&ccedil;&atilde;o de onboarding digital de clientes — infraestrutura, acompanhamento e o que est&aacute; inclu&iacute;do em cada rubrica.</p>
+  </div>
+  <div class="cover-meta">
+    <div><span class="rot">Documento</span><span class="val">Apoio &agrave; proposta</span></div>
+    <div><span class="rot">Refer&ecirc;ncia</span><span class="val">DOC &middot; 001</span></div>
+    <div><span class="rot">Ano</span><span class="val">2026</span></div>
+  </div>
+</div>
+
+<!-- PÁGINA 2 -->
+<div class="page">
+  <div class="hdr"><span class="marca">JMASSANO &middot; Lista de Custos</span><span class="doc">Doc &middot; 001</span></div>
+
+  <div class="sec">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Custos mensais</h2></div>
+    <div class="rule"></div>
+  </div>
+  <p class="intro">A solu&ccedil;&atilde;o assenta numa infraestrutura pr&oacute;pria e num acompanhamento cont&iacute;nuo da aplica&ccedil;&atilde;o. Os valores abaixo s&atilde;o os custos mensais recorrentes.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30%">Rubrica</th>
+        <th style="width:49%">O que &eacute; / porque &eacute; necess&aacute;rio</th>
+        <th class="r" style="width:21%">Valor</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="rubrica">Servidor (VPS)</span><span class="badge fixo">Fixo</span></td>
+        <td>Servidor dedicado onde corre a aplica&ccedil;&atilde;o, a base de dados e o armazenamento dos dossiers dos clientes — com acesso controlado e c&oacute;pias de seguran&ccedil;a.</td>
+        <td class="num"><span class="v">15 &euro;</span><span class="u">por m&ecirc;s</span></td>
+      </tr>
+      <tr>
+        <td><span class="rubrica">Dom&iacute;nio</span><span class="badge fixo">Fixo</span></td>
+        <td>Registo anual do dom&iacute;nio da sociedade (ex.: jmassano.pt) para o endere&ccedil;o p&uacute;blico da plataforma e dos e-mails oficiais.</td>
+        <td class="num"><span class="v">1 &euro;</span><span class="u">por m&ecirc;s</span></td>
+      </tr>
+      <tr class="total">
+        <td><span class="rubrica">Infraestrutura (total)</span><span class="badge fixo">Fixo</span></td>
+        <td>Servidor + dom&iacute;nio — o custo base para a plataforma estar sempre dispon&iacute;vel.</td>
+        <td class="num"><span class="v">16 &euro;</span><span class="u">por m&ecirc;s</span></td>
+      </tr>
+      <tr>
+        <td><span class="rubrica">Acompanhamento da aplica&ccedil;&atilde;o</span><span class="badge var">Por membro</span></td>
+        <td>Desenvolvimento cont&iacute;nuo da aplica&ccedil;&atilde;o — manuten&ccedil;&atilde;o, corre&ccedil;&otilde;es, melhorias e acompanhamento mensal.</td>
+        <td class="num"><span class="v">3 &euro;</span><span class="u">membro / m&ecirc;s</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sec">
+    <div class="sec-head"><h2>O que est&aacute; inclu&iacute;do</h2></div>
+    <div class="rule"></div>
+  </div>
+  <ul class="marcas">
+    <li>Plataforma de onboarding digital de clientes — formul&aacute;rio de identifica&ccedil;&atilde;o, fiscal, representa&ccedil;&atilde;o, PPE, RGPD e fecho.</li>
+    <li>Gera&ccedil;&atilde;o de link de preenchimento por processo e envio autom&aacute;tico por e-mail (registo, confirma&ccedil;&atilde;o e boas-vindas).</li>
+    <li>Armazenamento seguro dos dossiers por cliente (pastas dedicadas com acesso controlado).</li>
+    <li>Painel de gest&atilde;o: processos, clientes, e-mails enviados e registo de atividade.</li>
+    <li>Conformidade RGPD e sigilo profissional no tratamento dos dados.</li>
+  </ul>
+
+  <div class="resumo">
+    <div class="r-label">Exemplo pr&aacute;tico &mdash; escrit&oacute;rio com 5 membros</div>
+    <div class="r-grid">
+      <div class="r-linhas">
+        <div class="r-linha">Infraestrutura (servidor + dom&iacute;nio)<span>16 &euro;</span></div>
+        <div class="r-linha">Acompanhamento &mdash; 3 &euro; &times; 5 membros<span>15 &euro;</span></div>
+      </div>
+      <div class="r-total"><span class="v">31 &euro;</span><span class="u">Total por m&ecirc;s</span></div>
+    </div>
+  </div>
+
+  <div class="foot"><span>JMASSANO &middot; Lista de Custos &mdash; 2026</span><span class="pg">02 <span>/ 03</span></span></div>
+</div>
+
+<!-- PÁGINA 3 -->
+<div class="page">
+  <div class="hdr"><span class="marca">JMASSANO &middot; Lista de Custos</span><span class="doc">Doc &middot; 001</span></div>
+
+  <div class="sec">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Como funciona</h2></div>
+    <div class="rule"></div>
+  </div>
+  <p class="intro">O processo &eacute; simples e acompanha a rela&ccedil;&atilde;o do escrit&oacute;rio com cada cliente, do primeiro contacto ao arquivo do dossier.</p>
+
+  <ol class="passos">
+    <li><strong>Cria&ccedil;&atilde;o do processo</strong>o escrit&oacute;rio cria um processo com os dados do cliente (pessoa singular ou empresa) e um e-mail opcional.</li>
+    <li><strong>Envio do link</strong>o cliente recebe o e-mail &laquo;JMASSANO | Registro&raquo; com o link de preenchimento.</li>
+    <li><strong>Preenchimento</strong>o cliente preenche o formul&aacute;rio em 7 passos (identifica&ccedil;&atilde;o, fiscal, representa&ccedil;&atilde;o, PPE, fatura&ccedil;&atilde;o, RGPD e fecho) e anexa os documentos.</li>
+    <li><strong>Confirma&ccedil;&atilde;o</strong>o escrit&oacute;rio recebe o e-mail de confirma&ccedil;&atilde;o de rece&ccedil;&atilde;o dos dados.</li>
+    <li><strong>Valida&ccedil;&atilde;o e arquivo</strong>a equipa valida os dados e o dossier fica arquivado na pasta do cliente.</li>
+  </ol>
+
+  <div class="sec">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Perguntas frequentes</h2></div>
+    <div class="rule"></div>
+  </div>
+  <dl class="faq">
+    <dt>H&aacute; custos escondidos?</dt>
+    <dd>N&atilde;o — os custos s&atilde;o os indicados: infraestrutura fixa + acompanhamento por membro.</dd>
+    <dt>O que acontece se aumentarmos a equipa?</dt>
+    <dd>O acompanhamento &eacute; por membro — cresce de forma proporcional e transparente.</dd>
+    <dt>Os dados dos clientes ficam onde?</dt>
+    <dd>No servidor da sociedade, em pastas dedicadas por cliente, com acesso controlado e encriptado.</dd>
+  </dl>
+
+  <div class="nota"><span class="rot">Nota</span>A <strong>implementa&ccedil;&atilde;o inicial</strong> da solu&ccedil;&atilde;o &eacute; or&ccedil;amentada em fase pr&oacute;pria, separada dos custos mensais indicados na p&aacute;gina anterior.</div>
+
+  <div class="nota bloco fim">
+    <span class="rot">Valores de refer&ecirc;ncia de mercado &middot; 2026</span>
+    O desenvolvimento de uma solu&ccedil;&atilde;o equivalente em Portugal varia entre <strong>6.000&ndash;18.000 &euro;</strong> (MVP/POC com backoffice). Os valores mensais aqui apresentados referem-se apenas &agrave; <strong>opera&ccedil;&atilde;o recorrente</strong>.
+  </div>
+
+  <div class="foot"><span>JMASSANO &middot; Lista de Custos &mdash; 2026</span><span class="pg">03 <span>/ 03</span></span></div>
+</div>
+
+</body>
+</html>

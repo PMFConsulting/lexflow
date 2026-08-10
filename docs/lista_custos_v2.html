@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Custos de Infraestrutura em Escala — JMASSANO</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --verde: #22382E;
+    --verde-claro: #2f4a3d;
+    --latao: #C9B27F;
+    --terracota: #AB5644;
+    --papel: #f3eee4;
+    --tinta: #2b2b2b;
+    --tinta-suave: #5a5a54;
+    --linha: rgba(34, 56, 46, .12);
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--tinta);
+    background: #d8d3c8;
+    -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 17mm 20mm 20mm;
+    position: relative;
+    page-break-after: always;
+    overflow: hidden;
+    background: var(--papel);
+    margin: 0 auto;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ------------------------------------------------------------ CAPA */
+  .cover {
+    padding: 0;
+    background: radial-gradient(115% 75% at 50% 28%, #2b4739 0%, #22382E 58%, #1c2f27 100%);
+    color: var(--papel);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center;
+  }
+  .cover::before { content: ''; position: absolute; inset: 11mm; border: .6pt solid rgba(201,178,127,.55); pointer-events: none; }
+  .cover::after  { content: ''; position: absolute; inset: 13.5mm; border: .4pt solid rgba(201,178,127,.22); pointer-events: none; }
+
+  .seal { position: relative; width: 30mm; height: 30mm; margin-bottom: 12mm; display: flex; align-items: center; justify-content: center; }
+  .seal::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: .8pt solid rgba(201,178,127,.85); }
+  .seal::after  { content: ''; position: absolute; inset: 2.2mm; border-radius: 50%; border: .4pt solid rgba(201,178,127,.35); }
+  .seal span { font-family: 'Cormorant Garamond', serif; font-size: 17pt; font-weight: 500; letter-spacing: .16em; text-indent: .16em; color: var(--latao); }
+
+  .cover .kicker {
+    display: flex; align-items: center; gap: 5mm;
+    font-family: 'JetBrains Mono', monospace; font-size: 8pt; font-weight: 500;
+    letter-spacing: .34em; text-indent: .34em; text-transform: uppercase;
+    color: var(--latao); margin-bottom: 9mm;
+  }
+  .cover .kicker i { display: block; width: 14mm; height: .5pt; background: rgba(201,178,127,.5); }
+
+  .cover h1 {
+    font-family: 'Cormorant Garamond', serif; font-size: 44pt; font-weight: 500;
+    line-height: 1.08; letter-spacing: .005em;
+  }
+  .cover h1 em { display: block; color: var(--latao); font-style: italic; font-weight: 500; }
+
+  .cover .hairline { width: 26mm; height: .8pt; background: rgba(201,178,127,.75); margin: 9mm 0 8mm; }
+
+  .cover .sub {
+    font-size: 11pt; font-weight: 400; line-height: 1.78;
+    color: rgba(243,238,228,.72); max-width: 118mm;
+  }
+
+  .cover .figures { display: flex; align-items: stretch; gap: 12mm; margin-top: 13mm; }
+  .cover .fig { text-align: center; }
+  .cover .fig .v { font-family: 'Cormorant Garamond', serif; font-size: 24pt; font-weight: 500; color: var(--papel); line-height: 1; }
+  .cover .fig .v small { font-family: 'DM Sans', sans-serif; font-size: 9pt; color: rgba(243,238,228,.55); letter-spacing: .02em; }
+  .cover .fig .l { font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; letter-spacing: .2em; text-indent: .2em; text-transform: uppercase; color: rgba(201,178,127,.85); margin-top: 3mm; }
+  .cover .figures .div { width: .4pt; background: rgba(201,178,127,.28); }
+
+  .cover .meta {
+    position: absolute; bottom: 19mm; left: 0; right: 0;
+    font-family: 'JetBrains Mono', monospace; font-size: 7pt;
+    letter-spacing: .24em; text-indent: .24em; text-transform: uppercase;
+    color: rgba(243,238,228,.5);
+  }
+
+  /* -------------------------------------------------- CABEÇALHO / RODAPÉ */
+  .hdr {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; font-weight: 500;
+    letter-spacing: .24em; text-indent: .24em; text-transform: uppercase;
+    color: var(--terracota);
+    border-bottom: .5pt solid var(--linha);
+    padding-bottom: 3.5mm; margin-bottom: 8mm;
+  }
+  .hdr .brand { display: flex; align-items: center; gap: 2.5mm; color: var(--verde); }
+  .hdr .brand i { display: block; width: 1.8mm; height: 1.8mm; background: var(--terracota); transform: rotate(45deg); }
+
+  .foot {
+    position: absolute; bottom: 12mm; left: 20mm; right: 20mm;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5pt;
+    letter-spacing: .16em; text-indent: .16em; color: rgba(34,56,46,.42);
+    border-top: .5pt solid var(--linha); padding-top: 3.5mm;
+  }
+  .foot .pg { color: var(--verde); font-weight: 500; }
+
+  /* ------------------------------------------------------- TÍTULOS */
+  .sec { display: flex; align-items: center; gap: 5mm; margin-bottom: 3.5mm; }
+  .sec-num { font-family: 'Cormorant Garamond', serif; font-size: 27pt; font-weight: 500; color: var(--latao); line-height: .8; }
+  .sec-line { flex: 1; height: .5pt; background: var(--linha); }
+
+  h2 { font-family: 'Cormorant Garamond', serif; font-size: 20pt; font-weight: 600; color: var(--verde); line-height: 1.15; letter-spacing: .005em; }
+  .rule { width: 14mm; height: 1.6pt; background: var(--terracota); margin: 3.5mm 0 4.5mm; }
+
+  .lead { font-size: 9.5pt; line-height: 1.7; color: var(--tinta-suave); max-width: 148mm; margin-bottom: 5.5mm; }
+
+  /* ------------------------------------------------------- TABELAS */
+  .card {
+    background: #fffdf9;
+    border: .5pt solid var(--linha);
+    border-radius: 1.5mm;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; font-weight: 500;
+    letter-spacing: .18em; text-indent: .18em; text-transform: uppercase;
+    color: var(--latao); background: var(--verde);
+    text-align: left; padding: 3.2mm 4mm; white-space: nowrap;
+  }
+  td {
+    font-size: 9pt; line-height: 1.55; color: var(--tinta-suave);
+    padding: 2.8mm 4mm; border-bottom: .5pt solid rgba(34,56,46,.09);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: 0; }
+  .comp { color: var(--verde); font-weight: 600; font-size: 9.5pt; display: block; margin-bottom: 1.4mm; letter-spacing: .005em; }
+  th.r, td.r { text-align: right; }
+  td.num { font-family: 'JetBrains Mono', monospace; font-size: 9pt; font-weight: 500; color: var(--verde); white-space: nowrap; }
+  td.mut { color: rgba(90,90,84,.72); font-weight: 400; }
+
+  tr.total td { background: var(--verde); border-top: 1pt solid var(--latao); border-bottom: 0; color: rgba(243,238,228,.72); padding-top: 3.4mm; padding-bottom: 3.4mm; }
+  tr.total .comp { color: var(--papel); margin-bottom: 1mm; }
+  tr.total td.num { color: var(--latao); font-weight: 600; font-size: 10pt; }
+
+  /* linhas alternadas discretas na tabela de escala */
+  .escala tbody tr:nth-child(even) td { background: rgba(34,56,46,.025); }
+  .escala td { padding: 2.9mm 4mm; }
+  .escala td.mem { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--verde); font-size: 9pt; }
+  .escala td.dest { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--verde); background: rgba(201,178,127,.14) !important; box-shadow: inset 1.2pt 0 0 var(--latao); }
+  .escala tr:last-child td.mem, .escala tr:last-child td.dest { position: relative; }
+
+  /* ------------------------------------------------------- BADGES */
+  .badge {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 5.8pt; font-weight: 500;
+    padding: .7mm 1.8mm; border-radius: .8mm; letter-spacing: .14em; text-indent: .14em;
+    text-transform: uppercase; vertical-align: 1.2mm; margin-left: 1.5mm;
+  }
+  .badge.fixo { background: rgba(34,56,46,.08); color: var(--verde); }
+  .badge.esc  { background: rgba(201,178,127,.22); color: #8a7440; }
+  tr.total .badge.fixo { background: rgba(201,178,127,.18); color: var(--latao); }
+
+  /* ------------------------------------------------------- NOTAS */
+  .nota {
+    border-left: 1.4pt solid var(--terracota);
+    background: rgba(171,86,68,.045);
+    padding: 3.6mm 5mm;
+    font-size: 8.5pt; line-height: 1.62; color: var(--tinta-suave);
+    margin-top: 4.5mm;
+    page-break-inside: avoid;
+  }
+  .nota strong { color: var(--verde); font-weight: 600; }
+  .nota .ast { font-family: 'JetBrains Mono', monospace; color: var(--terracota); font-weight: 600; }
+
+  /* ------------------------------------------------------- RESUMO */
+  .resumo {
+    display: flex; align-items: center; justify-content: space-between; gap: 10mm;
+    background: var(--verde); color: var(--papel);
+    border-radius: 1.5mm; border-top: 1pt solid var(--latao);
+    padding: 6mm 8mm; margin-top: 6mm;
+    page-break-inside: avoid;
+  }
+  .resumo .r-label { font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; font-weight: 500; letter-spacing: .24em; text-indent: .24em; text-transform: uppercase; color: var(--latao); margin-bottom: 2.5mm; }
+  .resumo p { font-size: 8.5pt; line-height: 1.6; color: rgba(243,238,228,.68); max-width: 78mm; }
+  .resumo .r-valor { font-family: 'Cormorant Garamond', serif; font-size: 34pt; font-weight: 500; line-height: .95; color: #fff; white-space: nowrap; text-align: right; }
+  .resumo .r-valor small { font-family: 'DM Sans', sans-serif; font-size: 9.5pt; font-weight: 400; color: rgba(243,238,228,.6); letter-spacing: .02em; }
+
+  /* ------------------------------------------------------- LISTA */
+  ul { list-style: none; }
+  li { font-size: 9pt; line-height: 1.62; color: var(--tinta-suave); padding-left: 6mm; position: relative; margin-bottom: 3.2mm; }
+  li:last-child { margin-bottom: 0; }
+  li::before { content: ''; position: absolute; left: 0; top: .58em; width: 2mm; height: 2mm; background: var(--latao); transform: rotate(45deg); }
+  li strong { color: var(--verde); font-weight: 600; }
+
+  .bloco { margin-top: 9mm; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ CAPA ═══ -->
+<div class="page cover">
+  <div class="seal"><span>JM</span></div>
+
+  <div class="kicker"><i></i>POC &middot; INFRAESTRUTURA<i></i></div>
+
+  <h1>Custos de Infraestrutura<em>em Escala</em></h1>
+
+  <div class="hairline"></div>
+
+  <p class="sub">Breakdown detalhado dos custos de infraestrutura da plataforma de onboarding — componente a componente, com proje&ccedil;&atilde;o para escrit&oacute;rios de 1 a 50 membros.</p>
+
+  <div class="figures">
+    <div class="fig">
+      <div class="v">16 &euro;<small>/m&ecirc;s</small></div>
+      <div class="l">Infraestrutura</div>
+    </div>
+    <div class="div"></div>
+    <div class="fig">
+      <div class="v">3 &euro;<small>/membro</small></div>
+      <div class="l">Acompanhamento</div>
+    </div>
+    <div class="div"></div>
+    <div class="fig">
+      <div class="v">1&ndash;50</div>
+      <div class="l">Membros previstos</div>
+    </div>
+  </div>
+
+  <div class="meta">Documento t&eacute;cnico &middot; 2026</div>
+</div>
+
+<!-- ══════════════════════════════════════════ PÁGINA 2 · BREAKDOWN ═══ -->
+<div class="page">
+  <div class="hdr">
+    <span class="brand"><i></i>JMASSANO &middot; Custos de Infraestrutura</span>
+    <span>DOC &middot; 002</span>
+  </div>
+
+  <div class="sec"><span class="sec-num">01</span><span class="sec-line"></span></div>
+  <h2>Breakdown componente a componente</h2>
+  <div class="rule"></div>
+  <p class="lead">Cada componente da infraestrutura identificado com a sua fun&ccedil;&atilde;o, por que &eacute; necess&aacute;rio e o custo mensal.</p>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:29%">Componente</th>
+          <th style="width:52%">O que &eacute; / porque &eacute; necess&aacute;rio</th>
+          <th class="r" style="width:19%">Custo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="comp">Servidor VPS</span><span class="badge fixo">Fixo</span></td>
+          <td>M&aacute;quina dedicada (CPU 2 vCores, 4 GB RAM, 80 GB SSD) onde corre a aplica&ccedil;&atilde;o, a base de dados e os servi&ccedil;os. &Eacute; a base de tudo — sem ele n&atilde;o h&aacute; plataforma.</td>
+          <td class="num r">12 &euro;/m&ecirc;s</td>
+        </tr>
+        <tr>
+          <td><span class="comp">Dom&iacute;nio</span><span class="badge fixo">Fixo</span></td>
+          <td>Registo anual do dom&iacute;nio da sociedade (jmassano.pt) — o endere&ccedil;o p&uacute;blico da plataforma e dos e-mails oficiais.</td>
+          <td class="num r">1 &euro;/m&ecirc;s</td>
+        </tr>
+        <tr>
+          <td><span class="comp">Armazenamento SFTP</span><span class="badge fixo">Fixo</span></td>
+          <td>Pasta dedicada por cliente com os dossiers e documentos anexados — acesso restrito e trilho de auditoria.</td>
+          <td class="num r">2 &euro;/m&ecirc;s</td>
+        </tr>
+        <tr>
+          <td><span class="comp">C&oacute;pias de seguran&ccedil;a</span><span class="badge fixo">Fixo</span></td>
+          <td>Backups peri&oacute;dicos da base de dados e dos dossiers — prote&ccedil;&atilde;o contra perda de dados e recupera&ccedil;&atilde;o r&aacute;pida.</td>
+          <td class="num r">1 &euro;/m&ecirc;s</td>
+        </tr>
+        <tr>
+          <td><span class="comp">E-mail transacional</span><span class="badge esc">Escolar</span></td>
+          <td>Servi&ccedil;o de envio dos e-mails autom&aacute;ticos (Registro, Confirma&ccedil;&atilde;o, Boas-vindas). Inclui volume generoso no plano b&aacute;sico.</td>
+          <td class="num r mut">Gr&aacute;tis*</td>
+        </tr>
+        <tr>
+          <td><span class="comp">Certificado SSL/TLS</span><span class="badge esc">Escolar</span></td>
+          <td>Encripta&ccedil;&atilde;o em tr&acirc;nsito (HTTPS) — liga&ccedil;&atilde;o segura entre o cliente e a plataforma.</td>
+          <td class="num r mut">Gr&aacute;tis*</td>
+        </tr>
+        <tr class="total">
+          <td><span class="comp">Infraestrutura total</span><span class="badge fixo">Fixo</span></td>
+          <td>Servidor + dom&iacute;nio + armazenamento + backups (componentes pagos).</td>
+          <td class="num r">16 &euro;/m&ecirc;s</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota"><span class="ast">*</span> Servi&ccedil;os com plano gratuito suficiente para o volume de um escrit&oacute;rio de advogados — o custo s&oacute; aparece quando o volume cresce muito (ver nota de escala na p&aacute;gina seguinte).</div>
+
+  <div class="resumo">
+    <div>
+      <div class="r-label">Infraestrutura base</div>
+      <p>Fixos, independentes do n&uacute;mero de membros do escrit&oacute;rio.</p>
+    </div>
+    <div class="r-valor">16 &euro;<small>&thinsp;/m&ecirc;s</small></div>
+  </div>
+
+  <div class="foot"><span>JMASSANO &middot; Custos de Infraestrutura &mdash; 2026</span><span class="pg">P&aacute;gina 2</span></div>
+</div>
+
+<!-- ════════════════════════════════════════════ PÁGINA 3 · ESCALA ═══ -->
+<div class="page">
+  <div class="hdr">
+    <span class="brand"><i></i>JMASSANO &middot; Custos de Infraestrutura</span>
+    <span>DOC &middot; 002</span>
+  </div>
+
+  <div class="sec"><span class="sec-num">02</span><span class="sec-line"></span></div>
+  <h2>Custos em escala por dimens&atilde;o do escrit&oacute;rio</h2>
+  <div class="rule"></div>
+  <p class="lead">O acompanhamento (3 &euro;/membro/m&ecirc;s) cresce com a equipa. A infraestrutura mant&eacute;m-se fixa at&eacute; volumes maiores (ver nota de escala).</p>
+
+  <div class="card">
+    <table class="escala">
+      <thead>
+        <tr>
+          <th style="width:16%">Membros</th>
+          <th class="r" style="width:21%">Infraestrutura</th>
+          <th class="r" style="width:23%">Acompanhamento</th>
+          <th class="r" style="width:21%">Total mensal</th>
+          <th class="r" style="width:19%">Anual</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="mem">01</td><td class="num r mut">16 &euro;</td><td class="num r mut">3 &euro;</td><td class="dest r">19 &euro;</td><td class="num r mut">228 &euro;</td></tr>
+        <tr><td class="mem">02</td><td class="num r mut">16 &euro;</td><td class="num r mut">6 &euro;</td><td class="dest r">22 &euro;</td><td class="num r mut">264 &euro;</td></tr>
+        <tr><td class="mem">03</td><td class="num r mut">16 &euro;</td><td class="num r mut">9 &euro;</td><td class="dest r">25 &euro;</td><td class="num r mut">300 &euro;</td></tr>
+        <tr><td class="mem">05</td><td class="num r mut">16 &euro;</td><td class="num r mut">15 &euro;</td><td class="dest r">31 &euro;</td><td class="num r mut">372 &euro;</td></tr>
+        <tr><td class="mem">10</td><td class="num r mut">16 &euro;</td><td class="num r mut">30 &euro;</td><td class="dest r">46 &euro;</td><td class="num r mut">552 &euro;</td></tr>
+        <tr><td class="mem">20</td><td class="num r mut">16 &euro;</td><td class="num r mut">60 &euro;</td><td class="dest r">76 &euro;</td><td class="num r mut">912 &euro;</td></tr>
+        <tr><td class="mem">50</td><td class="num r mut">16 &euro;</td><td class="num r mut">150 &euro;</td><td class="dest r">166 &euro;</td><td class="num r mut">1.992 &euro;</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bloco">
+    <h2>Nota de escala</h2>
+    <div class="rule"></div>
+    <ul>
+      <li><strong>At&eacute; 50 membros</strong> — o servidor atual aguenta sem upgrade; a infraestrutura mant&eacute;m-se nos 16 &euro;.</li>
+      <li><strong>50&ndash;200 membros</strong> — upgrade de servidor (mais CPU/RAM) e armazenamento dedicado: estimativa +20 a +40 &euro;/m&ecirc;s.</li>
+      <li><strong>+200 membros</strong> — servidor dedicado maior e balanceamento: avaliar caso a caso com proposta pr&oacute;pria.</li>
+      <li><strong>E-mail transacional</strong> — o plano gratuito cobre milhares de envios/m&ecirc;s; acima disso, planos pagos a partir de ~20 &euro;/m&ecirc;s.</li>
+    </ul>
+  </div>
+
+  <div class="nota"><strong>Valores de mercado (2026):</strong> desenvolvimento equivalente em Portugal: 6.000&ndash;18.000 &euro; (MVP/POC com backoffice). Os valores aqui s&atilde;o os custos mensais de opera&ccedil;&atilde;o recorrente; a implementa&ccedil;&atilde;o inicial &eacute; or&ccedil;amentada em fase pr&oacute;pria.</div>
+
+  <div class="foot"><span>JMASSANO &middot; Custos de Infraestrutura &mdash; 2026</span><span class="pg">P&aacute;gina 3</span></div>
+</div>
+
+</body>
+</html>
