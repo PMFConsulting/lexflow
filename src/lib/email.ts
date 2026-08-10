@@ -204,13 +204,14 @@ type Mensagem = Pick<ParametrosEmail, "para" | "assunto" | "html" | "anexos">;
 /**
  * Escolhe o canal e, falhando ele, tenta o seguinte.
  *
- * O Brevo vem primeiro por ter mais folga no plano gratuito (300 emails/dia),
- * o Mailjet a seguir (200/dia) e o Resend por último (100/dia) — mas ser o
- * primeiro não é ser o único: uma conta suspensa, um remetente por verificar
- * ou uma quota esgotada num dos fornecedores não pode deixar o cliente sem o
- * link. Com as chaves todas configuradas, um envio só falha quando falharem
- * todos — e a mensagem de erro leva as razões de cada um, porque são
- * diferentes e resolvem-se em painéis diferentes.
+ * O Resend vem primeiro por ser o canal mais fiável na entrega, mesmo tendo a
+ * quota gratuita mais curta (100 emails/dia); o Mailjet a seguir (200/dia) e o
+ * Brevo depois (300/dia) — mas ser o primeiro não é ser o único: uma conta
+ * suspensa, um remetente por verificar ou uma quota esgotada num dos
+ * fornecedores não pode deixar o cliente sem o link. Com as chaves todas
+ * configuradas, um envio só falha quando falharem todos — e a mensagem de erro
+ * leva as razões de cada um, porque são diferentes e resolvem-se em painéis
+ * diferentes.
  *
  * Um 429 (quota diária esgotada) põe o canal em pausa até ao fim do dia UTC:
  * voltar a bater à porta de um fornecedor que já disse que não tem quota não
@@ -230,18 +231,18 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
   };
 
   const canais: { nome: string; enviar: () => Promise<ResultadoEnvio> }[] = [];
-  if (ambiente.BREVO_API_KEY) {
-    const chave = ambiente.BREVO_API_KEY;
-    canais.push({ nome: "Brevo", enviar: () => tentarEnviarBrevo(msg, ambiente, chave) });
+  if (ambiente.RESEND_API_KEY) {
+    const chave = ambiente.RESEND_API_KEY;
+    canais.push({ nome: "Resend", enviar: () => tentarEnviarResend(msg, ambiente, chave) });
   }
   if (ambiente.MAILJET_API_KEY && ambiente.MAILJET_SECRET_KEY) {
     const chave = ambiente.MAILJET_API_KEY;
     const segredo = ambiente.MAILJET_SECRET_KEY;
     canais.push({ nome: "Mailjet", enviar: () => tentarEnviarMailjet(msg, ambiente, chave, segredo) });
   }
-  if (ambiente.RESEND_API_KEY) {
-    const chave = ambiente.RESEND_API_KEY;
-    canais.push({ nome: "Resend", enviar: () => tentarEnviarResend(msg, ambiente, chave) });
+  if (ambiente.BREVO_API_KEY) {
+    const chave = ambiente.BREVO_API_KEY;
+    canais.push({ nome: "Brevo", enviar: () => tentarEnviarBrevo(msg, ambiente, chave) });
   }
   // O SMTP próprio (postfix no servidor do cliente) é o último recurso: não
   // tem quota de terceiros, mas a entrega é menos vigiada (sem DKIM do
@@ -258,7 +259,7 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     return {
       ok: false,
       erro:
-        "Nenhuma chave de email configurada (BREVO_API_KEY, MAILJET_API_KEY+MAILJET_SECRET_KEY, RESEND_API_KEY ou SMTP_HOST)",
+        "Nenhuma chave de email configurada (RESEND_API_KEY, MAILJET_API_KEY+MAILJET_SECRET_KEY, BREVO_API_KEY ou SMTP_HOST)",
     };
   }
 

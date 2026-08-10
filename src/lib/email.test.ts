@@ -167,11 +167,11 @@ describe("enviarEmail", () => {
   });
 
   /**
-   * O Brevo tem prioridade por ter mais folga no plano gratuito, mas ser o
+   * O Resend tem prioridade por ser o mais fiável na entrega, mas ser o
    * primeiro não é ser o único: uma conta suspensa ou um remetente por
    * verificar num dos fornecedores não pode deixar o cliente sem o link.
    */
-  it("cai para o Resend quando o Brevo recusa", async () => {
+  it("cai para o Brevo quando o Resend recusa", async () => {
     ambiente = {
       BREVO_API_KEY: "xkeysib-teste",
       RESEND_API_KEY: "re_teste",
@@ -179,22 +179,23 @@ describe("enviarEmail", () => {
     };
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const espia = espiarFetch(async (url) =>
-      url.includes("brevo")
+      url.includes("resend")
         ? new Response('{"message":"account suspended"}', { status: 401 })
-        : new Response('{"id":"abc"}', { status: 200 }),
+        : new Response('{"messageId":"<1@brevo>"}', { status: 201 }),
     );
 
     await expect(enviarEmail(base)).resolves.toEqual({
       ok: true,
-      canal: "resend",
-      mensagemId: "abc",
+      canal: "brevo",
+      mensagemId: "<1@brevo>",
     });
 
-    expect(espia.mock.calls[0]?.[0]).toContain("api.brevo.com");
-    expect(espia.mock.calls[1]?.[0]).toContain("api.resend.com");
+    expect(espia.mock.calls[0]?.[0]).toContain("api.resend.com");
+    expect(espia.mock.calls[1]?.[0]).toContain("api.brevo.com");
     // O canal gravado é o que **aceitou**, não o que se tentou primeiro: é a
-    // ele que se vai perguntar pelo desfecho, e o id do Brevo não existe lá.
-    expect(linhas[0]).toMatchObject({ estado: "enviado", canal: "resend" });
+    // ele que se vai perguntar pelo desfecho, e o id do Brevo não existe no
+    // Resend.
+    expect(linhas[0]).toMatchObject({ estado: "enviado", canal: "brevo" });
   });
 
   it("com os dois canais em baixo, o erro leva as duas razões", async () => {
@@ -408,7 +409,7 @@ describe("enviarEmail", () => {
     ]);
   });
 
-  it("cai para o Resend quando o Mailjet recusa", async () => {
+  it("cai para o Mailjet quando o Resend recusa", async () => {
     ambiente = {
       MAILJET_API_KEY: "mj_chave",
       MAILJET_SECRET_KEY: "mj_segredo",
@@ -416,19 +417,19 @@ describe("enviarEmail", () => {
       EMAIL_REMETENTE: "POC@jmassano.pt",
     };
     const espia = espiarFetch(async (url) => {
-      if (url.includes("mailjet")) return new Response('{"error":"suspended"}', { status: 401 });
-      return new Response('{"id":"re-1"}', { status: 200 });
+      if (url.includes("resend")) return new Response('{"error":"suspended"}', { status: 401 });
+      return new Response('{"Messages":[{"To":[{"MessageID":"mj-3"}]}]}', { status: 200 });
     });
 
     await expect(enviarEmail(base)).resolves.toEqual({
       ok: true,
-      canal: "resend",
-      mensagemId: "re-1",
+      canal: "mailjet",
+      mensagemId: "mj-3",
     });
     expect(consolaAviso).toHaveBeenCalledWith(
-      expect.stringContaining("Mailjet falhou"),
+      expect.stringContaining("Resend falhou"),
     );
-    expect(espia.mock.calls.some(([url]) => String(url).includes("resend"))).toBe(true);
+    expect(espia.mock.calls.some(([url]) => String(url).includes("mailjet"))).toBe(true);
   });
 
   it("um 429 do Resend põe o canal em pausa e salta-o no envio seguinte", async () => {
@@ -459,7 +460,7 @@ describe("enviarEmail", () => {
     );
   });
 
-  it("um 500 do Mailjet não põe o canal em pausa — só o 429 o faz", async () => {
+  it("um 500 do Resend não põe o canal em pausa — só o 429 o faz", async () => {
     ambiente = {
       MAILJET_API_KEY: "mj_chave",
       MAILJET_SECRET_KEY: "mj_segredo",
@@ -467,17 +468,17 @@ describe("enviarEmail", () => {
       EMAIL_REMETENTE: "POC@jmassano.pt",
     };
     const espia = espiarFetch(async (url) => {
-      if (url.includes("mailjet")) return new Response("boom", { status: 500 });
-      return new Response('{"id":"re-2"}', { status: 200 });
+      if (url.includes("resend")) return new Response("boom", { status: 500 });
+      return new Response('{"Messages":[{"To":[{"MessageID":"mj-4"}]}]}', { status: 200 });
     });
 
-    // Primeiro envio: Mailjet 500 (não é quota), Resend aceita.
-    await expect(enviarEmail(base)).resolves.toEqual({ ok: true, canal: "resend", mensagemId: "re-2" });
-    // Segundo envio: o Mailjet é tentado outra vez (não está em pausa).
-    await expect(enviarEmail(base)).resolves.toEqual({ ok: true, canal: "resend", mensagemId: "re-2" });
+    // Primeiro envio: Resend 500 (não é quota), Mailjet aceita.
+    await expect(enviarEmail(base)).resolves.toEqual({ ok: true, canal: "mailjet", mensagemId: "mj-4" });
+    // Segundo envio: o Resend é tentado outra vez (não está em pausa).
+    await expect(enviarEmail(base)).resolves.toEqual({ ok: true, canal: "mailjet", mensagemId: "mj-4" });
 
-    const chamadasMailjet = espia.mock.calls.filter(([url]) => String(url).includes("mailjet"));
-    expect(chamadasMailjet).toHaveLength(2);
+    const chamadasResend = espia.mock.calls.filter(([url]) => String(url).includes("resend"));
+    expect(chamadasResend).toHaveLength(2);
   });
 });
 
