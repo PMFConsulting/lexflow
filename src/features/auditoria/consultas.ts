@@ -41,6 +41,7 @@ export const ACOES: Record<string, string> = {
   "assinatura.criada": "Assinatura recolhida",
   "documento.carregado": "Documento carregado",
   "documento.removido": "Documento removido",
+  "documento.descarregado": "Documento descarregado",
   "conta.ligada": "Conta de utilizador associada",
   "passo.1.gravado": "Passo 1 — Identificação gravado",
   "passo.2.gravado": "Passo 2 — Fiscal gravado",

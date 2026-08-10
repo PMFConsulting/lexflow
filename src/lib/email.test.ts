@@ -91,13 +91,83 @@ describe("enviarEmail", () => {
     });
   });
 
-  it("sem RESEND_API_KEY devolve o motivo e grava na mesma", async () => {
+  it("sem chave nenhuma devolve o motivo e grava na mesma", async () => {
     ambiente = { EMAIL_REMETENTE: "POC@jmassano.pt" };
 
     const r = await enviarEmail(base);
 
-    expect(r).toEqual({ ok: false, erro: "RESEND_API_KEY não configurada" });
-    expect(linhas[0]).toMatchObject({ estado: "erro", erro: "RESEND_API_KEY não configurada" });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    // As duas variáveis no motivo, e não só uma: quem lê isto no `/emails` tem
+    // de saber que há dois sítios possíveis onde a configurar.
+    expect(r.erro).toContain("BREVO_API_KEY");
+    expect(r.erro).toContain("RESEND_API_KEY");
+    expect(linhas[0]).toMatchObject({ estado: "erro" });
+  });
+
+  /**
+   * O Brevo tem prioridade por ter mais folga no plano gratuito, mas ser o
+   * primeiro não é ser o único: uma conta suspensa ou um remetente por
+   * verificar num dos fornecedores não pode deixar o cliente sem o link.
+   */
+  it("cai para o Resend quando o Brevo recusa", async () => {
+    ambiente = {
+      BREVO_API_KEY: "xkeysib-teste",
+      RESEND_API_KEY: "re_teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const espia = espiarFetch(async (url) =>
+      url.includes("brevo")
+        ? new Response('{"message":"account suspended"}', { status: 401 })
+        : new Response('{"id":"abc"}', { status: 200 }),
+    );
+
+    await expect(enviarEmail(base)).resolves.toEqual({ ok: true });
+
+    expect(espia.mock.calls[0]?.[0]).toContain("api.brevo.com");
+    expect(espia.mock.calls[1]?.[0]).toContain("api.resend.com");
+    expect(linhas[0]).toMatchObject({ estado: "enviado" });
+  });
+
+  it("com os dois canais em baixo, o erro leva as duas razões", async () => {
+    ambiente = {
+      BREVO_API_KEY: "xkeysib-teste",
+      RESEND_API_KEY: "re_teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    espiarFetch(async (url) =>
+      url.includes("brevo")
+        ? new Response("sem conta", { status: 401 })
+        : new Response("dominio por verificar", { status: 403 }),
+    );
+
+    const r = await enviarEmail(base);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("Brevo devolveu 401");
+    expect(r.erro).toContain("Resend devolveu 403");
+  });
+
+  it("usa o header api-key e o campo attachment no Brevo", async () => {
+    ambiente = { BREVO_API_KEY: "xkeysib-teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
+    const espia = responde(201, '{"messageId":"<1@brevo>"}');
+
+    await expect(
+      enviarEmail({ ...base, anexos: [{ nome: "resumo.pdf", conteudo: Buffer.from("pdf") }] }),
+    ).resolves.toEqual({ ok: true });
+
+    const [url, opcoes] = espia.mock.calls[0] ?? [];
+    expect(url).toContain("api.brevo.com");
+    expect((opcoes?.headers as Record<string, string>)["api-key"]).toBe("xkeysib-teste");
+    const corpo = JSON.parse(String(opcoes?.body));
+    expect(corpo.htmlContent).toBe("<p>olá</p>");
+    expect(corpo.to).toEqual([{ email: "cliente@exemplo.pt" }]);
+    expect(corpo.attachment).toEqual([
+      { name: "resumo.pdf", content: Buffer.from("pdf").toString("base64") },
+    ]);
   });
 
   /**

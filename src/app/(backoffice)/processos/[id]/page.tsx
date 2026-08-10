@@ -90,7 +90,11 @@ export default async function Processo({
   const { eu } = await exigirSessao();
 
   const processo = await processoPorId(id);
-  if (!processo) notFound();
+  // A mesma regra da rota de download: um processo de outra organização
+  // responde como um processo que não existe. Sem isto, o id na barra de
+  // endereço abria o dossier inteiro — dados fiscais, PPE e auditoria — a
+  // quem tem sessão em qualquer organização da instalação.
+  if (!processo || processo.organizacaoId !== eu.organizacaoId) notFound();
 
   const [s, docs, eventos, assinatura] = await Promise.all([
     seccoesDoProcesso(processo.id),
@@ -344,10 +348,17 @@ export default async function Processo({
                       {d.tipo} · {kb(d.bytes)} · <Ref>{d.hash.slice(0, 16)}…</Ref>
                     </p>
                   </div>
+                  {/* Terracota é a cor de escolha do utilizador e não entra em
+                      texto corrido (D45): a 3,46:1 sobre branco chega para um
+                      contorno, não para um `text-xs`. Este link veste-se como o
+                      de voltar aos Processos, que é o idioma de link da casa.
+                      O nome do ficheiro vai no rótulo acessível — numa lista de
+                      seis anexos, seis "Descarregar" iguais não dizem qual. */}
                   <a
                     href={`/processos/${processo.id}/documentos/${d.id}`}
                     download
-                    className="text-marca hover:text-marca/80 inline-flex items-center gap-1.5 text-xs font-medium"
+                    aria-label={`Descarregar ${d.nome}`}
+                    className="hover:text-tinta inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground"
                   >
                     <Download className="size-3.5" />
                     Descarregar
@@ -357,8 +368,9 @@ export default async function Processo({
             </ul>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            O download no painel vem da base de dados, com sessão exigida. O URL assinado do
-            armazenamento dedicado fica para quando houver object storage.
+            O download no painel vem da base de dados, com sessão exigida, e fica registado na
+            auditoria. O URL assinado do armazenamento dedicado fica para quando houver object
+            storage.
           </p>
         </CardContent>
       </Card>

@@ -7,12 +7,17 @@
  * sintoma, e distingui-las a partir da aplicação obriga a criar processos a
  * sério:
  *
- *   1. a `RESEND_API_KEY` não chega ao processo do Node (está no painel do
- *      Coolify mas não no ambiente do contentor);
- *   2. o Resend recusa o envio — quase sempre 403, porque o domínio do
+ *   1. a chave não chega ao processo do Node (está no painel do Coolify mas
+ *      não no ambiente do contentor);
+ *   2. o fornecedor recusa o envio — quase sempre 403, porque o domínio do
  *      `EMAIL_REMETENTE` não está verificado na conta;
- *   3. o servidor não tem saída para a `api.resend.com` e o pedido fica
- *      pendurado até ao tempo limite.
+ *   3. o servidor não tem saída para a API e o pedido fica pendurado até ao
+ *      tempo limite.
+ *
+ * Percorre os canais pela **mesma ordem da aplicação** — Brevo primeiro, Resend
+ * a seguir. Se assim não fosse, este teste podia dizer que está tudo bem depois
+ * de exercitar um canal que a aplicação já não usa, que é exatamente o género
+ * de resposta errada que ele existe para não dar.
  *
  * As três dizem-se de maneiras diferentes aqui e não dizem nada nenhuma na
  * aplicação. Escreve na mesma tabela que o `enviarEmail` escreve, com a mesma
@@ -25,7 +30,7 @@
  *
  * ou, em desenvolvimento:  pnpm email:testar alguem@exemplo.pt
  *
- * `--sem-bd` faz o teste do Resend sem tocar no Postgres, para o caso de a
+ * `--sem-bd` faz o teste do envio sem tocar no Postgres, para o caso de a
  * `DATABASE_URL` ser exatamente aquilo de que se desconfia.
  */
 
@@ -50,12 +55,14 @@ if (!destino) {
 const mascarar = (v) =>
   !v ? "(vazia)" : v.length <= 8 ? "********" : `${v.slice(0, 4)}…${v.slice(-4)} (${v.length} car.)`;
 
-const chave = process.env.RESEND_API_KEY;
+const chaveBrevo = process.env.BREVO_API_KEY;
+const chaveResend = process.env.RESEND_API_KEY;
 const remetente = process.env.EMAIL_REMETENTE || "POC@jmassano.pt";
 const urlBd = process.env.DATABASE_URL;
 
 console.log("Ambiente");
-console.log(`  RESEND_API_KEY    ${mascarar(chave)}`);
+console.log(`  BREVO_API_KEY     ${mascarar(chaveBrevo)}`);
+console.log(`  RESEND_API_KEY    ${mascarar(chaveResend)}`);
 console.log(`  EMAIL_REMETENTE   ${remetente}${process.env.EMAIL_REMETENTE ? "" : "  (por omissão — não está no ambiente)"}`);
 console.log(`  EMAIL_NOTIFICACOES ${process.env.EMAIL_NOTIFICACOES || "(vazia — o aviso interno não sai)"}`);
 console.log(`  DATABASE_URL      ${urlBd ? "definida" : "(vazia)"}`);
@@ -64,20 +71,20 @@ console.log("");
 const assunto = `JMASSANO | Teste de envio ${new Date().toISOString()}`;
 const html = `<p>Mensagem de teste do <code>scripts/testar_email.mjs</code>.</p>
 <p>Se a está a ler, o caminho de envio da plataforma funciona: chave aceite,
-remetente verificado e saída para a api.resend.com aberta.</p>`;
+remetente verificado e saída para a Internet aberta.</p>`;
 
 const resultado = await enviar();
 
 if (resultado.ok) {
-  console.log(`✓ O Resend aceitou a mensagem para ${destino}.`);
+  console.log(`✓ O ${resultado.canal} aceitou a mensagem para ${destino}.`);
   console.log("  Confirme a caixa de entrada — e também o spam.");
 } else {
   console.error(`✗ Não saiu: ${resultado.erro}`);
-  if (/403/.test(resultado.erro)) {
+  if (/403|401/.test(resultado.erro)) {
     console.error(
-      `\n  Um 403 do Resend é quase sempre o domínio: «${remetente.split("@")[1]}» tem de estar\n` +
-        "  verificado em resend.com/domains. Enquanto não estiver, nenhum dos três emails\n" +
-        "  da JMASSANO sai — e o `onboarding@resend.dev` só entrega ao dono da conta.",
+      `\n  Um 403 é quase sempre o domínio: «${remetente.split("@")[1]}» tem de estar verificado\n` +
+        "  na conta do fornecedor (resend.com/domains, ou Senders & IP no Brevo). Enquanto\n" +
+        "  não estiver, nenhum dos três emails da JMASSANO sai.",
     );
   }
 }
@@ -89,35 +96,77 @@ process.exit(resultado.ok ? 0 : 1);
 /* ------------------------------------------------------------------------ */
 
 async function enviar() {
-  if (!chave) {
+  const canais = [];
+  if (chaveBrevo) {
+    canais.push({
+      nome: "Brevo",
+      anfitriao: "api.brevo.com",
+      url: "https://api.brevo.com/v3/smtp/email",
+      cabecalhos: { "api-key": chaveBrevo, "Content-Type": "application/json" },
+      corpo: {
+        sender: { email: remetente },
+        to: [{ email: destino }],
+        subject: assunto,
+        htmlContent: html,
+      },
+    });
+  }
+  if (chaveResend) {
+    canais.push({
+      nome: "Resend",
+      anfitriao: "api.resend.com",
+      url: "https://api.resend.com/emails",
+      cabecalhos: {
+        Authorization: `Bearer ${chaveResend}`,
+        "Content-Type": "application/json",
+      },
+      corpo: { from: remetente, to: [destino], subject: assunto, html },
+    });
+  }
+
+  if (canais.length === 0) {
     return {
       ok: false,
-      erro: "RESEND_API_KEY não chega ao ambiente deste processo (o painel do Coolify pode tê-la sem o contentor a ver).",
+      erro: "Nem BREVO_API_KEY nem RESEND_API_KEY chegam ao ambiente deste processo (o painel do Coolify pode tê-las sem o contentor a ver).",
     };
   }
 
+  const erros = [];
+  for (const canal of canais) {
+    const r = await tentar(canal);
+    if (r.ok) return { ...r, canal: canal.nome };
+    erros.push(r.erro);
+    if (canal !== canais[canais.length - 1]) {
+      console.log(`  ${canal.nome} recusou (${r.erro}) — a tentar o canal seguinte.`);
+    }
+  }
+
+  return { ok: false, erro: erros.join(" | "), canal: null };
+}
+
+async function tentar(canal) {
   try {
-    const resposta = await fetch("https://api.resend.com/emails", {
+    const resposta = await fetch(canal.url, {
       method: "POST",
       signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
-      headers: {
-        Authorization: `Bearer ${chave}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ from: remetente, to: [destino], subject: assunto, html }),
+      headers: canal.cabecalhos,
+      body: JSON.stringify(canal.corpo),
     });
 
     const corpo = await resposta.text();
     if (!resposta.ok) {
-      return { ok: false, erro: `Resend devolveu ${resposta.status} (de=${remetente}): ${corpo}` };
+      return {
+        ok: false,
+        erro: `${canal.nome} devolveu ${resposta.status} (de=${remetente}): ${corpo}`,
+      };
     }
-    console.log(`  resposta: ${corpo}`);
+    console.log(`  ${canal.nome}: ${corpo}`);
     return { ok: true, erro: null };
   } catch (erro) {
     if (erro instanceof Error && erro.name === "TimeoutError") {
       return {
         ok: false,
-        erro: `A api.resend.com não respondeu em ${TEMPO_LIMITE_MS / 1000}s — saída para a Internet fechada no servidor?`,
+        erro: `A ${canal.anfitriao} não respondeu em ${TEMPO_LIMITE_MS / 1000}s — saída para a Internet fechada no servidor?`,
       };
     }
     return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };

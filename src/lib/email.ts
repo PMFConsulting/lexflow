@@ -89,9 +89,9 @@ async function registar(
 }
 
 /**
- * Envio de email transacional via Resend. Nunca deixa o fluxo rebentar: sem
- * chave configurada, fica-se pelo log; qualquer erro na chamada é apanhado e
- * devolvido, não propagado.
+ * Envio de email transacional (Brevo, com o Resend em recurso). Nunca deixa o
+ * fluxo rebentar: sem chave configurada, fica-se pelo log; qualquer erro na
+ * chamada é apanhado e devolvido, não propagado.
  *
  * Todos os caminhos de saída passam por `registar` — incluindo o da chave que
  * falta, o da exceção e o do próprio `tentarEnviar` a rebentar. É a única forma
@@ -131,32 +131,77 @@ export async function enviarEmail(p: ParametrosEmail): Promise<ResultadoEnvio> {
   return resultado;
 }
 
-async function tentarEnviar({
-  para,
-  assunto,
-  html,
-  anexos,
-}: ParametrosEmail): Promise<ResultadoEnvio> {
+/** O que se envia, sem a contabilidade do diário à volta. */
+type Mensagem = Pick<ParametrosEmail, "para" | "assunto" | "html" | "anexos">;
+
+/**
+ * Escolhe o canal e, falhando ele, tenta o seguinte.
+ *
+ * O Brevo vem primeiro por ter mais folga no plano gratuito (300 emails/dia,
+ * contra os 100/dia do Resend), mas ser o primeiro não é ser o único: uma conta
+ * suspensa ou um remetente por verificar num dos fornecedores não pode deixar o
+ * cliente sem o link. Com as duas chaves configuradas, um envio só falha quando
+ * falharem os dois — e a mensagem de erro leva as duas razões, porque são
+ * diferentes e resolvem-se em painéis diferentes.
+ *
+ * O que isto custa é a hipótese de um duplicado: se o Brevo aceitar a mensagem
+ * e a resposta se perder no tempo limite, o Resend manda a segunda. Um email a
+ * dobrar é preferível a nenhum.
+ */
+async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
   const ambiente = env();
+  const msg: Mensagem = {
+    para: p.para,
+    assunto: p.assunto,
+    html: p.html,
+    anexos: p.anexos,
+  };
 
-  // Brevo primeiro: se a chave estiver configurada, é o canal ativo (300
-  // emails/dia no plano gratuito, contra os 100/dia do Resend).
+  const canais: { nome: string; enviar: () => Promise<ResultadoEnvio> }[] = [];
   if (ambiente.BREVO_API_KEY) {
-    return tentarEnviarBrevo({ para, assunto, html, anexos }, ambiente, ambiente.BREVO_API_KEY);
+    const chave = ambiente.BREVO_API_KEY;
+    canais.push({ nome: "Brevo", enviar: () => tentarEnviarBrevo(msg, ambiente, chave) });
+  }
+  if (ambiente.RESEND_API_KEY) {
+    const chave = ambiente.RESEND_API_KEY;
+    canais.push({ nome: "Resend", enviar: () => tentarEnviarResend(msg, ambiente, chave) });
   }
 
-  if (!ambiente.RESEND_API_KEY) {
-    const lista = anexos?.length ? ` anexos=${anexos.map((a) => a.nome).join(",")}` : "";
-    console.log(`[email] (sem chave) para=${para} assunto="${assunto}"${lista}`);
-    return { ok: false, erro: "RESEND_API_KEY não configurada" };
+  if (canais.length === 0) {
+    const lista = p.anexos?.length ? ` anexos=${p.anexos.map((a) => a.nome).join(",")}` : "";
+    console.log(`[email] (sem chave) para=${p.para} assunto="${p.assunto}"${lista}`);
+    return { ok: false, erro: "Nenhuma chave de email configurada (BREVO_API_KEY ou RESEND_API_KEY)" };
   }
 
+  const erros: string[] = [];
+  for (const canal of canais) {
+    const r = await canal.enviar();
+    if (r.ok) return r;
+    erros.push(r.erro);
+    // Um canal que falhou e foi substituído não deixa linha nenhuma em
+    // `email_log` — a linha é do envio, e o envio ainda pode ter corrido bem.
+    // Sem este aviso, um fornecedor podia estar em baixo há semanas sem que
+    // nada o dissesse.
+    if (canal !== canais[canais.length - 1]) {
+      console.warn(`[email] ${canal.nome} falhou (${r.erro}) — a tentar o canal seguinte.`);
+    }
+  }
+
+  return { ok: false, erro: erros.join(" | ") };
+}
+
+/** Envio via Resend: `Authorization: Bearer`, anexos em `attachments`. */
+async function tentarEnviarResend(
+  { para, assunto, html, anexos }: Mensagem,
+  ambiente: Ambiente,
+  chave: string,
+): Promise<ResultadoEnvio> {
   try {
     const resposta = await fetch("https://api.resend.com/emails", {
       method: "POST",
       signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
       headers: {
-        Authorization: `Bearer ${ambiente.RESEND_API_KEY}`,
+        Authorization: `Bearer ${chave}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -206,7 +251,7 @@ async function tentarEnviar({
 
 /** Envio via Brevo (ex-Sendinblue): `api-key` no header, anexos em `attachment`. */
 async function tentarEnviarBrevo(
-  { para, assunto, html, anexos }: Omit<ParametrosEmail, "template">,
+  { para, assunto, html, anexos }: Mensagem,
   ambiente: Ambiente,
   chave: string,
 ): Promise<ResultadoEnvio> {
