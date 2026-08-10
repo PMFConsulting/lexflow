@@ -13,7 +13,11 @@ import {
   passosGravados,
   seccoesDoProcesso,
 } from "@/features/onboarding/dados";
-import { passosDoProcesso } from "@/features/onboarding/passos";
+import {
+  passosAntesDe,
+  passosDoProcesso,
+  type TipoCliente,
+} from "@/features/onboarding/passos";
 import { exigirSessao, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 
@@ -53,11 +57,13 @@ function Linha({ k, v }: { k: string; v: React.ReactNode }) {
 function Bloco({
   titulo,
   passo,
+  tipoCliente,
   preenchido,
   children,
 }: {
   titulo: string;
   passo: number;
+  tipoCliente: TipoCliente;
   preenchido: boolean;
   children: React.ReactNode;
 }) {
@@ -65,7 +71,11 @@ function Bloco({
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
-          {String(passo).padStart(2, "0")} · {titulo}
+          {/* A posição no percurso deste cliente, e não o número interno do
+              passo: num particular o 3 não existe, e a lista lia-se 01 02 04.
+              O `passo` continua a ser o número real — é ele que escolhe o
+              conteúdo do bloco e que casa com os rótulos de auditoria. */}
+          {String(passosAntesDe(passo, tipoCliente) + 1).padStart(2, "0")} · {titulo}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -166,7 +176,12 @@ export default async function Processo({
 
       {/* ── dados ─────────────────────────────────────────────────────── */}
       <div className="grid gap-3">
-        <Bloco titulo="Identificação" passo={1} preenchido={Boolean(s.identificacao)}>
+        <Bloco
+          titulo="Identificação"
+          passo={1}
+          tipoCliente={processo.tipoCliente}
+          preenchido={Boolean(s.identificacao)}
+        >
           <Linha k="Nome" v={s.identificacao?.nome} />
           <Linha k="Profissão" v={s.identificacao?.profissao} />
           <Linha k="Entidade patronal" v={s.identificacao?.entidadePatronal} />
@@ -184,7 +199,12 @@ export default async function Processo({
           />
         </Bloco>
 
-        <Bloco titulo="Fiscal" passo={2} preenchido={Boolean(s.fiscais)}>
+        <Bloco
+          titulo="Fiscal"
+          passo={2}
+          tipoCliente={processo.tipoCliente}
+          preenchido={Boolean(s.fiscais)}
+        >
           <Linha k="NIF / NIPC" v={<Ref>{s.fiscais?.nif}</Ref>} />
           <Linha k="NIF português" v={s.fiscais ? (s.fiscais.nifPortugues ? "Sim" : "Não") : null} />
           <Linha k="Reside em Portugal" v={s.fiscais ? (s.fiscais.resideEmPortugal ? "Sim" : "Não") : null} />
@@ -197,7 +217,12 @@ export default async function Processo({
         {/* O passo 3 só existe para pessoas coletivas: uma pessoa singular
             representa-se a si própria, e o bloco em branco só diria isso. */}
         {processo.tipoCliente === "empresa" && (
-        <Bloco titulo="Representante Legal" passo={3} preenchido={Boolean(s.representante)}>
+        <Bloco
+          titulo="Representante Legal"
+          passo={3}
+          tipoCliente={processo.tipoCliente}
+          preenchido={Boolean(s.representante)}
+        >
           <Linha
             k="Quem preencheu é o representante legal"
             v={s.representante ? (s.representante.eRepresentante ? "Sim" : "Não") : null}
@@ -226,7 +251,12 @@ export default async function Processo({
         {/* O passo 4 é o mais sensível do sistema. O papel `assistente` não o vê
             — nem aqui, nem por URL direto, nem por chamada à API. */}
         {vePpe ? (
-          <Bloco titulo="PPE e relação de negócio" passo={4} preenchido={Boolean(s.ppe ?? s.negocio)}>
+          <Bloco
+            titulo="PPE e relação de negócio"
+            passo={4}
+            tipoCliente={processo.tipoCliente}
+            preenchido={Boolean(s.ppe ?? s.negocio)}
+          >
             <Linha k="Pessoa politicamente exposta" v={s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null} />
             <Linha k="Cargo" v={s.ppe?.ppeCargo} />
             <Linha k="Entidade" v={s.ppe?.ppeEntidade} />
@@ -263,14 +293,24 @@ export default async function Processo({
           </Card>
         )}
 
-        <Bloco titulo="Faturação" passo={5} preenchido={Boolean(s.faturacao)}>
+        <Bloco
+          titulo="Faturação"
+          passo={5}
+          tipoCliente={processo.tipoCliente}
+          preenchido={Boolean(s.faturacao)}
+        >
           <Linha k="Nome ou empresa" v={s.faturacao?.nome} />
           <Linha k="NIF" v={<Ref>{s.faturacao?.nif}</Ref>} />
           <Linha k="Email" v={s.faturacao?.email} />
           <Linha k="Ao cuidado de" v={s.faturacao?.acNome} />
         </Bloco>
 
-        <Bloco titulo="RGPD — consentimentos" passo={6} preenchido={Boolean(s.preferencias)}>
+        <Bloco
+          titulo="RGPD — consentimentos"
+          passo={6}
+          tipoCliente={processo.tipoCliente}
+          preenchido={Boolean(s.preferencias)}
+        >
           <Linha k="Como chegou até nós" v={ORIGEM_CONTACTO_TEXTO[s.preferencias?.origemContacto ?? ""]} />
           <Linha
             k={
@@ -291,6 +331,7 @@ export default async function Processo({
         <Bloco
           titulo="T&C, aceitação de proposta e assinatura digital"
           passo={7}
+          tipoCliente={processo.tipoCliente}
           preenchido={Boolean(s.fecho ?? assinatura)}
         >
           <Linha

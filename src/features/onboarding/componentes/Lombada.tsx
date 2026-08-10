@@ -66,7 +66,7 @@ export function Lombada({
       </div>
 
       <ol className="border-linha flex gap-1 overflow-x-auto pb-2 md:flex-col md:gap-0 md:overflow-visible md:border-l md:pb-0">
-        {percurso.map((p) => {
+        {percurso.map((p, indice) => {
           const feito = gravados.includes(p.n);
           const aqui = p.n === atual;
           const acessivel = feito || p.n <= atual;
@@ -86,7 +86,11 @@ export function Lombada({
               )}
             >
               <span className="text-2xs font-mono tabular-nums md:w-4">
-                {String(p.n).padStart(2, "0")}
+                {/* A posição no percurso, e não o número interno do passo: num
+                    particular a numeração salta o 3, e o cliente via 01 02 04
+                    numa lista de seis. O `p.n` continua a mandar nos links e
+                    nos rótulos de auditoria — o que muda é só o que se lê. */}
+                {String(indice + 1).padStart(2, "0")}
               </span>
               <span className="md:flex-1">{p.curto}</span>
               {feito && !aCarimbar && (
