@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Ref } from "@/components/ref-processo";
 import { estadoArmazenamento } from "@/features/configuracao/consultas";
 import { exigirSessao } from "@/lib/sessao";
-import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Configuração" };
 export const dynamic = "force-dynamic";
@@ -40,14 +39,6 @@ export default async function Configuracao() {
             <ul className="divide-linha divide-y text-sm">
               {ultimosEventos.map((e) => (
                 <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 py-2">
-                  <span
-                    className={cn(
-                      "text-2xs font-mono tracking-wider uppercase",
-                      e.acao === "armazenamento.erro" ? "text-selo" : "text-arquivo",
-                    )}
-                  >
-                    {e.acao === "armazenamento.erro" ? "Erro" : "Enviado"}
-                  </span>
                   <span className="text-muted-foreground text-xs">
                     <Ref>{dt(e.criadoEm)}</Ref>
                   </span>
