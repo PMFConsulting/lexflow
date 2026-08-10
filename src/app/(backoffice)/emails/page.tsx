@@ -3,8 +3,15 @@ import { Mail, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Ref } from "@/components/ref-processo";
 import { FiltrosEmails } from "@/features/emails/componentes/FiltrosEmails";
-import { LIMITE, facetasEmails, listarEmails } from "@/features/emails/consultas";
 import {
+  LIMITE,
+  facetasEmails,
+  listarEmails,
+  type LinhaEmail,
+} from "@/features/emails/consultas";
+import {
+  ESTADOS_FALHADOS,
+  ROTULOS_CANAL,
   ROTULOS_ESTADO,
   ROTULOS_TEMPLATE,
   type EstadoEmail,
@@ -17,6 +24,22 @@ import { cn } from "@/lib/utils";
 export const metadata = { title: "Emails" };
 export const dynamic = "force-dynamic";
 
+/**
+ * A cor de cada estado, na paleta do §3.
+ *
+ * O carmim (`selo`) é para o que não chegou — o erro de envio e o devolvido são
+ * o mesmo problema visto de dois sítios. O verde-arquivo é a única confirmação
+ * a sério que esta tabela tem. O latão fica para a queixa de spam, que não é
+ * falha de entrega mas exige atenção. O «Aceite» fica cinzento de propósito:
+ * não é bom nem mau, é o estado em que ainda não se sabe.
+ */
+const TOM_ESTADO: Partial<Record<EstadoEmail, string>> = {
+  erro: "border-selo/40 bg-selo/10 text-selo",
+  devolvido: "border-selo/40 bg-selo/10 text-selo",
+  queixa: "border-latao/40 bg-latao/10 text-latao",
+  entregue: "border-arquivo/40 bg-arquivo/10 text-arquivo",
+};
+
 const quando = (d: Date | string) => {
   const data = d instanceof Date ? d : new Date(d);
   if (Number.isNaN(data.getTime())) return "—";
@@ -25,6 +48,23 @@ const quando = (d: Date | string) => {
     timeStyle: "short",
   }).format(data);
 };
+
+/**
+ * De onde vem o estado: o canal, o id da mensagem e a hora da confirmação.
+ *
+ * Fica no `title` e não numa coluna — é o que se copia para o painel do
+ * fornecedor no dia em que este ecrã já não chega, e não é o que se lê a cada
+ * visita. Sem id, diz-se porquê: uma linha que nunca vai sair de «Aceite» tem
+ * de o anunciar, senão lê-se como "ainda a caminho" para sempre.
+ */
+function proveniencia(l: LinhaEmail): string {
+  if (!l.canal) return "Nenhum fornecedor aceitou esta mensagem.";
+  if (!l.mensagemId) {
+    return `${ROTULOS_CANAL[l.canal]} — aceite sem devolver id; a entrega não se consegue confirmar.`;
+  }
+  const confirmado = l.verificadoEm ? ` · confirmado em ${quando(l.verificadoEm)}` : "";
+  return `${ROTULOS_CANAL[l.canal]} · ${l.mensagemId}${confirmado}`;
+}
 
 /**
  * Lê um parâmetro repetível do URL e deita fora o que não seja do enum.
@@ -70,7 +110,8 @@ export default async function Emails({
     facetasEmails(filtros),
   ]);
 
-  const falhas = linhas.filter((l) => l.estado === "erro").length;
+  const falhas = linhas.filter((l) => ESTADOS_FALHADOS.includes(l.estado)).length;
+  const porConfirmar = linhas.filter((l) => l.estado === "enviado").length;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5">
@@ -78,9 +119,19 @@ export default async function Emails({
         <h1 className="text-2xl">Emails</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {linhas.length === 1 ? "1 mensagem" : `${linhas.length} mensagens`}
-          {falhas > 0 && ` · ${falhas === 1 ? "1 com erro" : `${falhas} com erro`}`}
+          {falhas > 0 && ` · ${falhas === 1 ? "1 não chegou" : `${falhas} não chegaram`}`}
           {filtros.q && ` para “${filtros.q}”`}
         </p>
+        {/* «Aceite» e «Entregue» não são a mesma coisa, e a diferença entre as
+            duas é o defeito que esta coluna existe para tornar visível. */}
+        {porConfirmar > 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            <strong className="font-medium">Aceite</strong> quer dizer que o fornecedor ficou
+            com a mensagem; <strong className="font-medium">Entregue</strong> quer dizer que o
+            servidor do destinatário a aceitou. A confirmação chega alguns minutos depois do
+            envio.
+          </p>
+        )}
       </div>
 
       <FiltrosEmails facetas={facetas} />
@@ -158,10 +209,11 @@ export default async function Emails({
                         <span
                           className={cn(
                             "border-linha inline-flex rounded-sm border px-1.5 py-0.5 font-mono text-xs",
-                            l.estado === "erro"
-                              ? "border-selo/40 bg-selo/10 text-selo"
-                              : "text-muted-foreground",
+                            TOM_ESTADO[l.estado] ?? "text-muted-foreground",
                           )}
+                          // O par canal + id é o que se leva ao painel do
+                          // fornecedor quando este ecrã já não chega.
+                          title={proveniencia(l)}
                         >
                           {ROTULOS_ESTADO[l.estado] ?? l.estado}
                         </span>

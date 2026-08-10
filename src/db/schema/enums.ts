@@ -85,12 +85,39 @@ export const templateEmail = pgEnum("template_email", [
 ]);
 
 /**
- * Como correu a tentativa de envio. Só dois valores: ou o fornecedor aceitou a
- * mensagem, ou não aceitou. O que acontece depois de aceite — entregue, aberta,
- * devolvida — é do lado do Resend e viria por webhook; enquanto não houver,
- * `enviado` quer dizer "entregue ao fornecedor" e não "chegou à caixa".
+ * Como correu a mensagem, do pedido ao desfecho.
+ *
+ * Os dois primeiros são sobre a **aceitação** pelo fornecedor: `erro` é ele a
+ * recusar, `enviado` é ele a ficar com a mensagem. `enviado` nunca quis dizer
+ * "chegou à caixa", e era esse o problema — num teste de vinte empresas, uma
+ * das mensagens ficou em `enviado` e nunca chegou a lado nenhum, e a plataforma
+ * não tinha como o dizer.
+ *
+ * Os três últimos são o desfecho, perguntado ao fornecedor alguns minutos
+ * depois (`confirmarEntrega`, em `lib/email.ts`). Uma linha que fique em
+ * `enviado` é agora uma afirmação estreita e honesta: aceite, entrega por
+ * confirmar.
+ *
+ * A ordem é a de acrescento no Postgres e não a lógica — `ALTER TYPE ADD VALUE`
+ * põe os valores novos no fim, e o array tem de bater certo com o tipo.
  */
-export const estadoEmail = pgEnum("estado_email", ["enviado", "erro"]);
+export const estadoEmail = pgEnum("estado_email", [
+  "enviado",
+  "erro",
+  "entregue",
+  "devolvido",
+  "queixa",
+]);
+
+/**
+ * Qual dos dois fornecedores aceitou a mensagem.
+ *
+ * Não é diagnóstico de luxo: é o que decide a **quem** se pergunta se a
+ * mensagem chegou. O id que o Brevo devolve não existe no Resend, e a consulta
+ * de entrega de cada um tem endereço, header e formato de resposta próprios —
+ * sem esta coluna, um `mensagem_id` guardado sozinho não se sabe interpretar.
+ */
+export const canalEmail = pgEnum("canal_email", ["brevo", "resend"]);
 
 /** Regime de IVA — percurso Empresa. Por validar contra imagem (A18). */
 export const regimeIva = pgEnum("regime_iva", [

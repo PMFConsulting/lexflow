@@ -11,7 +11,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const linhas: Record<string, unknown>[] = [];
+/** Uma entrada por `update` ao diário — o que `confirmarEntrega` lá escreveu. */
+const atualizacoes: Record<string, unknown>[] = [];
 let gravacaoRebenta = false;
+let atualizacaoRebenta = false;
 let ambiente: Record<string, unknown> = {};
 let ambienteRebenta: Error | null = null;
 
@@ -32,6 +35,14 @@ vi.mock("@/db", () => ({
         linhas.push(v);
       },
     }),
+    update: () => ({
+      set: (v: Record<string, unknown>) => ({
+        where: async () => {
+          if (atualizacaoRebenta) throw new Error('relation "email_log" does not exist');
+          atualizacoes.push(v);
+        },
+      }),
+    }),
   }),
 }));
 
@@ -39,7 +50,7 @@ vi.mock("@/db", () => ({
  * Importação dinâmica e não estática: as fábricas dos `vi.mock` fecham sobre as
  * variáveis declaradas acima, e uma importação estática corre antes delas.
  */
-const { enviarEmail } = await import("./email");
+const { confirmarEntrega, enviarEmail, verificarEntrega } = await import("./email");
 
 const base = {
   para: "cliente@exemplo.pt",
@@ -49,14 +60,18 @@ const base = {
 };
 
 let consolaErro: ReturnType<typeof vi.spyOn>;
+let consolaAviso: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   linhas.length = 0;
+  atualizacoes.length = 0;
   gravacaoRebenta = false;
+  atualizacaoRebenta = false;
   ambienteRebenta = null;
   ambiente = { RESEND_API_KEY: "re_teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
+  consolaAviso = vi.spyOn(console, "warn").mockImplementation(() => {});
   consolaErro = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -77,18 +92,61 @@ const responde = (status: number, corpo = "") =>
   espiarFetch(async () => new Response(corpo, { status }));
 
 describe("enviarEmail", () => {
-  it("grava a linha de sucesso quando o Resend aceita", async () => {
+  it("grava a linha de sucesso quando o Resend aceita, com o canal e o id", async () => {
     responde(200, '{"id":"abc"}');
 
-    await expect(enviarEmail(base)).resolves.toEqual({ ok: true });
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "resend",
+      mensagemId: "abc",
+    });
 
     expect(linhas).toHaveLength(1);
     expect(linhas[0]).toMatchObject({
       para: "cliente@exemplo.pt",
       template: "registo",
+      // Aceite, não entregue. O que confirma a entrega é o `confirmarEntrega`,
+      // minutos depois — e sem o `mensagem_id` não haveria a quem perguntar.
       estado: "enviado",
       erro: null,
+      canal: "resend",
+      mensagemId: "abc",
     });
+  });
+
+  /**
+   * O envio não pode ficar à espera da entrega. Se ficasse, a criação de um
+   * processo passava a demorar os minutos que o servidor de destino demorasse
+   * a decidir — e o utilizador via o botão em "A criar…" durante esse tempo.
+   */
+  it("devolve o resultado sem esperar pela confirmação de entrega", async () => {
+    const espia = espiarFetch(async () => new Response('{"id":"abc"}', { status: 200 }));
+
+    await enviarEmail(base);
+
+    // Um pedido só: o POST do envio. A consulta de entrega vem depois, solta.
+    expect(espia).toHaveBeenCalledTimes(1);
+    expect(espia.mock.calls[0]?.[1]?.method).toBe("POST");
+  });
+
+  /**
+   * Um fornecedor que aceita sem devolver id deixa uma mensagem que nunca vai
+   * poder ser confirmada. Fica em `enviado` para sempre — e isso tem de ser
+   * dito, senão lê-se como "ainda a caminho".
+   */
+  it("avisa quando o fornecedor aceita sem devolver id", async () => {
+    responde(200, "ok, mas não em JSON");
+
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "resend",
+      mensagemId: null,
+    });
+
+    expect(linhas[0]).toMatchObject({ estado: "enviado", mensagemId: null });
+    expect(consolaAviso).toHaveBeenCalledWith(
+      expect.stringContaining("não vai poder ser confirmada"),
+    );
   });
 
   it("sem chave nenhuma devolve o motivo e grava na mesma", async () => {
@@ -123,11 +181,17 @@ describe("enviarEmail", () => {
         : new Response('{"id":"abc"}', { status: 200 }),
     );
 
-    await expect(enviarEmail(base)).resolves.toEqual({ ok: true });
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "resend",
+      mensagemId: "abc",
+    });
 
     expect(espia.mock.calls[0]?.[0]).toContain("api.brevo.com");
     expect(espia.mock.calls[1]?.[0]).toContain("api.resend.com");
-    expect(linhas[0]).toMatchObject({ estado: "enviado" });
+    // O canal gravado é o que **aceitou**, não o que se tentou primeiro: é a
+    // ele que se vai perguntar pelo desfecho, e o id do Brevo não existe lá.
+    expect(linhas[0]).toMatchObject({ estado: "enviado", canal: "resend" });
   });
 
   it("com os dois canais em baixo, o erro leva as duas razões", async () => {
@@ -157,7 +221,7 @@ describe("enviarEmail", () => {
 
     await expect(
       enviarEmail({ ...base, anexos: [{ nome: "resumo.pdf", conteudo: Buffer.from("pdf") }] }),
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({ ok: true, canal: "brevo", mensagemId: "<1@brevo>" });
 
     const [url, opcoes] = espia.mock.calls[0] ?? [];
     expect(url).toContain("api.brevo.com");
@@ -237,7 +301,11 @@ describe("enviarEmail", () => {
     gravacaoRebenta = true;
 
     // O envio já aconteceu; falhar aqui seria trocar o essencial pelo registo.
-    await expect(enviarEmail(base)).resolves.toEqual({ ok: true });
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "resend",
+      mensagemId: null,
+    });
 
     // E a consola tem de o gritar: é o único sinal que sobra de que o `/emails`
     // está a mostrar menos mensagens do que as que foram tentadas.
@@ -270,5 +338,300 @@ describe("enviarEmail", () => {
     await enviarEmail(base);
 
     expect((linhas[0]?.erro as string).length).toBe(2000);
+  });
+});
+
+/**
+ * A metade nova do diário: o que aconteceu à mensagem **depois** de o
+ * fornecedor a ter aceite.
+ *
+ * O defeito que isto existe para fechar tinha o tamanho de uma palavra: um
+ * `enviado` que se lia como "chegou". Num teste de vinte empresas, uma das
+ * mensagens ficou nesse estado e nunca chegou a caixa nenhuma — sem erro no
+ * servidor, e indistinguível na listagem das dezanove que chegaram.
+ */
+describe("verificarEntrega", () => {
+  /** A resposta do `GET /emails/{id}` do Resend. */
+  const resend = (corpo: unknown, status = 200) =>
+    espiarFetch(async () => new Response(JSON.stringify(corpo), { status }));
+
+  /** A resposta do `GET /v3/smtp/statistics/events` do Brevo. */
+  const brevo = (eventos: { event: string; reason?: string }[], status = 200) => {
+    ambiente = { BREVO_API_KEY: "xkeysib-teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
+    return espiarFetch(
+      async () => new Response(JSON.stringify({ events: eventos }), { status }),
+    );
+  };
+
+  it("lê o last_event do Resend com Bearer e o id no caminho", async () => {
+    const espia = resend({ last_event: "delivered" });
+
+    await expect(verificarEntrega("resend", "id-123")).resolves.toEqual({
+      ok: true,
+      evento: "entregue",
+    });
+
+    const [url, opcoes] = espia.mock.calls[0] ?? [];
+    expect(url).toBe("https://api.resend.com/emails/id-123");
+    expect(opcoes?.method).toBe("GET");
+    expect((opcoes?.headers as Record<string, string>).Authorization).toBe("Bearer re_teste");
+  });
+
+  it("traduz o bounce do Resend e leva o motivo", async () => {
+    resend({
+      last_event: "bounced",
+      bounce: { message: "The recipient's mailbox does not exist", type: "Permanent" },
+    });
+
+    await expect(verificarEntrega("resend", "id-123")).resolves.toEqual({
+      ok: true,
+      evento: "devolvido",
+      motivo: "The recipient's mailbox does not exist",
+    });
+  });
+
+  it("um bounce sem mensagem cai no tipo, e não em silêncio", async () => {
+    resend({ last_event: "bounced", bounce: { type: "Permanent", subType: "Suppressed" } });
+
+    const r = await verificarEntrega("resend", "id-123");
+
+    expect(r).toMatchObject({ ok: true, evento: "devolvido", motivo: "Permanent / Suppressed" });
+  });
+
+  it("trata a queixa de spam como estado próprio", async () => {
+    resend({ last_event: "complained" });
+
+    expect(await verificarEntrega("resend", "id-123")).toMatchObject({
+      ok: true,
+      evento: "queixa",
+    });
+  });
+
+  /**
+   * `sent`, `queued` e `delivery_delayed` são o fornecedor a dizer que ainda
+   * não sabe. Chamar-lhes falha seria inventar uma avaria — e chamar-lhes
+   * entrega seria repetir o defeito de origem com outro nome.
+   */
+  it.each(["sent", "queued", "delivery_delayed", "coisa_nova_do_resend"])(
+    "deixa «%s» em pendente, com o nome cru no motivo",
+    async (evento) => {
+      resend({ last_event: evento });
+
+      expect(await verificarEntrega("resend", "id-123")).toEqual({
+        ok: true,
+        evento: "pendente",
+        motivo: evento,
+      });
+    },
+  );
+
+  it("não inventa um desfecho quando a consulta falha", async () => {
+    resend({ message: "not found" }, 404);
+
+    const r = await verificarEntrega("resend", "id-123");
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("404");
+    expect(r.erro).toContain("id-123");
+  });
+
+  it("sem chave no ambiente, diz que não se confirma em vez de dizer que falhou", async () => {
+    ambiente = { EMAIL_REMETENTE: "POC@jmassano.pt" };
+
+    const r = await verificarEntrega("resend", "id-123");
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("RESEND_API_KEY");
+  });
+
+  it("não propaga uma exceção do ambiente", async () => {
+    ambienteRebenta = new Error("Variáveis de ambiente em falta ou inválidas");
+
+    await expect(verificarEntrega("resend", "id-123")).resolves.toEqual({
+      ok: false,
+      erro: "Variáveis de ambiente em falta ou inválidas",
+    });
+  });
+
+  it("consulta o Brevo por messageId, com o header api-key", async () => {
+    const espia = brevo([{ event: "delivered" }]);
+
+    await expect(verificarEntrega("brevo", "<1@brevo>")).resolves.toMatchObject({
+      ok: true,
+      evento: "entregue",
+    });
+
+    const [url, opcoes] = espia.mock.calls[0] ?? [];
+    expect(url).toContain("api.brevo.com/v3/smtp/statistics/events");
+    // Um `<` ou um `@` em cru no URL não sobrevive à viagem.
+    expect(url).toContain(`messageId=${encodeURIComponent("<1@brevo>")}`);
+    expect((opcoes?.headers as Record<string, string>)["api-key"]).toBe("xkeysib-teste");
+  });
+
+  /**
+   * O Brevo devolve uma lista, e a ordem dela não é a de gravidade: uma
+   * mensagem pode ter `delivered` e, dias depois, `spam`. Ficar-se pelo
+   * primeiro elemento era ler o desfecho errado nos casos em que ele importa.
+   */
+  it("fica com o evento mais grave da lista do Brevo, não com o primeiro", async () => {
+    brevo([
+      { event: "requests" },
+      { event: "delivered" },
+      { event: "hardBounce", reason: "unknown user" },
+    ]);
+
+    await expect(verificarEntrega("brevo", "<1@brevo>")).resolves.toEqual({
+      ok: true,
+      evento: "devolvido",
+      motivo: "unknown user",
+    });
+  });
+
+  it.each(["hardBounce", "softBounce", "bounces", "blocked", "invalid", "error"])(
+    "lê «%s» do Brevo como devolvido",
+    async (evento) => {
+      brevo([{ event: evento }]);
+
+      expect(await verificarEntrega("brevo", "<1@brevo>")).toMatchObject({
+        ok: true,
+        evento: "devolvido",
+      });
+    },
+  );
+
+  /** O 404 do Brevo quer dizer "ainda não há eventos", não "correu mal". */
+  it("trata o 404 do Brevo como pendente", async () => {
+    brevo([], 404);
+
+    expect(await verificarEntrega("brevo", "<1@brevo>")).toMatchObject({
+      ok: true,
+      evento: "pendente",
+    });
+  });
+
+  it("uma lista vazia do Brevo também é pendente", async () => {
+    brevo([]);
+
+    expect(await verificarEntrega("brevo", "<1@brevo>")).toMatchObject({
+      ok: true,
+      evento: "pendente",
+    });
+  });
+});
+
+describe("confirmarEntrega", () => {
+  const alvo = {
+    linhaId: "linha-1",
+    canal: "resend" as const,
+    mensagemId: "id-123",
+    para: "cliente@exemplo.pt",
+    template: "registo" as const,
+    // Sem espera: o que se está a testar é a decisão, não o relógio.
+    esperas: [0],
+  };
+
+  it("marca a linha como entregue", async () => {
+    espiarFetch(async () => new Response('{"last_event":"delivered"}', { status: 200 }));
+
+    await expect(confirmarEntrega(alvo)).resolves.toBe("entregue");
+
+    expect(atualizacoes).toHaveLength(1);
+    expect(atualizacoes[0]).toMatchObject({ estado: "entregue" });
+    expect(atualizacoes[0]?.verificadoEm).toBeInstanceOf(Date);
+    // Um `entregue` não pode apagar a razão de uma tentativa anterior: sem
+    // motivo, o `erro` nem sequer entra no `set`.
+    expect(atualizacoes[0]).not.toHaveProperty("erro");
+  });
+
+  it("marca o bounce e guarda o motivo no campo erro", async () => {
+    espiarFetch(
+      async () =>
+        new Response(
+          JSON.stringify({ last_event: "bounced", bounce: { message: "mailbox not found" } }),
+          { status: 200 },
+        ),
+    );
+
+    await expect(confirmarEntrega(alvo)).resolves.toBe("devolvido");
+
+    expect(atualizacoes[0]).toMatchObject({
+      estado: "devolvido",
+      erro: "mailbox not found",
+    });
+    // E fica dito na consola: um dossier sem link é uma pessoa à espera.
+    expect(consolaErro).toHaveBeenCalledWith(expect.stringContaining("DEVOLVIDO"));
+  });
+
+  it("trunca o motivo em 2000 caracteres, como o erro do envio", async () => {
+    espiarFetch(
+      async () =>
+        new Response(
+          JSON.stringify({ last_event: "bounced", bounce: { message: "x".repeat(5000) } }),
+          { status: 200 },
+        ),
+    );
+
+    await confirmarEntrega(alvo);
+
+    expect((atualizacoes[0]?.erro as string).length).toBe(2000);
+  });
+
+  /**
+   * A regra que impede a confirmação de piorar o diagnóstico: uma consulta que
+   * falhou não diz nada sobre a mensagem. Marcar a linha aqui era transformar
+   * uma avaria nossa numa acusação ao destinatário.
+   */
+  it("não toca na linha quando a consulta ao fornecedor falha", async () => {
+    espiarFetch(async () => new Response("indisponível", { status: 500 }));
+
+    await expect(confirmarEntrega(alvo)).resolves.toBe("pendente");
+
+    expect(atualizacoes).toHaveLength(0);
+    expect(consolaAviso).toHaveBeenCalledWith(
+      expect.stringContaining("não se conseguiu confirmar a entrega"),
+    );
+  });
+
+  it("desiste ao fim das tentativas e deixa a linha em enviado", async () => {
+    const espia = espiarFetch(
+      async () => new Response('{"last_event":"queued"}', { status: 200 }),
+    );
+
+    await expect(confirmarEntrega({ ...alvo, esperas: [0, 0, 0] })).resolves.toBe("pendente");
+
+    expect(espia).toHaveBeenCalledTimes(3);
+    expect(atualizacoes).toHaveLength(0);
+    expect(consolaAviso).toHaveBeenCalledWith(
+      expect.stringContaining("entrega por confirmar"),
+    );
+  });
+
+  it("para na primeira resposta conclusiva, sem gastar as restantes", async () => {
+    const espia = espiarFetch(
+      async () => new Response('{"last_event":"delivered"}', { status: 200 }),
+    );
+
+    await confirmarEntrega({ ...alvo, esperas: [0, 0, 0] });
+
+    expect(espia).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Mesma regra do `registar`: o email já saiu, e o diário não o pode desfazer.
+   * Uma exceção aqui subia por uma promessa solta — que num Node moderno
+   * derruba o processo inteiro.
+   */
+  it("não propaga quando a atualização do diário rebenta", async () => {
+    espiarFetch(async () => new Response('{"last_event":"delivered"}', { status: 200 }));
+    atualizacaoRebenta = true;
+
+    await expect(confirmarEntrega(alvo)).resolves.toBe("entregue");
+
+    expect(consolaErro).toHaveBeenCalledWith(
+      expect.stringContaining("FALHOU a atualização de email_log"),
+      expect.anything(),
+    );
   });
 });

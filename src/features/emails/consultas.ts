@@ -3,9 +3,9 @@ import { and, count, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle
 import { db } from "@/db";
 import { emailLog } from "@/db/schema/email";
 import { processoOnboarding } from "@/db/schema/processo";
-import type { EstadoEmail, TemplateEmail } from "./rotulos";
+import type { CanalEmail, EstadoEmail, TemplateEmail } from "./rotulos";
 
-export type { EstadoEmail, TemplateEmail };
+export type { CanalEmail, EstadoEmail, TemplateEmail };
 
 export type LinhaEmail = {
   id: string;
@@ -17,6 +17,11 @@ export type LinhaEmail = {
   criadoEm: Date | string;
   processoId: string | null;
   referencia: string | null;
+  /** Quem aceitou a mensagem e com que id — o par que se leva ao painel dele. */
+  canal: CanalEmail | null;
+  mensagemId: string | null;
+  /** Quando é que o desfecho foi confirmado. Nulo enquanto ninguém perguntou. */
+  verificadoEm: Date | string | null;
 };
 
 export type FiltrosEmails = {
@@ -81,6 +86,9 @@ export async function listarEmails(filtros: FiltrosEmails = {}): Promise<LinhaEm
       criadoEm: emailLog.criadoEm,
       processoId: emailLog.processoId,
       referencia: processoOnboarding.referencia,
+      canal: emailLog.canal,
+      mensagemId: emailLog.mensagemId,
+      verificadoEm: emailLog.verificadoEm,
     })
     .from(emailLog)
     .leftJoin(processoOnboarding, eq(processoOnboarding.id, emailLog.processoId))

@@ -76,8 +76,9 @@ remetente verificado e saída para a Internet aberta.</p>`;
 const resultado = await enviar();
 
 if (resultado.ok) {
-  console.log(`✓ O ${resultado.canal} aceitou a mensagem para ${destino}.`);
-  console.log("  Confirme a caixa de entrada — e também o spam.");
+  console.log(`✓ O ${resultado.nome} aceitou a mensagem para ${destino}.`);
+  console.log(`  Id da mensagem: ${resultado.mensagemId ?? "(não devolvido)"}`);
+  console.log("  Aceite não é entregue — confirme a caixa de entrada, e também o spam.");
 } else {
   console.error(`✗ Não saiu: ${resultado.erro}`);
   if (/403|401/.test(resultado.erro)) {
@@ -100,6 +101,10 @@ async function enviar() {
   if (chaveBrevo) {
     canais.push({
       nome: "Brevo",
+      // O valor da coluna `canal`, que é o que decide a quem o
+      // `conferir_entregas.mjs` vai perguntar pelo desfecho.
+      chave: "brevo",
+      campoId: "messageId",
       anfitriao: "api.brevo.com",
       url: "https://api.brevo.com/v3/smtp/email",
       cabecalhos: { "api-key": chaveBrevo, "Content-Type": "application/json" },
@@ -114,6 +119,8 @@ async function enviar() {
   if (chaveResend) {
     canais.push({
       nome: "Resend",
+      chave: "resend",
+      campoId: "id",
       anfitriao: "api.resend.com",
       url: "https://api.resend.com/emails",
       cabecalhos: {
@@ -134,14 +141,14 @@ async function enviar() {
   const erros = [];
   for (const canal of canais) {
     const r = await tentar(canal);
-    if (r.ok) return { ...r, canal: canal.nome };
+    if (r.ok) return { ...r, nome: canal.nome, canal: canal.chave };
     erros.push(r.erro);
     if (canal !== canais[canais.length - 1]) {
       console.log(`  ${canal.nome} recusou (${r.erro}) — a tentar o canal seguinte.`);
     }
   }
 
-  return { ok: false, erro: erros.join(" | "), canal: null };
+  return { ok: false, erro: erros.join(" | "), canal: null, mensagemId: null };
 }
 
 async function tentar(canal) {
@@ -161,7 +168,18 @@ async function tentar(canal) {
       };
     }
     console.log(`  ${canal.nome}: ${corpo}`);
-    return { ok: true, erro: null };
+    // O id fica gravado com a linha para o `email:conferir` a poder seguir. Sem
+    // ele, um envio de teste ficava em «Aceite» para sempre — e o teste que
+    // existe para provar o caminho não conseguia provar a metade nova dele.
+    let mensagemId = null;
+    try {
+      const json = JSON.parse(corpo);
+      const valor = json?.[canal.campoId];
+      mensagemId = typeof valor === "string" && valor ? valor : json?.messageIds?.[0] ?? null;
+    } catch {
+      /* corpo não-JSON: aceite continua a ser aceite, só deixa de ser seguível */
+    }
+    return { ok: true, erro: null, mensagemId };
   } catch (erro) {
     if (erro instanceof Error && erro.name === "TimeoutError") {
       return {
@@ -188,7 +206,8 @@ async function gravar(resultado) {
   try {
     const [org] = await sql`select id from organizacao limit 1`;
     await sql`
-      insert into email_log (id, organizacao_id, para, assunto, template, estado, erro)
+      insert into email_log
+        (id, organizacao_id, para, assunto, template, estado, erro, canal, mensagem_id)
       values (
         ${randomUUID()},
         ${org?.id ?? null},
@@ -196,9 +215,16 @@ async function gravar(resultado) {
         ${assunto},
         ${TEMPLATE},
         ${resultado.ok ? "enviado" : "erro"},
-        ${resultado.ok ? null : resultado.erro.slice(0, 2000)}
+        ${resultado.ok ? null : resultado.erro.slice(0, 2000)},
+        ${resultado.canal ?? null},
+        ${resultado.mensagemId ?? null}
       )`;
     console.log("\n✓ Linha gravada em email_log — deve aparecer no topo do /emails.");
+    if (resultado.ok && resultado.mensagemId) {
+      console.log(
+        `  Fica em «Aceite» até alguém confirmar a entrega: node scripts/conferir_entregas.mjs`,
+      );
+    }
   } catch (e) {
     console.error(
       "\n✗ A gravação em email_log falhou. É esta a razão de o /emails dizer «0 mensagens»\n" +

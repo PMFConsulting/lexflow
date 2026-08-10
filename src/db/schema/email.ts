@@ -1,6 +1,6 @@
 import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { id } from "./_comum";
-import { estadoEmail, templateEmail } from "./enums";
+import { canalEmail, estadoEmail, templateEmail } from "./enums";
 import { organizacao } from "./organizacao";
 import { processoOnboarding } from "./processo";
 
@@ -53,13 +53,43 @@ export const emailLog = pgTable(
      */
     tokenHash: text("token_hash"),
     estado: estadoEmail("estado").notNull(),
-    /** Preenchido só quando `estado = 'erro'`. Mensagem do fornecedor, ou nossa. */
+    /**
+     * Preenchido quando há motivo: o erro do fornecedor a recusar o envio, ou a
+     * razão de um `devolvido`. Um `entregue` não o apaga — a razão de uma
+     * tentativa anterior ter falhado continua a valer.
+     */
     erro: text("erro"),
+    /**
+     * Qual dos dois canais aceitou a mensagem. Nulo quando nenhum aceitou.
+     *
+     * É o que decide a quem se pergunta pelo desfecho: o `mensagem_id` de um
+     * fornecedor não quer dizer nada no outro.
+     */
+    canal: canalEmail("canal"),
+    /**
+     * O identificador que o fornecedor deu à mensagem — o `id` do Resend, o
+     * `messageId` do Brevo. Não é segredo (não abre nada, ao contrário do
+     * token) e é a única forma de voltar a perguntar-lhe o que fez com ela.
+     *
+     * Nulo quando o fornecedor aceitou sem devolver id reconhecível: nesse
+     * caso a entrega não é confirmável, e a linha fica em `enviado` para
+     * sempre.
+     */
+    mensagemId: text("mensagem_id"),
+    /**
+     * Quando é que o desfecho foi confirmado junto do fornecedor. Nulo enquanto
+     * ninguém tiver perguntado — que é o que distingue "ainda não se sabe" de
+     * "perguntou-se e ele disse que entregou".
+     */
+    verificadoEm: timestamp("verificado_em", { withTimezone: true }),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("email_log_criado").on(t.criadoEm),
     index("email_log_processo").on(t.processoId),
     index("email_log_estado").on(t.estado),
+    // Para chegar à linha a partir de um id do painel do fornecedor — e, um
+    // dia, a partir do corpo de um webhook.
+    index("email_log_mensagem").on(t.mensagemId),
   ],
 );

@@ -499,6 +499,41 @@ permissões. Nenhuma destas alterações foi executada. Há dois ficheiros de te
 (`src/lib/token.test.ts`, `src/features/onboarding/dados.test.ts`) e
 `src/features/processos/acoes.test.ts` mudou de mocks.
 
+### Atualização — «enviado» não queria dizer «entregue»
+
+10/08/2026. Relatado: num teste de vinte empresas, **um** dos emails de registo ficou em
+`enviado` no `email_log` e nunca chegou à caixa do destinatário (mail.tm). Sem erro no
+servidor, sem nada na consola, e — o que interessa — **indistinguível na listagem das dezanove
+que chegaram**. O processo ficou sem link e ninguém tinha como saber qual dos vinte era.
+
+A linha do diário era escrita no momento em que o fornecedor respondia 200. Isso é uma
+afirmação sobre a **aceitação**, não sobre a entrega, e o rótulo "Enviado" dizia a segunda
+coisa. Entre o 200 e a caixa de correio há um servidor de destino que ainda pode recusar
+(caixa cheia, endereço que não existe, greylisting que expira, filtro que devolve) — e nada
+disso voltava a esta plataforma.
+
+- **`estado_email` ganha três valores** — `entregue`, `devolvido`, `queixa` — e `enviado`
+  passa a querer dizer, à letra, "o fornecedor aceitou; a entrega está por confirmar". O
+  rótulo no `/emails` é agora **Aceite**, e não **Enviado** (ver D50).
+- **`canal` e `mensagem_id`** em `email_log`: quem aceitou, e com que identificador. Sem o
+  par não há a quem perguntar pelo desfecho — o id do Brevo não existe no Resend, e a consulta
+  de cada um tem endereço, header e formato próprios. `verificado_em` diz quando é que se
+  perguntou.
+- **Sondagem diferida, e não webhook** (D51): `confirmarEntrega` corre solta a seguir ao
+  envio, pergunta ao fornecedor aos 15s, 45s e 2m30, e fecha a linha ao primeiro desfecho.
+  Resend por `GET /emails/{id}` (`last_event`), Brevo por
+  `GET /v3/smtp/statistics/events?messageId=…` (lista de eventos, fica o mais grave).
+- **Um bounce escreve o motivo no campo `erro`** e grita-o na consola com o destinatário e o
+  template à frente. Um devolvido conta agora, no cabeçalho da página, para as mensagens que
+  "não chegaram" — a par do erro de envio, porque é o mesmo problema visto de dois sítios.
+- **`pnpm email:conferir`** (D51), também dentro da imagem: confere as linhas que ficaram em
+  `enviado` e fecha-as. É o que tapa os dois buracos da sondagem — um reinício do contentor a
+  meio, e o desfecho que chega horas depois da última tentativa.
+
+**Por confirmar:** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por permissões.
+Correr antes de commit — `src/lib/email.test.ts` cresceu com dois blocos novos, e há uma
+migração `0010` por aplicar.
+
 ## Infraestrutura — ~65 €/ano para POCs ilimitadas
 
 Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -597,6 +632,8 @@ altera o que se constrói à volta.
 | D47 | O token em claro e o hash saem do mesmo `novoTokenAcesso()`, e todo o token vindo de fora passa por `normalizarToken` antes de ser procurado. As duas metades do mesmo defeito: um hash que não é o daquele token, e um token que não é o que saiu daqui. A limpeza é **só nas pontas** — cortar o meio faria de um token corrompido um token possivelmente válido, que é esconder a avaria; nas pontas não há esse risco, porque o comprimento é fixo e nenhum token é prefixo de outro. O `hashToken` normaliza antes de calcular, o que torna a procura idempotente: o link com o ponto final colado da frase do email encontra a mesma linha que o link limpo | `src/lib/token.ts` |
 | D48 | `criarProcesso` **experimenta o link antes de o entregar**, pela mesma `acessoPorToken` que serve a página do cliente — não por uma segunda consulta escrita à parte, que divergiria e divergiria justamente do lado que não está no caminho do cliente. Falhando, repõe o hash e a validade uma vez; falhando outra vez, devolve `linkVerificado: false`, a janela avisa em vermelho e fica `link.nao_resolve` na auditoria. Na mesma passagem: o 23505 passa a distinguir `processo_referencia_org` (repetir com outro número) de `processo_token` (a linha já existe — recuperá-la, porque repetir com o mesmo token nunca podia funcionar e desistir deixava um processo a que ninguém voltava a chegar), e o link passa a ser montado **uma vez só, no servidor**, e devolvido à janela em vez de reconstruído no browser | `src/features/processos/acoes.ts` |
 | D49 | `acessoPorToken` devolve quatro estados — `ok`, `expirado`, `arquivado`, `desconhecido` — no lugar do `Processo \| null`, e as quatro rotas do onboarding mostram o `LinkIndisponivel` em vez de `notFound()`. Um `null` obriga quem o recebe a inventar a razão, e o que cada rota inventava era um 404: a mesma frase para "o link expirou", "o dossier foi arquivado" e "escreveu mal o domínio", que se resolvem em três sítios diferentes. Os filtros de apagado e de validade saíram do `where` — lá dentro, um processo arquivado e um token inventado devolviam os dois zero linhas e nenhum ecrã os conseguia distinguir. **Não se revela nada de novo:** quem anda a adivinhar tokens continua a receber `desconhecido`; os outros três só são alcançáveis por quem já traz um token que bate certo | `src/features/onboarding/dados.ts` |
+| D50 | `estado_email` deixa de ter dois valores e passa a ter cinco: `enviado` e `erro` são sobre a **aceitação** pelo fornecedor, `entregue`/`devolvido`/`queixa` são o desfecho. O rótulo de `enviado` passa a **Aceite** — o que a coluna sempre disse foi "o fornecedor ficou com a mensagem", mas o rótulo dizia "chegou", e foi assim que uma mensagem que nunca chegou apareceu no `/emails` indistinguível de dezanove que chegaram. Os valores novos vão para o fim do enum, que é onde o `ALTER TYPE ADD VALUE` os põe: o array em `enums.ts` tem de ficar pela mesma ordem, senão o `db:generate` seguinte propõe uma migração a corrigir o que não está errado | `src/db/schema/enums.ts` |
+| D51 | A entrega confirma-se por **sondagem diferida no próprio processo** e não por webhook. O webhook é a via oficial e seria a certa num sistema a sério, mas custa um endereço público fora do `middleware` de autenticação, a verificação da assinatura (`svix`) — sem a qual é um botão para qualquer um marcar emails como entregues — e configuração no painel de *cada* um dos dois fornecedores, que fica por fazer no dia em que se muda de conta e ninguém percebe porque é que os estados pararam. A sondagem não precisa de nada disso: corre no contentor de vida longa do Coolify (não numa função serverless que morre com a resposta), usa a chave que já existe e funciona igual nos dois canais, ao preço de três pedidos HTTP por email. O que não cobre — um reinício a meio, um desfecho que chega tarde — fica para o `pnpm email:conferir`, e a linha entretanto fica em `enviado`, que não é mentira nenhuma: é o que se sabe | `src/lib/email.ts` |
 | D45 | `--marca` (terracota `#d9694b`, `#e07a5f` em modo escuro) é a única cor da paleta que **não** codifica estado — marca escolha do utilizador, e por agora só na janela "Novo processo": a ficha selecionada e o emblema do cabeçalho. O que lá estava era `border-tinta`, a cor do texto à volta, e um contorno da cor do texto lê-se como moldura e não como "escolhido". Fica em token e não escrita à mão nos componentes por duas razões: o modo escuro precisa de um valor diferente (o mesmo hex sobre tinta cai para 4,8:1 e o ícone dentro da ficha deixa de se ler), e o logo JMASSANO é **verde-arquivo e latão** — trocar isto por `var(--latao)`, que é literalmente o dourado do logo, é uma linha. A terracota fica em contorno, emblema e visto, nunca em texto corrido: 3,46:1 sobre branco chega para elemento de interface, não para corpo de texto | `src/app/globals.css` |
 
 ## Decisões em aberto
@@ -632,12 +669,19 @@ pnpm db:seed              # só com NODE_ENV=development
 pnpm db:validar           # aplica as migrações a um Postgres em WASM e verifica-as
 pnpm auditoria:verificar  # revalida a cadeia de hashes de evento_auditoria
 pnpm email:testar <destino>  # envia um email de teste e grava-o em email_log
+pnpm email:conferir       # confirma a entrega das mensagens que ficaram em «Aceite»
 ```
 
 `pnpm email:testar` corre também dentro do contentor (`node scripts/testar_email.mjs`), que é onde
 interessa: mostra se a `RESEND_API_KEY` chega ao ambiente do Node, se o Resend aceita o remetente
 e se o servidor tem saída para a `api.resend.com` — as três causas de "o cliente não recebeu nada",
 que de fora se dizem todas da mesma maneira. `--sem-bd` faz o teste sem tocar no Postgres.
+
+`pnpm email:conferir` corre também dentro do contentor (`node scripts/conferir_entregas.mjs`).
+Pergunta ao fornecedor o desfecho das mensagens que ficaram em «Aceite» e fecha-lhes o estado.
+Existe para os dois casos que a sondagem automática (D51) não apanha: o contentor reiniciou a
+meio, e o desfecho chegou horas depois. `--dias N` alarga a janela (7 por omissão) e
+`--simular` mostra o que faria sem escrever nada.
 
 `pnpm db:validar` não precisa de servidor nenhum: corre todas as migrações num PGlite efémero e
 conta as tabelas (28, desde a `0008`), confirma que a auditoria recusa mesmo UPDATE e DELETE, e
