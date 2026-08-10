@@ -50,7 +50,7 @@ vi.mock("@/db", () => ({
  * Importação dinâmica e não estática: as fábricas dos `vi.mock` fecham sobre as
  * variáveis declaradas acima, e uma importação estática corre antes delas.
  */
-const { confirmarEntrega, enviarEmail, verificarEntrega } = await import("./email");
+const { confirmarEntrega, enviarEmail, limparPausasDeQuota, verificarEntrega } = await import("./email");
 
 const base = {
   para: "cliente@exemplo.pt",
@@ -78,6 +78,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  // A pausa de quota vive no módulo e atravessa os testes — um 429 num teste
+  // não pode condicionar os que vêm a seguir.
+  limparPausasDeQuota();
 });
 
 /** Um `fetch` com a assinatura do verdadeiro, para o `signal` ser inspecionável. */
@@ -350,6 +353,134 @@ describe("enviarEmail", () => {
  * mensagens ficou nesse estado e nunca chegou a caixa nenhuma — sem erro no
  * servidor, e indistinguível na listagem das dezanove que chegaram.
  */
+describe("enviarEmail", () => {
+  it("usa Basic auth e o campo Attachments no Mailjet", async () => {
+    ambiente = {
+      MAILJET_API_KEY: "mj_chave",
+      MAILJET_SECRET_KEY: "mj_segredo",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url, opcoes) => {
+      if (url.includes("mailjet")) return new Response('{"Messages":[{"To":[{"MessageID":"mj-1"}]}]}', { status: 200 });
+      return new Response("{}", { status: 500 });
+    });
+
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "mailjet",
+      mensagemId: "mj-1",
+    });
+
+    const chamada = espia.mock.calls.find(([url]) => String(url).includes("mailjet"));
+    expect(chamada).toBeDefined();
+    const [url, opcoes] = chamada as [string, RequestInit];
+    expect(url).toBe("https://api.mailjet.com/v3.1/send");
+    const headers = opcoes.headers as Record<string, string>;
+    expect(headers.Authorization).toBe(
+      `Basic ${Buffer.from("mj_chave:mj_segredo").toString("base64")}`,
+    );
+    const corpo = JSON.parse(opcoes.body as string);
+    expect(corpo.Messages[0].From.Email).toBe("POC@jmassano.pt");
+    expect(corpo.Messages[0].To[0].Email).toBe("cliente@exemplo.pt");
+  });
+
+  it("usa o ContentType e o anexo base64 no Mailjet", async () => {
+    ambiente = {
+      MAILJET_API_KEY: "mj_chave",
+      MAILJET_SECRET_KEY: "mj_segredo",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url) => {
+      if (url.includes("mailjet")) return new Response('{"Messages":[{"To":[{"MessageID":"mj-2"}]}]}', { status: 200 });
+      return new Response("{}", { status: 500 });
+    });
+
+    await enviarEmail({ ...base, anexos: [{ nome: "Relatorio.pdf", conteudo: Buffer.from("PDF") }] });
+
+    const chamada = espia.mock.calls.find(([url]) => String(url).includes("mailjet"));
+    const corpo = JSON.parse((chamada as [string, RequestInit])[1].body as string);
+    expect(corpo.Messages[0].Attachments).toEqual([
+      {
+        Filename: "Relatorio.pdf",
+        ContentType: "application/pdf",
+        Base64Content: Buffer.from("PDF").toString("base64"),
+      },
+    ]);
+  });
+
+  it("cai para o Resend quando o Mailjet recusa", async () => {
+    ambiente = {
+      MAILJET_API_KEY: "mj_chave",
+      MAILJET_SECRET_KEY: "mj_segredo",
+      RESEND_API_KEY: "re_teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url) => {
+      if (url.includes("mailjet")) return new Response('{"error":"suspended"}', { status: 401 });
+      return new Response('{"id":"re-1"}', { status: 200 });
+    });
+
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "resend",
+      mensagemId: "re-1",
+    });
+    expect(consolaAviso).toHaveBeenCalledWith(
+      expect.stringContaining("Mailjet falhou"),
+    );
+    expect(espia.mock.calls.some(([url]) => String(url).includes("resend"))).toBe(true);
+  });
+
+  it("um 429 do Resend põe o canal em pausa e salta-o no envio seguinte", async () => {
+    ambiente = {
+      MAILJET_API_KEY: "mj_chave",
+      MAILJET_SECRET_KEY: "mj_segredo",
+      RESEND_API_KEY: "re_teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url) => {
+      if (url.includes("mailjet")) return new Response("boom", { status: 500 });
+      // 429 com a palavra quota — a resposta real do Resend quando o dia acabou.
+      return new Response('{"statusCode":429,"message":"You have reached your daily email sending quota."}', { status: 429 });
+    });
+
+    // Primeiro envio: Mailjet 500, Resend 429 (quota esgotada) → erro com os dois motivos.
+    const r1 = await enviarEmail(base);
+    expect(r1.ok).toBe(false);
+    if (!r1.ok) expect(r1.erro).toContain("429");
+    // Segundo envio: o Resend está em pausa — nem é chamado; o Mailjet é tentado outra vez.
+    const r2 = await enviarEmail(base);
+    expect(r2.ok).toBe(false);
+
+    const chamadasResend = espia.mock.calls.filter(([url]) => String(url).includes("resend"));
+    expect(chamadasResend).toHaveLength(1);
+    expect(consolaAviso).toHaveBeenCalledWith(
+      expect.stringContaining("em pausa por quota"),
+    );
+  });
+
+  it("um 500 do Mailjet não põe o canal em pausa — só o 429 o faz", async () => {
+    ambiente = {
+      MAILJET_API_KEY: "mj_chave",
+      MAILJET_SECRET_KEY: "mj_segredo",
+      RESEND_API_KEY: "re_teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url) => {
+      if (url.includes("mailjet")) return new Response("boom", { status: 500 });
+      return new Response('{"id":"re-2"}', { status: 200 });
+    });
+
+    // Primeiro envio: Mailjet 500 (não é quota), Resend aceita.
+    await expect(enviarEmail(base)).resolves.toEqual({ ok: true, canal: "resend", mensagemId: "re-2" });
+    // Segundo envio: o Mailjet é tentado outra vez (não está em pausa).
+    await expect(enviarEmail(base)).resolves.toEqual({ ok: true, canal: "resend", mensagemId: "re-2" });
+
+    const chamadasMailjet = espia.mock.calls.filter(([url]) => String(url).includes("mailjet"));
+    expect(chamadasMailjet).toHaveLength(2);
+  });
+});
+
 describe("verificarEntrega", () => {
   /** A resposta do `GET /emails/{id}` do Resend. */
   const resend = (corpo: unknown, status = 200) =>

@@ -14,6 +14,12 @@ const esquema = z.object({
   /** Alternativa ao Resend (Brevo, 300 emails/dia no plano gratuito). Se estiver presente, tem prioridade. */
   BREVO_API_KEY: z.string().optional(),
   /**
+   * Alternativa ao Resend (Mailjet, 200 emails/dia no plano gratuito). Só é
+   * usado com as duas — sem o segredo, a chave não autentica nada.
+   */
+  MAILJET_API_KEY: z.string().optional(),
+  MAILJET_SECRET_KEY: z.string().optional(),
+  /**
    * Remetente dos emails ao cliente. O valor por omissão é o da sociedade e não
    * o `onboarding@resend.dev` do arranque: uma instalação a que falte a variável
    * mandava os três emails da JMASSANO com o remetente da Resend, e um cliente

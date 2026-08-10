@@ -48,4 +48,5 @@ export const ESTADOS_FALHADOS: readonly EstadoEmail[] = ["erro", "devolvido", "q
 export const ROTULOS_CANAL: Record<CanalEmail, string> = {
   brevo: "Brevo",
   resend: "Resend",
+  mailjet: "Mailjet",
 };

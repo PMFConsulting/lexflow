@@ -203,16 +203,21 @@ type Mensagem = Pick<ParametrosEmail, "para" | "assunto" | "html" | "anexos">;
 /**
  * Escolhe o canal e, falhando ele, tenta o seguinte.
  *
- * O Brevo vem primeiro por ter mais folga no plano gratuito (300 emails/dia,
- * contra os 100/dia do Resend), mas ser o primeiro não é ser o único: uma conta
- * suspensa ou um remetente por verificar num dos fornecedores não pode deixar o
- * cliente sem o link. Com as duas chaves configuradas, um envio só falha quando
- * falharem os dois — e a mensagem de erro leva as duas razões, porque são
+ * O Brevo vem primeiro por ter mais folga no plano gratuito (300 emails/dia),
+ * o Mailjet a seguir (200/dia) e o Resend por último (100/dia) — mas ser o
+ * primeiro não é ser o único: uma conta suspensa, um remetente por verificar
+ * ou uma quota esgotada num dos fornecedores não pode deixar o cliente sem o
+ * link. Com as chaves todas configuradas, um envio só falha quando falharem
+ * todos — e a mensagem de erro leva as razões de cada um, porque são
  * diferentes e resolvem-se em painéis diferentes.
  *
- * O que isto custa é a hipótese de um duplicado: se o Brevo aceitar a mensagem
- * e a resposta se perder no tempo limite, o Resend manda a segunda. Um email a
- * dobrar é preferível a nenhum.
+ * Um 429 (quota diária esgotada) põe o canal em pausa até ao fim do dia UTC:
+ * voltar a bater à porta de um fornecedor que já disse que não tem quota não
+ * é uma retoma, é ruído — e, pior, atrasa os canais que ainda podem aceitar.
+ *
+ * O que isto custa é a hipótese de um duplicado: se um canal aceitar a
+ * mensagem e a resposta se perder no tempo limite, o seguinte manda a
+ * segunda. Um email a dobrar é preferível a nenhum.
  */
 async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
   const ambiente = env();
@@ -228,6 +233,11 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     const chave = ambiente.BREVO_API_KEY;
     canais.push({ nome: "Brevo", enviar: () => tentarEnviarBrevo(msg, ambiente, chave) });
   }
+  if (ambiente.MAILJET_API_KEY && ambiente.MAILJET_SECRET_KEY) {
+    const chave = ambiente.MAILJET_API_KEY;
+    const segredo = ambiente.MAILJET_SECRET_KEY;
+    canais.push({ nome: "Mailjet", enviar: () => tentarEnviarMailjet(msg, ambiente, chave, segredo) });
+  }
   if (ambiente.RESEND_API_KEY) {
     const chave = ambiente.RESEND_API_KEY;
     canais.push({ nome: "Resend", enviar: () => tentarEnviarResend(msg, ambiente, chave) });
@@ -236,13 +246,23 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
   if (canais.length === 0) {
     const lista = p.anexos?.length ? ` anexos=${p.anexos.map((a) => a.nome).join(",")}` : "";
     console.log(`[email] (sem chave) para=${p.para} assunto="${p.assunto}"${lista}`);
-    return { ok: false, erro: "Nenhuma chave de email configurada (BREVO_API_KEY ou RESEND_API_KEY)" };
+    return {
+      ok: false,
+      erro:
+        "Nenhuma chave de email configurada (BREVO_API_KEY, MAILJET_API_KEY+MAILJET_SECRET_KEY ou RESEND_API_KEY)",
+    };
   }
 
   const erros: string[] = [];
   for (const canal of canais) {
+    if (estaEsgotado(canal.nome)) {
+      erros.push(`${canal.nome} em pausa (quota diária esgotada — volta ao fim do dia UTC)`);
+      console.warn(`[email] ${canal.nome} em pausa por quota — a tentar o canal seguinte.`);
+      continue;
+    }
     const r = await canal.enviar();
     if (r.ok) return r;
+    marcarEsgotado(canal.nome, r.erro);
     erros.push(r.erro);
     // Um canal que falhou e foi substituído não deixa linha nenhuma em
     // `email_log` — a linha é do envio, e o envio ainda pode ter corrido bem.
@@ -254,6 +274,49 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
   }
 
   return { ok: false, erro: erros.join(" | ") };
+}
+
+/**
+ * Canais em pausa por quota diária esgotada: nome do canal → instante (ms)
+ * em que volta a ser tentado.
+ *
+ * Em memória de processo, de propósito: a pausa é uma decisão do momento
+ * (\"este fornecedor já disse hoje que não tem quota\"), não um estado que
+ * precise de sobreviver a um reinício — depois de um reinício, o 429 volta a
+ * aparecer e a pausa refaz-se sozinha.
+ */
+const esgotadosAte = new Map<string, number>();
+
+/** Fim do dia UTC — o instante em que as quotas diárias dos fornecedores repõem. */
+function fimDoDiaUtc(): number {
+  const agora = new Date();
+  return Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate() + 1);
+}
+
+function estaEsgotado(nome: string): boolean {
+  const ate = esgotadosAte.get(nome);
+  return ate !== undefined && Date.now() < ate;
+}
+
+/**
+ * Um 429 é o fornecedor a dizer que a quota do dia acabou. Marca o canal em
+ * pausa até ao fim do dia UTC — e o `Map` é limpo sozinho: passado o fim do
+ * dia, `estaEsgotado` devolve `false` e o canal volta à rotação.
+ */
+function marcarEsgotado(nome: string, erro: string): void {
+  if (/\b429\b/i.test(erro)) {
+    esgotadosAte.set(nome, fimDoDiaUtc());
+    console.warn(`[email] ${nome} com quota diária esgotada (429) — em pausa até ao fim do dia UTC.`);
+  }
+}
+
+/**
+ * Reativa todos os canais em pausa. Exportada para os testes (o estado da
+ * pausa vive no módulo e não sobrevive a um `vi.resetModules` sem o ser) e
+ * para quem quiser reativar um canal à mão sem reiniciar o processo.
+ */
+export function limparPausasDeQuota(): void {
+  esgotadosAte.clear();
 }
 
 /**
@@ -390,6 +453,74 @@ async function tentarEnviarBrevo(
   }
 }
 
+/**
+ * Envio via Mailjet: autenticação Basic (chave:segredo), anexos em
+ * `Attachments` (base64, com `ContentType` obrigatório — o Mailjet não infere
+ * do nome, ao contrário do Resend e do Brevo).
+ */
+async function tentarEnviarMailjet(
+  { para, assunto, html, anexos }: Mensagem,
+  ambiente: Ambiente,
+  chave: string,
+  segredo: string,
+): Promise<ResultadoEnvio> {
+  try {
+    const resposta = await fetch("https://api.mailjet.com/v3.1/send", {
+      method: "POST",
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${chave}:${segredo}`).toString("base64")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        Messages: [
+          {
+            From: { Email: ambiente.EMAIL_REMETENTE, Name: "JMASSANO" },
+            To: [{ Email: para }],
+            Subject: assunto,
+            HTMLPart: html,
+            ...(anexos?.length
+              ? {
+                  Attachments: anexos.map((a) => ({
+                    Filename: a.nome,
+                    ContentType: a.nome.toLowerCase().endsWith(".pdf")
+                      ? "application/pdf"
+                      : "application/octet-stream",
+                    Base64Content: a.conteudo.toString("base64"),
+                  })),
+                }
+              : {}),
+          },
+        ],
+      }),
+    });
+
+    if (!resposta.ok) {
+      const corpo = await resposta.text();
+      return {
+        ok: false,
+        erro: `Mailjet devolveu ${resposta.status} (de=${ambiente.EMAIL_REMETENTE}): ${corpo}`,
+      };
+    }
+
+    const corpo = (await resposta.json()) as { Messages?: { To?: { MessageID?: string }[] }[] };
+    const id = corpo.Messages?.[0]?.To?.[0]?.MessageID;
+    return {
+      ok: true,
+      canal: "mailjet",
+      mensagemId: typeof id === "string" && id.length > 0 ? id : null,
+    };
+  } catch (erro) {
+    if (erro instanceof Error && erro.name === "TimeoutError") {
+      return {
+        ok: false,
+        erro: `A api.mailjet.com não respondeu em ${TEMPO_LIMITE_MS / 1000}s — verifique a saída para a Internet do servidor.`,
+      };
+    }
+    return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
+  }
+}
+
 /* ------------------------------------------------------------------ entrega */
 
 /**
@@ -449,6 +580,20 @@ export async function verificarEntrega(
       return { ok: false, erro: "RESEND_API_KEY não está no ambiente — a entrega não se confirma." };
     }
     return verificarEntregaResend(mensagemId, ambiente.RESEND_API_KEY);
+  }
+
+  if (canal === "mailjet") {
+    if (!ambiente.MAILJET_API_KEY || !ambiente.MAILJET_SECRET_KEY) {
+      return {
+        ok: false,
+        erro: "MAILJET_API_KEY/MAILJET_SECRET_KEY não estão no ambiente — a entrega não se confirma.",
+      };
+    }
+    return verificarEntregaMailjet(
+      mensagemId,
+      ambiente.MAILJET_API_KEY,
+      ambiente.MAILJET_SECRET_KEY,
+    );
   }
 
   if (!ambiente.BREVO_API_KEY) {
@@ -604,6 +749,60 @@ const GRAVIDADE: Record<EventoEntrega, number> = {
   queixa: 2,
   devolvido: 3,
 };
+
+/**
+ * Mailjet: `GET /v3/REST/message/{id}` devolve o `Status` da mensagem.
+ *
+ * O Mailjet não expõe um evento `delivered` por API (só nos webhooks): o
+ * estado `sent` é ele a dizer que entregou a mensagem ao servidor de destino,
+ * e `open`/`click` são provas melhores. `bounce`, `blocked` e `spam` são
+ * conclusivos e têm prioridade — um `bounce` depois de `sent` tem de ser lido
+ * como devolvido, e por isso é que o mapeamento é explícito e não por ordem
+ * de chegada.
+ */
+async function verificarEntregaMailjet(
+  mensagemId: string,
+  chave: string,
+  segredo: string,
+): Promise<ResultadoVerificacao> {
+  try {
+    const resposta = await fetch(
+      `https://api.mailjet.com/v3/REST/message/${encodeURIComponent(mensagemId)}`,
+      {
+        method: "GET",
+        signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${chave}:${segredo}`).toString("base64")}`,
+        },
+      },
+    );
+
+    if (!resposta.ok) {
+      const corpo = await resposta.text();
+      return {
+        ok: false,
+        erro: `Mailjet devolveu ${resposta.status} ao consultar ${mensagemId}: ${corpo}`,
+      };
+    }
+
+    const corpo = (await resposta.json()) as { Data?: { Status?: string }[] };
+    const estado = corpo.Data?.[0]?.Status ?? "";
+    const nome = estado.toLowerCase();
+    if (nome === "bounce" || nome === "blocked" || nome === "error") {
+      return { ok: true, evento: "devolvido", motivo: estado };
+    }
+    if (nome === "spam") return { ok: true, evento: "queixa", motivo: "marcado como spam" };
+    if (nome === "sent" || nome === "open" || nome === "click" || nome === "unsub") {
+      return { ok: true, evento: "entregue" };
+    }
+    return { ok: true, evento: "pendente", motivo: estado || "sem Status no Mailjet" };
+  } catch (erro) {
+    if (erro instanceof Error && erro.name === "TimeoutError") {
+      return { ok: false, erro: `A api.mailjet.com não respondeu em ${TEMPO_LIMITE_MS / 1000}s.` };
+    }
+    return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
+  }
+}
 
 /**
  * Confirma a entrega e atualiza a linha do diário. Não lança e não é esperada.

@@ -117,7 +117,7 @@ export const estadoEmail = pgEnum("estado_email", [
  * de entrega de cada um tem endereço, header e formato de resposta próprios —
  * sem esta coluna, um `mensagem_id` guardado sozinho não se sabe interpretar.
  */
-export const canalEmail = pgEnum("canal_email", ["brevo", "resend"]);
+export const canalEmail = pgEnum("canal_email", ["brevo", "resend", "mailjet"]);
 
 /** Regime de IVA — percurso Empresa. Por validar contra imagem (A18). */
 export const regimeIva = pgEnum("regime_iva", [
