@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ExternalLink, FileText } from "lucide-react";
+import { Check, ExternalLink, FileText, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,13 +28,13 @@ import { cn } from "@/lib/utils";
  * `scrollTop` dele não está acessível a este código, mesmo sendo o ficheiro da
  * mesma origem.
  *
- * A solução é dar ao iframe uma altura fixa generosa (mais alta do que a
- * proposta — um documento curto — alguma vez precisa) para que o visualizador
- * mostre o documento inteiro sem rolagem própria, e deixar que seja o `<div>`
- * à volta — esse sim, nosso — a rolar e a ser medido. Uma proposta com mais
- * páginas do que cabem nesta altura ainda mostraria a barra de rolagem
- * interna do PDF, e nesse caso a medição do fim passa a exigir também rolar o
- * documento por dentro — daí o aviso e o link para o abrir à parte.
+ * O ficheiro oficial é um documento tipo apresentação (paisagem, várias
+ * páginas) — dentro do iframe, à largura do modal, o texto fica pequeno. Não
+ * há como corrigir isso a partir daqui: o visualizador de PDF é do browser, não
+ * nosso. Por isso o botão "Abrir em ecrã inteiro" — que usa o visualizador
+ * nativo a ecrã inteiro, com zoom e rolagem próprios — é a forma de leitura
+ * principal, e vive dentro do modal, visível sem precisar de procurar; o
+ * iframe fica como pré-visualização contida, com o mesmo aviso.
  */
 export function LeitorProposta({
   lido,
@@ -88,8 +88,13 @@ export function LeitorProposta({
   );
 }
 
-/** Altura do iframe: generosa para um documento curto (proposta de honorários). */
-const ALTURA_IFRAME = 3200;
+/**
+ * Altura do iframe: alta o suficiente para as 9 páginas em paisagem do
+ * documento oficial caberem sem o visualizador do PDF abrir a sua própria
+ * barra de rolagem interna — é o `<div>` à volta, esse sim nosso, que tem de
+ * ser o único a rolar, para a medição do fim funcionar (ver nota do módulo).
+ */
+const ALTURA_IFRAME = 5400;
 
 function Modal({
   aoFechar,
@@ -142,6 +147,18 @@ function Modal({
       <DialogHeader>
         <DialogTitle>Proposta de Honorários</DialogTitle>
       </DialogHeader>
+
+      <div className="border-linha bg-latao/10 flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
+        <p className="text-tinta text-xs">
+          Documento em formato de apresentação — lê-se melhor a ecrã inteiro.
+        </p>
+        <Button asChild variant="default" size="sm" className="shrink-0">
+          <a href="/custos.pdf" target="_blank" rel="noopener">
+            <Maximize2 className="size-3.5" />
+            Abrir o documento em ecrã inteiro
+          </a>
+        </Button>
+      </div>
 
       <div
         ref={corpo}
