@@ -119,9 +119,8 @@ vi.mock("@/lib/emails/boas-vindas", () => ({
 vi.mock("@/lib/emails/jmassano", () => ({
   ASSUNTO_REGISTO: "JMASSANO | Registro",
   emailRegisto: ({ link }: { link: string }) => `<a href="${link}">link</a>`,
-  ASSUNTO_REJEICAO: "JMASSANO | Decisão sobre o seu processo",
-  emailRejeicao: ({ referencia, motivo }: { referencia: string; motivo: string }) =>
-    `<p>${referencia}: ${motivo}</p>`,
+  ASSUNTO_REJEICAO: "JMASSANO | Feedback Registro",
+  emailRejeicao: () => "<p>rejeição</p>",
 }));
 
 vi.mock("@/lib/origem", () => ({ origemPublica: async () => "https://poc.terlicalabs.com" }));
@@ -262,8 +261,8 @@ describe("rejeitarProcesso", () => {
       {
         para: "maria@exemplo.pt",
         template: "rejeicao",
-        assunto: "JMASSANO | Decisão sobre o seu processo",
-        html: "<p>JM-2026-0007: Documentação incompleta</p>",
+        assunto: "JMASSANO | Feedback Registro",
+        html: "<p>rejeição</p>",
         organizacaoId: "org-1",
         processoId: "proc-1",
       },

@@ -9,45 +9,141 @@
   .marca { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #7a6a4a; margin-bottom: 26px; }
   h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 400; color: #101a24; margin-bottom: 6px; }
   .sub { color: #5c6270; font-size: 12.5px; margin-bottom: 28px; }
-  .ref { font-size: 10px; color: #5c6270; letter-spacing: 0.08em; margin-bottom: 18px; }
-  table { width: 100%; border-collapse: collapse; margin: 18px 0 26px; }
+  h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 15px; font-weight: 400; color: #101a24; margin: 26px 0 12px; padding-top: 14px; border-top: 0.6px solid #d8d4ca; }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  p.corpo { font-size: 12px; color: #333; margin-bottom: 10px; }
+  .grelha { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
+  .grelha.tres { grid-template-columns: repeat(3, 1fr); }
+  .cartao { border: 0.6px solid #d8d4ca; border-radius: 3px; padding: 10px 12px; }
+  .cartao .titulo { font-family: Georgia, 'Times New Roman', serif; font-size: 12.5px; color: #101a24; margin-bottom: 4px; }
+  .cartao p { font-size: 11px; color: #5c6270; }
+  ol.metodologia { list-style: none; margin: 4px 0 4px; }
+  ol.metodologia li { padding: 8px 0; border-bottom: 0.6px solid #d8d4ca; }
+  ol.metodologia li:last-child { border-bottom: none; }
+  ol.metodologia .num { font-size: 9.5px; letter-spacing: 0.1em; color: #7a6a4a; }
+  ol.metodologia .titulo { font-family: Georgia, 'Times New Roman', serif; font-size: 12.5px; color: #101a24; margin: 2px 0 3px; }
+  ol.metodologia p { font-size: 11px; color: #5c6270; }
+  table { width: 100%; border-collapse: collapse; margin: 4px 0 4px; }
   thead th { text-align: left; font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a6a4a; border-bottom: 1.5px solid #101a24; padding: 7px 8px; }
-  tbody td { padding: 10px 8px; border-bottom: 0.6px solid #d8d4ca; font-size: 12px; }
+  tbody td { padding: 10px 8px; border-bottom: 0.6px solid #d8d4ca; font-size: 11.5px; vertical-align: top; }
   tbody tr:last-child td { border-bottom: none; }
-  .valor { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .total td { border-top: 1.5px solid #101a24; padding: 11px 8px 4px; font-weight: 600; }
-  .nota { font-size: 10.5px; color: #5c6270; margin-top: 22px; }
-  .rodape { margin-top: 34px; padding-top: 12px; border-top: 0.6px solid #d8d4ca; font-size: 9.5px; color: #8a8f99; }
+  ul.lista { margin: 6px 0 10px 18px; }
+  ul.lista li { font-size: 12px; color: #333; margin-bottom: 4px; }
+  .nota { font-size: 10.5px; color: #5c6270; background: #f6f4ef; border: 0.6px solid #d8d4ca; border-radius: 3px; padding: 10px 12px; margin: 6px 0 4px; }
+  .destaque { font-weight: 600; color: #101a24; }
+  .rodape { margin-top: 30px; padding-top: 12px; border-top: 0.6px solid #d8d4ca; font-size: 9.5px; color: #8a8f99; }
+  .obrigado { text-align: center; font-family: Georgia, 'Times New Roman', serif; font-size: 16px; color: #101a24; margin: 30px 0 6px; }
+  .obrigado-sub { text-align: center; font-size: 12px; color: #5c6270; }
 </style>
 </head>
 <body>
 
-<div class="marca">PMF Consulting · Serviços Jurídicos</div>
-<h1>Custos do Serviço</h1>
-<p class="sub">Honorários e encargos associados ao processo de contratação do serviço jurídico.</p>
-<p class="ref">Documento informativo — sem caráter vinculativo até aceitação da proposta.</p>
+<div class="marca">JMASSANO Escritório de Advogados</div>
+<h1>Proposta de Prestação de Serviços Jurídicos</h1>
+<p class="sub">JMASSANO Escritório de Advogados</p>
 
+<h2>Enquadramento</h2>
+<div class="grelha">
+  <div class="cartao">
+    <div class="titulo">Base da Proposta</div>
+    <p>Elaborada com base nas informações disponibilizadas pelo cliente.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Excelência Jurídica</div>
+    <p>Compromisso com serviço jurídico de excelência e rigor técnico.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Profissionalismo</div>
+    <p>Atuação com profissionalismo e confidencialidade em todas as fases.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Dedicação ao Cliente</div>
+    <p>Dedicação permanente à defesa dos interesses do cliente.</p>
+  </div>
+</div>
+
+<h2>Objeto dos Serviços</h2>
+<div class="grelha">
+  <div class="cartao">
+    <div class="titulo">Consultoria e Assessoria</div>
+    <p>Consultoria e assessoria jurídica especializada.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Documentos Jurídicos</div>
+    <p>Análise e elaboração de documentos jurídicos.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Negociação</div>
+    <p>Negociação e representação extrajudicial.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Representação Judicial</div>
+    <p>Patrocínio e representação judicial com acompanhamento integral até à conclusão.</p>
+  </div>
+</div>
+
+<h2>Metodologia de Trabalho</h2>
+<ol class="metodologia">
+  <li><span class="num">01</span><div class="titulo">Análise</div><p>Análise detalhada da situação apresentada pelo cliente.</p></li>
+  <li><span class="num">02</span><div class="titulo">Estratégia</div><p>Definição de estratégia jurídica adequada ao caso.</p></li>
+  <li><span class="num">03</span><div class="titulo">Comunicação</div><p>Manutenção do cliente informado sobre a evolução do processo.</p></li>
+  <li><span class="num">04</span><div class="titulo">Diligência</div><p>Atuação com diligência e no melhor interesse do cliente.</p></li>
+</ol>
+
+<h2>Modalidades de Honorários</h2>
 <table>
   <thead>
-    <tr><th>Serviço</th><th style="width:28%">Âmbito</th><th style="width:18%" class="valor">Valor</th></tr>
+    <tr><th style="width:16%">Opção</th><th style="width:22%">Modalidade</th><th>Descrição</th></tr>
   </thead>
   <tbody>
-    <tr><td>Assessoria Jurídica Global</td><td>Acompanhamento contínuo e consultoria jurídica</td><td class="valor">sob consulta</td></tr>
-    <tr><td>Avença</td><td>Prestação mensal de serviços jurídicos</td><td class="valor">sob consulta</td></tr>
-    <tr><td>Alterações Societárias</td><td>Atos societários e registo comercial</td><td class="valor">sob consulta</td></tr>
-    <tr><td>Constituição de Sociedade</td><td>Constituição e registo de sociedade</td><td class="valor">sob consulta</td></tr>
-    <tr><td>Questões Tributárias</td><td>Apoio e representação em matéria fiscal</td><td class="valor">sob consulta</td></tr>
-    <tr><td>Recuperação de Crédito</td><td>Cobrança e recuperação de créditos</td><td class="valor">sob consulta</td></tr>
-    <tr><td>Questões Laborais</td><td>Contencioso e consultoria laboral</td><td class="valor">sob consulta</td></tr>
-    <tr class="total"><td colspan="2">Honorários — a definir na proposta</td><td class="valor">—</td></tr>
+    <tr><td>Opção A</td><td class="destaque">Honorário Fixo</td><td>Valor global acordado entre as partes para a totalidade dos serviços prestados.</td></tr>
+    <tr><td>Opção B</td><td class="destaque">Honorários por Hora</td><td>Valor por hora de trabalho efetivamente realizado, com registo detalhado.</td></tr>
+    <tr><td>Opção C</td><td class="destaque">Avença Mensal</td><td>Acompanhamento jurídico contínuo mediante valor mensal fixo acordado.</td></tr>
   </tbody>
 </table>
 
-<p class="nota">Os valores apresentados dependem da complexidade e duração de cada processo e
-são confirmados na proposta individual que lhe é apresentada. Eventuais encargos de registo,
-notariado ou taxas oficiais são cobrados à parte.</p>
+<h2>Despesas e Encargos</h2>
+<p class="corpo">As seguintes despesas não estão incluídas nos honorários acordados e serão suportadas pelo cliente:</p>
+<ul class="lista">
+  <li>Taxas de justiça, emolumentos e custas judiciais</li>
+  <li>Certidões, traduções e deslocações extraordinárias</li>
+</ul>
+<div class="nota">Sempre que possível, será feita comunicação prévia ao cliente antes de incorrer em despesas adicionais.</div>
 
-<div class="rodape">Documento gerado em 06/08/2026 · Informação confidencial</div>
+<h2>Condições de Pagamento</h2>
+<div class="grelha tres">
+  <div class="cartao">
+    <div class="titulo">Adjudicação</div>
+    <p>Pagamento inicial acordado.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Execução</div>
+    <p>Pagamento intercalar por trabalhos realizados.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Conclusão</div>
+    <p>Pagamento final após entrega.</p>
+  </div>
+</div>
+<p class="corpo" style="margin-top:10px;">O pagamento será realizado em parcelas faseadas, com prazo e faturação acordados entre as partes, de acordo com os trabalhos efetivamente realizados em cada fase.</p>
+
+<h2>Confidencialidade e Validade</h2>
+<div class="grelha">
+  <div class="cartao">
+    <div class="titulo">Confidencialidade</div>
+    <p>Toda a informação e documentação partilhada pelo cliente será tratada com estrita confidencialidade.</p>
+  </div>
+  <div class="cartao">
+    <div class="titulo">Conformidade Deontológica</div>
+    <p>Atuação em plena conformidade com a legislação aplicável e as regras deontológicas da Ordem dos Advogados.</p>
+  </div>
+</div>
+<div class="nota" style="margin-top:10px;">Validade da Proposta — a presente proposta é válida por <span class="destaque">30 dias</span> a contar da data da sua emissão.</div>
+
+<div class="obrigado">Obrigado</div>
+<p class="obrigado-sub">Agradecemos a sua confiança nos serviços da JMASSANO Escritório de Advogados.</p>
+
+<div class="rodape">Documento gerado em 11/08/2026 · Informação confidencial</div>
 
 </body>
 </html>

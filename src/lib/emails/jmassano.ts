@@ -8,22 +8,23 @@
  * 3. **Bem-vindo à JMASSANO Escritório de Advogado** — quando o processo é
  *    aprovado no back-office, com o resumo das informações, os T&C e a
  *    proposta de honorários em anexo.
- * 4. **JMASSANO | Decisão sobre o seu processo** — quando o processo é
- *    rejeitado no back-office, com o motivo. Redação própria e não do
- *    documento do cliente — o fluxo de aprovação não existia quando esse
- *    documento foi escrito.
+ * 4. **JMASSANO | Feedback Registro** — quando o processo é rejeitado no
+ *    back-office. Segue, à letra, o template entregue pelo cliente em
+ *    11/08/2026 — que substitui a redação própria usada até aqui.
  *
- * Os três primeiros seguem os assuntos **e corpos** do documento de análise do
- * cliente (07/08/2026), à letra — incluindo "Registro", que é como lá está e
- * não se corrigiu para "Registo", e incluindo a assinatura em aberto
+ * Os quatro seguem os assuntos **e corpos** dos documentos do cliente, à
+ * letra — incluindo "Registro", que é como lá está e não se corrigiu para
+ * "Registo" nos assuntos 1 e 4, e incluindo a assinatura em aberto
  * ("Assinatura do Advogado gestor do Cliente"), que é o espaço deixado ao
- * advogado que gere cada cliente. O quarto é redação própria, pela razão
- * acima — segue o mesmo estilo, não o mesmo texto de origem. O segundo teve
- * duas frases ajustadas depois do fluxo de aprovação (migração `0013`) ter
- * sido acrescentado: o documento original dava o processo como "em análise"
- * sem segundo momento de contacto; agora há um, e o email diz que o processo
- * aguarda aprovação e que a decisão chega por email — o resto do texto do
- * cliente mantém-se à letra.
+ * advogado que gere cada cliente. O segundo teve duas frases ajustadas
+ * depois do fluxo de aprovação (migração `0013`) ter sido acrescentado: o
+ * documento original dava o processo como "em análise" sem segundo momento
+ * de contacto; agora há um, e o email diz que o processo aguarda aprovação e
+ * que a decisão chega por email — o resto do texto do cliente mantém-se à
+ * letra. O quarto (template de 11/08/2026) não menciona referência nem
+ * motivo — ao contrário da redação anterior, que citava os dois. O motivo
+ * continua obrigatório na UI e gravado no processo e na auditoria; só deixou
+ * de ir no corpo do email, porque o template do cliente não o prevê.
  *
  * O que a moldura acrescenta ao texto do cliente é só isto, e por razões
  * técnicas: o `(link)` do primeiro email vira botão mais endereço em texto
@@ -33,9 +34,13 @@
  *
  * Consequência de seguir o texto à letra: a saudação é genérica — o documento
  * diz "Caro(a) Sr.(a)," e não abre espaço para o nome — e a referência do
- * processo deixou de aparecer no corpo dos emails 2 e 3. Os parâmetros `nome`
- * e `referencia` continuam nas assinaturas, aceites e ignorados, para o dia em
- * que a sociedade queira uma dessas coisas de volta sem mexer em quem chama.
+ * processo deixou de aparecer no corpo dos emails 2, 3 e 4. Nos três
+ * primeiros, os parâmetros `nome` e `referencia` continuam nas assinaturas,
+ * aceites e ignorados, para o dia em que a sociedade queira uma dessas coisas
+ * de volta sem mexer em quem chama. O quarto (`emailRejeicao`) não tinha
+ * mais nenhum parâmetro a não ser `motivo` e `referencia`, e nenhum dos dois
+ * entra no template novo — por isso a função deixou de aceitar argumentos,
+ * em vez de ficar com parâmetros que nunca teve outra utilidade.
  */
 
 const CINZA = "#333";
@@ -189,31 +194,29 @@ export function emailBoasVindas({
 
 /* ------------------------------------------------------------ 4. rejeição */
 
-export const ASSUNTO_REJEICAO = "JMASSANO | Decisão sobre o seu processo";
+export const ASSUNTO_REJEICAO = "JMASSANO | Feedback Registro";
 
 /**
- * O `motivo` vem de uma caixa de texto no back-office, escrita por quem
- * rejeita o processo — e por isso passa por `escapar()` como o `link` do
- * primeiro email: é o único conteúdo desta mensagem que não é nosso.
+ * Template do cliente (11/08/2026), à letra. Não leva referência nem motivo
+ * — os dois continuam obrigatórios e gravados no processo e na auditoria
+ * (`motivoRejeicao`, `processo.rejeitado`), só deixaram de ir no email.
  */
-export function emailRejeicao({
-  referencia,
-  motivo,
-}: {
-  nome?: string | null;
-  referencia: string;
-  motivo: string;
-}): string {
+export function emailRejeicao(): string {
   return moldura(`
     ${saudacao()}
     ${p(
-      `Após análise do processo com a referência <strong>${escapar(referencia)}</strong>, informamos que não nos foi possível dar-lhe seguimento nesta fase.`,
+      "Agradecemos a confiança depositada na JMASSANO Escritório de Advogado e o interesse demonstrado nos nossos serviços.",
     )}
-    ${p(`<strong>Motivo:</strong> ${escapar(motivo)}`)}
     ${p(
-      "A nossa equipa está inteiramente disponível para esclarecer esta decisão ou para o apoiar numa nova submissão, caso pretenda retomar o processo.",
+      "Após uma análise cuidada das informações e documentação submetidas, lamentamos informar que o seu processo de validação não foi aceite nesta fase.",
     )}
-    ${p("Agradecemos a compreensão e permanecemos ao seu dispor.")}
+    ${p(
+      "Esta decisão foi tomada com base nos critérios de avaliação aplicáveis ao processo em questão e após a devida apreciação dos elementos disponibilizados.",
+    )}
+    ${p(
+      "Caso considere oportuno, poderá entrar em contacto connosco para obter esclarecimentos adicionais ou verificar a possibilidade de apresentar informação ou documentação complementar que permita uma nova apreciação da sua situação.",
+    )}
+    ${p("Agradecemos a sua compreensão e permanecemos à disposição para qualquer esclarecimento que entenda necessário.")}
     ${despedida()}
   `);
 }

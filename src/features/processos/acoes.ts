@@ -615,7 +615,7 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
       await enviarEmail({
         para: email,
         assunto: ASSUNTO_REJEICAO,
-        html: emailRejeicao({ referencia: processo.referencia, motivo }),
+        html: emailRejeicao(),
         template: "rejeicao",
         organizacaoId: processo.organizacaoId,
         processoId: processo.id,

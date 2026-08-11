@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Gerar custos.pdf a partir de public/custos.html (Chrome headless)"""
+"""Gerar custos.pdf a partir de public/custos.html (Chrome headless)
+
+Desde 11/08/2026, o `public/custos.pdf` em produção é o template oficial da
+Proposta de Prestação de Serviços Jurídicos entregue pelo cliente, copiado
+tal e qual — não gerado por este script. Correr isto por cima dele substitui
+o documento oficial pelo HTML de apoio, que é só a versão legível/regenerável
+do mesmo conteúdo. Não correr sem confirmar com o cliente.
+"""
 import subprocess, os
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 base = r"C:\Users\diogo\Desktop\law-project-repo"

@@ -20,14 +20,15 @@ const texto = (html: string) =>
     .trim();
 
 /**
- * Os assuntos são os do documento de análise do cliente, à letra — incluindo
+ * Os assuntos são os dos documentos do cliente, à letra — incluindo
  * "Registro", que é como lá está e não se corrigiu para "Registo" (D33).
  */
 describe("assuntos", () => {
-  it("são os três do documento do cliente", () => {
+  it("são os quatro dos documentos do cliente", () => {
     expect(ASSUNTO_REGISTO).toBe("JMASSANO | Registro");
     expect(ASSUNTO_CONFIRMACAO).toBe("JMASSANO | Confirmação de Receção dos seus Dados");
     expect(ASSUNTO_BOAS_VINDAS).toBe("Bem-vindo à JMASSANO Escritório de Advogado");
+    expect(ASSUNTO_REJEICAO).toBe("JMASSANO | Feedback Registro");
   });
 });
 
@@ -128,42 +129,38 @@ describe("3. Bem-vindo à JMASSANO Escritório de Advogado", () => {
 });
 
 /**
- * O quarto email — redação própria, não do documento do cliente (esse não
- * previa um fluxo de aprovação). Mesmo estilo: `moldura`, saudação genérica,
- * despedida em aberto.
+ * O quarto email — template do cliente entregue em 11/08/2026, à letra. Não
+ * leva referência nem motivo: os dois continuam obrigatórios na UI e
+ * gravados no processo e na auditoria, só deixaram de ir no corpo do email.
  */
-describe("4. JMASSANO | Decisão sobre o seu processo", () => {
+describe("4. JMASSANO | Feedback Registro", () => {
+  const html = emailRejeicao();
+
   it("tem o assunto certo", () => {
-    expect(ASSUNTO_REJEICAO).toBe("JMASSANO | Decisão sobre o seu processo");
+    expect(ASSUNTO_REJEICAO).toBe("JMASSANO | Feedback Registro");
   });
 
-  it("menciona a referência e o motivo, e a disponibilidade para esclarecer", () => {
-    const t = texto(
-      emailRejeicao({ referencia: "JM-2026-0007", motivo: "Documentação incompleta" }),
+  it("segue o texto do template à letra", () => {
+    const t = texto(html);
+    expect(t).toContain(
+      "Agradecemos a confiança depositada na JMASSANO Escritório de Advogado e o interesse demonstrado nos nossos serviços.",
     );
-    expect(t).toContain("JM-2026-0007");
-    expect(t).toContain("Documentação incompleta");
-    expect(t).toContain("disponível para esclarecer");
+    expect(t).toContain(
+      "lamentamos informar que o seu processo de validação não foi aceite nesta fase",
+    );
+    expect(t).toContain(
+      "poderá entrar em contacto connosco para obter esclarecimentos adicionais",
+    );
   });
 
-  /**
-   * O único dos quatro emails cujo conteúdo variável não é nosso: o `motivo`
-   * vem de uma caixa de texto no back-office, escrita por quem rejeita.
-   */
-  it("escapa o motivo em vez de o deixar quebrar o HTML", () => {
-    const html = emailRejeicao({
-      referencia: "JM-2026-0007",
-      motivo: "<script>alert(1)</script>",
-    });
-
-    expect(html).not.toContain("<script>alert(1)</script>");
-    expect(html).toContain("&lt;script&gt;");
+  it("não menciona referência nem motivo — o template do cliente não os prevê", () => {
+    const t = texto(html);
+    expect(t).not.toContain("referência");
+    expect(t).not.toContain("Motivo");
   });
 
   it("fecha com o mesmo rodapé e a mesma despedida dos outros três", () => {
-    const t = texto(
-      emailRejeicao({ referencia: "JM-2026-0007", motivo: "Documentação incompleta" }),
-    );
+    const t = texto(html);
     expect(t).toContain("JMASSANO — Escritório de Advogado");
     expect(t).toContain(
       "Com os melhores cumprimentos, Assinatura do Advogado gestor do Cliente",
@@ -181,6 +178,7 @@ describe("o que o texto literal do cliente implica", () => {
     emailRegisto({ nome: "Maria Silva", link: LINK }),
     emailConfirmacaoRececao(),
     emailBoasVindas({ nome: "Maria Silva", referencia: "PMF-2026-0042", anexos: ["Resumo"] }),
+    emailRejeicao(),
   ];
 
   it("a saudação é genérica nos três — o documento diz “Caro(a) Sr.(a),”", () => {
