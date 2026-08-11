@@ -2,11 +2,16 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   /* Escopado sob .doc-proposta: este documento entra dentro do LeitorProposta,
      no meio da app, e não pode vazar estilo para o resto da página nem herdar
-     o dela. As cores usam as variáveis de src/app/globals.css (papel/tinta/
-     latão) com um valor de recurso a seguir, para acompanhar o modo escuro
+     o dela. Fontes e cores replicam exatamente o design system de
+     src/app/globals.css (--fonte-corpo/--fonte-display/--fonte-mono e os
+     tokens --tinta/--papel/--arquivo/--latão/--marca/--selo/--linha), com um
+     valor de recurso a seguir a cada var(), para acompanhar o modo escuro
      quando injetado lá dentro e continuar legível sozinho (ex.: aberto direto
      no browser) quando não há variáveis nenhumas definidas. */
   .doc-proposta, .doc-proposta *, .doc-proposta *::before, .doc-proposta *::after {
@@ -14,7 +19,7 @@
   }
   .doc-proposta * { margin: 0; padding: 0; }
   .doc-proposta {
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--fonte-corpo, 'Inter Tight', 'Segoe UI', sans-serif);
     color: var(--tinta, #101a24);
     font-size: 14.5px;
     line-height: 1.65;
@@ -22,34 +27,46 @@
     margin: 0 auto;
     padding: 4px 4px 40px;
   }
-  .doc-proposta .marca { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--latao, #7a6a4a); margin-bottom: 24px; }
-  .doc-proposta h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 400; color: var(--tinta, #101a24); margin-bottom: 6px; }
-  .doc-proposta .sub { color: var(--tinta-suave, #5c6270); font-size: 13px; margin-bottom: 28px; }
-  .doc-proposta h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 17px; font-weight: 400; color: var(--tinta, #101a24); margin: 28px 0 14px; padding-top: 16px; border-top: 1px solid var(--linha, #d8d4ca); }
+
+  /* Cabeçalho de marca — o monograma JM vetorial do logótipo do site
+     (src/components/logotipo.tsx), verde-arquivo com "JM" e o nome em
+     latão, reconstruído aqui em SVG cru porque o documento não tem React. */
+  .doc-proposta .cabecalho { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
+  .doc-proposta .emblema { width: 46px; height: auto; flex-shrink: 0; }
+  .doc-proposta .emblema-jm { font-family: var(--fonte-display, 'Instrument Serif', Georgia, serif); fill: var(--latao, #a9884f); letter-spacing: -0.01em; }
+  .doc-proposta .emblema-nome { font-family: var(--fonte-mono, 'IBM Plex Mono', monospace); font-weight: 500; fill: var(--latao, #a9884f); letter-spacing: 0.2em; }
+  .doc-proposta .emblema-tipo { font-family: var(--fonte-mono, 'IBM Plex Mono', monospace); fill: var(--latao, #a9884f); letter-spacing: 0.16em; }
+  .doc-proposta .cabecalho-regua { width: 100%; height: 3px; background: var(--marca, #d9694b); margin-bottom: 26px; border-radius: 2px; opacity: 0.85; }
+
+  .doc-proposta .marca { font-family: var(--fonte-mono, 'IBM Plex Mono', monospace); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--latao, #a9884f); }
+  .doc-proposta h1 { font-family: var(--fonte-display, 'Instrument Serif', Georgia, serif); font-size: 28px; font-weight: 400; color: var(--tinta, #101a24); margin-bottom: 6px; }
+  .doc-proposta h1 .acento { font-style: italic; color: var(--marca, #d9694b); }
+  .doc-proposta .sub { font-family: var(--fonte-mono, 'IBM Plex Mono', monospace); color: var(--tinta-suave, #5c6672); font-size: 12px; letter-spacing: 0.02em; margin-bottom: 28px; }
+  .doc-proposta h2 { font-family: var(--fonte-display, 'Instrument Serif', Georgia, serif); font-size: 19px; font-weight: 400; color: var(--tinta, #101a24); margin: 30px 0 14px; padding-top: 18px; border-top: 1px solid var(--linha, #d6dad2); }
   .doc-proposta h2:first-of-type { border-top: none; padding-top: 0; }
-  .doc-proposta p.corpo { font-size: 13.5px; color: var(--tinta-suave, #333); margin-bottom: 10px; }
+  .doc-proposta p.corpo { font-size: 13.5px; color: var(--tinta-suave, #5c6672); margin-bottom: 10px; }
   .doc-proposta .grelha { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
   .doc-proposta .grelha.tres { grid-template-columns: repeat(3, 1fr); }
-  .doc-proposta .cartao { border: 1px solid var(--linha, #d8d4ca); border-radius: 4px; padding: 12px 14px; }
-  .doc-proposta .cartao .titulo { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; color: var(--tinta, #101a24); margin-bottom: 4px; }
-  .doc-proposta .cartao p { font-size: 12.5px; color: var(--tinta-suave, #5c6270); }
+  .doc-proposta .cartao { background: var(--papel-alto, #ffffff); border: 1px solid var(--linha, #d6dad2); border-radius: 8px; padding: 12px 14px; }
+  .doc-proposta .cartao .titulo { font-family: var(--fonte-display, 'Instrument Serif', Georgia, serif); font-size: 15px; color: var(--tinta, #101a24); margin-bottom: 4px; }
+  .doc-proposta .cartao p { font-size: 12.5px; color: var(--tinta-suave, #5c6672); }
   .doc-proposta ol.metodologia { list-style: none; margin: 4px 0 4px; }
-  .doc-proposta ol.metodologia li { padding: 10px 0; border-bottom: 1px solid var(--linha, #d8d4ca); }
+  .doc-proposta ol.metodologia li { padding: 10px 0; border-bottom: 1px solid var(--linha, #d6dad2); }
   .doc-proposta ol.metodologia li:last-child { border-bottom: none; }
-  .doc-proposta ol.metodologia .num { font-size: 10.5px; letter-spacing: 0.1em; color: var(--latao, #7a6a4a); }
-  .doc-proposta ol.metodologia .titulo { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; color: var(--tinta, #101a24); margin: 3px 0 3px; }
-  .doc-proposta ol.metodologia p { font-size: 12.5px; color: var(--tinta-suave, #5c6270); }
+  .doc-proposta ol.metodologia .num { font-family: var(--fonte-mono, 'IBM Plex Mono', monospace); font-size: 10.5px; letter-spacing: 0.14em; color: var(--latao, #a9884f); }
+  .doc-proposta ol.metodologia .titulo { font-family: var(--fonte-display, 'Instrument Serif', Georgia, serif); font-size: 15px; color: var(--tinta, #101a24); margin: 3px 0 3px; }
+  .doc-proposta ol.metodologia p { font-size: 12.5px; color: var(--tinta-suave, #5c6672); }
   .doc-proposta table { width: 100%; border-collapse: collapse; margin: 4px 0 4px; }
-  .doc-proposta thead th { text-align: left; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--latao, #7a6a4a); border-bottom: 2px solid var(--tinta, #101a24); padding: 8px; }
-  .doc-proposta tbody td { padding: 11px 8px; border-bottom: 1px solid var(--linha, #d8d4ca); font-size: 12.5px; vertical-align: top; }
+  .doc-proposta thead th { text-align: left; font-family: var(--fonte-mono, 'IBM Plex Mono', monospace); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--latao, #a9884f); border-bottom: 3px double var(--tinta, #101a24); padding: 8px; }
+  .doc-proposta tbody td { padding: 11px 8px; border-bottom: 1px solid var(--linha, #d6dad2); font-size: 12.5px; vertical-align: top; }
   .doc-proposta tbody tr:last-child td { border-bottom: none; }
   .doc-proposta ul.lista { margin: 6px 0 10px 18px; }
-  .doc-proposta ul.lista li { font-size: 13.5px; color: var(--tinta-suave, #333); margin-bottom: 4px; }
-  .doc-proposta .nota { font-size: 12px; color: var(--tinta-suave, #5c6270); background: var(--papel-fundo, #f6f4ef); border: 1px solid var(--linha, #d8d4ca); border-radius: 4px; padding: 11px 14px; margin: 6px 0 4px; }
-  .doc-proposta .destaque { font-weight: 600; color: var(--tinta, #101a24); }
-  .doc-proposta .rodape { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--linha, #d8d4ca); font-size: 10.5px; color: var(--tinta-suave, #8a8f99); }
-  .doc-proposta .obrigado { text-align: center; font-family: Georgia, 'Times New Roman', serif; font-size: 17px; color: var(--tinta, #101a24); margin: 32px 0 6px; }
-  .doc-proposta .obrigado-sub { text-align: center; font-size: 12.5px; color: var(--tinta-suave, #5c6270); }
+  .doc-proposta ul.lista li { font-size: 13.5px; color: var(--tinta-suave, #5c6672); margin-bottom: 4px; }
+  .doc-proposta .nota { font-size: 12px; color: var(--tinta-suave, #5c6672); background: var(--papel, #edefea); border: 1px solid var(--linha, #d6dad2); border-radius: 6px; padding: 11px 14px; margin: 6px 0 4px; }
+  .doc-proposta .destaque { font-family: var(--fonte-mono, 'IBM Plex Mono', monospace); font-weight: 500; color: var(--marca, #d9694b); }
+  .doc-proposta .rodape { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--linha, #d6dad2); font-family: var(--fonte-mono, 'IBM Plex Mono', monospace); font-size: 10.5px; letter-spacing: 0.02em; color: var(--tinta-suave, #5c6672); }
+  .doc-proposta .obrigado { text-align: center; font-family: var(--fonte-display, 'Instrument Serif', Georgia, serif); font-style: italic; font-size: 19px; color: var(--arquivo, #2f5d50); margin: 32px 0 6px; }
+  .doc-proposta .obrigado-sub { text-align: center; font-size: 12.5px; color: var(--tinta-suave, #5c6672); }
   @media (max-width: 30rem) {
     .doc-proposta .grelha, .doc-proposta .grelha.tres { grid-template-columns: 1fr; }
   }
@@ -59,8 +76,19 @@
 
 <div class="doc-proposta">
 
-<div class="marca">JMASSANO Escritório de Advogados</div>
-<h1>Proposta de Prestação de Serviços Jurídicos</h1>
+<header class="cabecalho">
+  <svg class="emblema" viewBox="0 0 120 102" role="img" aria-label="JMASSANO — Escritório de Advogado">
+    <rect x="0.75" y="0.75" width="118.5" height="100.5" rx="9" fill="var(--arquivo, #2f5d50)"></rect>
+    <text x="60" y="53" text-anchor="middle" font-size="46" class="emblema-jm">JM</text>
+    <line x1="33" y1="64.5" x2="87" y2="64.5" stroke-width="1.1" opacity="0.45" stroke="var(--latao, #a9884f)"></line>
+    <text x="60" y="80" text-anchor="middle" font-size="12.5" class="emblema-nome">MASSANO</text>
+    <text x="60" y="93" text-anchor="middle" font-size="8.5" opacity="0.7" class="emblema-tipo">ADVOGADO</text>
+  </svg>
+  <div class="marca">JMASSANO Escritório de Advogados</div>
+</header>
+<div class="cabecalho-regua"></div>
+
+<h1>Proposta de <span class="acento">Prestação de Serviços</span> Jurídicos</h1>
 <p class="sub">JMASSANO Escritório de Advogados</p>
 
 <h2>Enquadramento</h2>
