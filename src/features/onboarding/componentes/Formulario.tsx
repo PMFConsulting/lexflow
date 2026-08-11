@@ -19,6 +19,7 @@ import type { Seccoes } from "../dados";
 import { Anexos } from "./Anexos";
 import { Assinatura } from "./Assinatura";
 import { LeitorTermos } from "./LeitorTermos";
+import { LeitorProposta } from "./LeitorProposta";
 import { Ref } from "@/components/ref-processo";
 import {
   CampoCaixa,
@@ -210,6 +211,7 @@ function carga(n: number, fd: FormData): unknown {
       return {
         declaracaoVeracidade: bool(fd, "declaracaoVeracidade"),
         tcAceitacao: bool(fd, "tcAceitacao"),
+        propostaAceitacao: bool(fd, "propostaAceitacao"),
         assinatura: txt(fd, "assinatura"),
       };
     default:
@@ -354,9 +356,12 @@ export function Formulario({
   const [relPpe, setRelPpe] = useState(seccoes.ppe?.eRelacionadoPpe ?? null);
   const [nifPt, setNifPt] = useState(seccoes.fiscais?.nifPortugues ?? true);
   const [origem, setOrigem] = useState(seccoes.preferencias?.origemContacto ?? "");
-  // Quem já tinha aceitado os T&C não volta a ser mandado ler o documento —
-  // a caixa marcada na base de dados é prova de que ele já passou por aqui.
+  // Quem já tinha aceitado os T&C (ou a proposta) não volta a ser mandado ler
+  // o documento — a caixa marcada na base de dados é prova de que já passou
+  // por aqui. São dois documentos e duas leituras: aceitar um não vale pelo
+  // outro.
   const [termosLidos, setTermosLidos] = useState(seccoes.fecho?.tcAceitacao ?? false);
+  const [propostaLida, setPropostaLida] = useState(seccoes.fecho?.propostaAceitacao ?? false);
   const [newsletter, setNewsletter] = useState(seccoes.preferencias?.newsletter ?? null);
   const [convites, setConvites] = useState(seccoes.preferencias?.convitesIniciativas ?? null);
 
@@ -964,10 +969,10 @@ export function Formulario({
 
           <div className="border-linha bg-papel-alto flex flex-col gap-5 rounded-sm border p-4">
             <div>
-              <h2 className="text-lg">Termos e condições e aceitação da proposta</h2>
+              <h2 className="text-lg">Termos e Condições</h2>
               <p className="text-sm text-muted-foreground">
-                Ao aceitar, confirma que leu os Termos e Condições e que aceita os
-                serviços e as condições descritos na proposta que lhe foi apresentada.
+                Ao aceitar, confirma que leu os Termos e Condições de prestação de
+                serviços.
               </p>
             </div>
 
@@ -978,12 +983,33 @@ export function Formulario({
                 era pedir a leitura outra vez a quem só voltou atrás para
                 corrigir uma vírgula noutro passo. */}
             <CampoCaixa
-              etiqueta="Aceito os Termos e Condições e aceito a proposta."
+              etiqueta="Aceito os Termos e Condições."
               nome="tcAceitacao"
               erros={erros}
               desativado={!termosLidos}
               ajudaDesativado="Abra o documento acima e percorra-o até ao fim para poder aceitar."
               valorInicial={seccoes.fecho?.tcAceitacao ?? false}
+            />
+
+            <Separator />
+
+            <div>
+              <h2 className="text-lg">Proposta de Honorários</h2>
+              <p className="text-sm text-muted-foreground">
+                Ao aceitar, confirma que leu e aceita os serviços e as condições
+                descritos na proposta que lhe foi apresentada.
+              </p>
+            </div>
+
+            <LeitorProposta lido={propostaLida} aoLer={() => setPropostaLida(true)} />
+
+            <CampoCaixa
+              etiqueta="Aceito a proposta de honorários."
+              nome="propostaAceitacao"
+              erros={erros}
+              desativado={!propostaLida}
+              ajudaDesativado="Abra o documento acima e percorra-o até ao fim para poder aceitar."
+              valorInicial={seccoes.fecho?.propostaAceitacao ?? false}
             />
 
             <Separator />

@@ -17,6 +17,7 @@ export const ROTULOS_TEMPLATE: Record<TemplateEmail, string> = {
   confirmacao_rececao: "Confirmação de receção",
   boas_vindas: "Boas-vindas",
   notificacao_backoffice: "Aviso interno",
+  rejeicao: "Rejeição",
 };
 
 /**

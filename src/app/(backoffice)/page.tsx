@@ -24,8 +24,8 @@ export default async function Painel() {
     {
       rotulo: "Por rever",
       valor: n.porRever,
-      nota: "submetidos à espera de triagem",
-      href: "/processos?estado=submetido&estado=em_revisao",
+      nota: "à espera de aprovação",
+      href: "/processos?estado=aguardar_aprovacao&estado=submetido&estado=em_revisao",
     },
     {
       rotulo: "Parados há mais de 7 dias",

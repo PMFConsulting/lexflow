@@ -6,11 +6,14 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { contadorReferencia, organizacao } from "@/db/schema/organizacao";
 import { processoOnboarding } from "@/db/schema/processo";
+import { dadosFaturacao, dadosIdentificacao } from "@/db/schema/seccoes";
 import { registarEvento } from "@/features/auditoria/registar";
 import { acessoPorToken } from "@/features/onboarding/dados";
 import { enviarEmail } from "@/lib/email";
-import { ASSUNTO_REGISTO, emailRegisto } from "@/lib/emails/jmassano";
+import { enviarBoasVindas } from "@/lib/emails/boas-vindas";
+import { ASSUNTO_REGISTO, ASSUNTO_REJEICAO, emailRegisto, emailRejeicao } from "@/lib/emails/jmassano";
 import { origemPublica } from "@/lib/origem";
+import { exigirSessao, podeAprovarProcesso } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
 import { novoProcesso, type NovoProcesso } from "./schemas";
 
@@ -459,4 +462,176 @@ export async function criarProcesso(entrada: NovoProcesso) {
     // escrita no ecrã e em minutos ou horas quando não está.
     erroEmail,
   };
+}
+
+/* ------------------------------------------------------------- aprovação */
+
+type ResultadoDecisao = { ok: true } | { ok: false; erro: string };
+
+/**
+ * O email do cliente, para as duas decisões — o mesmo par de tabelas e a
+ * mesma prioridade que `notificarSubmissao` usa em `features/onboarding/acoes.ts`:
+ * a identificação, e a faturação como recurso quando o passo 1 não chegou a
+ * ser gravado.
+ */
+async function emailDoCliente(processoId: string) {
+  const base = db();
+  const [identificacao] = await base
+    .select({ email: dadosIdentificacao.email, nome: dadosIdentificacao.nome })
+    .from(dadosIdentificacao)
+    .where(eq(dadosIdentificacao.processoId, processoId))
+    .limit(1);
+  const [faturacao] = await base
+    .select({ email: dadosFaturacao.email })
+    .from(dadosFaturacao)
+    .where(eq(dadosFaturacao.processoId, processoId))
+    .limit(1);
+  return {
+    email: identificacao?.email ?? faturacao?.email ?? null,
+    nome: identificacao?.nome ?? null,
+  };
+}
+
+/**
+ * Sessão, permissão e estado — as três guardas comuns a aprovar e a rejeitar.
+ *
+ * A mesma regra do detalhe do processo (`processoPorId` + a comparação de
+ * organização): um processo de outra organização responde como se não
+ * existisse, e não com um erro que revele que existe algures noutra conta.
+ */
+async function processoParaDecisao(
+  id: string,
+): Promise<
+  | { ok: true; processo: typeof processoOnboarding.$inferSelect; atorId: string }
+  | { ok: false; erro: string }
+> {
+  const { eu } = await exigirSessao();
+  if (!podeAprovarProcesso(eu.papel)) {
+    return { ok: false, erro: "Não tem permissão para decidir este processo." };
+  }
+
+  const [processo] = await db()
+    .select()
+    .from(processoOnboarding)
+    .where(eq(processoOnboarding.id, id))
+    .limit(1);
+
+  if (!processo || processo.organizacaoId !== eu.organizacaoId) {
+    return { ok: false, erro: "Processo não encontrado." };
+  }
+  if (processo.estado !== "aguardar_aprovacao") {
+    return { ok: false, erro: "Este processo não está à espera de aprovação." };
+  }
+
+  return { ok: true, processo, atorId: eu.id };
+}
+
+/**
+ * Aprova um processo: muda o estado, grava quem e quando, e envia as
+ * boas-vindas ao cliente com os três anexos (`enviarBoasVindas`, partilhada
+ * com a submissão — que já não a envia, ver D46 e a atualização do fluxo de
+ * aprovação).
+ *
+ * O email é o último passo e corre dentro do seu próprio `try`, pelo mesmo
+ * motivo do `criarProcesso`: a decisão já está gravada e um Resend em baixo
+ * não pode transformar uma aprovação bem-sucedida num ecrã de erro.
+ */
+export async function aprovarProcesso(id: string): Promise<ResultadoDecisao> {
+  const verificacao = await processoParaDecisao(id);
+  if (!verificacao.ok) return verificacao;
+  const { processo, atorId } = verificacao;
+
+  const [atualizado] = await db()
+    .update(processoOnboarding)
+    .set({ estado: "aprovado", aprovadoEm: new Date(), aprovadoPor: atorId })
+    .where(eq(processoOnboarding.id, id))
+    .returning();
+
+  await registarEvento({
+    organizacaoId: processo.organizacaoId,
+    processoId: processo.id,
+    atorId,
+    acao: "processo.aprovado",
+    entidade: "processo_onboarding",
+    entidadeId: processo.id,
+    valorAnterior: { estado: processo.estado },
+    valorNovo: { estado: "aprovado" },
+  });
+
+  try {
+    const { email, nome } = await emailDoCliente(id);
+    if (email) {
+      await enviarBoasVindas(atualizado ?? processo, email, nome);
+    } else {
+      console.warn(
+        `[processo] ${processo.referencia}: aprovado sem endereço de email — boas-vindas não enviadas.`,
+      );
+    }
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: as boas-vindas não foram enviadas`, e);
+  }
+
+  revalidatePath("/processos");
+  revalidatePath(`/processos/${id}`);
+  revalidatePath("/");
+
+  return { ok: true };
+}
+
+/**
+ * Rejeita um processo: muda o estado, grava o motivo, e avisa o cliente por
+ * email. O motivo é obrigatório — uma rejeição sem motivo é uma decisão que
+ * ninguém, do lado do cliente, consegue perceber nem contestar.
+ */
+export async function rejeitarProcesso(id: string, motivoBruto: string): Promise<ResultadoDecisao> {
+  const motivo = motivoBruto.trim();
+  if (!motivo) {
+    return { ok: false, erro: "Indique o motivo da rejeição." };
+  }
+
+  const verificacao = await processoParaDecisao(id);
+  if (!verificacao.ok) return verificacao;
+  const { processo, atorId } = verificacao;
+
+  await db()
+    .update(processoOnboarding)
+    .set({ estado: "rejeitado", motivoRejeicao: motivo })
+    .where(eq(processoOnboarding.id, id));
+
+  await registarEvento({
+    organizacaoId: processo.organizacaoId,
+    processoId: processo.id,
+    atorId,
+    acao: "processo.rejeitado",
+    entidade: "processo_onboarding",
+    entidadeId: processo.id,
+    valorAnterior: { estado: processo.estado },
+    valorNovo: { estado: "rejeitado", motivo },
+  });
+
+  try {
+    const { email } = await emailDoCliente(id);
+    if (email) {
+      await enviarEmail({
+        para: email,
+        assunto: ASSUNTO_REJEICAO,
+        html: emailRejeicao({ referencia: processo.referencia, motivo }),
+        template: "rejeicao",
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+      });
+    } else {
+      console.warn(
+        `[processo] ${processo.referencia}: rejeitado sem endereço de email — decisão não notificada.`,
+      );
+    }
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: o email de rejeição não foi enviado`, e);
+  }
+
+  revalidatePath("/processos");
+  revalidatePath(`/processos/${id}`);
+  revalidatePath("/");
+
+  return { ok: true };
 }

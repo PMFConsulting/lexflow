@@ -3,9 +3,11 @@ import {
   ASSUNTO_BOAS_VINDAS,
   ASSUNTO_CONFIRMACAO,
   ASSUNTO_REGISTO,
+  ASSUNTO_REJEICAO,
   emailBoasVindas,
   emailConfirmacaoRececao,
   emailRegisto,
+  emailRejeicao,
 } from "./jmassano";
 
 const LINK = "https://poc.terlicalabs.com/onboarding/abc123";
@@ -120,6 +122,50 @@ describe("3. Bem-vindo à JMASSANO Escritório de Advogado", () => {
   it("pontua a lista: ponto e vírgula entre linhas, ponto final na última", () => {
     expect(html).toContain("Proposta de Honorários;");
     expect(html).toContain("[Outros documentos aplicáveis].");
+  });
+});
+
+/**
+ * O quarto email — redação própria, não do documento do cliente (esse não
+ * previa um fluxo de aprovação). Mesmo estilo: `moldura`, saudação genérica,
+ * despedida em aberto.
+ */
+describe("4. JMASSANO | Decisão sobre o seu processo", () => {
+  it("tem o assunto certo", () => {
+    expect(ASSUNTO_REJEICAO).toBe("JMASSANO | Decisão sobre o seu processo");
+  });
+
+  it("menciona a referência e o motivo, e a disponibilidade para esclarecer", () => {
+    const t = texto(
+      emailRejeicao({ referencia: "JM-2026-0007", motivo: "Documentação incompleta" }),
+    );
+    expect(t).toContain("JM-2026-0007");
+    expect(t).toContain("Documentação incompleta");
+    expect(t).toContain("disponível para esclarecer");
+  });
+
+  /**
+   * O único dos quatro emails cujo conteúdo variável não é nosso: o `motivo`
+   * vem de uma caixa de texto no back-office, escrita por quem rejeita.
+   */
+  it("escapa o motivo em vez de o deixar quebrar o HTML", () => {
+    const html = emailRejeicao({
+      referencia: "JM-2026-0007",
+      motivo: "<script>alert(1)</script>",
+    });
+
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("fecha com o mesmo rodapé e a mesma despedida dos outros três", () => {
+    const t = texto(
+      emailRejeicao({ referencia: "JM-2026-0007", motivo: "Documentação incompleta" }),
+    );
+    expect(t).toContain("JMASSANO — Escritório de Advogado");
+    expect(t).toContain(
+      "Com os melhores cumprimentos, Assinatura do Advogado gestor do Cliente",
+    );
   });
 });
 

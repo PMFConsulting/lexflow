@@ -18,7 +18,11 @@ export default async function Entrada({
   // browser em vez de ser arrastado por todos os passos seguintes.
   const { processo, token } = acesso;
 
-  if (processo.estado === "submetido" || processo.estado === "aprovado") {
+  if (
+    processo.estado === "submetido" ||
+    processo.estado === "aguardar_aprovacao" ||
+    processo.estado === "aprovado"
+  ) {
     redirect(`/onboarding/${token}/submetido`);
   }
 

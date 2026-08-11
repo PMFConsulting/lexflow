@@ -7,6 +7,10 @@ type Risco = (typeof nivelRisco.enumValues)[number];
 const ESTADOS: Record<Estado, { rotulo: string; classe: string }> = {
   rascunho: { rotulo: "Rascunho", classe: "border-linha text-tinta-suave" },
   submetido: { rotulo: "Submetido", classe: "border-latao/40 bg-latao/10 text-latao" },
+  aguardar_aprovacao: {
+    rotulo: "Aguardar aprovação",
+    classe: "border-latao/40 bg-latao/10 text-latao",
+  },
   em_revisao: { rotulo: "Em revisão", classe: "border-latao/40 bg-latao/10 text-latao" },
   pendente_cliente: {
     rotulo: "Pendente do cliente",

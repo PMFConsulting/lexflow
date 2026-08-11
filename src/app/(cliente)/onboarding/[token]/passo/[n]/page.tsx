@@ -27,7 +27,11 @@ export default async function PaginaPasso({
   // impossível diga que expirou, que é o problema que o cliente tem de facto.
   if (!Number.isInteger(n) || !passoPorNumero(n)) notFound();
 
-  if (processo.estado === "submetido" || processo.estado === "aprovado") {
+  if (
+    processo.estado === "submetido" ||
+    processo.estado === "aguardar_aprovacao" ||
+    processo.estado === "aprovado"
+  ) {
     redirect(`/onboarding/${token}/submetido`);
   }
 

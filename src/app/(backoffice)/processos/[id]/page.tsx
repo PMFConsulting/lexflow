@@ -18,8 +18,9 @@ import {
   passosDoProcesso,
   type TipoCliente,
 } from "@/features/onboarding/passos";
-import { exigirSessao, podeVerPpe } from "@/lib/sessao";
+import { exigirSessao, podeAprovarProcesso, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
+import { AcoesAprovacao } from "@/features/processos/componentes/AcoesAprovacao";
 
 export const dynamic = "force-dynamic";
 
@@ -173,6 +174,22 @@ export default async function Processo({
       </div>
 
       <Separator />
+
+      {/* ── decisão ───────────────────────────────────────────────────── */}
+      {processo.estado === "aguardar_aprovacao" && podeAprovarProcesso(eu.papel) && (
+        <AcoesAprovacao processoId={processo.id} />
+      )}
+
+      {processo.estado === "rejeitado" && processo.motivoRejeicao && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Motivo da rejeição</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm">{processo.motivoRejeicao}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── dados ─────────────────────────────────────────────────────── */}
       <div className="grid gap-3">

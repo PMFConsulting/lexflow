@@ -118,7 +118,12 @@ export async function numerosDoPainel() {
     base
       .select({ n: count() })
       .from(processoOnboarding)
-      .where(and(vivos, inArray(processoOnboarding.estado, ["submetido", "em_revisao"]))),
+      .where(
+        and(
+          vivos,
+          inArray(processoOnboarding.estado, ["aguardar_aprovacao", "submetido", "em_revisao"]),
+        ),
+      ),
     base
       .select({ n: count() })
       .from(processoOnboarding)

@@ -1,24 +1,30 @@
 /**
- * Os três emails da JMASSANO, todos num sítio só.
+ * Os emails da JMASSANO, todos num sítio só.
  *
  * 1. **JMASSANO | Registro** — vai com o link do formulário, quando a
  *    sociedade cria o processo.
  * 2. **JMASSANO | Confirmação de Receção dos seus Dados** — quando o cliente
  *    submete.
- * 3. **Bem-vindo à JMASSANO Escritório de Advogado** — a seguir à confirmação,
- *    com o resumo das informações, os T&C e a proposta de honorários em anexo.
+ * 3. **Bem-vindo à JMASSANO Escritório de Advogado** — quando o processo é
+ *    aprovado no back-office, com o resumo das informações, os T&C e a
+ *    proposta de honorários em anexo.
+ * 4. **JMASSANO | Decisão sobre o seu processo** — quando o processo é
+ *    rejeitado no back-office, com o motivo. Redação própria e não do
+ *    documento do cliente — o fluxo de aprovação não existia quando esse
+ *    documento foi escrito.
  *
- * Assuntos **e corpos** são agora os do documento de análise do cliente
- * (07/08/2026), à letra — incluindo "Registro", que é como lá está e não se
- * corrigiu para "Registo", e incluindo a assinatura em aberto ("Assinatura do
- * Advogado gestor do Cliente"), que é o espaço deixado ao advogado que gere
- * cada cliente. Nada aqui é redação nossa.
+ * Os três primeiros seguem os assuntos **e corpos** do documento de análise do
+ * cliente (07/08/2026), à letra — incluindo "Registro", que é como lá está e
+ * não se corrigiu para "Registo", e incluindo a assinatura em aberto
+ * ("Assinatura do Advogado gestor do Cliente"), que é o espaço deixado ao
+ * advogado que gere cada cliente. O quarto é redação própria, pela razão
+ * acima — segue o mesmo estilo, não o mesmo texto de origem.
  *
  * O que a moldura acrescenta ao texto do cliente é só isto, e por razões
  * técnicas: o `(link)` do primeiro email vira botão mais endereço em texto
  * (um email não tem onde carregar num parêntesis), a lista de anexos do
  * terceiro é montada a partir dos ficheiros que foram mesmo gerados, e o
- * rodapé de confidencialidade fecha as três mensagens.
+ * rodapé de confidencialidade fecha as quatro mensagens.
  *
  * Consequência de seguir o texto à letra: a saudação é genérica — o documento
  * diz "Caro(a) Sr.(a)," e não abre espaço para o nome — e a referência do
@@ -172,6 +178,37 @@ export function emailBoasVindas({
     ${p(
       "Agradecemos, uma vez mais, a confiança depositada na JMASSANO Escritório de Advogado e reforçamos o nosso compromisso de prestar um acompanhamento jurídico pautado pelo rigor, proximidade e profissionalismo.",
     )}
+    ${despedida()}
+  `);
+}
+
+/* ------------------------------------------------------------ 4. rejeição */
+
+export const ASSUNTO_REJEICAO = "JMASSANO | Decisão sobre o seu processo";
+
+/**
+ * O `motivo` vem de uma caixa de texto no back-office, escrita por quem
+ * rejeita o processo — e por isso passa por `escapar()` como o `link` do
+ * primeiro email: é o único conteúdo desta mensagem que não é nosso.
+ */
+export function emailRejeicao({
+  referencia,
+  motivo,
+}: {
+  nome?: string | null;
+  referencia: string;
+  motivo: string;
+}): string {
+  return moldura(`
+    ${saudacao()}
+    ${p(
+      `Após análise do processo com a referência <strong>${escapar(referencia)}</strong>, informamos que não nos foi possível dar-lhe seguimento nesta fase.`,
+    )}
+    ${p(`<strong>Motivo:</strong> ${escapar(motivo)}`)}
+    ${p(
+      "A nossa equipa está inteiramente disponível para esclarecer esta decisão ou para o apoiar numa nova submissão, caso pretenda retomar o processo.",
+    )}
+    ${p("Agradecemos a compreensão e permanecemos ao seu dispor.")}
     ${despedida()}
   `);
 }

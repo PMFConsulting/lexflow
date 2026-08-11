@@ -1,0 +1,175 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Check, ExternalLink, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+/**
+ * A proposta de honorários (`/custos.pdf`), e a porta que ela fecha.
+ *
+ * Mesmo padrão do `LeitorTermos`: a caixa "Aceito a proposta" só se destranca
+ * depois de o documento ser aberto e percorrido até ao fim — a proposta é o
+ * documento que fixa o que o cliente vai pagar, e uma aceitação sem o ter visto
+ * não prova nada.
+ *
+ * A diferença é o que há dentro do leitor. O `LeitorTermos` renderiza o texto
+ * dos T&C como HTML nosso e mede o `scrollTop` do elemento que o contém — sem
+ * incerteza nenhuma, porque o elemento é nosso. A proposta só existe como PDF
+ * em `public/`, e o conteúdo de um `<iframe>` de PDF não se lê de dentro: o
+ * visualizador nativo do browser corre no seu próprio contexto, e o
+ * `scrollTop` dele não está acessível a este código, mesmo sendo o ficheiro da
+ * mesma origem.
+ *
+ * A solução é dar ao iframe uma altura fixa generosa (mais alta do que a
+ * proposta — um documento curto — alguma vez precisa) para que o visualizador
+ * mostre o documento inteiro sem rolagem própria, e deixar que seja o `<div>`
+ * à volta — esse sim, nosso — a rolar e a ser medido. Uma proposta com mais
+ * páginas do que cabem nesta altura ainda mostraria a barra de rolagem
+ * interna do PDF, e nesse caso a medição do fim passa a exigir também rolar o
+ * documento por dentro — daí o aviso e o link para o abrir à parte.
+ */
+export function LeitorProposta({
+  lido,
+  aoLer,
+}: {
+  lido: boolean;
+  aoLer: () => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant={lido ? "outline" : "default"} onClick={() => setAberto(true)}>
+          <FileText className="size-4" />
+          {lido ? "Rever a proposta de honorários" : "Abrir e ler a proposta de honorários"}
+        </Button>
+
+        <a
+          href="/custos.pdf"
+          target="_blank"
+          rel="noopener"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-tinta"
+        >
+          Abrir o documento em separador próprio
+          <ExternalLink className="ml-1 inline size-3" />
+        </a>
+      </div>
+
+      {lido ? (
+        <p className="text-arquivo flex items-center gap-1.5 text-xs">
+          <Check className="size-3.5" strokeWidth={2.5} />
+          Documento lido até ao fim.
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Para poder aceitar, abra o documento e percorra-o até ao fim.
+        </p>
+      )}
+
+      <Dialog open={aberto} onOpenChange={setAberto}>
+        {aberto && (
+          <Modal
+            aoFechar={() => setAberto(false)}
+            lido={lido}
+            aoChegarAoFim={aoLer}
+          />
+        )}
+      </Dialog>
+    </div>
+  );
+}
+
+/** Altura do iframe: generosa para um documento curto (proposta de honorários). */
+const ALTURA_IFRAME = 3200;
+
+function Modal({
+  aoFechar,
+  lido,
+  aoChegarAoFim,
+}: {
+  aoFechar: () => void;
+  lido: boolean;
+  aoChegarAoFim: () => void;
+}) {
+  const corpo = useRef<HTMLDivElement>(null);
+  const [chegouAoFim, setChegouAoFim] = useState(lido);
+
+  // O `aoChegarAoFim` chega numa função nova a cada render do formulário — ver
+  // a mesma nota no `LeitorTermos`.
+  const avisar = useRef(aoChegarAoFim);
+  avisar.current = aoChegarAoFim;
+
+  const verificar = () => {
+    const el = corpo.current;
+    if (!el) return;
+    // 24px de tolerância, pela mesma razão do `LeitorTermos`: zoom do browser
+    // e barras de rolagem do sistema deixam o `scrollTop` máximo uns pixels
+    // abaixo da conta.
+    const noFim = el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
+    if (!noFim) return;
+    setChegouAoFim(true);
+    avisar.current();
+  };
+
+  // Se a proposta couber toda no ecrã (o wrapper não chega a precisar de
+  // rolar), não há fim para onde rolar — sem isto a caixa ficava trancada.
+  useEffect(() => {
+    const el = corpo.current;
+    if (el && el.scrollHeight <= el.clientHeight + 24) {
+      setChegouAoFim(true);
+      avisar.current();
+    }
+  }, []);
+
+  return (
+    <DialogContent
+      className="h-[92svh] max-w-3xl sm:h-[80svh]"
+      aria-describedby={undefined}
+      onOpenAutoFocus={(e) => {
+        e.preventDefault();
+        corpo.current?.focus();
+      }}
+    >
+      <DialogHeader>
+        <DialogTitle>Proposta de Honorários</DialogTitle>
+      </DialogHeader>
+
+      <div
+        ref={corpo}
+        onScroll={verificar}
+        tabIndex={0}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
+        <iframe
+          src="/custos.pdf#toolbar=0"
+          title="Proposta de Honorários"
+          className="w-full border-0"
+          style={{ height: ALTURA_IFRAME }}
+        />
+      </div>
+
+      <DialogFooter className="justify-between">
+        <p
+          className={cn("text-xs", chegouAoFim ? "text-arquivo" : "text-muted-foreground")}
+          aria-live="polite"
+        >
+          {chegouAoFim
+            ? "Chegou ao fim do documento."
+            : "Continue a percorrer o documento até ao fim."}
+        </p>
+        <Button type="button" onClick={aoFechar} disabled={!chegouAoFim}>
+          {chegouAoFim ? "Li e compreendi" : "Percorra até ao fim"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}

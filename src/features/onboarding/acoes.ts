@@ -6,13 +6,8 @@ import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { env } from "@/env";
-import { enviarEmail, type AnexoEmail } from "@/lib/email";
-import {
-  ASSUNTO_BOAS_VINDAS,
-  ASSUNTO_CONFIRMACAO,
-  emailBoasVindas,
-  emailConfirmacaoRececao,
-} from "@/lib/emails/jmassano";
+import { enviarEmail } from "@/lib/email";
+import { ASSUNTO_CONFIRMACAO, emailConfirmacaoRececao } from "@/lib/emails/jmassano";
 import { origemPublica } from "@/lib/origem";
 import { assinatura } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
@@ -498,7 +493,14 @@ export async function submeter(bruto: string): Promise<Resultado> {
   if (!fecho?.tcAceitacao) {
     return {
       ok: false,
-      erros: { tcAceitacao: ["Tem de aceitar os Termos e Condições e a proposta."] },
+      erros: { tcAceitacao: ["Tem de aceitar os Termos e Condições."] },
+    };
+  }
+
+  if (!fecho?.propostaAceitacao) {
+    return {
+      ok: false,
+      erros: { propostaAceitacao: ["Tem de aceitar a proposta de honorários."] },
     };
   }
 
@@ -529,9 +531,15 @@ export async function submeter(bruto: string): Promise<Resultado> {
 
   // `returning` e não um segundo SELECT: o resumo em PDF precisa da data de
   // submissão, e a linha que já estava em memória ainda a tem a null.
+  //
+  // O estado passa a `aguardar_aprovacao`, não a `submetido`: a POC ganhou de
+  // volta um fluxo de aprovação (a D20 apagou-o; esta atualização repõe-no), e
+  // um processo submetido pelo cliente fica à espera da decisão de um sócio ou
+  // advogado antes de `aprovado` ou `rejeitado`. `submetidoEm` continua a
+  // marcar o momento da submissão em si.
   const [submetido] = await db()
     .update(processoOnboarding)
-    .set({ estado: "submetido", submetidoEm: new Date() })
+    .set({ estado: "aguardar_aprovacao", submetidoEm: new Date() })
     .where(eq(processoOnboarding.id, processo.id))
     .returning();
 
@@ -542,7 +550,7 @@ export async function submeter(bruto: string): Promise<Resultado> {
     entidade: "processo_onboarding",
     entidadeId: processo.id,
     valorAnterior: { estado: processo.estado },
-    valorNovo: { estado: "submetido" },
+    valorNovo: { estado: "aguardar_aprovacao" },
     ip,
     userAgent,
   });
@@ -588,22 +596,21 @@ async function arquivarNoArmazenamento(processo: typeof processoOnboarding.$infe
 /**
  * Os emails que saem quando um processo é submetido.
  *
- * Dois para o cliente — a confirmação de receção e, logo a seguir, as
- * boas-vindas com os anexos — e um para a sociedade. Nenhum deles pode impedir
- * a submissão: o processo já está gravado, e um erro do Resend não transforma
- * um formulário bem preenchido num ecrã de erro. Daí o `Promise.allSettled` e o
- * facto de nada aqui lançar.
+ * Um para o cliente — a confirmação de receção — e um para a sociedade.
+ * Nenhum deles pode impedir a submissão: o processo já está gravado, e um erro
+ * do Resend não transforma um formulário bem preenchido num ecrã de erro. Daí
+ * o `Promise.allSettled` e o facto de nada aqui lançar.
  *
- * A confirmação e as boas-vindas vão as duas na submissão porque a POC não tem
- * passo de aprovação (D20) — não há um segundo momento em que dar as
- * boas-vindas. Se o fluxo de aprovação voltar, o segundo email muda de sítio,
- * não de conteúdo.
+ * As boas-vindas (com os três anexos) já não vão aqui: com o fluxo de
+ * aprovação de volta (D20 apagou-o, esta atualização repõe-no), esse email
+ * passa a sair quando o processo é aprovado — `enviarBoasVindas`, em
+ * `@/lib/emails/boas-vindas`, partilhada com `aprovarProcesso`.
  */
 async function notificarSubmissao(processo: typeof processoOnboarding.$inferSelect) {
   const base = db();
 
   const [identificacao] = await base
-    .select({ email: dadosIdentificacao.email, nome: dadosIdentificacao.nome })
+    .select({ email: dadosIdentificacao.email })
     .from(dadosIdentificacao)
     .where(eq(dadosIdentificacao.processoId, processo.id))
     .limit(1);
@@ -615,7 +622,6 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
     .limit(1);
 
   const emailCliente = identificacao?.email ?? faturacao?.email;
-  const nomeCliente = identificacao?.nome ?? null;
 
   // Sem valor por omissão. Aqui estava um endereço pessoal escrito à mão, e
   // numa instalação a que faltasse a variável eram os dados de processos de
@@ -648,8 +654,6 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
         processoId: processo.id,
       }),
     );
-
-    envios.push(enviarBoasVindas(processo, emailCliente, nomeCliente));
   }
 
   if (emailBackoffice) {
@@ -695,75 +699,4 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
       console.error("[email] falha ao notificar submissão", resultado.reason);
     }
   }
-}
-
-/**
- * O email de boas-vindas, com os três anexos.
- *
- * O resumo das informações é o mesmo `summary.pdf` que vai para a pasta do
- * cliente no arquivo — gerado do mesmo sítio, para o cliente e a sociedade não
- * ficarem com versões diferentes do mesmo documento. Os T&C são a cópia do
- * articulado que ele aceitou. A proposta de honorários é o PDF que está em
- * `public/`, e é o único dos três que não é gerado: enquanto não houver
- * proposta por cliente, é o mesmo documento para todos.
- *
- * Um anexo que falhe a gerar-se não trava o email — vale mais chegar com dois
- * anexos e uma lista honesta do que não chegar de todo.
- */
-async function enviarBoasVindas(
-  processo: typeof processoOnboarding.$inferSelect,
-  para: string,
-  nome: string | null,
-) {
-  const anexos: AnexoEmail[] = [];
-  const rotulos: string[] = [];
-
-  const juntar = async (
-    rotulo: string,
-    nomeFicheiro: string,
-    produzir: () => Promise<Buffer>,
-  ) => {
-    try {
-      anexos.push({ nome: nomeFicheiro, conteudo: await produzir() });
-      rotulos.push(rotulo);
-    } catch (e) {
-      console.error(`[email] anexo "${nomeFicheiro}" não foi gerado`, e);
-    }
-  };
-
-  // Os rótulos são os do documento de análise do cliente: é esta a lista que
-  // ele escreveu no corpo do email de boas-vindas.
-  await juntar(
-    "Resumo das informações fornecidas durante o processo de registo",
-    "resumo_do_processo.pdf",
-    async () => {
-      const { resumoDoProcesso } = await import("@/lib/storage/sincronizar");
-      return resumoDoProcesso(processo);
-    },
-  );
-
-  await juntar(
-    "Termos e Condições de Prestação de Serviços (T&C)",
-    "termos_e_condicoes.pdf",
-    async () => {
-      const { gerarTermosPdf } = await import("@/lib/storage/termos-pdf");
-      return gerarTermosPdf(new Date());
-    },
-  );
-
-  await juntar("Proposta de Honorários", "proposta_de_honorarios.pdf", async () => {
-    const { readFile } = await import("node:fs/promises");
-    const { join } = await import("node:path");
-    return readFile(join(process.cwd(), "public", "custos.pdf"));
-  });
-
-  return enviarEmail({
-    para,
-    assunto: ASSUNTO_BOAS_VINDAS,
-    html: emailBoasVindas({ nome, referencia: processo.referencia, anexos: rotulos }),
-    anexos,
-    template: "boas_vindas",
-    organizacaoId: processo.organizacaoId,
-    processoId: processo.id,
-  });
 }

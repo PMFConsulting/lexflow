@@ -2,9 +2,18 @@ import { pgEnum } from "drizzle-orm/pg-core";
 
 export const tipoCliente = pgEnum("tipo_cliente", ["particular", "empresa"]);
 
+/**
+ * `aguardar_aprovacao` foi acrescentado depois dos outros (ver migração 0013) e
+ * fica a seguir a `submetido`, que é onde entra no fluxo: um processo submetido
+ * pelo cliente passa a aguardar a decisão de um sócio/advogado antes de
+ * `aprovado` ou `rejeitado`. O `ALTER TYPE ... ADD VALUE ... AFTER 'submetido'`
+ * da migração tem de pôr o valor exatamente aqui — divergir a ordem faz o
+ * `db:generate` seguinte propor uma migração a corrigir o que não está errado.
+ */
 export const estadoProcesso = pgEnum("estado_processo", [
   "rascunho",
   "submetido",
+  "aguardar_aprovacao",
   "em_revisao",
   "pendente_cliente",
   "aprovado",
@@ -82,6 +91,7 @@ export const templateEmail = pgEnum("template_email", [
   "confirmacao_rececao",
   "boas_vindas",
   "notificacao_backoffice",
+  "rejeicao",
 ]);
 
 /**

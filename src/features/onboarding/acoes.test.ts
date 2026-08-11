@@ -260,7 +260,12 @@ const PASSO_6 = {
   convitesIniciativas: false,
 };
 
-const PASSO_7 = { declaracaoVeracidade: true, tcAceitacao: true, assinatura: RUBRICA };
+const PASSO_7 = {
+  declaracaoVeracidade: true,
+  tcAceitacao: true,
+  propostaAceitacao: true,
+  assinatura: RUBRICA,
+};
 
 /** As tabelas escritas de um tipo, pela ordem em que o foram. */
 const escritas = (tipo: "insert" | "update" | "delete") =>
@@ -576,6 +581,7 @@ describe("guardarPasso — o passo 7 assina o dossier, não a caixa", () => {
       processoId: "proc-1",
       declaracaoVeracidade: true,
       tcAceitacao: true,
+      propostaAceitacao: true,
     });
   });
 
@@ -599,13 +605,15 @@ describe("guardarPasso — o passo 7 assina o dossier, não a caixa", () => {
 /* ── a submissão ──────────────────────────────────────────────────────── */
 
 /**
- * As três travas, verificadas contra a **base de dados** e não contra a carga
- * do passo 7. É a diferença que interessa: quem chame `submeter` à mão salta o
- * formulário inteiro, e o que tem de o parar é o que ficou gravado.
+ * As quatro travas, verificadas contra a **base de dados** e não contra a
+ * carga do passo 7. É a diferença que interessa: quem chame `submeter` à mão
+ * salta o formulário inteiro, e o que tem de o parar é o que ficou gravado.
  */
-describe("submeter — as três travas", () => {
+describe("submeter — as quatro travas", () => {
   const completo = () => {
-    linhas["fecho_proposta"] = [{ tcAceitacao: true, declaracaoVeracidade: true }];
+    linhas["fecho_proposta"] = [
+      { tcAceitacao: true, propostaAceitacao: true, declaracaoVeracidade: true },
+    ];
     linhas["assinatura"] = [{ imagemDados: RUBRICA }];
     linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
     linhas["dados_faturacao"] = [];
@@ -624,7 +632,9 @@ describe("submeter — as três travas", () => {
 
   it("com os T&C por aceitar, não submete", async () => {
     completo();
-    linhas["fecho_proposta"] = [{ tcAceitacao: false, declaracaoVeracidade: true }];
+    linhas["fecho_proposta"] = [
+      { tcAceitacao: false, propostaAceitacao: true, declaracaoVeracidade: true },
+    ];
 
     const r = await submeter(TOKEN);
 
@@ -633,9 +643,24 @@ describe("submeter — as três travas", () => {
     expect(Object.keys(r.erros)).toEqual(["tcAceitacao"]);
   });
 
+  it("com a proposta de honorários por aceitar, não submete", async () => {
+    completo();
+    linhas["fecho_proposta"] = [
+      { tcAceitacao: true, propostaAceitacao: false, declaracaoVeracidade: true },
+    ];
+
+    const r = await submeter(TOKEN);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(Object.keys(r.erros)).toEqual(["propostaAceitacao"]);
+  });
+
   it("com a declaração de veracidade por dar, não submete", async () => {
     completo();
-    linhas["fecho_proposta"] = [{ tcAceitacao: true, declaracaoVeracidade: false }];
+    linhas["fecho_proposta"] = [
+      { tcAceitacao: true, propostaAceitacao: true, declaracaoVeracidade: false },
+    ];
 
     const r = await submeter(TOKEN);
 
@@ -678,37 +703,40 @@ describe("submeter — as três travas", () => {
 
 describe("submeter — com tudo no sítio", () => {
   beforeEach(() => {
-    linhas["fecho_proposta"] = [{ tcAceitacao: true, declaracaoVeracidade: true }];
+    linhas["fecho_proposta"] = [
+      { tcAceitacao: true, propostaAceitacao: true, declaracaoVeracidade: true },
+    ];
     linhas["assinatura"] = [{ imagemDados: RUBRICA }];
     linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
     linhas["dados_faturacao"] = [];
   });
 
-  it("fecha o processo com a hora do servidor e escreve processo.submetido", async () => {
+  it("fecha o processo com a hora do servidor e passa a aguardar aprovação", async () => {
     const r = await submeter(TOKEN);
 
     expect(r).toEqual({ ok: true, proximo: null });
     expect(valoresDe("update", "processo_onboarding")).toEqual({
-      estado: "submetido",
+      estado: "aguardar_aprovacao",
       submetidoEm: AGORA,
     });
     expect(auditados.map((e) => e.acao)).toEqual(["processo.submetido"]);
     expect(auditados[0]?.valorAnterior).toEqual({ estado: "rascunho" });
+    expect(auditados[0]?.valorNovo).toEqual({ estado: "aguardar_aprovacao" });
   });
 
-  it("saem os dois emails ao cliente e o aviso ao back-office", async () => {
+  /**
+   * As boas-vindas já não saem aqui — passam a sair quando o processo é
+   * aprovado no back-office (`aprovarProcesso`, em `features/processos/acoes.ts`).
+   * Na submissão só saem a confirmação de receção ao cliente e o aviso interno.
+   */
+  it("sai a confirmação ao cliente e o aviso ao back-office — sem boas-vindas", async () => {
     await submeter(TOKEN);
 
     expect(enviados.map((e) => e.template)).toEqual([
       "confirmacao_rececao",
       "notificacao_backoffice",
-      "boas_vindas",
     ]);
-    expect(enviados.slice(0, 2).map((e) => e.para)).toEqual([
-      "maria@exemplo.pt",
-      "equipa@jmassano.pt",
-    ]);
-    expect(enviados[2]?.para).toBe("maria@exemplo.pt");
+    expect(enviados.map((e) => e.para)).toEqual(["maria@exemplo.pt", "equipa@jmassano.pt"]);
   });
 
   it("sem email na identificação, vale o da faturação", async () => {
@@ -717,10 +745,7 @@ describe("submeter — com tudo no sítio", () => {
 
     await submeter(TOKEN);
 
-    expect(enviados.slice(0, 2).map((e) => e.para)).toEqual([
-      "faturacao@exemplo.pt",
-      "equipa@jmassano.pt",
-    ]);
+    expect(enviados.map((e) => e.para)).toEqual(["faturacao@exemplo.pt", "equipa@jmassano.pt"]);
   });
 
   it("sem endereço nenhum, o aviso interno sai à mesma", async () => {
@@ -750,7 +775,9 @@ describe("submeter — com tudo no sítio", () => {
     const r = await submeter(TOKEN);
 
     expect(r).toEqual({ ok: true, proximo: null });
-    expect(valoresDe("update", "processo_onboarding")).toMatchObject({ estado: "submetido" });
+    expect(valoresDe("update", "processo_onboarding")).toMatchObject({
+      estado: "aguardar_aprovacao",
+    });
     expect(auditados.map((e) => e.acao)).toEqual(["processo.submetido"]);
   });
 

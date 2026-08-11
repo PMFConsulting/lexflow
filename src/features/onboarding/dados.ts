@@ -219,6 +219,7 @@ export function passosGravados(s: Seccoes, tipoCliente: TipoCliente): number[] {
   if (s.ppe && s.negocio) feitos.push(4);
   if (s.faturacao) feitos.push(5);
   if (s.preferencias?.origemContacto) feitos.push(6);
-  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao) feitos.push(7);
+  if (s.fecho?.declaracaoVeracidade && s.fecho?.tcAceitacao && s.fecho?.propostaAceitacao)
+    feitos.push(7);
   return feitos;
 }

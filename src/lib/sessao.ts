@@ -45,6 +45,17 @@ export function podeVerPpe(papel: string) {
 }
 
 /**
+ * Quem pode aprovar ou rejeitar um processo.
+ *
+ * Mesma fronteira do PPE: um `assistente` recolhe e organiza, mas a decisão
+ * sobre um cliente — que dispara o email de boas-vindas ou uma rejeição — é de
+ * quem tem responsabilidade sobre o processo (`admin`, `socio`, `advogado`).
+ */
+export function podeAprovarProcesso(papel: string) {
+  return papel !== "assistente";
+}
+
+/**
  * O diário de emails é de administração.
  *
  * A lista mostra para quem é que a sociedade escreveu e quando — endereços de

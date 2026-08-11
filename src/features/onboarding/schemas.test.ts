@@ -642,9 +642,10 @@ describe("passo 6 — RGPD", () => {
 /* ── passo 7, o Fecho ─────────────────────────────────────────────────── */
 
 /**
- * As três travas da submissão, do lado do schema. A quarta — os T&C só se
- * poderem aceitar depois de o documento ser percorrido até ao fim (D30) — é do
- * leitor e não daqui; o que aqui se garante é que a caixa por marcar não passa,
+ * As quatro travas da submissão, do lado do schema. Uma quinta — os T&C e a
+ * proposta só se poderem aceitar depois de cada documento ser percorrido até
+ * ao fim (D30, e o mesmo padrão no `LeitorProposta`) — é dos leitores e não
+ * daqui; o que aqui se garante é que nenhuma das caixas por marcar passa,
  * qualquer que tenha sido o caminho até ela.
  */
 describe("passo 7 — Fecho", () => {
@@ -653,6 +654,7 @@ describe("passo 7 — Fecho", () => {
   const fecho = {
     declaracaoVeracidade: true,
     tcAceitacao: true,
+    propostaAceitacao: true,
     assinatura: RUBRICA,
   };
 
@@ -666,17 +668,29 @@ describe("passo 7 — Fecho", () => {
     return r.success ? [] : r.error.issues.map((i) => i.path.join("."));
   };
 
-  it("aceita a declaração, os T&C e a rubrica", () => {
+  it("aceita a declaração, os T&C, a proposta e a rubrica", () => {
     expect(campos(fecho)).toEqual([]);
   });
 
   it("os T&C são obrigatórios, com a mensagem que o ecrã mostra", () => {
     expect(campos({ ...fecho, tcAceitacao: false })).toEqual(["tcAceitacao"]);
     expect(mensagens({ ...fecho, tcAceitacao: false }, "tcAceitacao")).toContain(
-      "Tem de aceitar os Termos e Condições e a proposta para submeter.",
+      "Tem de aceitar os Termos e Condições para submeter.",
     );
     // Por responder é o mesmo que recusado — a caixa não vem marcada.
     expect(campos({ ...fecho, tcAceitacao: undefined })).toEqual(["tcAceitacao"]);
+  });
+
+  it("a proposta de honorários é obrigatória, separada dos T&C", () => {
+    expect(campos({ ...fecho, propostaAceitacao: false })).toEqual(["propostaAceitacao"]);
+    expect(mensagens({ ...fecho, propostaAceitacao: false }, "propostaAceitacao")).toContain(
+      "Tem de aceitar a proposta de honorários para submeter.",
+    );
+    expect(campos({ ...fecho, propostaAceitacao: undefined })).toEqual(["propostaAceitacao"]);
+    // Aceitar uma não vale pela outra.
+    expect(campos({ ...fecho, tcAceitacao: false, propostaAceitacao: false }).sort()).toEqual(
+      ["propostaAceitacao", "tcAceitacao"].sort(),
+    );
   });
 
   it("a declaração de veracidade é obrigatória", () => {
@@ -684,8 +698,10 @@ describe("passo 7 — Fecho", () => {
     expect(campos({ ...fecho, declaracaoVeracidade: undefined })).toEqual(["declaracaoVeracidade"]);
   });
 
-  it("as três travas aparecem juntas quando o passo chega vazio", () => {
-    expect(campos({}).sort()).toEqual(["assinatura", "declaracaoVeracidade", "tcAceitacao"]);
+  it("as quatro travas aparecem juntas quando o passo chega vazio", () => {
+    expect(campos({}).sort()).toEqual(
+      ["assinatura", "declaracaoVeracidade", "propostaAceitacao", "tcAceitacao"].sort(),
+    );
   });
 
   it("sem rubrica não há submissão", () => {

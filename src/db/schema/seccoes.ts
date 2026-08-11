@@ -266,8 +266,14 @@ export const fechoProposta = pgTable("fecho_proposta", {
   processoId: processoId().unique(),
   /** O único campo que o passo 7 tinha — divergência D1, agora coberta. */
   declaracaoVeracidade: boolean("declaracao_veracidade").notNull().default(false),
-  /** Aceitação explícita dos T&C e da proposta — a parte do passo 7 do brief que faltava. */
+  /** Aceitação explícita dos T&C — o cliente teve de os abrir e ler até ao fim. */
   tcAceitacao: boolean("tc_aceitacao").notNull().default(false),
+  /**
+   * Aceitação da proposta de honorários, separada da dos T&C: são dois
+   * documentos distintos (`/termos-condicoes` e `/custos.pdf`) e o cliente tem
+   * de ler os dois, não um só a valer pelos dois.
+   */
+  propostaAceitacao: boolean("proposta_aceitacao").notNull().default(false),
   /* --- para o dia em que o passo 7 do brief avançar --- */
   servicosContratados: text("servicos_contratados"),
   modeloHonorarios: text("modelo_honorarios"),

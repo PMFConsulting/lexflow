@@ -92,6 +92,13 @@
       "when": 1786393924917,
       "tag": "0012_canal_smtp",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786444148171,
+      "tag": "0013_fluxo_aprovacao",
+      "breakpoints": true
     }
   ]
 }

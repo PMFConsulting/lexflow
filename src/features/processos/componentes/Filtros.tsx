@@ -11,6 +11,7 @@ type Faceta = { chave: string; n: number };
 const ROTULOS: Record<string, string> = {
   rascunho: "Rascunho",
   submetido: "Submetido",
+  aguardar_aprovacao: "Aguardar aprovação",
   em_revisao: "Em revisão",
   pendente_cliente: "Pendente do cliente",
   aprovado: "Aprovado",
