@@ -84,7 +84,8 @@ export const finalidadeConsentimento = pgEnum("finalidade_consentimento", [
  * São os três do documento da JMASSANO (D31) mais o aviso interno que sai para
  * a sociedade quando um processo é submetido — esse não é dela, mas sai pelo
  * mesmo canal e falha pelas mesmas razões, e um diário de emails que o omitisse
- * mentia por omissão.
+ * mentia por omissão. `reabertura` é o sexto: o aviso ao cliente quando um
+ * processo rejeitado volta a `rascunho` para correção.
  */
 export const templateEmail = pgEnum("template_email", [
   "registo",
@@ -92,6 +93,7 @@ export const templateEmail = pgEnum("template_email", [
   "boas_vindas",
   "notificacao_backoffice",
   "rejeicao",
+  "reabertura",
 ]);
 
 /**

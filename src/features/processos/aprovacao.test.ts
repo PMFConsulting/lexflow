@@ -21,6 +21,7 @@ let linhas: Record<string, Linha[]> = {};
 let papelAtual = "advogado";
 let boasVindasRebenta = false;
 let emailRejeicaoRebenta = false;
+let emailReaberturaRebenta = false;
 
 const PROCESSO = (extra: Linha = {}): Linha => ({
   id: "proc-1",
@@ -99,6 +100,7 @@ vi.mock("@/features/auditoria/registar", () => ({
 vi.mock("@/lib/email", () => ({
   enviarEmail: async (p: { para: string; template: string; html: string }) => {
     if (emailRejeicaoRebenta) throw new Error("o canal de email rebentou");
+    if (emailReaberturaRebenta) throw new Error("o canal de email rebentou");
     enviados.push(p);
     return { ok: true, canal: "resend", mensagemId: null };
   },
@@ -121,6 +123,8 @@ vi.mock("@/lib/emails/jmassano", () => ({
   emailRegisto: ({ link }: { link: string }) => `<a href="${link}">link</a>`,
   ASSUNTO_REJEICAO: "JMASSANO | Feedback Registro",
   emailRejeicao: () => "<p>rejeição</p>",
+  ASSUNTO_REABERTURA: "JMASSANO | Processo reaberto",
+  emailReabertura: ({ link }: { link: string }) => `<a href="${link}">reabertura</a>`,
 }));
 
 vi.mock("@/lib/origem", () => ({ origemPublica: async () => "https://poc.terlicalabs.com" }));
@@ -137,7 +141,7 @@ vi.mock("@/lib/sessao", () => ({
   podeAprovarProcesso: (papel: string) => papel !== "assistente",
 }));
 
-const { aprovarProcesso, rejeitarProcesso } = await import("./acoes");
+const { aprovarProcesso, rejeitarProcesso, reabrirProcesso } = await import("./acoes");
 
 beforeEach(() => {
   auditados.length = 0;
@@ -148,6 +152,7 @@ beforeEach(() => {
   papelAtual = "advogado";
   boasVindasRebenta = false;
   emailRejeicaoRebenta = false;
+  emailReaberturaRebenta = false;
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -302,6 +307,124 @@ describe("rejeitarProcesso", () => {
     papelAtual = "assistente";
 
     const r = await rejeitarProcesso("proc-1", "Documentação incompleta");
+
+    expect(r.ok).toBe(false);
+    expect(atualizacoes).toHaveLength(0);
+  });
+});
+
+describe("reabrirProcesso", () => {
+  it("reabre um rejeitado — volta a rascunho, grava auditoria e envia o email de reabertura", async () => {
+    linhas["processo_onboarding"] = [
+      PROCESSO({ estado: "rejeitado", motivoRejeicao: "Documentação incompleta" }),
+    ];
+    linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+
+    const r = await reabrirProcesso("proc-1");
+
+    expect(r).toEqual({ ok: true });
+    expect(atualizacoes).toContainEqual({
+      tabela: "processo_onboarding",
+      valores: expect.objectContaining({
+        estado: "rascunho",
+        tokenAcessoHash: "sha256-do-token",
+      }),
+    });
+    expect(auditados).toContainEqual(
+      expect.objectContaining({
+        acao: "processo.reaberto",
+        valorAnterior: { estado: "rejeitado" },
+        valorNovo: { estado: "rascunho" },
+      }),
+    );
+    expect(enviados).toEqual([
+      {
+        para: "maria@exemplo.pt",
+        template: "reabertura",
+        assunto: "JMASSANO | Processo reaberto",
+        html: '<a href="https://poc.terlicalabs.com/onboarding/token-em-claro">reabertura</a>',
+        organizacaoId: "org-1",
+        processoId: "proc-1",
+        tokenHash: "sha256-do-token",
+      },
+    ]);
+  });
+
+  it("não deixa o motivo da rejeição anterior de fora — só o estado muda", async () => {
+    linhas["processo_onboarding"] = [
+      PROCESSO({ estado: "rejeitado", motivoRejeicao: "Documentação incompleta" }),
+    ];
+
+    await reabrirProcesso("proc-1");
+
+    const atualizacao = atualizacoes.find((a) => a.valores.estado === "rascunho");
+    expect(atualizacao?.valores.motivoRejeicao).toBeUndefined();
+  });
+
+  it("sem endereço de email, reabre na mesma e não notifica ninguém", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "rejeitado" })];
+    linhas["dados_identificacao"] = [];
+    linhas["dados_faturacao"] = [];
+
+    const r = await reabrirProcesso("proc-1");
+
+    expect(r).toEqual({ ok: true });
+    expect(enviados).toHaveLength(0);
+  });
+
+  it("uma falha a enviar o email de reabertura não desfaz a reabertura", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "rejeitado" })];
+    linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+    emailReaberturaRebenta = true;
+
+    const r = await reabrirProcesso("proc-1");
+
+    expect(r).toEqual({ ok: true });
+    expect(atualizacoes.some((a) => a.valores.estado === "rascunho")).toBe(true);
+  });
+
+  it("recusa reabrir um processo aprovado", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "aprovado" })];
+
+    const r = await reabrirProcesso("proc-1");
+
+    expect(r.ok).toBe(false);
+    expect(atualizacoes).toHaveLength(0);
+    expect(auditados).toHaveLength(0);
+  });
+
+  it("recusa reabrir um processo à espera de aprovação", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "aguardar_aprovacao" })];
+
+    const r = await reabrirProcesso("proc-1");
+
+    expect(r.ok).toBe(false);
+    expect(atualizacoes).toHaveLength(0);
+  });
+
+  it("recusa reabrir um rascunho — não há decisão nenhuma para desfazer", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "rascunho" })];
+
+    const r = await reabrirProcesso("proc-1");
+
+    expect(r.ok).toBe(false);
+    expect(atualizacoes).toHaveLength(0);
+  });
+
+  it("recusa quando o papel não pode decidir (assistente)", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "rejeitado" })];
+    papelAtual = "assistente";
+
+    const r = await reabrirProcesso("proc-1");
+
+    expect(r.ok).toBe(false);
+    expect(atualizacoes).toHaveLength(0);
+  });
+
+  it("um processo de outra organização não se encontra", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "rejeitado", organizacaoId: "outra-org" })];
+
+    const r = await reabrirProcesso("proc-1");
 
     expect(r.ok).toBe(false);
     expect(atualizacoes).toHaveLength(0);

@@ -18,6 +18,7 @@ export const ROTULOS_TEMPLATE: Record<TemplateEmail, string> = {
   boas_vindas: "Boas-vindas",
   notificacao_backoffice: "Aviso interno",
   rejeicao: "Rejeição",
+  reabertura: "Reabertura",
 };
 
 /**

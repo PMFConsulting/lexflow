@@ -11,7 +11,14 @@ import { registarEvento } from "@/features/auditoria/registar";
 import { acessoPorToken } from "@/features/onboarding/dados";
 import { enviarEmail } from "@/lib/email";
 import { enviarBoasVindas } from "@/lib/emails/boas-vindas";
-import { ASSUNTO_REGISTO, ASSUNTO_REJEICAO, emailRegisto, emailRejeicao } from "@/lib/emails/jmassano";
+import {
+  ASSUNTO_REABERTURA,
+  ASSUNTO_REGISTO,
+  ASSUNTO_REJEICAO,
+  emailReabertura,
+  emailRegisto,
+  emailRejeicao,
+} from "@/lib/emails/jmassano";
 import { origemPublica } from "@/lib/origem";
 import { exigirSessao, podeAprovarProcesso } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
@@ -627,6 +634,119 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
     }
   } catch (e) {
     console.error(`[processo] ${processo.referencia}: o email de rejeição não foi enviado`, e);
+  }
+
+  revalidatePath("/processos");
+  revalidatePath(`/processos/${id}`);
+  revalidatePath("/");
+
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------- reabertura */
+
+/**
+ * As mesmas guardas de `processoParaDecisao` — sessão, permissão, organização
+ * —, só que sobre o estado oposto: aqui exige-se `rejeitado`, não
+ * `aguardar_aprovacao`. É a razão de não partilhar a função: um "processo já
+ * decidido" diz coisas diferentes consoante para onde se está a tentar levar
+ * o processo.
+ */
+async function processoParaReabertura(
+  id: string,
+): Promise<
+  | { ok: true; processo: typeof processoOnboarding.$inferSelect; atorId: string }
+  | { ok: false; erro: string }
+> {
+  const { eu } = await exigirSessao();
+  if (!podeAprovarProcesso(eu.papel)) {
+    return { ok: false, erro: "Não tem permissão para reabrir este processo." };
+  }
+
+  const [processo] = await db()
+    .select()
+    .from(processoOnboarding)
+    .where(eq(processoOnboarding.id, id))
+    .limit(1);
+
+  if (!processo || processo.organizacaoId !== eu.organizacaoId) {
+    return { ok: false, erro: "Processo não encontrado." };
+  }
+  if (processo.estado !== "rejeitado") {
+    return { ok: false, erro: "Só um processo rejeitado pode ser reaberto." };
+  }
+
+  return { ok: true, processo, atorId: eu.id };
+}
+
+/**
+ * Reabre um processo rejeitado: volta a `rascunho`, com todos os dados, o
+ * `passo_atual` e o motivo da rejeição anterior intactos — só o estado muda,
+ * o que é o que devolve ao cliente a capacidade de corrigir e voltar a
+ * submeter (a mesma guarda de `guardarPasso` em `features/onboarding/acoes.ts`
+ * já aceita `rascunho`; não há nada para destravar aí).
+ *
+ * O link que segue no email **não é o antigo**. O token em claro nunca fica
+ * gravado (D4) — só o SHA-256 — por isso não há "o mesmo link" para reenviar,
+ * mesmo que seja essa a sensação do lado do cliente. Gera-se um token novo e
+ * renova-se a validade, exatamente a operação que `expiraDaquiA` já previa
+ * ("renovável pelo responsável", ambiguidade A15): o antigo pode até ter
+ * expirado entretanto, e reabrir sem renovar a validade dava um link que
+ * volta a não abrir.
+ */
+export async function reabrirProcesso(id: string): Promise<ResultadoDecisao> {
+  const verificacao = await processoParaReabertura(id);
+  if (!verificacao.ok) return verificacao;
+  const { processo, atorId } = verificacao;
+
+  const { token, hash } = novoTokenAcesso();
+  const expiraEm = expiraDaquiA(30);
+
+  await db()
+    .update(processoOnboarding)
+    .set({ estado: "rascunho", tokenAcessoHash: hash, expiraEm })
+    .where(eq(processoOnboarding.id, id));
+
+  await registarEvento({
+    organizacaoId: processo.organizacaoId,
+    processoId: processo.id,
+    atorId,
+    acao: "processo.reaberto",
+    entidade: "processo_onboarding",
+    entidadeId: processo.id,
+    valorAnterior: { estado: processo.estado },
+    valorNovo: { estado: "rascunho" },
+  });
+
+  try {
+    const { email } = await emailDoCliente(id);
+    if (email) {
+      let link = `/onboarding/${token}`;
+      try {
+        link = `${await origemPublica()}/onboarding/${token}`;
+      } catch (erro) {
+        console.error(
+          `[processo] ${processo.referencia}: origemPublica falhou; link relativo`,
+          erro,
+        );
+      }
+
+      await enviarEmail({
+        para: email,
+        assunto: ASSUNTO_REABERTURA,
+        html: emailReabertura({ link }),
+        template: "reabertura",
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+        tokenHash: hash,
+      });
+    } else {
+      console.warn(
+        `[processo] ${processo.referencia}: reaberto sem endereço de email — cliente não notificado.`,
+      );
+    }
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: o email de reabertura não foi enviado`, e);
   }
 
   revalidatePath("/processos");

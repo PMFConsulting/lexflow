@@ -11,26 +11,31 @@
  * 4. **JMASSANO | Feedback Registro** — quando o processo é rejeitado no
  *    back-office. Segue, à letra, o template entregue pelo cliente em
  *    11/08/2026 — que substitui a redação própria usada até aqui.
+ * 5. **JMASSANO | Processo reaberto** — quando um processo rejeitado é
+ *    reaberto no back-office e volta a `rascunho`. Não vem do documento do
+ *    cliente (não existia essa possibilidade até 11/08/2026); redação
+ *    própria, no mesmo tom e moldura dos outros quatro.
  *
- * Os quatro seguem os assuntos **e corpos** dos documentos do cliente, à
- * letra — incluindo "Registro", que é como lá está e não se corrigiu para
- * "Registo" nos assuntos 1 e 4, e incluindo a assinatura em aberto
- * ("Assinatura do Advogado gestor do Cliente"), que é o espaço deixado ao
- * advogado que gere cada cliente. O segundo teve duas frases ajustadas
- * depois do fluxo de aprovação (migração `0013`) ter sido acrescentado: o
- * documento original dava o processo como "em análise" sem segundo momento
- * de contacto; agora há um, e o email diz que o processo aguarda aprovação e
- * que a decisão chega por email — o resto do texto do cliente mantém-se à
- * letra. O quarto (template de 11/08/2026) não menciona referência nem
- * motivo — ao contrário da redação anterior, que citava os dois. O motivo
- * continua obrigatório na UI e gravado no processo e na auditoria; só deixou
- * de ir no corpo do email, porque o template do cliente não o prevê.
+ * Os quatro primeiros seguem os assuntos **e corpos** dos documentos do
+ * cliente, à letra — incluindo "Registro", que é como lá está e não se
+ * corrigiu para "Registo" nos assuntos 1 e 4, e incluindo a assinatura em
+ * aberto ("Assinatura do Advogado gestor do Cliente"), que é o espaço
+ * deixado ao advogado que gere cada cliente. O segundo teve duas frases
+ * ajustadas depois do fluxo de aprovação (migração `0013`) ter sido
+ * acrescentado: o documento original dava o processo como "em análise" sem
+ * segundo momento de contacto; agora há um, e o email diz que o processo
+ * aguarda aprovação e que a decisão chega por email — o resto do texto do
+ * cliente mantém-se à letra. O quarto (template de 11/08/2026) não menciona
+ * referência nem motivo — ao contrário da redação anterior, que citava os
+ * dois. O motivo continua obrigatório na UI e gravado no processo e na
+ * auditoria; só deixou de ir no corpo do email, porque o template do cliente
+ * não o prevê.
  *
  * O que a moldura acrescenta ao texto do cliente é só isto, e por razões
- * técnicas: o `(link)` do primeiro email vira botão mais endereço em texto
- * (um email não tem onde carregar num parêntesis), a lista de anexos do
- * terceiro é montada a partir dos ficheiros que foram mesmo gerados, e o
- * rodapé de confidencialidade fecha as quatro mensagens.
+ * técnicas: o `(link)` do primeiro email e do quinto vira botão mais
+ * endereço em texto (um email não tem onde carregar num parêntesis), a lista
+ * de anexos do terceiro é montada a partir dos ficheiros que foram mesmo
+ * gerados, e o rodapé de confidencialidade fecha as cinco mensagens.
  *
  * Consequência de seguir o texto à letra: a saudação é genérica — o documento
  * diz "Caro(a) Sr.(a)," e não abre espaço para o nome — e a referência do
@@ -217,6 +222,45 @@ export function emailRejeicao(): string {
       "Caso considere oportuno, poderá entrar em contacto connosco para obter esclarecimentos adicionais ou verificar a possibilidade de apresentar informação ou documentação complementar que permita uma nova apreciação da sua situação.",
     )}
     ${p("Agradecemos a sua compreensão e permanecemos à disposição para qualquer esclarecimento que entenda necessário.")}
+    ${despedida()}
+  `);
+}
+
+/* ------------------------------------------------------------ 5. reabertura */
+
+export const ASSUNTO_REABERTURA = "JMASSANO | Processo reaberto";
+
+/**
+ * Quando um processo rejeitado é reaberto no back-office (volta a `rascunho`).
+ * O template de rejeição (D33, 11/08/2026) abriu esta porta — "poderá
+ * apresentar informação ou documentação complementar que permita uma nova
+ * apreciação" — e este é o email que a concretiza. Leva um link novo e não o
+ * antigo: o token em claro nunca fica gravado (D4), por isso reabrir gera um
+ * token novo e renova a validade, em vez de tentar reenviar o que já não está
+ * em lado nenhum para reenviar.
+ */
+export function emailReabertura({ link }: { link: string }): string {
+  const href = escapar(link);
+  return moldura(`
+    ${saudacao()}
+    ${p("Agradecemos a sua compreensão relativamente ao processo em curso junto da JMASSANO Escritório de Advogado.")}
+    ${p("Informamos que o seu processo foi reaberto pela nossa equipa.")}
+    ${p(
+      "Pode agora rever as informações e documentação do seu processo e, se pretender, voltar a submeter para nova apreciação:",
+    )}
+    <p style="margin:0 0 14px;">
+      <a href="${href}"
+         style="display:inline-block;background:${TINTA};color:#fff;text-decoration:none;
+                padding:12px 22px;border-radius:2px;font-family:Helvetica,Arial,sans-serif;
+                font-size:14px;">
+        Rever o meu processo
+      </a>
+    </p>
+    ${p(
+      `Se o botão não funcionar, copie este endereço para o seu navegador:<br />
+       <span style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;">${href}</span>`,
+    )}
+    ${p("Permanecemos ao seu dispor para qualquer esclarecimento que entenda necessário.")}
     ${despedida()}
   `);
 }
