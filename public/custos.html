@@ -3,40 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  @page { size: A4; margin: 22mm 20mm; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; color: #101a24; font-size: 12px; line-height: 1.55; }
-  .marca { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #7a6a4a; margin-bottom: 26px; }
-  h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 400; color: #101a24; margin-bottom: 6px; }
-  .sub { color: #5c6270; font-size: 12.5px; margin-bottom: 28px; }
-  h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 15px; font-weight: 400; color: #101a24; margin: 26px 0 12px; padding-top: 14px; border-top: 0.6px solid #d8d4ca; }
-  h2:first-of-type { border-top: none; padding-top: 0; }
-  p.corpo { font-size: 12px; color: #333; margin-bottom: 10px; }
-  .grelha { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
-  .grelha.tres { grid-template-columns: repeat(3, 1fr); }
-  .cartao { border: 0.6px solid #d8d4ca; border-radius: 3px; padding: 10px 12px; }
-  .cartao .titulo { font-family: Georgia, 'Times New Roman', serif; font-size: 12.5px; color: #101a24; margin-bottom: 4px; }
-  .cartao p { font-size: 11px; color: #5c6270; }
-  ol.metodologia { list-style: none; margin: 4px 0 4px; }
-  ol.metodologia li { padding: 8px 0; border-bottom: 0.6px solid #d8d4ca; }
-  ol.metodologia li:last-child { border-bottom: none; }
-  ol.metodologia .num { font-size: 9.5px; letter-spacing: 0.1em; color: #7a6a4a; }
-  ol.metodologia .titulo { font-family: Georgia, 'Times New Roman', serif; font-size: 12.5px; color: #101a24; margin: 2px 0 3px; }
-  ol.metodologia p { font-size: 11px; color: #5c6270; }
-  table { width: 100%; border-collapse: collapse; margin: 4px 0 4px; }
-  thead th { text-align: left; font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a6a4a; border-bottom: 1.5px solid #101a24; padding: 7px 8px; }
-  tbody td { padding: 10px 8px; border-bottom: 0.6px solid #d8d4ca; font-size: 11.5px; vertical-align: top; }
-  tbody tr:last-child td { border-bottom: none; }
-  ul.lista { margin: 6px 0 10px 18px; }
-  ul.lista li { font-size: 12px; color: #333; margin-bottom: 4px; }
-  .nota { font-size: 10.5px; color: #5c6270; background: #f6f4ef; border: 0.6px solid #d8d4ca; border-radius: 3px; padding: 10px 12px; margin: 6px 0 4px; }
-  .destaque { font-weight: 600; color: #101a24; }
-  .rodape { margin-top: 30px; padding-top: 12px; border-top: 0.6px solid #d8d4ca; font-size: 9.5px; color: #8a8f99; }
-  .obrigado { text-align: center; font-family: Georgia, 'Times New Roman', serif; font-size: 16px; color: #101a24; margin: 30px 0 6px; }
-  .obrigado-sub { text-align: center; font-size: 12px; color: #5c6270; }
+  /* Escopado sob .doc-proposta: este documento entra dentro do LeitorProposta,
+     no meio da app, e não pode vazar estilo para o resto da página nem herdar
+     o dela. As cores usam as variáveis de src/app/globals.css (papel/tinta/
+     latão) com um valor de recurso a seguir, para acompanhar o modo escuro
+     quando injetado lá dentro e continuar legível sozinho (ex.: aberto direto
+     no browser) quando não há variáveis nenhumas definidas. */
+  .doc-proposta, .doc-proposta *, .doc-proposta *::before, .doc-proposta *::after {
+    box-sizing: border-box;
+  }
+  .doc-proposta * { margin: 0; padding: 0; }
+  .doc-proposta {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--tinta, #101a24);
+    font-size: 14.5px;
+    line-height: 1.65;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 4px 4px 40px;
+  }
+  .doc-proposta .marca { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--latao, #7a6a4a); margin-bottom: 24px; }
+  .doc-proposta h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 400; color: var(--tinta, #101a24); margin-bottom: 6px; }
+  .doc-proposta .sub { color: var(--tinta-suave, #5c6270); font-size: 13px; margin-bottom: 28px; }
+  .doc-proposta h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 17px; font-weight: 400; color: var(--tinta, #101a24); margin: 28px 0 14px; padding-top: 16px; border-top: 1px solid var(--linha, #d8d4ca); }
+  .doc-proposta h2:first-of-type { border-top: none; padding-top: 0; }
+  .doc-proposta p.corpo { font-size: 13.5px; color: var(--tinta-suave, #333); margin-bottom: 10px; }
+  .doc-proposta .grelha { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
+  .doc-proposta .grelha.tres { grid-template-columns: repeat(3, 1fr); }
+  .doc-proposta .cartao { border: 1px solid var(--linha, #d8d4ca); border-radius: 4px; padding: 12px 14px; }
+  .doc-proposta .cartao .titulo { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; color: var(--tinta, #101a24); margin-bottom: 4px; }
+  .doc-proposta .cartao p { font-size: 12.5px; color: var(--tinta-suave, #5c6270); }
+  .doc-proposta ol.metodologia { list-style: none; margin: 4px 0 4px; }
+  .doc-proposta ol.metodologia li { padding: 10px 0; border-bottom: 1px solid var(--linha, #d8d4ca); }
+  .doc-proposta ol.metodologia li:last-child { border-bottom: none; }
+  .doc-proposta ol.metodologia .num { font-size: 10.5px; letter-spacing: 0.1em; color: var(--latao, #7a6a4a); }
+  .doc-proposta ol.metodologia .titulo { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; color: var(--tinta, #101a24); margin: 3px 0 3px; }
+  .doc-proposta ol.metodologia p { font-size: 12.5px; color: var(--tinta-suave, #5c6270); }
+  .doc-proposta table { width: 100%; border-collapse: collapse; margin: 4px 0 4px; }
+  .doc-proposta thead th { text-align: left; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--latao, #7a6a4a); border-bottom: 2px solid var(--tinta, #101a24); padding: 8px; }
+  .doc-proposta tbody td { padding: 11px 8px; border-bottom: 1px solid var(--linha, #d8d4ca); font-size: 12.5px; vertical-align: top; }
+  .doc-proposta tbody tr:last-child td { border-bottom: none; }
+  .doc-proposta ul.lista { margin: 6px 0 10px 18px; }
+  .doc-proposta ul.lista li { font-size: 13.5px; color: var(--tinta-suave, #333); margin-bottom: 4px; }
+  .doc-proposta .nota { font-size: 12px; color: var(--tinta-suave, #5c6270); background: var(--papel-fundo, #f6f4ef); border: 1px solid var(--linha, #d8d4ca); border-radius: 4px; padding: 11px 14px; margin: 6px 0 4px; }
+  .doc-proposta .destaque { font-weight: 600; color: var(--tinta, #101a24); }
+  .doc-proposta .rodape { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--linha, #d8d4ca); font-size: 10.5px; color: var(--tinta-suave, #8a8f99); }
+  .doc-proposta .obrigado { text-align: center; font-family: Georgia, 'Times New Roman', serif; font-size: 17px; color: var(--tinta, #101a24); margin: 32px 0 6px; }
+  .doc-proposta .obrigado-sub { text-align: center; font-size: 12.5px; color: var(--tinta-suave, #5c6270); }
+  @media (max-width: 30rem) {
+    .doc-proposta .grelha, .doc-proposta .grelha.tres { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
+
+<div class="doc-proposta">
 
 <div class="marca">JMASSANO Escritório de Advogados</div>
 <h1>Proposta de Prestação de Serviços Jurídicos</h1>
@@ -144,6 +165,8 @@
 <p class="obrigado-sub">Agradecemos a sua confiança nos serviços da JMASSANO Escritório de Advogados.</p>
 
 <div class="rodape">Documento gerado em 11/08/2026 · Informação confidencial</div>
+
+</div>
 
 </body>
 </html>

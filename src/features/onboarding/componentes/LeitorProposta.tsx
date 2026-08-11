@@ -13,28 +13,20 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * A proposta de honorários (`/custos.pdf`), e a porta que ela fecha.
+ * A proposta de honorários, e a porta que ela fecha.
  *
  * Mesmo padrão do `LeitorTermos`: a caixa "Aceito a proposta" só se destranca
  * depois de o documento ser aberto e percorrido até ao fim — a proposta é o
  * documento que fixa o que o cliente vai pagar, e uma aceitação sem o ter visto
  * não prova nada.
  *
- * A diferença é o que há dentro do leitor. O `LeitorTermos` renderiza o texto
- * dos T&C como HTML nosso e mede o `scrollTop` do elemento que o contém — sem
- * incerteza nenhuma, porque o elemento é nosso. A proposta só existe como PDF
- * em `public/`, e o conteúdo de um `<iframe>` de PDF não se lê de dentro: o
- * visualizador nativo do browser corre no seu próprio contexto, e o
- * `scrollTop` dele não está acessível a este código, mesmo sendo o ficheiro da
- * mesma origem.
- *
- * O ficheiro oficial é um documento tipo apresentação (paisagem, várias
- * páginas) — dentro do iframe, à largura do modal, o texto fica pequeno. Não
- * há como corrigir isso a partir daqui: o visualizador de PDF é do browser, não
- * nosso. Por isso o botão "Abrir em ecrã inteiro" — que usa o visualizador
- * nativo a ecrã inteiro, com zoom e rolagem próprios — é a forma de leitura
- * principal, e vive dentro do modal, visível sem precisar de procurar; o
- * iframe fica como pré-visualização contida, com o mesmo aviso.
+ * O que se lê dentro do modal é `/custos.html` — a versão HTML do mesmo
+ * conteúdo, injetada num `<div>` nosso com scroll natural, exatamente como o
+ * `LeitorTermos` já fazia com os T&C. Um `<iframe>` de PDF não serve para
+ * isto: o visualizador nativo do browser corre no seu próprio contexto e o
+ * documento oficial (`/custos.pdf`) é um slide deck em paisagem — ilegível à
+ * largura do modal. O PDF oficial continua acessível, mas como opção
+ * secundária: quem quiser o ficheiro tal e qual pode abri-lo à parte.
  */
 export function LeitorProposta({
   lido,
@@ -59,7 +51,7 @@ export function LeitorProposta({
           rel="noopener"
           className="text-xs text-muted-foreground underline underline-offset-2 hover:text-tinta"
         >
-          Abrir o documento em separador próprio
+          Abrir o PDF oficial em separador próprio
           <ExternalLink className="ml-1 inline size-3" />
         </a>
       </div>
@@ -88,13 +80,11 @@ export function LeitorProposta({
   );
 }
 
-/**
- * Altura do iframe: alta o suficiente para as 9 páginas em paisagem do
- * documento oficial caberem sem o visualizador do PDF abrir a sua própria
- * barra de rolagem interna — é o `<div>` à volta, esse sim nosso, que tem de
- * ser o único a rolar, para a medição do fim funcionar (ver nota do módulo).
- */
-const ALTURA_IFRAME = 5400;
+/** O que há para mostrar dentro do leitor, enquanto o HTML não chega ou se a busca falhar. */
+type EstadoDocumento =
+  | { tipo: "a-carregar" }
+  | { tipo: "erro" }
+  | { tipo: "pronto"; css: string; html: string };
 
 function Modal({
   aoFechar,
@@ -107,11 +97,40 @@ function Modal({
 }) {
   const corpo = useRef<HTMLDivElement>(null);
   const [chegouAoFim, setChegouAoFim] = useState(lido);
+  const [documento, setDocumento] = useState<EstadoDocumento>({ tipo: "a-carregar" });
 
   // O `aoChegarAoFim` chega numa função nova a cada render do formulário — ver
   // a mesma nota no `LeitorTermos`.
   const avisar = useRef(aoChegarAoFim);
   avisar.current = aoChegarAoFim;
+
+  // Busca-se `/custos.html` em runtime — é conteúdo estático nosso, servido
+  // da mesma origem — e extrai-se o `<style>` (já escopado sob `.doc-proposta`
+  // no próprio ficheiro) e o conteúdo do documento, para injetar os dois no
+  // leitor. Uma falha na busca (raro, mas possível) não deixa o cliente sem
+  // documento: cai no aviso com o PDF oficial em destaque.
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/custos.html")
+      .then((resposta) => {
+        if (!resposta.ok) throw new Error("resposta não ok");
+        return resposta.text();
+      })
+      .then((texto) => {
+        if (cancelado) return;
+        const parsed = new DOMParser().parseFromString(texto, "text/html");
+        const css = parsed.querySelector("style")?.textContent ?? "";
+        const html = parsed.querySelector(".doc-proposta")?.innerHTML;
+        if (!html) throw new Error("documento sem conteúdo");
+        setDocumento({ tipo: "pronto", css, html });
+      })
+      .catch(() => {
+        if (!cancelado) setDocumento({ tipo: "erro" });
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   const verificar = () => {
     const el = corpo.current;
@@ -126,14 +145,17 @@ function Modal({
   };
 
   // Se a proposta couber toda no ecrã (o wrapper não chega a precisar de
-  // rolar), não há fim para onde rolar — sem isto a caixa ficava trancada.
+  // rolar), não há fim para onde rolar — sem isto a caixa ficava trancada. A
+  // medição só faz sentido depois de o documento entrar no DOM, daí depender
+  // de `documento` e não correr só uma vez ao montar.
   useEffect(() => {
+    if (documento.tipo !== "pronto") return;
     const el = corpo.current;
     if (el && el.scrollHeight <= el.clientHeight + 24) {
       setChegouAoFim(true);
       avisar.current();
     }
-  }, []);
+  }, [documento]);
 
   return (
     <DialogContent
@@ -148,30 +170,48 @@ function Modal({
         <DialogTitle>Proposta de Honorários</DialogTitle>
       </DialogHeader>
 
-      <div className="border-linha bg-latao/10 flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
-        <p className="text-tinta text-xs">
-          Documento em formato de apresentação — lê-se melhor a ecrã inteiro.
-        </p>
-        <Button asChild variant="default" size="sm" className="shrink-0">
-          <a href="/custos.pdf" target="_blank" rel="noopener">
-            <Maximize2 className="size-3.5" />
-            Abrir o documento em ecrã inteiro
-          </a>
-        </Button>
-      </div>
-
       <div
         ref={corpo}
         onScroll={verificar}
         tabIndex={0}
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5"
       >
-        <iframe
-          src="/custos.pdf#toolbar=0"
-          title="Proposta de Honorários"
-          className="w-full border-0"
-          style={{ height: ALTURA_IFRAME }}
-        />
+        {documento.tipo === "a-carregar" && (
+          <p className="text-xs text-muted-foreground">A carregar o documento…</p>
+        )}
+
+        {documento.tipo === "erro" && (
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-xs text-muted-foreground">
+              Não foi possível carregar o documento aqui. Use o PDF oficial em ecrã inteiro.
+            </p>
+            <Button asChild variant="default" size="sm">
+              <a href="/custos.pdf" target="_blank" rel="noopener">
+                <Maximize2 className="size-3.5" />
+                Abrir o PDF oficial
+              </a>
+            </Button>
+          </div>
+        )}
+
+        {documento.tipo === "pronto" && (
+          <>
+            <style dangerouslySetInnerHTML={{ __html: documento.css }} />
+            <div className="doc-proposta" dangerouslySetInnerHTML={{ __html: documento.html }} />
+          </>
+        )}
+      </div>
+
+      <div className="border-linha bg-latao/10 flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3">
+        <p className="text-tinta text-xs">
+          Prefere o ficheiro tal e qual? O PDF oficial abre num separador próprio.
+        </p>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <a href="/custos.pdf" target="_blank" rel="noopener">
+            <Maximize2 className="size-3.5" />
+            Abrir o PDF oficial
+          </a>
+        </Button>
       </div>
 
       <DialogFooter className="justify-between">
