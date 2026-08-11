@@ -1,8 +1,9 @@
-import { TriangleAlert } from "lucide-react";
+import { Check, Clock, Mail, TriangleAlert } from "lucide-react";
 import { acessoPorToken, assinaturaDoProcesso } from "@/features/onboarding/dados";
 import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndisponivel";
 import { Carimbo } from "@/components/carimbo";
 import { Ref } from "@/components/ref-processo";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Processo submetido" };
 
@@ -23,6 +24,80 @@ const formatadorSubmissao = new Intl.DateTimeFormat("pt-PT", {
   timeZone: "Europe/Lisbon",
 });
 
+type EstadoEtapa = "feita" | "atual" | "futura";
+
+interface Etapa {
+  titulo: string;
+  descricao: string;
+  estado: EstadoEtapa;
+}
+
+/**
+ * Ícone e cor por estado, no mesmo vocabulário do `EstadoBadge`: arquivo
+ * (verde) para o que já aconteceu, latão para o que está a decorrer, e a cor
+ * de texto secundário para o que ainda não chegou.
+ */
+const ICONE_ETAPA = { feita: Check, atual: Clock, futura: Mail } as const;
+
+const CLASSE_MARCADOR: Record<EstadoEtapa, string> = {
+  feita: "border-arquivo/40 bg-arquivo/10 text-arquivo",
+  atual: "border-latao/40 bg-latao/10 text-latao",
+  futura: "border-linha bg-muted/50 text-tinta-suave",
+};
+
+/**
+ * Timeline dos próximos passos. Substitui o parágrafo genérico "fica em
+ * análise" por um estado que se vê: o cliente sabe que já foi um passo (a
+ * submissão), que há um segundo a decorrer (a aprovação) e o que acontece a
+ * seguir se ela correr bem — sem prometer prazo, que a POC não tem como
+ * cumprir.
+ */
+function ProximosPassos({ etapas }: { etapas: Etapa[] }) {
+  return (
+    <ol className="w-full max-w-sm text-left" aria-label="Próximos passos">
+      {etapas.map((etapa, i) => {
+        const Icone = ICONE_ETAPA[etapa.estado];
+        const ultima = i === etapas.length - 1;
+        return (
+          <li key={etapa.titulo} className="relative flex gap-3">
+            {!ultima && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute top-6 left-[10.5px] -bottom-0.5 w-px",
+                  etapa.estado === "feita" ? "bg-arquivo/30" : "bg-linha",
+                )}
+              />
+            )}
+            <span
+              className={cn(
+                "relative z-10 mt-0.5 grid size-[21px] shrink-0 place-items-center rounded-full border",
+                CLASSE_MARCADOR[etapa.estado],
+              )}
+            >
+              <Icone className="size-3" />
+            </span>
+            <div
+              className="pb-5"
+              aria-current={etapa.estado === "atual" ? "step" : undefined}
+            >
+              <p
+                className={cn(
+                  "text-sm font-medium",
+                  etapa.estado === "futura" && "text-muted-foreground",
+                )}
+              >
+                {etapa.titulo}
+              </p>
+              <p className="text-xs text-muted-foreground">{etapa.descricao}</p>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export default async function Submetido({
   params,
 }: {
@@ -33,19 +108,45 @@ export default async function Submetido({
 
   const { processo } = acesso;
   const assinatura = await assinaturaDoProcesso(processo.id);
+  const submetidoEm = processo.submetidoEm ?? new Date();
+
+  const etapas: Etapa[] = [
+    {
+      titulo: "Submissão recebida",
+      descricao: `Registada em ${formatadorSubmissao.format(submetidoEm)}.`,
+      estado: "feita",
+    },
+    {
+      titulo: "Análise e aprovação pela equipa",
+      descricao: "Recebe um email assim que o processo for decidido.",
+      estado: "atual",
+    },
+    {
+      titulo: "Boas-vindas, se aprovado",
+      descricao:
+        "Email com o resumo do processo, os Termos e Condições e a proposta de honorários.",
+      estado: "futura",
+    },
+  ];
 
   return (
     <div className="border-linha bg-papel-alto flex flex-col items-center gap-6 rounded-sm border p-8 text-center md:p-12">
-      <Carimbo data={processo.submetidoEm ?? new Date()} rotulo="Submetido" />
+      <Carimbo data={submetidoEm} rotulo="Submetido" />
 
       <div>
         <h1 className="text-2xl">Recebemos o seu processo</h1>
         <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-          A partir de agora o processo fica em análise pela equipa da JMASSANO
-          Escritório de Advogado. Se faltar alguma coisa ou for preciso corrigir
-          um dado, entramos em contacto pelo email que indicou.
+          O processo está agora <strong className="text-latao font-medium">a aguardar aprovação</strong> da
+          equipa da JMASSANO Escritório de Advogado.
         </p>
       </div>
+
+      <ProximosPassos etapas={etapas} />
+
+      <p className="max-w-prose text-xs text-muted-foreground">
+        Se faltar alguma coisa ou for preciso corrigir um dado, a equipa entra em
+        contacto pelo email que indicou.
+      </p>
 
       <dl className="border-linha grid w-full max-w-sm gap-px border text-left text-sm">
         <div className="bg-papel-alto flex justify-between gap-4 p-3">
@@ -57,7 +158,7 @@ export default async function Submetido({
         <div className="bg-papel-alto flex justify-between gap-4 p-3">
           <dt className="text-muted-foreground">Submetido em</dt>
           <dd>
-            <Ref>{formatadorSubmissao.format(processo.submetidoEm ?? new Date())}</Ref>
+            <Ref>{formatadorSubmissao.format(submetidoEm)}</Ref>
           </dd>
         </div>
       </dl>

@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { Logotipo } from "@/components/logotipo";
 import { TERMOS_CONDICOES, VERSAO_TERMOS } from "@/lib/termos";
 
 export const metadata = {
@@ -22,13 +22,7 @@ export default function TermosCondicoes() {
     <div className="bg-papel min-h-svh">
       <div className="mx-auto max-w-3xl px-5 py-10">
         <header className="border-linha mb-8 border-b pb-6">
-          <Image
-            src="/logo_jm.png"
-            alt="JMASSANO — Escritório de Advogado"
-            width={202}
-            height={171}
-            className="mb-4 h-14 w-auto"
-          />
+          <Logotipo className="mb-4 h-14 w-auto" />
           <h1 className="text-2xl">Termos e Condições</h1>
           <p className="text-2xs mt-1 font-mono tracking-[0.14em] text-muted-foreground uppercase">
             Condições de prestação de serviços jurídicos · Versão {VERSAO_TERMOS}

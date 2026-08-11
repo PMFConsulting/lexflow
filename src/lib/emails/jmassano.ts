@@ -18,7 +18,12 @@
  * não se corrigiu para "Registo", e incluindo a assinatura em aberto
  * ("Assinatura do Advogado gestor do Cliente"), que é o espaço deixado ao
  * advogado que gere cada cliente. O quarto é redação própria, pela razão
- * acima — segue o mesmo estilo, não o mesmo texto de origem.
+ * acima — segue o mesmo estilo, não o mesmo texto de origem. O segundo teve
+ * duas frases ajustadas depois do fluxo de aprovação (migração `0013`) ter
+ * sido acrescentado: o documento original dava o processo como "em análise"
+ * sem segundo momento de contacto; agora há um, e o email diz que o processo
+ * aguarda aprovação e que a decisão chega por email — o resto do texto do
+ * cliente mantém-se à letra.
  *
  * O que a moldura acrescenta ao texto do cliente é só isto, e por razões
  * técnicas: o `(link)` do primeiro email vira botão mais endereço em texto
@@ -125,13 +130,13 @@ export function emailConfirmacaoRececao(): string {
     ${saudacao()}
     ${p("Agradecemos o registo e o envio das informações através da nossa plataforma.")}
     ${p(
-      "Informamos que os dados e documentos submetidos foram recebidos com sucesso e encontram-se atualmente em análise pela equipa da JMASSANO Escritório de Advogado.",
+      "Informamos que os dados e documentos submetidos foram recebidos com sucesso e o processo encontra-se agora a aguardar aprovação pela equipa da JMASSANO Escritório de Advogado.",
     )}
     ${p(
       "A nossa equipa está a proceder à respetiva validação para que possamos dar seguimento ao seu processo da forma mais célere e eficiente possível. Caso seja necessária informação adicional ou documentação complementar, entraremos em contacto consigo.",
     )}
     ${p(
-      "Assim que a análise estiver concluída, voltaremos ao seu contacto com os próximos passos.",
+      "Assim que houver uma decisão, receberá um novo email a confirmá-la — em caso de aprovação, com o resumo do processo, os Termos e Condições e a proposta de honorários em anexo.",
     )}
     ${p("Agradecemos a sua confiança e colaboração.")}
     ${despedida()}

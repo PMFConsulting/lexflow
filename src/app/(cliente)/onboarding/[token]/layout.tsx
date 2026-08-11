@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { Logotipo } from "@/components/logotipo";
 import { acessoPorToken, passosGravados, seccoesDoProcesso } from "@/features/onboarding/dados";
 import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndisponivel";
 import { Lombada } from "@/features/onboarding/componentes/Lombada";
@@ -36,14 +36,7 @@ export default async function LayoutOnboarding({
               fica presa no `h-11` e a largura cede, que é o logo esticado. Quem
               encolhe passa a ser o texto ao lado, que tem por onde. */}
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <Image
-              src="/logo_jm.png"
-              alt="JMASSANO — Escritório de Advogado"
-              width={202}
-              height={171}
-              priority
-              className="h-9 w-auto max-w-[40vw] shrink-0 object-contain sm:h-11"
-            />
+            <Logotipo className="h-9 w-auto max-w-[40vw] shrink-0 sm:h-11" />
             <p className="text-2xs min-w-0 truncate font-mono tracking-[0.16em] text-muted-foreground uppercase">
               Onboarding de cliente
             </p>

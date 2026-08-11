@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Logotipo } from "@/components/logotipo";
 
 export default function ErrorGlobal({
   reset,
@@ -14,13 +14,7 @@ export default function ErrorGlobal({
     <div className="bg-papel grid min-h-svh place-items-center px-4 py-10">
       <div className="w-full max-w-sm text-center">
         <div className="mb-8 flex flex-col items-center">
-          <Image
-            src="/logo_jm.png"
-            alt="JMASSANO — Escritório de Advogado"
-            width={202}
-            height={171}
-            className="h-14 w-auto"
-          />
+          <Logotipo className="h-14 w-auto" />
           <p className="text-2xs text-muted-foreground mt-3 font-mono tracking-[0.16em] uppercase">
             Processos · Onboarding
           </p>

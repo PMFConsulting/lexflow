@@ -1033,7 +1033,8 @@ export function Formulario({
             <Assinatura nome="assinatura" erros={erros} />
           </div>
           <p className="text-xs text-muted-foreground">
-            Depois de submeter, o processo passa a revisão e deixa de ser editável.
+            Ao submeter, o processo fica a aguardar aprovação da equipa — deixa
+            de ser editável e recebe um email com a decisão.
           </p>
           <input type="hidden" name="_acao" value="submeter" />
         </>

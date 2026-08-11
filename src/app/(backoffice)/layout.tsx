@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { FileText, LayoutDashboard, Mail, Settings, Users, type LucideIcon } from "lucide-react";
 import {
@@ -20,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { exigirSessao, podeVerEmails } from "@/lib/sessao";
 import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
+import { Logotipo } from "@/components/logotipo";
 
 type Entrada = {
   titulo: string;
@@ -59,32 +59,16 @@ export default async function LayoutBackoffice({
         <Sidebar collapsible="icon">
           <SidebarHeader className="px-3 py-4 group-data-[collapsible=icon]:px-1.5">
             {/* A lombada do dossier, agora com a marca da sociedade — o mesmo
-                logo do onboarding, da entrada e dos T&C. O fundo da barra é
-                tinta sólida, e o logo tem fundo próprio: daí a caixa clara por
-                trás, sem a qual ele desaparecia no escuro.
+                emblema do onboarding, da entrada e dos T&C. É SVG com fundo
+                próprio (verde-arquivo), por isso assenta direto na tinta
+                sólida da barra sem precisar de uma caixa clara por trás.
 
                 `group-data-[collapsible=icon]` é o estado recolhido da barra:
                 aí só cabe a marca, e a linha de baixo sairia por cima do
-                ícone seguinte.
-
-                A barra recolhida são 3rem, e o `px-3` deixava 24px de largura
-                útil para uma caixa que media 41 (o logo a `h-7` dá 33 de
-                largura, mais o `p-1`): a caixa saía para fora da barra e ficava
-                cortada pelo conteúdo ao lado. Nesse estado o logo desce a
-                `h-5` e o cabeçalho aperta os lados, e a caixa cabe. O
-                `shrink-0` no próprio `Image` é o que impede a alternativa —
-                encolher só a largura e entregar o logo esticado. */}
+                ícone seguinte. O `shrink-0` é o que impede a alternativa a
+                encolher — encolher só a largura e entregar o logo esticado. */}
             <Link href="/" className="flex min-w-0 items-center gap-2.5">
-              <span className="bg-papel-alto flex shrink-0 items-center justify-center rounded-sm p-1">
-                <Image
-                  src="/logo_jm.png"
-                  alt="JMASSANO — Escritório de Advogado"
-                  width={202}
-                  height={171}
-                  priority
-                  className="h-7 w-auto shrink-0 object-contain group-data-[collapsible=icon]:h-5"
-                />
-              </span>
+              <Logotipo className="h-8 w-auto shrink-0 group-data-[collapsible=icon]:h-6" />
               <span className="font-mono text-2xs truncate tracking-[0.16em] uppercase opacity-60 group-data-[collapsible=icon]:hidden">
                 Processos
               </span>

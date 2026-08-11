@@ -70,17 +70,19 @@ describe("1. JMASSANO | Registro", () => {
 describe("2. Confirmação de Receção dos seus Dados", () => {
   const html = emailConfirmacaoRececao();
 
-  it("diz que os dados foram recebidos e estão em análise", () => {
+  it("diz que os dados foram recebidos e o processo aguarda aprovação", () => {
     const t = texto(html);
     expect(t).toContain(
       "Agradecemos o registo e o envio das informações através da nossa plataforma.",
     );
-    expect(t).toContain("foram recebidos com sucesso e encontram-se atualmente em análise");
+    expect(t).toContain("o processo encontra-se agora a aguardar aprovação pela equipa");
   });
 
-  it("promete voltar ao contacto com os próximos passos", () => {
-    expect(texto(html)).toContain(
-      "Assim que a análise estiver concluída, voltaremos ao seu contacto com os próximos passos.",
+  it("promete um novo email com a decisão, e os documentos se aprovado", () => {
+    const t = texto(html);
+    expect(t).toContain("Assim que houver uma decisão, receberá um novo email a confirmá-la");
+    expect(t).toContain(
+      "em caso de aprovação, com o resumo do processo, os Termos e Condições e a proposta de honorários em anexo",
     );
   });
 });

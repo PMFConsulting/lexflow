@@ -1,6 +1,6 @@
-import Image from "next/image";
 import { Clock, FileX2, LinkIcon } from "lucide-react";
 import { Ref } from "@/components/ref-processo";
+import { Logotipo } from "@/components/logotipo";
 import { motivoDoAcesso, type AcessoOnboarding } from "../dados";
 
 /**
@@ -34,13 +34,7 @@ export function LinkIndisponivel({ acesso }: { acesso: AcessoOnboarding }) {
     <div className="bg-papel grid min-h-svh place-items-center px-4 py-10">
       <div className="w-full max-w-md text-center">
         <div className="mb-8 flex flex-col items-center">
-          <Image
-            src="/logo_jm.png"
-            alt="JMASSANO — Escritório de Advogado"
-            width={202}
-            height={171}
-            className="h-14 w-auto"
-          />
+          <Logotipo className="h-14 w-auto" />
           <p className="text-2xs mt-3 font-mono tracking-[0.16em] text-muted-foreground uppercase">
             Onboarding de cliente
           </p>
