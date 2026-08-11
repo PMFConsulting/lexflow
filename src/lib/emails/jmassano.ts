@@ -48,23 +48,74 @@
  * em vez de ficar com parâmetros que nunca teve outra utilidade.
  */
 
-const CINZA = "#333";
-const TINTA = "#101a24";
+/**
+ * Paleta e tipografia exatas de `src/app/globals.css` (§3), em hex direto e com
+ * fontes de recurso — um email não carrega variáveis CSS nem tipos de letra
+ * pouco comuns, e a maioria dos clientes ignora `@font-face`. Cada mensagem
+ * escolhe a cor da régua sob o cabeçalho pelo que representa: terracota
+ * (`MARCA`) num convite a agir, latão (`LATAO`) numa mensagem de espera ou de
+ * atenção, verde-arquivo (`ARQUIVO`) numa confirmação positiva, carmim
+ * (`SELO`) só na única má notícia das cinco.
+ */
+const TINTA_SUAVE = "#5c6672";
+const PAPEL = "#edefea";
+const PAPEL_ALTO = "#ffffff";
+const ARQUIVO = "#2f5d50";
+const LATAO = "#a9884f";
+const SELO = "#8c2f39";
+const LINHA = "#d6dad2";
+const MARCA = "#d9694b";
 
-const moldura = (conteudo: string) => `
-<div style="font-family:Georgia,'Times New Roman',serif;max-width:600px;margin:0 auto;padding:24px;color:${CINZA};">
-  ${conteudo}
-  <hr style="border:none;border-top:1px solid #d8d4ca;margin:28px 0 12px;" />
-  <p style="font-size:12px;line-height:1.6;color:#8a8f99;margin:0;">
-    JMASSANO — Escritório de Advogado<br />
-    Esta mensagem e os ficheiros que a acompanham são confidenciais e destinam-se
-    exclusivamente ao destinatário. Se a recebeu por engano, agradecemos que nos
-    informe e a elimine.
-  </p>
+const FONTE_CORPO = "'Inter Tight','Segoe UI',Arial,sans-serif";
+const FONTE_DISPLAY = "'Instrument Serif',Georgia,serif";
+const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
+
+const moldura = (conteudo: string, corAcento: string = MARCA) => `
+<div style="background:${PAPEL};padding:32px 16px;font-family:${FONTE_CORPO};">
+  <div style="max-width:560px;margin:0 auto;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px;">
+      <tr>
+        <td style="width:44px;height:44px;background-color:${ARQUIVO};border-radius:6px;
+                   text-align:center;vertical-align:middle;font-family:${FONTE_DISPLAY};
+                   font-size:20px;line-height:44px;color:${LATAO};">JM</td>
+        <td style="padding-left:12px;vertical-align:middle;">
+          <span style="font-family:${FONTE_MONO};font-size:11px;letter-spacing:0.18em;
+                       text-transform:uppercase;color:${LATAO};">JMASSANO Escritório de Advogados</span>
+        </td>
+      </tr>
+    </table>
+    <div style="height:3px;border-radius:2px;background:${corAcento};opacity:0.9;margin-bottom:24px;"></div>
+    <div style="background:${PAPEL_ALTO};border:1px solid ${LINHA};border-radius:8px;padding:30px 32px;">
+      ${conteudo}
+    </div>
+    <p style="font-family:${FONTE_MONO};font-size:11px;line-height:1.7;color:${TINTA_SUAVE};margin:22px 4px 0;">
+      JMASSANO — Escritório de Advogado<br />
+      Esta mensagem e os ficheiros que a acompanham são confidenciais e destinam-se
+      exclusivamente ao destinatário. Se a recebeu por engano, agradecemos que nos
+      informe e a elimine.
+    </p>
+  </div>
 </div>`;
 
 const p = (texto: string) =>
-  `<p style="font-size:14px;line-height:1.7;margin:0 0 14px;">${texto}</p>`;
+  `<p style="font-family:${FONTE_CORPO};font-size:14px;line-height:1.7;color:${TINTA_SUAVE};margin:0 0 14px;">${texto}</p>`;
+
+/** O botão de ação — verde-arquivo, a única cor de CTA das cinco mensagens. */
+const botao = (href: string, rotulo: string) => `
+<p style="margin:6px 0 18px;">
+  <a href="${href}"
+     style="display:inline-block;background:${ARQUIVO};color:#ffffff;text-decoration:none;
+            padding:12px 24px;border-radius:4px;font-family:${FONTE_CORPO};
+            font-size:14px;font-weight:600;">
+    ${rotulo}
+  </a>
+</p>`;
+
+const linkCopiavel = (href: string) =>
+  p(
+    `Se o botão não funcionar, copie este endereço para o seu navegador:<br />
+     <span style="font-family:${FONTE_MONO};font-size:12px;color:${TINTA_SUAVE};word-break:break-all;">${href}</span>`,
+  );
 
 /**
  * Escape do que vem de fora antes de entrar no HTML.
@@ -94,7 +145,8 @@ export const ASSUNTO_REGISTO = "JMASSANO | Registro";
 
 export function emailRegisto({ link }: { nome?: string | null; link: string }): string {
   const href = escapar(link);
-  return moldura(`
+  return moldura(
+    `
     ${saudacao()}
     ${p(
       "É com grande satisfação que o recebemos como cliente da João Massano Escritório de Advogado.",
@@ -105,18 +157,8 @@ export function emailRegisto({ link }: { nome?: string | null; link: string }): 
     ${p(
       "Para iniciarmos o acompanhamento do seu processo e cumprirmos as obrigações legais e regulamentares aplicáveis, solicitamos que efetue o seu registo através da nossa plataforma online:",
     )}
-    <p style="margin:0 0 14px;">
-      <a href="${href}"
-         style="display:inline-block;background:${TINTA};color:#fff;text-decoration:none;
-                padding:12px 22px;border-radius:2px;font-family:Helvetica,Arial,sans-serif;
-                font-size:14px;">
-        Iniciar o registo
-      </a>
-    </p>
-    ${p(
-      `Se o botão não funcionar, copie este endereço para o seu navegador:<br />
-       <span style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;">${href}</span>`,
-    )}
+    ${botao(href, "Iniciar o registo")}
+    ${linkCopiavel(href)}
     ${p(
       "O processo é simples e permitirá a recolha segura das informações e documentos necessários para a formalização da nossa relação profissional.",
     )}
@@ -128,7 +170,9 @@ export function emailRegisto({ link }: { nome?: string | null; link: string }): 
     )}
     ${p("Agradecemos a sua colaboração e permanecemos ao seu dispor.")}
     ${despedida()}
-  `);
+  `,
+    MARCA,
+  );
 }
 
 /* ------------------------------------------- 2. confirmação de receção */
@@ -136,7 +180,8 @@ export function emailRegisto({ link }: { nome?: string | null; link: string }): 
 export const ASSUNTO_CONFIRMACAO = "JMASSANO | Confirmação de Receção dos seus Dados";
 
 export function emailConfirmacaoRececao(): string {
-  return moldura(`
+  return moldura(
+    `
     ${saudacao()}
     ${p("Agradecemos o registo e o envio das informações através da nossa plataforma.")}
     ${p(
@@ -150,7 +195,9 @@ export function emailConfirmacaoRececao(): string {
     )}
     ${p("Agradecemos a sua confiança e colaboração.")}
     ${despedida()}
-  `);
+  `,
+    LATAO,
+  );
 }
 
 /* ------------------------------------------------------ 3. boas-vindas */
@@ -173,11 +220,12 @@ export function emailBoasVindas({
   const lista = itens
     .map(
       (item, i) =>
-        `<li style="margin-bottom:4px;">${item}${i === itens.length - 1 ? "." : ";"}</li>`,
+        `<li style="margin-bottom:4px;color:${TINTA_SUAVE};">${item}${i === itens.length - 1 ? "." : ";"}</li>`,
     )
     .join("");
 
-  return moldura(`
+  return moldura(
+    `
     ${saudacao()}
     ${p(
       "Temos o prazer de informar que o processo de registo junto da JMASSANO Escritório de Advogado foi concluído com sucesso.",
@@ -186,7 +234,7 @@ export function emailBoasVindas({
       "Após análise das informações e documentos submetidos, procedemos à validação dos dados necessários para a formalização da nossa relação profissional e para o acompanhamento do assunto que nos confiou.",
     )}
     ${p("Em anexo a esta comunicação encontrará:")}
-    <ul style="font-size:14px;line-height:1.7;margin:0 0 14px;padding-left:20px;">${lista}</ul>
+    <ul style="font-family:${FONTE_CORPO};font-size:14px;line-height:1.7;margin:0 0 14px;padding-left:20px;">${lista}</ul>
     ${p(
       "Solicitamos que analise cuidadosamente a documentação anexa. Caso tenha alguma questão ou necessite de esclarecimentos adicionais, a nossa equipa estará inteiramente disponível para o apoiar.",
     )}
@@ -194,7 +242,9 @@ export function emailBoasVindas({
       "Agradecemos, uma vez mais, a confiança depositada na JMASSANO Escritório de Advogado e reforçamos o nosso compromisso de prestar um acompanhamento jurídico pautado pelo rigor, proximidade e profissionalismo.",
     )}
     ${despedida()}
-  `);
+  `,
+    ARQUIVO,
+  );
 }
 
 /* ------------------------------------------------------------ 4. rejeição */
@@ -207,7 +257,8 @@ export const ASSUNTO_REJEICAO = "JMASSANO | Feedback Registro";
  * (`motivoRejeicao`, `processo.rejeitado`), só deixaram de ir no email.
  */
 export function emailRejeicao(): string {
-  return moldura(`
+  return moldura(
+    `
     ${saudacao()}
     ${p(
       "Agradecemos a confiança depositada na JMASSANO Escritório de Advogado e o interesse demonstrado nos nossos serviços.",
@@ -223,7 +274,9 @@ export function emailRejeicao(): string {
     )}
     ${p("Agradecemos a sua compreensão e permanecemos à disposição para qualquer esclarecimento que entenda necessário.")}
     ${despedida()}
-  `);
+  `,
+    SELO,
+  );
 }
 
 /* ------------------------------------------------------------ 5. reabertura */
@@ -241,26 +294,19 @@ export const ASSUNTO_REABERTURA = "JMASSANO | Processo reaberto";
  */
 export function emailReabertura({ link }: { link: string }): string {
   const href = escapar(link);
-  return moldura(`
+  return moldura(
+    `
     ${saudacao()}
     ${p("Agradecemos a sua compreensão relativamente ao processo em curso junto da JMASSANO Escritório de Advogado.")}
     ${p("Informamos que o seu processo foi reaberto pela nossa equipa.")}
     ${p(
       "Pode agora rever as informações e documentação do seu processo e, se pretender, voltar a submeter para nova apreciação:",
     )}
-    <p style="margin:0 0 14px;">
-      <a href="${href}"
-         style="display:inline-block;background:${TINTA};color:#fff;text-decoration:none;
-                padding:12px 22px;border-radius:2px;font-family:Helvetica,Arial,sans-serif;
-                font-size:14px;">
-        Rever o meu processo
-      </a>
-    </p>
-    ${p(
-      `Se o botão não funcionar, copie este endereço para o seu navegador:<br />
-       <span style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;">${href}</span>`,
-    )}
+    ${botao(href, "Rever o meu processo")}
+    ${linkCopiavel(href)}
     ${p("Permanecemos ao seu dispor para qualquer esclarecimento que entenda necessário.")}
     ${despedida()}
-  `);
+  `,
+    LATAO,
+  );
 }

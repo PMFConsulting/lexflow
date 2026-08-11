@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, ExternalLink, FileText } from "lucide-react";
+import { Logotipo } from "@/components/logotipo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -159,11 +160,22 @@ function Modal({
         tabIndex={0}
         className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-sm leading-relaxed"
       >
+        <header className="mb-6 flex items-center gap-3.5">
+          <Logotipo className="h-10 w-auto" />
+          <span className="text-2xs font-mono tracking-[0.22em] text-latao uppercase">
+            JMASSANO Escritório de Advogados
+          </span>
+        </header>
+        <div className="bg-marca/85 mb-6 h-[3px] w-full rounded-full" />
+
         {TERMOS_CONDICOES.map((seccao) => (
-          <section key={seccao.titulo} className="mb-6">
-            <h3 className="mb-2 font-medium">{seccao.titulo}</h3>
-            {seccao.paragrafos.map((p, i) => (
-              <p key={i} className="mb-2 text-muted-foreground">
+          <section
+            key={seccao.titulo}
+            className="border-linha mt-7 border-t pt-4.5 first:mt-0 first:border-none first:pt-0"
+          >
+            <h3 className="font-display text-tinta mb-2 text-lg font-normal">{seccao.titulo}</h3>
+            {seccao.paragrafos.map((p, j) => (
+              <p key={j} className="text-tinta-suave mb-2">
                 {p}
               </p>
             ))}

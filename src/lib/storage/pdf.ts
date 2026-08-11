@@ -10,12 +10,17 @@ import { rgb } from "pdf-lib";
  */
 
 /* ------------------------------------------------------------------ paleta */
+/* Os hex exatos de src/app/globals.css — --tinta/--tinta-suave/--latao/--linha.
+   O que aqui se chamava "SELO" desenhava sempre a cor de rótulo (a linha de
+   marca, os cabeçalhos de secção em versaletes), o mesmo papel que --latao tem
+   no design system; o carmim de --selo é para estados críticos, que nenhum
+   dos dois PDFs usa. */
 
 export const TINTA = rgb(0x10 / 255, 0x1a / 255, 0x24 / 255);
-export const SUAVE = rgb(0x5c / 255, 0x62 / 255, 0x70 / 255);
-export const SELO = rgb(0x7a / 255, 0x6a / 255, 0x4a / 255);
-export const LINHA = rgb(0xd8 / 255, 0xd4 / 255, 0xca / 255);
-export const RODAPE = rgb(0x8a / 255, 0x8f / 255, 0x99 / 255);
+export const SUAVE = rgb(0x5c / 255, 0x66 / 255, 0x72 / 255);
+export const LATAO = rgb(0xa9 / 255, 0x88 / 255, 0x4f / 255);
+export const LINHA = rgb(0xd6 / 255, 0xda / 255, 0xd2 / 255);
+export const RODAPE = SUAVE;
 
 /* -------------------------------------------------------------- geometria */
 

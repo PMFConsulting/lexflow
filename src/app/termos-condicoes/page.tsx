@@ -29,12 +29,15 @@ export default function TermosCondicoes() {
           </p>
         </header>
 
-        <main className="flex flex-col gap-6 text-sm leading-relaxed">
+        <main className="text-sm leading-relaxed">
           {TERMOS_CONDICOES.map((seccao) => (
-            <section key={seccao.titulo}>
-              <h2 className="mb-2 font-medium">{seccao.titulo}</h2>
+            <section
+              key={seccao.titulo}
+              className="border-linha mt-7 border-t pt-5 first:mt-0 first:border-none first:pt-0"
+            >
+              <h2 className="text-tinta mb-2 text-lg font-normal">{seccao.titulo}</h2>
               {seccao.paragrafos.map((p, i) => (
-                <p key={i} className="mb-2 text-muted-foreground">
+                <p key={i} className="text-tinta-suave mb-2">
                   {p}
                 </p>
               ))}

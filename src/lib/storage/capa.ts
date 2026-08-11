@@ -2,10 +2,10 @@ import { PDFDict, PDFDocument, PDFName, PDFString, StandardFonts, type PDFPage }
 import {
   A4,
   COLUNA_CHAVE,
+  LATAO,
   LINHA,
   MARGEM,
   RODAPE,
-  SELO,
   SUAVE,
   TINTA,
   dataHoraPt,
@@ -99,7 +99,7 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
   const seccao = (titulo: string) => {
     espaco(52);
     y -= 6;
-    escrever(titulo.toUpperCase(), MARGEM.x, y, forte, 8, SELO, 1.6);
+    escrever(titulo.toUpperCase(), MARGEM.x, y, forte, 8, LATAO, 1.6);
     y -= 8;
     regua(1.2, TINTA);
     y -= 16;
@@ -147,7 +147,7 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
 
   /* --------------------------------------------------------------- cabeça */
 
-  escrever("JMASSANO · DADOS DO CLIENTE", MARGEM.x, y, corpo, 8, SELO, 2.2);
+  escrever("JMASSANO · DADOS DO CLIENTE", MARGEM.x, y, corpo, 8, LATAO, 2.2);
   y -= 26;
 
   escrever(d.nome, MARGEM.x, y, serifa, 22);

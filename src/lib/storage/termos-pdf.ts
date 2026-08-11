@@ -5,7 +5,6 @@ import {
   LINHA,
   MARGEM,
   RODAPE,
-  SELO,
   SUAVE,
   TINTA,
   dataPt,
@@ -74,7 +73,7 @@ export async function gerarTermosPdf(geradoEm: Date): Promise<Buffer> {
     y,
     corpo,
     9,
-    SELO,
+    SUAVE,
   );
   y -= 12;
   pagina.drawLine({

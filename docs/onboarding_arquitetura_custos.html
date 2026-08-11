@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Fase de Onboarding — Arquitetura e Custos — JMASSANO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #22382E;
+    --verde-escuro: #182a22;
+    --latao: #C9B27F;
+    --terracota: #AB5644;
+    --vinho: #5C2E2B;
+    --papel: #f3eee4;
+    --papel-alto: #faf7f0;
+    --linha: #d8d4ca;
+    --tinta: #2b2b26;
+    --tinta-suave: #6b6659;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'DM Sans', sans-serif; color: var(--tinta); background: var(--papel); font-size: 10.5pt; line-height: 1.5; }
+  .pagina { width: 210mm; min-height: 297mm; height: 297mm; overflow: hidden; position: relative; padding: 17mm 17mm 14mm; page-break-after: always; background: var(--papel); }
+  .pagina:last-child { page-break-after: auto; }
+  .cabecalho { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--linha); padding-bottom: 3mm; margin-bottom: 8mm; font-size: 7pt; letter-spacing: .18em; text-transform: uppercase; color: var(--tinta-suave); }
+  .cabecalho b { color: var(--terracota); font-weight: 600; }
+  .rodape { position: absolute; bottom: 8mm; left: 17mm; right: 17mm; display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 7pt; letter-spacing: .12em; color: var(--tinta-suave); border-top: 1px solid var(--linha); padding-top: 2.5mm; }
+  .rodape .num { color: var(--terracota); }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  /* capa */
+  .capa { background: var(--verde); color: var(--papel); padding: 0; }
+  .capa .moldura { position: absolute; inset: 11mm; border: 1px solid rgba(201,178,127,.55); pointer-events: none; }
+  .capa .moldura2 { position: absolute; inset: 13.5mm; border: 1px solid rgba(201,178,127,.3); pointer-events: none; }
+  .capa .inner { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 22mm; }
+  .capa .kicker { font-family: 'JetBrains Mono', monospace; font-size: 8pt; letter-spacing: .3em; text-transform: uppercase; color: var(--latao); margin-bottom: 8mm; }
+  .capa h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 36pt; line-height: 1.12; color: var(--papel); max-width: 155mm; }
+  .capa h1 em { font-style: italic; color: var(--latao); }
+  .capa .sub { margin-top: 7mm; font-size: 11pt; color: rgba(243,238,228,.75); max-width: 140mm; line-height: 1.6; }
+  .capa .selo { position: absolute; right: 24mm; top: 34mm; width: 30mm; height: 30mm; border-radius: 50%; border: 1.2px solid var(--latao); display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; letter-spacing: .16em; color: var(--latao); line-height: 1.7; transform: rotate(-8deg); }
+  .capa .selo span { display: block; }
+  .capa .meta { position: absolute; bottom: 20mm; left: 22mm; right: 22mm; display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 7.5pt; letter-spacing: .18em; text-transform: uppercase; color: rgba(243,238,228,.6); border-top: 1px solid rgba(201,178,127,.35); padding-top: 4mm; }
+  .capa .faixa { position: absolute; bottom: 0; left: 0; right: 0; height: 3mm; background: linear-gradient(90deg, var(--latao) 25%, var(--terracota) 25% 50%, var(--vinho) 50% 75%, var(--papel) 75%); }
+  /* seccoes */
+  .sec-num { font-family: 'Cormorant Garamond', serif; font-size: 26pt; color: var(--latao); line-height: 1; margin-bottom: 1mm; }
+  h2 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 16.5pt; color: var(--verde); margin-bottom: 2mm; }
+  h3 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 12.5pt; color: var(--verde); margin: 4mm 0 1.5mm; }
+  .regra { width: 18mm; height: 1.2mm; background: var(--terracota); margin-bottom: 5mm; }
+  .corpo p { margin-bottom: 3mm; color: var(--tinta); }
+  .muted { color: var(--tinta-suave); }
+  table { width: 100%; border-collapse: collapse; margin: 3.5mm 0 4.5mm; page-break-inside: avoid; }
+  thead th { text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 6.8pt; letter-spacing: .13em; text-transform: uppercase; color: var(--terracota); border-bottom: 1.4px solid var(--tinta); padding: 2.3mm 2mm; }
+  tbody td { padding: 2.3mm 2mm; border-bottom: .6px solid var(--linha); font-size: 8.9pt; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.mono, th.mono { font-family: 'JetBrains Mono', monospace; font-size: 8.5pt; }
+  .num-r { text-align: right; font-variant-numeric: tabular-nums; }
+  .total-row td { border-top: 1.6px solid var(--tinta); border-bottom: none; font-weight: 600; }
+  .badge { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 6.5pt; letter-spacing: .1em; text-transform: uppercase; padding: 1mm 2.2mm; border-radius: 2px; }
+  .badge-verde { background: rgba(34,56,46,.12); color: var(--verde); }
+  .badge-latao { background: rgba(201,178,127,.25); color: #8a7448; }
+  .badge-terra { background: rgba(171,86,68,.14); color: var(--terracota); }
+  .badge-muted { background: rgba(107,102,89,.12); color: var(--tinta-suave); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; margin: 4mm 0; }
+  .cards.tres { grid-template-columns: 1fr 1fr 1fr; }
+  .cards.quatro { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .card { background: var(--papel-alto); border: 1px solid var(--linha); border-radius: 2mm; padding: 3.8mm 4.2mm; }
+  .card .lbl { font-family: 'JetBrains Mono', monospace; font-size: 6.3pt; letter-spacing: .13em; text-transform: uppercase; color: var(--tinta-suave); margin-bottom: 1.5mm; }
+  .card .val { font-family: 'Cormorant Garamond', serif; font-size: 19pt; color: var(--verde); line-height: 1.1; }
+  .card .val small { font-size: 9.5pt; color: var(--tinta-suave); }
+  .card .nota { font-size: 7.7pt; color: var(--tinta-suave); margin-top: 1.5mm; line-height: 1.35; }
+  ul.lista { margin: 2mm 0 4mm; padding-left: 5mm; }
+  ul.lista li { margin-bottom: 1.8mm; padding-left: 2mm; }
+  ul.lista li::marker { color: var(--terracota); }
+  .alerta { border-left: 3px solid var(--terracota); background: rgba(171,86,68,.07); padding: 3mm 4mm; border-radius: 0 2mm 2mm 0; margin: 4mm 0; font-size: 8.7pt; }
+  .alerta b { color: var(--terracota); }
+  .fonte { font-size: 7pt; color: var(--tinta-suave); margin-top: 3mm; font-family: 'JetBrains Mono', monospace; letter-spacing: .02em; }
+  .fluxo { display: flex; align-items: stretch; gap: 1.3mm; margin: 4mm 0; }
+  .fluxo .passo { flex: 1; background: var(--papel-alto); border: 1px solid var(--linha); border-radius: 2mm; padding: 3mm 2mm; text-align: center; }
+  .fluxo .passo .n { font-family: 'JetBrains Mono', monospace; font-size: 6.3pt; letter-spacing: .1em; color: var(--terracota); margin-bottom: 1mm; }
+  .fluxo .passo .t { font-family: 'Cormorant Garamond', serif; font-size: 11pt; color: var(--verde); line-height: 1.15; }
+  .fluxo .passo .s { font-size: 6.1pt; color: var(--tinta-suave); margin-top: 1mm; line-height: 1.25; }
+  .fluxo .seta { color: var(--latao); font-size: 10pt; padding-top: 6mm; }
+  .indice { margin: 3mm 0; }
+  .indice .item { display: flex; align-items: baseline; gap: 3mm; padding: 2.2mm 0; border-bottom: .6px solid var(--linha); }
+  .indice .item .n { font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: var(--terracota); width: 8mm; flex-shrink: 0; }
+  .indice .item .t { font-size: 9.3pt; flex: 1; }
+  .indice .item .p { font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: var(--tinta-suave); }
+  /* diagrama de blocos */
+  .diagrama { margin: 5mm 0 6mm; }
+  .diag-linha { display: flex; align-items: center; gap: 2mm; }
+  .diag-caixa { flex: 1; background: var(--verde); color: var(--papel); border-radius: 2mm; padding: 3.5mm 3mm; text-align: center; }
+  .diag-caixa.alt { background: var(--papel-alto); color: var(--tinta); border: 1px solid var(--linha); }
+  .diag-caixa .t { font-family: 'Cormorant Garamond', serif; font-size: 11.5pt; line-height: 1.15; }
+  .diag-caixa .s { font-size: 6.3pt; letter-spacing: .05em; margin-top: 1mm; opacity: .8; line-height: 1.3; }
+  .diag-seta { color: var(--latao); font-size: 12pt; flex-shrink: 0; }
+  .diag-seta.baixo { text-align: center; color: var(--latao); font-size: 12pt; margin: 1.5mm 0; }
+  .diag-ramos { display: flex; gap: 2mm; margin-top: 0; padding-left: 0; }
+  .diag-ramos .diag-caixa { background: var(--papel-alto); color: var(--tinta); border: 1px solid var(--latao); }
+  .diag-ramos .diag-caixa .t { color: var(--terracota); font-size: 10.5pt; }
+  .servidor-central { max-width: 46%; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<!-- ======================= CAPA ======================= -->
+<div class="pagina capa">
+  <div class="moldura"></div><div class="moldura2"></div>
+  <div class="inner">
+    <div class="kicker">Documento Interno · Fase de Onboarding</div>
+    <h1>Fase de Onboarding — <em>Arquitetura e Custos</em></h1>
+    <p class="sub">O fluxo de entrada do cliente e o custo de enviar emails e documentos importantes — por package de sociedade.</p>
+    <div class="selo"><span>JMASSANO<br>ONBOARDING<br>2026</span></div>
+  </div>
+  <div class="meta">
+    <span>JMASSANO · Escritório de Advogado</span>
+    <span>Rev. A · 2026-08-11</span>
+  </div>
+  <div class="faixa"></div>
+</div>
+
+<!-- ======================= 00 RESUMO EXECUTIVO ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 00 Resumo Executivo · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">00</div>
+  <h2>Resumo executivo</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <p><b>A fase de onboarding é o percurso completo de entrada de um cliente novo</b>: desde o momento em que o advogado abre o processo até ao momento em que o cliente assina digitalmente a proposta e os T&C e o arquivo fica completo. É um percurso de sete passos, guiado por um único link, sem conta nem palavra-passe do lado do cliente.</p>
+    <p>Este documento cobre <b>apenas</b> duas rubricas dessa fase: o custo de <b>enviar os quatro emails</b> do percurso e o custo de <b>guardar os dois documentos importantes</b> — a proposta e os T&C. Não cobre implementação nem subscrições de plataforma, que são assunto de outros documentos.</p>
+    <div class="alerta"><b>O custo central desta fase é, na prática, €0 por processo.</b> Os quatro emails cabem sempre nos planos gratuitos dos fornecedores (Resend, Brevo), e os cerca de 10&nbsp;MB de documentos por processo custam frações de cêntimo por ano em armazenamento encriptado com backup 3-2-1. Um escritório Micro, com 10 processos por mês, gasta menos de um cêntimo por ano nestas duas rubricas.</div>
+    <div class="cards tres">
+      <div class="card"><div class="lbl">Emails por processo</div><div class="val">4</div><div class="nota">Registo, confirmação, boas-vindas, rejeição</div></div>
+      <div class="card"><div class="lbl">Documentos por processo</div><div class="val">~10<small>MB</small></div><div class="nota">Proposta (~3,7&nbsp;MB) + T&C + comprovativos</div></div>
+      <div class="card"><div class="lbl">Custo por processo</div><div class="val">≈ €0</div><div class="nota">Email e armazenamento, dentro dos planos gratuitos e da escala atual</div></div>
+    </div>
+    <h3>Índice</h3>
+    <div class="indice">
+      <div class="item"><span class="n">01</span><span class="t">A fase de onboarding — fluxo passo-a-passo</span><span class="p">03</span></div>
+      <div class="item"><span class="n">01</span><span class="t">Arquitetura em blocos e componentes da fase</span><span class="p">04</span></div>
+      <div class="item"><span class="n">02</span><span class="t">Os documentos importantes</span><span class="p">05</span></div>
+      <div class="item"><span class="n">03</span><span class="t">Os emails da fase de onboarding</span><span class="p">06</span></div>
+      <div class="item"><span class="n">04</span><span class="t">Custos de email</span><span class="p">07</span></div>
+      <div class="item"><span class="n">05</span><span class="t">Custos de documentos</span><span class="p">08</span></div>
+      <div class="item"><span class="n">06</span><span class="t">Tabela final por package</span><span class="p">09</span></div>
+      <div class="item"><span class="n">07</span><span class="t">Notas e fontes</span><span class="p">10</span></div>
+    </div>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">02</span></div>
+</div>
+
+<!-- ======================= 01a FLUXO ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 01 A fase de onboarding · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">01</div>
+  <h2>A fase de onboarding — fluxo passo-a-passo</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <p>O onboarding começa sempre do lado do advogado e termina com um dossier completo e assinado no arquivo da sociedade. Entre os dois extremos, o cliente nunca precisa de criar conta — o acesso é feito por um único link com token, válido por 30 dias.</p>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:6%">Nº</th>
+          <th style="width:38%">Passo</th>
+          <th style="width:14%">Quem</th>
+          <th style="width:42%">Tecnologia</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">1</td><td>O advogado cria o processo no backoffice</td><td>Advogado</td><td class="mono">Backoffice · Server Action <span style="color:var(--terracota)">criarProcesso</span></td></tr>
+        <tr><td class="mono">2</td><td>O sistema gera um token de acesso único, válido por 30 dias, e envia o link ao cliente por email de Registo</td><td>Sistema</td><td class="mono">Token 43&nbsp;car. base64url · hash SHA-256 em BD</td></tr>
+        <tr><td class="mono">3</td><td>O cliente abre o link e preenche os 7 passos: dados de identificação, documentos, percurso obrigatório pela proposta, T&C, assinatura digital</td><td>Cliente</td><td class="mono">Formulário guiado · leitor com gate de leitura até ao fim</td></tr>
+        <tr><td class="mono">4</td><td>Submissão do processo — o estado muda para "aguardar aprovação"; o cliente vê a página de confirmação com uma timeline do que falta</td><td>Cliente / Sistema</td><td class="mono">Server Action <span style="color:var(--terracota)">submeter</span> · página /submetido</td></tr>
+        <tr><td class="mono">5</td><td>O advogado revê o processo no backoffice: aprova ou rejeita com motivo obrigatório</td><td>Advogado</td><td class="mono">Backoffice · detalhe do processo</td></tr>
+        <tr><td class="mono">6</td><td>O sistema envia o email correspondente a cada transição de estado relevante — quatro tipos ao todo</td><td>Sistema</td><td class="mono">Envio registado em <span style="color:var(--terracota)">email_log</span></td></tr>
+        <tr><td class="mono">7</td><td>Os documentos assinados — proposta e T&C — ficam guardados no arquivo dedicado da sociedade, encriptado, com backup 3-2-1</td><td>Sistema</td><td class="mono">Servidor de documentos por sociedade · local + off-site</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">03</span></div>
+</div>
+
+<!-- ======================= 01b DIAGRAMA E COMPONENTES ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 01 A fase de onboarding · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">01</div>
+  <h2>Arquitetura em blocos e componentes da fase</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <div class="diagrama">
+      <div class="diag-linha">
+        <div class="diag-caixa"><div class="t">Advogado</div><div class="s">abre o processo</div></div>
+        <div class="diag-seta">→</div>
+        <div class="diag-caixa"><div class="t">Backoffice</div><div class="s">JMASSANO</div></div>
+        <div class="diag-seta">→</div>
+        <div class="diag-caixa"><div class="t">Servidor</div><div class="s">app + base de dados</div></div>
+        <div class="diag-seta">→</div>
+        <div class="diag-caixa"><div class="t">Cliente</div><div class="s">preenche pelo link</div></div>
+      </div>
+      <div class="diag-seta baixo">↓</div>
+      <div class="diag-ramos">
+        <div class="diag-caixa"><div class="t">Arquivo da sociedade</div><div class="s">proposta + T&C, encriptado, 3-2-1</div></div>
+        <div class="diag-caixa"><div class="t">Emails</div><div class="s">4 tipos, por transição</div></div>
+        <div class="diag-caixa"><div class="t">Auditoria</div><div class="s">evento append-only, cadeia de hashes</div></div>
+      </div>
+    </div>
+    <p class="muted" style="margin-bottom:4mm">O servidor central é o único ponto que fala com todos os outros blocos — o cliente nunca acede diretamente ao arquivo, aos emails ou à auditoria.</p>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:24%">Componente</th>
+          <th style="width:76%">Porquê existe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Token de acesso</b></td><td>43 caracteres base64url, guardado só em hash SHA-256, expira em 30 dias — controlo de acesso sem exigir conta nem palavra-passe do cliente</td></tr>
+        <tr><td><b>Formulário de 7 passos</b></td><td>Dados de identificação, fiscal, representante legal, PPE, faturação, RGPD e fecho — cada passo grava logo que preenchido, sem perder progresso</td></tr>
+        <tr><td><b>Gate da proposta</b></td><td>O documento tem de ser percorrido até ao fim antes de destrancar a aceitação — prova de leitura efetiva, não só de abertura do ficheiro</td></tr>
+        <tr><td><b>Assinatura digital</b></td><td>Ligada à versão exata do texto legal em vigor no momento — mudar o texto sem mudar a versão apagaria a diferença entre o que foi assinado e o que passou a estar escrito</td></tr>
+        <tr><td><b>Estados do processo</b></td><td>Rascunho → aguardar aprovação → aprovado / rejeitado — rastreabilidade do ciclo completo</td></tr>
+        <tr><td><b>Emails automáticos</b></td><td>Quatro tipos, um por cada transição relevante — cliente e sociedade informados sem intervenção manual</td></tr>
+        <tr><td><b>Arquivo da sociedade</b></td><td>Servidor de documentos dedicado, encriptado, isolado por sociedade — nunca partilhado entre sociedades diferentes</td></tr>
+        <tr><td><b>Auditoria</b></td><td>Evento append-only com cadeia de hashes por cada transição — obrigação legal (Lei 83/2017, RGPD) e prova de integridade do processo</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">04</span></div>
+</div>
+
+<!-- ======================= 02 DOCUMENTOS ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 02 Os documentos importantes · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">02</div>
+  <h2>Os documentos importantes</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <p>Dois documentos atravessam toda a fase de onboarding e precisam de ser tratados com o máximo cuidado: a <b>proposta</b> — o PDF oficial do advogado, gerado a partir dos dados do processo, com cerca de <b>3,7&nbsp;MB</b> — e os <b>termos e condições (T&C)</b>, aceites com assinatura digital. Os dois têm valor legal: são o registo do que foi acordado e do que o cliente leu e assinou.</p>
+    <table>
+      <thead>
+        <tr><th style="width:22%">Documento</th><th style="width:78%">Porque é crítico</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Proposta</b> <span class="badge badge-terra">~3,7 MB</span></td><td>Documento oficial gerado pela sociedade — descreve o serviço e os honorários. É a base da relação contratual, tem de estar íntegro e disponível durante toda a vida do processo</td></tr>
+        <tr><td><b>T&C</b> <span class="badge badge-terra">assinatura digital</span></td><td>Consentimento com valor legal, ligado à versão exata do texto em vigor no momento da assinatura — sigilo, RGPD e retenção de 7 anos dependem desta prova</td></tr>
+      </tbody>
+    </table>
+    <h3>Ciclo de vida</h3>
+    <div class="fluxo">
+      <div class="passo"><div class="n">01</div><div class="t">Gerados</div><div class="s">a partir dos dados do processo</div></div>
+      <div class="seta">→</div>
+      <div class="passo"><div class="n">02</div><div class="t">Apresentados</div><div class="s">leitura obrigatória no modal, até ao fim</div></div>
+      <div class="seta">→</div>
+      <div class="passo"><div class="n">03</div><div class="t">Assinados</div><div class="s">assinatura digital do cliente</div></div>
+      <div class="seta">→</div>
+      <div class="passo"><div class="n">04</div><div class="t">Arquivados</div><div class="s">servidor da sociedade, encriptado, 3-2-1</div></div>
+      <div class="seta">→</div>
+      <div class="passo"><div class="n">05</div><div class="t">Auditados</div><div class="s">cada acesso fica registado</div></div>
+    </div>
+    <p>Por processo, o conjunto — proposta, T&C e comprovativos anexados pelo cliente — pesa cerca de <b>10&nbsp;MB</b>. É esse número que dá a escala anual de armazenamento por package:</p>
+    <table>
+      <thead>
+        <tr><th style="width:30%">Package</th><th class="mono num-r" style="width:35%">Processos / mês</th><th class="mono num-r" style="width:35%">Documentos (GB/ano)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Micro</b></td><td class="mono num-r">10</td><td class="mono num-r">1,2</td></tr>
+        <tr><td><b>Pequenas</b></td><td class="mono num-r">40</td><td class="mono num-r">4,8</td></tr>
+        <tr><td><b>Média</b></td><td class="mono num-r">100</td><td class="mono num-r">12</td></tr>
+        <tr><td><b>Grande</b></td><td class="mono num-r">200</td><td class="mono num-r">24</td></tr>
+        <tr><td><b>Ad Hoc</b></td><td class="mono num-r">200+</td><td class="mono num-r">36+</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">05</span></div>
+</div>
+
+<!-- ======================= 03 EMAILS ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 03 Os emails · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">03</div>
+  <h2>Os emails da fase de onboarding</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <p>Quatro emails cobrem todo o percurso, um por cada transição relevante do processo. Nenhum leva os documentos em anexo — todos apontam para um <b>link</b>, que é sempre a forma como a proposta e os T&C chegam ao cliente.</p>
+    <table>
+      <thead>
+        <tr><th style="width:24%">Tipo</th><th style="width:22%">Quando</th><th style="width:34%">Para quê</th><th style="width:20%">Para quem</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>1. Registo</b></td><td>O advogado cria o processo</td><td>Entregar o link de acesso ao onboarding</td><td>Cliente</td></tr>
+        <tr><td><b>2. Confirmação de receção</b></td><td>Depois da submissão dos 7 passos</td><td>Confirmar que os dados foram recebidos e aguardam aprovação</td><td>Cliente</td></tr>
+        <tr><td><b>3. Boas-vindas</b></td><td>O advogado aprova o processo</td><td>Dar as boas-vindas e entregar proposta, T&C e resumo</td><td>Cliente</td></tr>
+        <tr><td><b>4. Rejeição</b> <span class="badge badge-muted">"Feedback Registro"</span></td><td>O advogado rejeita o processo</td><td>Informar que o registo não foi aceite — sem motivo no corpo do email</td><td>Cliente</td></tr>
+      </tbody>
+    </table>
+    <div class="alerta"><b>Regra: links, nunca anexos.</b> A proposta e os T&C nunca viajam dentro do corpo do email — o email transporta um link que aponta para o arquivo da sociedade. Isto mantém as mensagens pequenas (fração de KB) e evita que um documento sensível fique a circular em caixas de correio fora do controlo da sociedade.</div>
+    <p class="muted">O domínio da própria sociedade, quando verificado, é o remetente dos emails — caso contrário, usa-se o domínio central da plataforma como salvaguarda.</p>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">06</span></div>
+</div>
+
+<!-- ======================= 04 CUSTOS EMAIL ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 04 Custos de email · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">04</div>
+  <h2>Custos de email</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <p>Cada processo gera exatamente 4 emails. Multiplicando pelos processos mensais de cada package, chega-se ao volume de envio — e, à escala atual, o custo desse volume é sempre zero.</p>
+    <div class="cards tres">
+      <div class="card"><div class="lbl">Custo por email</div><div class="val">€0</div><div class="nota">Dentro dos planos gratuitos dos fornecedores</div></div>
+      <div class="card"><div class="lbl">Resend — plano grátis</div><div class="val" style="font-size:16pt">3.000<small>/mês</small></div><div class="nota">resend.com, verificado 2026</div></div>
+      <div class="card"><div class="lbl">Brevo — plano grátis</div><div class="val" style="font-size:16pt">300<small>/dia</small></div><div class="nota">brevo.com, verificado 2026 · ≈9.000/mês</div></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th style="width:24%">Package</th><th class="mono num-r" style="width:22%">Processos/mês</th><th class="mono num-r" style="width:22%">Emails/mês</th><th class="mono num-r" style="width:32%">Custo/mês</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Micro</b></td><td class="mono num-r">10</td><td class="mono num-r">40</td><td class="mono num-r">€0</td></tr>
+        <tr><td><b>Pequenas</b></td><td class="mono num-r">40</td><td class="mono num-r">160</td><td class="mono num-r">€0</td></tr>
+        <tr><td><b>Média</b></td><td class="mono num-r">100</td><td class="mono num-r">400</td><td class="mono num-r">€0</td></tr>
+        <tr><td><b>Grande</b></td><td class="mono num-r">200</td><td class="mono num-r">800</td><td class="mono num-r">€0</td></tr>
+        <tr><td><b>Ad Hoc</b></td><td class="mono num-r">200+</td><td class="mono num-r">800+</td><td class="mono num-r">€0</td></tr>
+      </tbody>
+    </table>
+    <h3>Exemplo com cálculo</h3>
+    <p>Um escritório <b>Micro</b> abre <b>1 processo</b> este mês. Esse processo gera os 4 emails do percurso — registo, confirmação, boas-vindas e rejeição. <span class="mono">4 emails × €0 = €0</span>. Com os 10 processos típicos do mês inteiro, o total sobe para 40 emails — continua dentro dos 3.000 gratuitos do Resend, continua a custar <b>€0</b>.</p>
+    <div class="alerta"><b>Acima de ~3.000 emails/mês</b> por conta de envio, o custo deixa de ser zero: cerca de <b>€0,0004/email</b> em AWS SES, ou um plano pago de <b>€9–20/mês</b> em Resend/Brevo. Nenhum dos cinco packages, isoladamente, se aproxima desse volume só com os emails do onboarding.</div>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">07</span></div>
+</div>
+
+<!-- ======================= 05 CUSTOS DOCUMENTOS ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 05 Custos de documentos · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">05</div>
+  <h2>Custos de documentos</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <p>A proposta e os T&C ficam no arquivo dedicado da sociedade — encriptado, com backup 3-2-1 (cópia local + cópia off-site encriptada). O custo desta rubrica é o custo do armazenamento off-site, o único que se mede por GB.</p>
+    <div class="cards tres">
+      <div class="card"><div class="lbl">Backblaze B2</div><div class="val" style="font-size:16pt">$6,95<small>/TB</small></div><div class="nota">≈ €0,0064/GB · tech-insider.org, 2026</div></div>
+      <div class="card"><div class="lbl">Hetzner Storage Box</div><div class="val" style="font-size:16pt">€3,80<small>/TB</small></div><div class="nota">hetzner.com, 2026</div></div>
+      <div class="card"><div class="lbl">Custo por processo</div><div class="val" style="font-size:16pt">€0,00006<small>–0,0001</small></div><div class="nota">~10 MB de documentos, ao preço do B2</div></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th style="width:24%">Package</th><th class="mono num-r" style="width:22%">GB/ano</th><th class="mono num-r" style="width:22%">Custo/ano</th><th class="mono num-r" style="width:32%">Custo/mês</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Micro</b></td><td class="mono num-r">1,2</td><td class="mono num-r">≈ €0,01</td><td class="mono num-r">≈ €0</td></tr>
+        <tr><td><b>Pequenas</b></td><td class="mono num-r">4,8</td><td class="mono num-r">≈ €0,03</td><td class="mono num-r">≈ €0</td></tr>
+        <tr><td><b>Média</b></td><td class="mono num-r">12</td><td class="mono num-r">≈ €0,08</td><td class="mono num-r">≈ €0</td></tr>
+        <tr><td><b>Grande</b></td><td class="mono num-r">24</td><td class="mono num-r">≈ €0,15</td><td class="mono num-r">≈ €0</td></tr>
+        <tr><td><b>Ad Hoc</b></td><td class="mono num-r">36+</td><td class="mono num-r">≈ €0,23</td><td class="mono num-r">≈ €0</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">Enviar os documentos ao cliente não soma custo próprio: o email transporta um link, e o custo desse envio já está contabilizado na secção 04.</p>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">08</span></div>
+</div>
+
+<!-- ======================= 06 TABELA FINAL ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 06 Tabela final · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">06</div>
+  <h2>Tabela final por package</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <p>A síntese das duas rubricas — email e documentos — para os cinco packages, à escala atual.</p>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%">Package</th>
+          <th class="mono num-r" style="width:14%">Processos/mês</th>
+          <th class="mono num-r" style="width:12%">Emails/mês</th>
+          <th class="mono num-r" style="width:14%">Docs (GB/ano)</th>
+          <th class="mono num-r" style="width:15%">Custo email/mês</th>
+          <th class="mono num-r" style="width:15%">Custo docs/mês</th>
+          <th class="mono num-r" style="width:14%">Total/mês</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Micro</b></td><td class="mono num-r">10</td><td class="mono num-r">40</td><td class="mono num-r">1,2</td><td class="mono num-r">€0</td><td class="mono num-r">~€0</td><td class="mono num-r"><b>~€0</b></td></tr>
+        <tr><td><b>Pequenas</b></td><td class="mono num-r">40</td><td class="mono num-r">160</td><td class="mono num-r">4,8</td><td class="mono num-r">€0</td><td class="mono num-r">~€0</td><td class="mono num-r"><b>~€0</b></td></tr>
+        <tr><td><b>Média</b></td><td class="mono num-r">100</td><td class="mono num-r">400</td><td class="mono num-r">12</td><td class="mono num-r">€0</td><td class="mono num-r">~€0</td><td class="mono num-r"><b>~€0</b></td></tr>
+        <tr><td><b>Grande</b></td><td class="mono num-r">200</td><td class="mono num-r">800</td><td class="mono num-r">24</td><td class="mono num-r">€0</td><td class="mono num-r">~€0</td><td class="mono num-r"><b>~€0</b></td></tr>
+        <tr><td><b>Ad Hoc</b></td><td class="mono num-r">200+</td><td class="mono num-r">800+</td><td class="mono num-r">36+</td><td class="mono num-r">€0</td><td class="mono num-r">~€0</td><td class="mono num-r"><b>~€0</b></td></tr>
+      </tbody>
+    </table>
+    <div class="alerta"><b>Os custos desta fase são praticamente nulos na escala atual.</b> Só passam a ser relevantes — cerca de €9–20/mês de email — acima de ~3.000 emails/mês, o que corresponde a ≈600 processos/mês na plataforma toda, muito acima de qualquer package isolado. Nota: valores sem subscrições de plataforma e sem custo de implementação.</div>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">09</span></div>
+</div>
+
+<!-- ======================= 07 NOTAS E FONTES ======================= -->
+<div class="pagina">
+  <div class="cabecalho"><b>JMASSANO</b> · 07 Notas e fontes · Fase de Onboarding — Arquitetura e Custos</div>
+  <div class="sec-num">07</div>
+  <h2>Notas e fontes</h2>
+  <div class="regra"></div>
+  <div class="corpo">
+    <table>
+      <thead>
+        <tr><th style="width:32%">Fonte</th><th style="width:38%">Valor</th><th style="width:30%">Verificado</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Resend</td><td class="mono">3.000 emails/mês grátis</td><td>resend.com, 2026</td></tr>
+        <tr><td>Brevo</td><td class="mono">300 emails/dia grátis</td><td>brevo.com, 2026</td></tr>
+        <tr><td>Backblaze B2</td><td class="mono">$6,95/TB (≈ €0,0064/GB)</td><td>tech-insider.org, 2026</td></tr>
+        <tr><td>Hetzner Storage Box</td><td class="mono">€3,80/TB</td><td>hetzner.com, 2026</td></tr>
+        <tr><td>Peso médio por processo</td><td class="mono">~10 MB</td><td>estimativa do cliente</td></tr>
+      </tbody>
+    </table>
+    <div class="alerta"><b>Fora do âmbito deste documento:</b> implementação e subscrições de plataforma. Este documento cobre exclusivamente o custo de enviar os emails e de guardar os documentos importantes da fase de onboarding.</div>
+    <p class="fonte" style="margin-top:4mm">Rev. A · 2026-08-11 · JMASSANO Escritório de Advogado</p>
+  </div>
+  <div class="rodape"><span>JMASSANO · Fase de Onboarding — Arquitetura e Custos</span><span class="num">10</span></div>
+</div>
+
+</body>
+</html>
