@@ -71,47 +71,16 @@ const FONTE_CORPO = "'Inter Tight','Segoe UI',Arial,sans-serif";
 const FONTE_DISPLAY = "'Instrument Serif',Georgia,serif";
 const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
 
-/**
- * O emblema JMASSANO, o mesmo do site (`src/components/logotipo.tsx`), refeito
- * em tabelas.
- *
- * O logo do site é um SVG, e SVG em email não serve: o Gmail remove-o e o
- * Outlook não o desenha. Uma imagem alojada também não — metade dos clientes
- * de email bloqueia imagens por omissão, e o cabeçalho da mensagem ficaria
- * vazio precisamente na primeira vez que alguém a abre. Refeito em tabelas com
- * texto, desenha-se sempre, em qualquer cliente, sem pedir nada à rede.
- *
- * As opacidades do original (a régua a 0.45, "ADVOGADO" a 0.7) vão em cor
- * já misturada com o verde por baixo: `opacity` não é fiável em email, e o
- * resultado a olho é o mesmo por ser sempre sobre o mesmo fundo.
- */
-const emblema = () => `
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"
-       style="width:92px;background-color:${ARQUIVO};border-radius:8px;">
-  <tr>
-    <td style="padding:11px 6px 10px;text-align:center;">
-      <div style="font-family:${FONTE_DISPLAY};font-size:34px;line-height:1;
-                  color:${LATAO};letter-spacing:-0.01em;">JM</div>
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"
-             align="center" style="margin:7px auto 6px;">
-        <tr><td style="width:44px;height:1px;background-color:#667050;
-                       font-size:0;line-height:0;">&nbsp;</td></tr>
-      </table>
-      <div style="font-family:${FONTE_MONO};font-size:9px;font-weight:500;
-                  line-height:1;color:${LATAO};letter-spacing:0.2em;">MASSANO</div>
-      <div style="font-family:${FONTE_MONO};font-size:6.5px;line-height:1;
-                  color:#847b4f;letter-spacing:0.16em;margin-top:4px;">ADVOGADO</div>
-    </td>
-  </tr>
-</table>`;
-
 const moldura = (conteudo: string, corAcento: string = MARCA) => `
 <div style="background:${PAPEL};padding:32px 16px;font-family:${FONTE_CORPO};">
   <div style="max-width:560px;margin:0 auto;">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"
            style="margin:0 auto 22px;text-align:center;">
       <tr>
-        <td style="text-align:center;">${emblema()}</td>
+        <td style="text-align:center;">
+          <img src="https://poc.terlicalabs.com/logo-jm.png" alt="JMASSANO" width="110"
+               style="display:block;margin:0 auto;max-width:100%;height:auto;">
+        </td>
       </tr>
       <tr>
         <td style="padding-top:8px;text-align:center;">
