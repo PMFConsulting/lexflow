@@ -213,23 +213,44 @@ describe("5. JMASSANO | Processo reaberto", () => {
 });
 
 /**
- * Consequências de seguir o texto do cliente à letra (D33). Os parâmetros
- * `nome` e `referencia` continuam a ser aceites — e ignorados — para o dia em
- * que a sociedade queira uma dessas coisas de volta sem mexer em quem chama.
+ * O corpo continua a ser o texto do cliente à letra (D33) — o que mudou foi a
+ * identificação à volta dele. O nome entra na saudação e a referência entra em
+ * cima, porque são identificação e não redação: um email que trata por
+ * "Caro(a) Sr.(a)," alguém cujo nome está no dossiê lê-se como circular, e sem
+ * referência ninguém sabe de que processo se fala ao telefone.
+ *
+ * O que **não** entra continua a não entrar: o motivo da rejeição, que fica no
+ * processo e na auditoria.
  */
-describe("o que o texto literal do cliente implica", () => {
+describe("identificação do destinatário e do processo", () => {
   const todos = [
     emailRegisto({ nome: "Maria Silva", link: LINK }),
-    emailConfirmacaoRececao(),
+    emailConfirmacaoRececao({ nome: "Maria Silva", referencia: "PMF-2026-0042" }),
     emailBoasVindas({ nome: "Maria Silva", referencia: "PMF-2026-0042", anexos: ["Resumo"] }),
-    emailRejeicao(),
+    emailRejeicao({ nome: "Maria Silva", referencia: "PMF-2026-0042" }),
   ];
 
-  it("a saudação é genérica nos três — o documento diz “Caro(a) Sr.(a),”", () => {
-    for (const html of todos) {
+  it("a saudação trata o cliente pelo nome quando ele é conhecido", () => {
+    for (const html of todos) expect(texto(html)).toContain("Caro(a) Sr.(a) Maria Silva,");
+  });
+
+  it("sem nome, volta à fórmula neutra do documento do cliente", () => {
+    const semNome = [
+      emailRegisto({ link: LINK }),
+      emailConfirmacaoRececao(),
+      emailBoasVindas({ anexos: ["Resumo"] }),
+      emailRejeicao(),
+    ];
+    for (const html of semNome) {
       expect(texto(html)).toContain("Caro(a) Sr.(a),");
-      expect(html).not.toContain("Maria Silva");
+      // Sem o nome não pode sobrar a vírgula solta de "Caro(a) Sr.(a) ,".
+      expect(texto(html)).not.toContain("Sr.(a) ,");
     }
+  });
+
+  it("um nome longo é reduzido ao primeiro e ao último", () => {
+    const html = emailRegisto({ nome: "Maria Antónia da Silva Ferreira", link: LINK });
+    expect(texto(html)).toContain("Caro(a) Sr.(a) Maria Ferreira,");
   });
 
   it("a assinatura fica em aberto para o advogado gestor", () => {
@@ -240,8 +261,18 @@ describe("o que o texto literal do cliente implica", () => {
     }
   });
 
-  it("a referência do processo não aparece no corpo de nenhum deles", () => {
-    for (const html of todos) expect(html).not.toContain("PMF-2026-0042");
+  it("a referência do processo vai em todos os que a recebem", () => {
+    // O de registo é a exceção e continua a ser: nasce antes de haver
+    // identificação preenchida, e é o link que o identifica.
+    for (const html of todos.slice(1)) expect(html).toContain("PMF-2026-0042");
+  });
+
+  it("o motivo da rejeição continua a não sair no email", () => {
+    const html = emailRejeicao({
+      nome: "Maria Silva",
+      referencia: "PMF-2026-0042",
+    });
+    expect(html).not.toContain("motivo");
   });
 
   it("os três fecham com o rodapé de confidencialidade", () => {

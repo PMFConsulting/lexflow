@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<title>Orçamento Anual por Sociedade — JMASSANO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --tinta:#101a24; --tinta-suave:#5c6672; --papel:#edefea; --papel-alto:#ffffff;
+    --papel-tinta:#dde1d9;
+    --selo:#8c2f39; --arquivo:#2f5d50; --latao:#a9884f; --marca:#d9694b;
+    --display:'Instrument Serif',Georgia,'Times New Roman',serif;
+    --corpo:'Inter Tight','Segoe UI',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',Consolas,'Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  @page{ size:A4; margin:16mm 18mm; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family:var(--corpo); color:var(--tinta); background:var(--papel);
+        font-size:10.2pt; line-height:1.55; }
+
+  .pagina{ break-before:page; }
+  .pagina:first-child{ break-before:auto; }
+  p,li,td{ orphans:3; widows:3; }
+  h2,h3{ break-after:avoid; }
+  table,pre,.cartao,.caixa,.destaque,.grelha-3,.grelha-2{ break-inside:avoid; }
+
+  .cab{ display:flex; justify-content:space-between; align-items:baseline;
+        border-bottom:.6pt solid var(--papel-tinta); padding-bottom:2.5mm; margin-bottom:7mm;
+        font-family:var(--mono); font-size:6.8pt; letter-spacing:.09em;
+        text-transform:uppercase; color:var(--tinta-suave); }
+
+  .capa{ background:var(--tinta); color:var(--papel); min-height:262mm;
+         padding:20mm 16mm 14mm; display:flex; flex-direction:column;
+         justify-content:space-between; }
+  .capa .selo-marca{ font-family:var(--mono); font-size:7pt; letter-spacing:.34em;
+        text-transform:uppercase; color:var(--latao); }
+  .capa h1{ font-family:var(--display); font-size:42pt; line-height:1.03; font-weight:400;
+        letter-spacing:-.01em; margin:6mm 0 5mm; max-width:152mm; }
+  .capa .sub{ font-size:11.5pt; line-height:1.6; color:#b9c3cd; max-width:142mm; font-weight:300; }
+  .capa .regua{ height:.8pt; background:linear-gradient(90deg,var(--latao) 0%,var(--latao) 22%,#2b3947 22%); margin:9mm 0; }
+  .capa .meta{ display:grid; grid-template-columns:repeat(3,1fr); gap:7mm; }
+  .capa .meta .k{ font-family:var(--mono); font-size:6.6pt; letter-spacing:.14em;
+        text-transform:uppercase; color:#7e8b98; margin-bottom:1.6mm; }
+  .capa .meta .v{ font-size:10pt; color:var(--papel); font-weight:500; }
+  .capa .rodape-capa{ font-family:var(--mono); font-size:6.8pt; letter-spacing:.1em;
+        color:#6b7885; text-transform:uppercase; border-top:.6pt solid #2b3947; padding-top:4mm; }
+
+  .num-sec{ font-family:var(--mono); font-size:8pt; letter-spacing:.2em; color:var(--latao);
+        font-weight:500; margin-bottom:2mm; }
+  h2{ font-family:var(--display); font-size:24pt; font-weight:400; line-height:1.1; margin-bottom:3.5mm; }
+  h3{ font-size:11.5pt; font-weight:600; margin:6.5mm 0 2.5mm; }
+  .chapeu{ font-size:10.6pt; line-height:1.62; color:var(--tinta-suave); max-width:158mm;
+      margin-bottom:6mm; font-weight:300; }
+  p{ margin-bottom:3mm; max-width:162mm; }
+  strong{ font-weight:600; }
+  code,.mono{ font-family:var(--mono); font-size:8.6pt; background:var(--papel-tinta);
+      padding:.4mm 1.2mm; border-radius:1.2pt; }
+  ul,ol{ margin:0 0 3.5mm 4.5mm; } li{ margin-bottom:1.6mm; max-width:157mm; }
+
+  table{ width:100%; border-collapse:collapse; margin:3mm 0 4.5mm; font-size:8.9pt; }
+  th{ text-align:left; font-family:var(--mono); font-size:6.8pt; letter-spacing:.1em;
+      text-transform:uppercase; color:var(--tinta-suave); font-weight:500;
+      border-bottom:.9pt solid var(--tinta); padding:0 2.5mm 1.8mm 0; vertical-align:bottom; }
+  th.num{ text-align:right; }
+  td{ padding:1.9mm 2.5mm 1.9mm 0; border-bottom:.5pt solid var(--papel-tinta); vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  td.m{ font-family:var(--mono); font-size:8.3pt; white-space:nowrap; }
+  td.num{ text-align:right; font-family:var(--mono); font-size:8.6pt; white-space:nowrap; }
+  tr.total td{ border-top:.9pt solid var(--tinta); border-bottom:none; font-weight:600; padding-top:2.4mm; }
+  .t-compacta td{ padding:1.4mm 2.5mm 1.4mm 0; }
+  .gratis{ color:var(--arquivo); font-weight:600; }
+
+  .cartao{ background:var(--papel-alto); border:.6pt solid var(--papel-tinta);
+      border-left:2.2pt solid var(--latao); padding:4mm 4.5mm; margin:3.5mm 0; }
+  .cartao.selo{ border-left-color:var(--selo); }
+  .cartao.arquivo{ border-left-color:var(--arquivo); }
+  .cartao .rot{ font-family:var(--mono); font-size:6.6pt; letter-spacing:.13em;
+      text-transform:uppercase; color:var(--tinta-suave); margin-bottom:1.8mm; }
+  .cartao p:last-child{ margin-bottom:0; }
+
+  .grelha-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:3.5mm; margin:3.5mm 0; }
+  .grelha-2{ display:grid; grid-template-columns:1fr 1fr; gap:4mm; margin:3.5mm 0; }
+  .caixa{ background:var(--papel-alto); border:.6pt solid var(--papel-tinta); padding:3.5mm 4mm; }
+  .caixa .k{ font-family:var(--mono); font-size:6.5pt; letter-spacing:.12em;
+      text-transform:uppercase; color:var(--tinta-suave); margin-bottom:1.5mm; }
+  .caixa .v{ font-family:var(--display); font-size:19pt; line-height:1; margin-bottom:1.5mm; }
+  .caixa .d{ font-size:8.4pt; color:var(--tinta-suave); line-height:1.5; }
+
+  .destaque{ background:var(--tinta); color:var(--papel); padding:6mm 6.5mm; margin:4.5mm 0; }
+  .destaque .v{ font-family:var(--display); font-size:26pt; line-height:1.05; color:var(--latao);
+      margin-bottom:2.5mm; }
+  .destaque p{ color:#b9c3cd; font-size:9.6pt; margin:0; max-width:none; font-weight:300; }
+
+  .nota{ font-size:8.4pt; color:var(--tinta-suave); line-height:1.55;
+      border-left:1.6pt solid var(--papel-tinta); padding-left:3.5mm; margin:3.5mm 0; max-width:158mm; }
+  .indice a{ display:flex; align-items:baseline; gap:3mm; text-decoration:none; color:var(--tinta);
+      padding:2.2mm 0; border-bottom:.5pt solid var(--papel-tinta); }
+  .indice .i-n{ font-family:var(--mono); font-size:8pt; color:var(--latao); width:8mm; flex:none; }
+  .indice .i-t{ font-weight:500; font-size:10pt; }
+  .indice .i-d{ font-size:8.6pt; color:var(--tinta-suave); margin-left:auto; text-align:right;
+      max-width:84mm; font-weight:300; }
+  /* medidor de consumo de quota */
+  .med{ display:block; height:3.4mm; background:var(--papel-tinta); border-radius:1pt; position:relative; }
+  .med i{ position:absolute; left:0; top:0; bottom:0; background:var(--arquivo); border-radius:1pt; }
+  .med i.alto{ background:var(--latao); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ CAPA ═══════════ -->
+<section class="pagina capa">
+  <div>
+    <div class="selo-marca">JMASSANO · Escritório de Advogado</div>
+    <h1>Orçamento Anual por Sociedade — Custo por Escala</h1>
+    <div class="sub">Quanto custa servir cada sociedade cliente, por ano, em cada um dos cinco
+      segmentos. Custo de infraestrutura e serviço apenas — sem mão-de-obra, implementação ou
+      margem.</div>
+    <div class="regua"></div>
+    <div class="meta">
+      <div><div class="k">Cenário base</div><div class="v">10 sociedades partilhadas</div></div>
+      <div><div class="k">Motor do custo</div><div class="v">€36/utilizador/ano</div></div>
+      <div><div class="k">Plataforma diluída</div><div class="v">~8 €/sociedade/ano</div></div>
+      <div><div class="k">Arquivo documental</div><div class="v">quase grátis</div></div>
+      <div><div class="k">Email</div><div class="v">0 € nos 5 segmentos</div></div>
+      <div><div class="k">Moeda</div><div class="v">EUR, sem IVA</div></div>
+    </div>
+  </div>
+  <div class="rodape-capa">Documento interno · Rev. A · 12 de agosto de 2026</div>
+</section>
+
+<!-- ═══════════ 00 ═══════════ -->
+<section class="pagina">
+  <div class="cab"><span>JMASSANO · Índice e resumo</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">00</div>
+  <h2>Índice e resumo</h2>
+  <div class="chapeu">Este documento traduz o custo de infraestrutura, já apurado em
+    <code>CUSTOS_POR_ESCALA.html</code>, em euros <strong>por sociedade, por ano</strong>, em cada
+    um dos cinco segmentos. A conclusão cabe numa frase: <strong>o que decide a fatura de uma
+    sociedade não é o servidor — são as pessoas que lá trabalham.</strong></div>
+
+  <table>
+    <tr><th style="width:24mm">Segmento</th><th class="num">Advogados</th><th class="num">Utilizadores</th><th class="num">Total 1.º ano</th><th class="num">Total/mês</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">0–5</td><td class="num">5</td><td class="num"><strong>~188 €</strong></td><td class="num">~16 €</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">6–20</td><td class="num">20</td><td class="num"><strong>~728 €</strong></td><td class="num">~61 €</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">21–50</td><td class="num">50</td><td class="num"><strong>~1.809 €</strong></td><td class="num">~151 €</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">51–100</td><td class="num">100</td><td class="num"><strong>~3.610 €</strong></td><td class="num">~301 €</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">101+</td><td class="num">150</td><td class="num"><strong>~5.412 €</strong></td><td class="num">~451 €</td></tr>
+  </table>
+
+  <div class="indice">
+    <a href="#s1"><span class="i-n">01</span><span class="i-t">Como se lê o orçamento</span><span class="i-d">O que inclui e o que não inclui</span></a>
+    <a href="#s2"><span class="i-n">02</span><span class="i-t">Os cinco segmentos</span><span class="i-d">Consumo real de cada dimensão</span></a>
+    <a href="#s3"><span class="i-n">03</span><span class="i-t">Plataforma partilhada e diluição</span><span class="i-d">Um custo fixo, repartido por quem o usa</span></a>
+    <a href="#s4"><span class="i-n">04</span><span class="i-t">Utilizadores</span><span class="i-d">€36/ano — o motor do custo</span></a>
+    <a href="#s5"><span class="i-n">05</span><span class="i-t">Arquivo documental</span><span class="i-d">Volumes e €/ano, 1.º contra 7.º ano</span></a>
+    <a href="#s6"><span class="i-n">06</span><span class="i-t">Email</span><span class="i-d">0 € — a cascata explicada</span></a>
+    <a href="#s7"><span class="i-n">07</span><span class="i-t">Totais por segmento</span><span class="i-d">Tabela principal, 7.º ano e instância dedicada</span></a>
+    <a href="#s8"><span class="i-n">08</span><span class="i-t">Pressupostos e fontes</span><span class="i-d">Tudo verificado em agosto de 2026</span></a>
+  </div>
+
+  <div class="destaque">
+    <div class="v">O arquivo é quase grátis; a plataforma dilui-se; os utilizadores dominam</div>
+    <p>Em todos os cinco segmentos, mais de 95 % do orçamento anual de uma sociedade é a linha de
+      utilizadores. Duplicar sociedades servidas pela mesma plataforma baixa a fatia da
+      plataforma; nada baixa a fatia dos utilizadores, porque essa não se partilha.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 01 ═══════════ -->
+<section class="pagina" id="s1">
+  <div class="cab"><span>JMASSANO · 01 Como se lê o orçamento</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">01</div>
+  <h2>Como se lê o orçamento</h2>
+  <div class="chapeu">Três linhas somadas dão o total de cada sociedade. Nenhuma quarta linha
+    entra nesta conta.</div>
+
+  <table>
+    <tr><th style="width:34mm">Linha</th><th>O que é</th><th class="num" style="width:30mm">Como varia</th></tr>
+    <tr><td><strong>Plataforma</strong></td><td>Servidor e domínio, únicos para todas as sociedades servidas, divididos pelo número de sociedades</td><td class="num">dilui com escala</td></tr>
+    <tr><td><strong>Utilizadores</strong></td><td>€3/utilizador/mês, contratado por sociedade — não se partilha entre sociedades</td><td class="num">cresce com advogados</td></tr>
+    <tr><td><strong>Arquivo</strong></td><td>Armazenamento dos documentos da sociedade (Backblaze B2), acumulado ano a ano</td><td class="num">cresce devagar</td></tr>
+  </table>
+
+  <div class="cartao arquivo">
+    <div class="rot">O que fica de fora, de propósito</div>
+    <p><strong>Mão-de-obra, implementação e margem:</strong> este é um documento de custo de
+      infraestrutura e serviço — o que é faturado por fornecedores e verificável em fatura, ou
+      cobrado pelo próprio modelo de negócio (€3/utilizador/mês). O trabalho de configurar,
+      integrar e apoiar cada sociedade não tem linha aqui.</p>
+    <p><strong>Email:</strong> entra na secção 06 pelo valor que de facto tem — 0 € — mas não soma
+      ao total porque não é uma fatura.</p>
+  </div>
+
+  <p>Os números-base — plataforma, utilizadores e arquivo — foram verificados em
+    <code>CUSTOS_POR_ESCALA.html</code> (Rev. B) e no modelo de negócio da plataforma. Este
+    documento não recalcula: reparte-os por sociedade e por ano.</p>
+</section>
+
+<!-- ═══════════ 02 ═══════════ -->
+<section class="pagina" id="s2">
+  <div class="cab"><span>JMASSANO · 02 Os cinco segmentos</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">02</div>
+  <h2>Os cinco segmentos</h2>
+  <div class="chapeu">O ponto de partida de qualquer orçamento por sociedade: quantos advogados,
+    quantos processos, quantos utilizadores a licenciar.</div>
+
+  <table>
+    <tr>
+      <th style="width:24mm">Segmento</th>
+      <th class="num">Advogados</th><th class="num">Proc./mês</th>
+      <th class="num">Emails/mês</th><th class="num">Utilizadores</th>
+    </tr>
+    <tr><td><strong>Micro</strong></td><td class="num">0–5</td><td class="num">≤ 10</td><td class="num">40</td><td class="num">5</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">6–20</td><td class="num">≤ 40</td><td class="num">160</td><td class="num">20</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">21–50</td><td class="num">≤ 100</td><td class="num">400</td><td class="num">50</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">51–100</td><td class="num">≤ 200</td><td class="num">800</td><td class="num">100</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">101+</td><td class="num">400</td><td class="num">1.600</td><td class="num">150</td></tr>
+  </table>
+
+  <div class="cartao">
+    <div class="rot">Utilizadores, não advogados</div>
+    <p>A coluna que este documento usa para orçamentar é <strong>utilizadores</strong>, não
+      advogados — assumida igual ao número de advogados do segmento, no topo do intervalo, como
+      pressuposto conservador. Uma sociedade com menos contas ativas do que advogados paga menos;
+      este orçamento é o teto, não a média.</p>
+  </div>
+
+  <div class="nota">Ad Hoc é um intervalo aberto — «101 ou mais advogados» não tem topo. Assume-se
+    150 utilizadores e 400 processos/mês para efeitos deste orçamento, o dobro do segmento
+    Grande.</div>
+</section>
+
+<!-- ═══════════ 03 ═══════════ -->
+<section class="pagina" id="s3">
+  <div class="cab"><span>JMASSANO · 03 Plataforma partilhada e diluição</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">03</div>
+  <h2>Plataforma partilhada e diluição</h2>
+  <div class="chapeu">A plataforma — servidor Hostinger VPS KVM 1 e domínio — é <strong>uma só</strong>,
+    para todas as sociedades que nela correm. O que cada sociedade paga é uma fração desse custo
+    fixo, e a fração encolhe à medida que mais sociedades a partilham.</div>
+
+  <table>
+    <tr><th style="width:30mm">Camada</th><th style="width:40mm">Escolha</th><th class="num">Custo total/ano</th></tr>
+    <tr><td><strong>Servidor</strong></td><td>Hostinger VPS KVM 1 <span class="mono" style="font-size:7.6pt">(1 vCPU · 4 GB)</span></td><td class="num">60–96 €</td></tr>
+    <tr><td><strong>Domínio</strong></td><td>Cloudflare Registrar</td><td class="num">~10 €</td></tr>
+    <tr class="total"><td colspan="2"><strong>Total da plataforma</strong></td><td class="num"><strong>70–106 €/ano</strong></td></tr>
+  </table>
+
+  <h3>Diluição por número de sociedades servidas</h3>
+  <table>
+    <tr><th style="width:40mm">Sociedades a partilhar</th><th class="num">Custo total/ano</th><th class="num">Por sociedade/ano</th></tr>
+    <tr><td>1</td><td class="num">70–106 €</td><td class="num"><strong>70–106 €</strong></td></tr>
+    <tr><td>5</td><td class="num">70–106 €</td><td class="num"><strong>14–21 €</strong></td></tr>
+    <tr><td>10 <span class="mono" style="font-size:7.6pt">(cenário base)</span></td><td class="num">70–106 €</td><td class="num"><strong>7–11 €</strong></td></tr>
+    <tr><td>20</td><td class="num">70–106 €</td><td class="num"><strong>3,5–5,3 €</strong></td></tr>
+  </table>
+
+  <div class="destaque">
+    <div class="v">Servir a décima sociedade custa o mesmo que servir a primeira</div>
+    <p>O servidor e o domínio não emitem uma linha de fatura nova por cada sociedade acrescentada
+      — só a fração que cabe a cada uma fica mais pequena. Este documento usa o cenário de
+      <strong>10 sociedades</strong> como base: ~8 €/sociedade/ano, o ponto médio do intervalo
+      7–11 €.</p>
+  </div>
+
+  <div class="nota">Se uma sociedade exigir isolamento físico — instância dedicada, só para ela —
+    a diluição não se aplica: paga a plataforma inteira sozinha. Ver secção 07.</div>
+</section>
+
+<!-- ═══════════ 04 ═══════════ -->
+<section class="pagina" id="s4">
+  <div class="cab"><span>JMASSANO · 04 Utilizadores</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">04</div>
+  <h2>Utilizadores — o motor do custo</h2>
+  <div class="chapeu">€3 por utilizador, por mês — <strong>€36 por utilizador, por ano</strong>. É a
+    única linha do orçamento que não se dilui entre sociedades, e por isso é a que domina o
+    total em todos os cinco segmentos.</div>
+
+  <table>
+    <tr><th style="width:24mm">Segmento</th><th class="num">Utilizadores</th><th class="num">€/mês</th><th class="num">€/ano</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">5</td><td class="num">15 €</td><td class="num"><strong>180 €</strong></td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">20</td><td class="num">60 €</td><td class="num"><strong>720 €</strong></td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">50</td><td class="num">150 €</td><td class="num"><strong>1.800 €</strong></td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">100</td><td class="num">300 €</td><td class="num"><strong>3.600 €</strong></td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">150</td><td class="num">450 €</td><td class="num"><strong>5.400 €</strong></td></tr>
+  </table>
+
+  <div class="grelha-2">
+    <div class="caixa"><div class="k">Do Micro ao Ad Hoc</div><div class="v">30 ×</div>
+      <div class="d">A amplitude da linha de utilizadores — 180 € a 5.400 € por ano — é a mesma
+        amplitude que separa os segmentos entre si.</div></div>
+    <div class="caixa"><div class="k">Fatia do total anual</div><div class="v">&gt; 95 %</div>
+      <div class="d">Em todos os cinco segmentos, é o que os utilizadores pesam sobre o orçamento
+        completo da sociedade — ver secção 07.</div></div>
+  </div>
+
+  <div class="cartao selo">
+    <div class="rot">Porque não se dilui</div>
+    <p>A plataforma é uma máquina partilhada; um utilizador é uma conta contratada por uma
+      sociedade específica, para o trabalho dessa sociedade. Não há economia de escala possível
+      nesta linha — acrescentar sociedades não reduz o que cada uma paga por conta.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 05 ═══════════ -->
+<section class="pagina" id="s5">
+  <div class="cab"><span>JMASSANO · 05 Arquivo documental</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">05</div>
+  <h2>Arquivo documental</h2>
+  <div class="chapeu">Backblaze B2, a ~€6,40/TB/mês, com encriptação e regra 3-2-1. Cresce com o
+    volume real de cada sociedade, ano após ano — a Lei 83/2017 obriga a conservar por sete anos,
+    e um dossiê arquivado não liberta espaço.</div>
+
+  <table>
+    <tr><th style="width:24mm">Segmento</th><th class="num">Volume 1.º ano</th><th class="num">€ 1.º ano</th><th class="num">Volume 7.º ano</th><th class="num">€ 7.º ano</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">1,2 GB</td><td class="num">~0,10 €</td><td class="num">8,4 GB</td><td class="num">~0,65 €</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">4,8 GB</td><td class="num">~0,37 €</td><td class="num">33,6 GB</td><td class="num">~2,58 €</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">12 GB</td><td class="num">~0,92 €</td><td class="num">84 GB</td><td class="num">~6,45 €</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">24 GB</td><td class="num">~1,84 €</td><td class="num">168 GB</td><td class="num">~12,90 €</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">48 GB</td><td class="num">~3,69 €</td><td class="num">336 GB</td><td class="num">~25,80 €</td></tr>
+  </table>
+
+  <div class="cartao arquivo">
+    <div class="rot">Quase grátis, em todos os segmentos</div>
+    <p>Mesmo no topo — Ad Hoc, sétimo ano, 336 GB acumulados — o arquivo custa
+      <strong>~25,80 €/ano</strong>. Ao lado dos 5.400 €/ano de utilizadores do mesmo segmento, é
+      menos de meio por cento do orçamento total. O arquivo nunca é o que decide se uma sociedade
+      é barata ou cara de servir.</p>
+  </div>
+
+  <div class="nota">O cálculo assume 10 MB por processo, o mesmo pressuposto de
+    <code>CUSTOS_POR_ESCALA.html</code>. Errar por um fator de dois não desloca nenhuma conclusão
+    desta secção — o arquivo continua a ser a linha mais pequena do orçamento por larga margem.</div>
+</section>
+
+<!-- ═══════════ 06 ═══════════ -->
+<section class="pagina" id="s6">
+  <div class="cab"><span>JMASSANO · 06 Email</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">06</div>
+  <h2>Email — 0 € nos cinco segmentos</h2>
+  <div class="chapeu">Quatro emails por processo — registo, confirmação de receção, aviso interno
+    e decisão — correm pela cascata Resend → Mailjet → Brevo → SMTP próprio, dentro das quotas
+    gratuitas em todos os segmentos.</div>
+
+  <table>
+    <tr><th style="width:24mm">Segmento</th><th class="num">Emails/mês</th><th class="num">Custo/ano</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">40</td><td class="num gratis">0 €</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">160</td><td class="num gratis">0 €</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">400</td><td class="num gratis">0 €</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">800</td><td class="num gratis">0 €</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">1.600</td><td class="num gratis">0 €</td></tr>
+  </table>
+
+  <p>O canal principal (Resend) sozinho comporta 3.000 emails/mês gratuitos; a cascata combinada
+    chega a 18.000/mês. O Ad Hoc, o segmento mais exigente, usa 1.600 — menos de 9 % da
+    capacidade combinada. Não há cenário, dentro destes cinco segmentos, em que o email deixe de
+    ser gratuito.</p>
+
+  <div class="nota">Esta linha não soma ao total da secção 07 por não ter fatura — mas fica
+    registada porque um orçamento que omitisse o email deixaria a pergunta óbvia por responder.</div>
+</section>
+
+<!-- ═══════════ 07 ═══════════ -->
+<section class="pagina" id="s7">
+  <div class="cab"><span>JMASSANO · 07 Totais por segmento</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">07</div>
+  <h2>Totais por segmento</h2>
+  <div class="chapeu">Plataforma diluída (cenário de 10 sociedades) + utilizadores + arquivo do
+    1.º ano. A tabela que resume o documento inteiro.</div>
+
+  <table>
+    <tr>
+      <th style="width:20mm">Segmento</th><th class="num">Plataforma</th><th class="num">Utilizadores</th>
+      <th class="num">Arquivo 1.º</th><th class="num"><strong>Total 1.º ano</strong></th><th class="num"><strong>/mês</strong></th>
+    </tr>
+    <tr><td><strong>Micro</strong></td><td class="num">~8 €</td><td class="num">180 €</td><td class="num">0,10 €</td><td class="num"><strong>~188 €</strong></td><td class="num"><strong>~16 €</strong></td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">~8 €</td><td class="num">720 €</td><td class="num">0,37 €</td><td class="num"><strong>~728 €</strong></td><td class="num"><strong>~61 €</strong></td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">~8 €</td><td class="num">1.800 €</td><td class="num">0,92 €</td><td class="num"><strong>~1.809 €</strong></td><td class="num"><strong>~151 €</strong></td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">~8 €</td><td class="num">3.600 €</td><td class="num">1,84 €</td><td class="num"><strong>~3.610 €</strong></td><td class="num"><strong>~301 €</strong></td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">~8 €</td><td class="num">5.400 €</td><td class="num">3,69 €</td><td class="num"><strong>~5.412 €</strong></td><td class="num"><strong>~451 €</strong></td></tr>
+  </table>
+
+  <h3>Com o arquivo no 7.º ano (retenção legal completa)</h3>
+  <table class="t-compacta">
+    <tr><th style="width:24mm">Segmento</th><th class="num">Arquivo 7.º ano</th><th class="num"><strong>Total 7.º ano</strong></th></tr>
+    <tr><td class="m">Micro</td><td class="num">0,65 €</td><td class="num"><strong>~189 €</strong></td></tr>
+    <tr><td class="m">Pequenas</td><td class="num">2,58 €</td><td class="num"><strong>~731 €</strong></td></tr>
+    <tr><td class="m">Média</td><td class="num">6,45 €</td><td class="num"><strong>~1.815 €</strong></td></tr>
+    <tr><td class="m">Grande</td><td class="num">12,90 €</td><td class="num"><strong>~3.621 €</strong></td></tr>
+    <tr><td class="m">Ad Hoc</td><td class="num">25,80 €</td><td class="num"><strong>~5.434 €</strong></td></tr>
+  </table>
+  <div class="nota">A diferença entre o 1.º e o 7.º ano é, em todos os segmentos, inferior a
+    0,5 % do total — o crescimento do arquivo não move o orçamento de forma percetível.</div>
+
+  <div class="destaque">
+    <div class="v">O custo que domina é o de utilizadores</div>
+    <p>€36/utilizador/ano é a linha que decide o orçamento — o arquivo é quase grátis e a
+      plataforma dilui-se com escala. Com 20 sociedades a partilhar a plataforma em vez de 10, a
+      fatia da plataforma cai de ~8 € para 3,5–5,3 €/sociedade/ano; o total muda menos de 3 € em
+      qualquer segmento.</p>
+  </div>
+
+  <h3>Se a sociedade exigir instância dedicada (isolamento físico)</h3>
+  <table class="t-compacta">
+    <tr><th style="width:24mm">Segmento</th><th class="num">Plataforma dedicada/ano</th></tr>
+    <tr><td class="m">Micro</td><td class="num">70–106 €</td></tr>
+    <tr><td class="m">Média</td><td class="num">190–226 €</td></tr>
+    <tr><td class="m">Ad Hoc</td><td class="num">310–370 €</td></tr>
+  </table>
+  <p>Nestes casos, a linha de plataforma da tabela principal deixa de ser ~8 € e passa a ser o
+    valor cheio — a sociedade paga a máquina sozinha, sem diluição. As linhas de utilizadores e
+    arquivo não mudam.</p>
+</section>
+
+<!-- ═══════════ 08 ═══════════ -->
+<section class="pagina" id="s8">
+  <div class="cab"><span>JMASSANO · 08 Pressupostos e fontes</span><span>Orçamento Anual por Sociedade</span></div>
+  <div class="num-sec">08</div>
+  <h2>Pressupostos e fontes</h2>
+  <div class="chapeu">Todos os números-base foram verificados em agosto de 2026, antes deste
+    documento existir. O que aqui se acrescenta é a repartição por sociedade e por ano — não
+    novos valores.</div>
+
+  <table class="t-compacta">
+    <tr><th style="width:52mm">Valor</th><th>Fonte</th></tr>
+    <tr><td>Plataforma 70–106 €/ano</td><td><code>CUSTOS_POR_ESCALA.html</code> (Rev. B), seções 00 e 01</td></tr>
+    <tr><td>€3/utilizador/mês</td><td>Modelo de negócio da plataforma</td></tr>
+    <tr><td>Backblaze B2 ~€6,40/TB/mês</td><td><code>CUSTOS_POR_ESCALA.html</code> (Rev. B), seção 07</td></tr>
+    <tr><td>Email a 0 € nos 5 segmentos</td><td><code>CUSTOS_POR_ESCALA.html</code> (Rev. B), seção 04</td></tr>
+    <tr><td>Retenção de 7 anos</td><td>Lei 83/2017</td></tr>
+  </table>
+
+  <h3>Estimado — a validar</h3>
+  <table class="t-compacta">
+    <tr><th style="width:52mm">Estimativa</th><th>Sensibilidade</th></tr>
+    <tr><td><strong>10 sociedades no cenário base</strong></td><td>Arbitrado para ilustrar a diluição da plataforma. A secção 03 dá os quatro pontos — 1, 5, 10 e 20 — para recalcular contra o número real de sociedades servidas.</td></tr>
+    <tr><td>Utilizadores = advogados, no topo do intervalo</td><td>Conservador por segmento. Uma sociedade com menos contas ativas paga menos do que este orçamento indica.</td></tr>
+    <tr><td>150 utilizadores e 400 processos/mês no Ad Hoc</td><td>Arbitrado — o segmento é aberto no topo, sem teto definido.</td></tr>
+    <tr><td>10 MB por processo (arquivo)</td><td>Errar por 2 × não muda nenhuma conclusão — o arquivo é a linha mais pequena por larga margem.</td></tr>
+  </table>
+
+  <div class="cartao selo">
+    <div class="rot">O que fazer a seguir</div>
+    <p>Substituir o cenário de 10 sociedades pelo número real de sociedades a servir, na secção
+      03, recalcula a linha de plataforma da tabela principal — as linhas de utilizadores e
+      arquivo não dependem desse número.</p>
+  </div>
+
+  <p style="font-family:var(--mono);font-size:8pt;color:var(--tinta-suave);margin-top:8mm;">
+    Documento interno · Rev. A · 12 de agosto de 2026 · EUR, sem IVA · Custo de infraestrutura e
+    serviço apenas — sem mão-de-obra, implementação ou margem.
+  </p>
+</section>
+
+</body>
+</html>

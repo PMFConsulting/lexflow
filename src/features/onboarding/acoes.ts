@@ -610,7 +610,7 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
   const base = db();
 
   const [identificacao] = await base
-    .select({ email: dadosIdentificacao.email })
+    .select({ email: dadosIdentificacao.email, nome: dadosIdentificacao.nome })
     .from(dadosIdentificacao)
     .where(eq(dadosIdentificacao.processoId, processo.id))
     .limit(1);
@@ -648,7 +648,10 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
       enviarEmail({
         para: emailCliente,
         assunto: ASSUNTO_CONFIRMACAO,
-        html: emailConfirmacaoRececao(),
+        html: emailConfirmacaoRececao({
+          nome: identificacao?.nome,
+          referencia: processo.referencia,
+        }),
         template: "confirmacao_rececao",
         organizacaoId: processo.organizacaoId,
         processoId: processo.id,

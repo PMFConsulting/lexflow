@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<title>Arquitetura da Plataforma — JMASSANO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --tinta:#101a24; --tinta-suave:#5c6672; --papel:#edefea; --papel-alto:#ffffff;
+    --papel-fundo:#e4e7e0; --papel-tinta:#dde1d9;
+    --selo:#8c2f39; --arquivo:#2f5d50; --latao:#a9884f; --marca:#d9694b;
+    --display:'Instrument Serif',Georgia,'Times New Roman',serif;
+    --corpo:'Inter Tight','Segoe UI',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',Consolas,'Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  /* Margens no @page e conteúdo a fluir, em vez de páginas de altura fixa: um
+     documento de texto não sabe de antemão onde acaba cada folha, e forçar
+     297mm por secção fazia o excesso transbordar por cima da secção seguinte —
+     texto sobreposto, que é pior do que uma quebra a meio. Cada secção começa
+     em folha nova; o que não couber continua na folha a seguir, com as mesmas
+     margens. */
+  @page{ size:A4; margin:16mm 18mm; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family:var(--corpo); color:var(--tinta); background:var(--papel);
+        font-size:10.2pt; line-height:1.55; font-weight:400; }
+
+  .pagina{ break-before:page; }
+  .pagina:first-child{ break-before:auto; }
+  /* O rodapé numerado só fazia sentido com folhas de altura fixa. */
+  .rod{ display:none; }
+  /* Nada de órfãs nem viúvas, e títulos nunca sozinhos no fim da folha. */
+  p,li,td{ orphans:3; widows:3; }
+  h2,h3,h4{ break-after:avoid; }
+  table,pre,.cartao,.caixa,.destaque{ break-inside:avoid; }
+
+  /* cabeçalho e rodapé de página */
+  .cab{ display:flex; justify-content:space-between; align-items:baseline;
+        border-bottom:.6pt solid var(--papel-tinta); padding-bottom:2.5mm; margin-bottom:7mm;
+        font-family:var(--mono); font-size:6.8pt; letter-spacing:.09em;
+        text-transform:uppercase; color:var(--tinta-suave); }
+  /* Sem folhas de altura fixa não há canto inferior onde o pousar: a numeração
+     que ele trazia deixou de bater certo com a folha em que aparecia, e um
+     número de página errado é pior do que nenhum. */
+  .rod{ display:none !important; }
+
+  /* capa */
+  /* A capa é um painel escuro dentro das margens da folha, e não sangrada até
+     ao corte: com margens definidas no @page, não há como pintar para lá
+     delas. Inteira, ocupa a área imprimível toda. */
+  .capa{ background:var(--tinta); color:var(--papel); min-height:262mm;
+         padding:20mm 16mm 14mm; display:flex; flex-direction:column;
+         justify-content:space-between; }
+  .capa .selo-marca{ font-family:var(--mono); font-size:7pt; letter-spacing:.34em;
+        text-transform:uppercase; color:var(--latao); }
+  .capa h1{ font-family:var(--display); font-size:44pt; line-height:1.02; font-weight:400;
+        letter-spacing:-.01em; margin:6mm 0 5mm; max-width:150mm; }
+  .capa .sub{ font-size:11.5pt; line-height:1.6; color:#b9c3cd; max-width:135mm; font-weight:300; }
+  .capa .regua{ height:.8pt; background:linear-gradient(90deg,var(--latao) 0%,var(--latao) 22%,#2b3947 22%); margin:9mm 0; }
+  .capa .meta{ display:grid; grid-template-columns:repeat(3,1fr); gap:7mm; }
+  .capa .meta .k{ font-family:var(--mono); font-size:6.6pt; letter-spacing:.14em;
+        text-transform:uppercase; color:#7e8b98; margin-bottom:1.6mm; }
+  .capa .meta .v{ font-size:10pt; color:var(--papel); font-weight:500; }
+  .capa .rodape-capa{ font-family:var(--mono); font-size:6.8pt; letter-spacing:.1em;
+        color:#6b7885; text-transform:uppercase; border-top:.6pt solid #2b3947; padding-top:4mm; }
+
+  /* títulos */
+  .num-sec{ font-family:var(--mono); font-size:8pt; letter-spacing:.2em; color:var(--latao);
+        font-weight:500; margin-bottom:2mm; }
+  h2{ font-family:var(--display); font-size:24pt; font-weight:400; line-height:1.1;
+      letter-spacing:-.005em; margin-bottom:3.5mm; }
+  h3{ font-family:var(--corpo); font-size:11.5pt; font-weight:600; margin:6.5mm 0 2.5mm;
+      letter-spacing:-.005em; }
+  h4{ font-family:var(--corpo); font-size:9.6pt; font-weight:600; margin:4.5mm 0 1.5mm; }
+  .chapeu{ font-size:10.6pt; line-height:1.62; color:var(--tinta-suave); max-width:158mm;
+      margin-bottom:6mm; font-weight:300; }
+  p{ margin-bottom:3mm; max-width:162mm; }
+  strong{ font-weight:600; }
+  em{ font-style:italic; }
+  code,.mono{ font-family:var(--mono); font-size:8.6pt; background:var(--papel-tinta);
+      padding:.4mm 1.2mm; border-radius:1.2pt; }
+
+  ul,ol{ margin:0 0 3.5mm 4.5mm; }
+  li{ margin-bottom:1.6mm; max-width:157mm; }
+
+  /* tabelas */
+  table{ width:100%; border-collapse:collapse; margin:3mm 0 4.5mm; font-size:8.9pt; }
+  th{ text-align:left; font-family:var(--mono); font-size:6.8pt; letter-spacing:.1em;
+      text-transform:uppercase; color:var(--tinta-suave); font-weight:500;
+      border-bottom:.9pt solid var(--tinta); padding:0 2.5mm 1.8mm 0; vertical-align:bottom; }
+  td{ padding:1.9mm 2.5mm 1.9mm 0; border-bottom:.5pt solid var(--papel-tinta); vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  td.m,th.m{ font-family:var(--mono); font-size:8.3pt; white-space:nowrap; }
+  td.num{ text-align:right; font-family:var(--mono); }
+  .t-compacta td{ padding:1.4mm 2.5mm 1.4mm 0; }
+
+  /* blocos */
+  .cartao{ background:var(--papel-alto); border:.6pt solid var(--papel-tinta);
+      border-left:2.2pt solid var(--latao); padding:4mm 4.5mm; margin:3.5mm 0; }
+  .cartao.selo{ border-left-color:var(--selo); }
+  .cartao.arquivo{ border-left-color:var(--arquivo); }
+  .cartao .rot{ font-family:var(--mono); font-size:6.6pt; letter-spacing:.13em;
+      text-transform:uppercase; color:var(--tinta-suave); margin-bottom:1.8mm; }
+  .cartao p:last-child{ margin-bottom:0; }
+
+  .grelha-2{ display:grid; grid-template-columns:1fr 1fr; gap:4mm; margin:3.5mm 0; }
+  .grelha-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:3.5mm; margin:3.5mm 0; }
+  .caixa{ background:var(--papel-alto); border:.6pt solid var(--papel-tinta); padding:3.5mm 4mm; }
+  .caixa .k{ font-family:var(--mono); font-size:6.5pt; letter-spacing:.12em;
+      text-transform:uppercase; color:var(--tinta-suave); margin-bottom:1.5mm; }
+  .caixa .v{ font-family:var(--display); font-size:19pt; line-height:1; margin-bottom:1.5mm; }
+  .caixa .d{ font-size:8.4pt; color:var(--tinta-suave); line-height:1.5; }
+
+  pre{ font-family:var(--mono); font-size:7.6pt; line-height:1.5; background:var(--tinta);
+      color:#cdd6df; padding:4mm 4.5mm; margin:3.5mm 0; white-space:pre; overflow:hidden;
+      border-radius:1.5pt; }
+  pre .c{ color:#7e8b98; }
+  pre .g{ color:#8fbfae; }
+  pre .l{ color:#d3b477; }
+
+  .etq{ display:inline-block; font-family:var(--mono); font-size:6.6pt; letter-spacing:.1em;
+      text-transform:uppercase; padding:.7mm 2mm; border-radius:1.2pt; font-weight:500; }
+  .etq.ok{ background:rgba(47,93,80,.13); color:var(--arquivo); }
+  .etq.falta{ background:rgba(140,47,57,.11); color:var(--selo); }
+  .etq.pend{ background:rgba(169,136,79,.15); color:#7d6335; }
+
+  .destaque{ background:var(--tinta); color:var(--papel); padding:6mm 6.5mm; margin:4.5mm 0; }
+  .destaque .v{ font-family:var(--display); font-size:26pt; line-height:1.05; color:var(--latao);
+      margin-bottom:2.5mm; }
+  .destaque p{ color:#b9c3cd; font-size:9.6pt; margin:0; max-width:none; font-weight:300; }
+
+  .indice{ margin-top:2mm; }
+  .indice a{ display:flex; align-items:baseline; gap:3mm; text-decoration:none; color:var(--tinta);
+      padding:2.2mm 0; border-bottom:.5pt solid var(--papel-tinta); }
+  .indice .i-n{ font-family:var(--mono); font-size:8pt; color:var(--latao); width:8mm; flex:none; }
+  .indice .i-t{ font-weight:500; font-size:10pt; }
+  .indice .i-d{ font-size:8.6pt; color:var(--tinta-suave); margin-left:auto; text-align:right;
+      max-width:82mm; font-weight:300; }
+
+  .nota{ font-size:8.4pt; color:var(--tinta-suave); line-height:1.55; border-left:1.6pt solid var(--papel-tinta);
+      padding-left:3.5mm; margin:3.5mm 0; max-width:158mm; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ CAPA ══════════════════ -->
+<section class="pagina capa">
+  <div>
+    <div class="selo-marca">JMASSANO · Escritório de Advogado</div>
+    <h1>Arquitetura da Plataforma de Processos Jurídicos</h1>
+    <div class="sub">Documento técnico de referência: como o sistema está construído, que peças o
+      compõem, porque é que cada uma é como é, e em que estado se encontra cada parte.
+      Cobre a superfície do cliente, o back-office, o modelo de dados, a cadeia de auditoria,
+      o canal de email, o arquivo documental e a infraestrutura.</div>
+    <div class="regua"></div>
+    <div class="meta">
+      <div><div class="k">Sistema</div><div class="v">Onboarding KYC/AML</div></div>
+      <div><div class="k">Enquadramento</div><div class="v">Lei 83/2017 · Reg. 2/2020 OA · RGPD</div></div>
+      <div><div class="k">Produção</div><div class="v">poc.terlicalabs.com</div></div>
+      <div><div class="k">Base de código</div><div class="v">Next.js 16 · TypeScript strict</div></div>
+      <div><div class="k">Modelo de dados</div><div class="v">29 tabelas · 15 migrações</div></div>
+      <div><div class="k">Cobertura</div><div class="v">361 testes · 19 ficheiros</div></div>
+    </div>
+  </div>
+  <div class="rodape-capa">Documento interno · Rev. A · Gerado em 11 de agosto de 2026</div>
+</section>
+
+<!-- ══════════════════ 00 ÍNDICE ══════════════════ -->
+<section class="pagina">
+  <div class="cab"><span>JMASSANO · Índice</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">00</div>
+  <h2>Índice e resumo</h2>
+  <div class="chapeu">A plataforma tem duas metades com regras opostas — uma pública, autenticada
+    por token de uso único, onde o cliente preenche o seu processo; outra privada, autenticada por
+    sessão, onde a sociedade o gere. Tudo o resto no desenho decorre dessa separação.</div>
+
+  <div class="grelha-3">
+    <div class="caixa"><div class="k">Superfícies</div><div class="v">2</div>
+      <div class="d">Cliente por token, back-office por sessão. Grupos de rotas distintos.</div></div>
+    <div class="caixa"><div class="k">Passos de onboarding</div><div class="v">7</div>
+      <div class="d">Cada um em rota própria, com estado na base de dados.</div></div>
+    <div class="caixa"><div class="k">Canais de email</div><div class="v">4</div>
+      <div class="d">Resend, Mailjet, Brevo e SMTP próprio, em cascata.</div></div>
+  </div>
+
+  <div class="indice">
+    <a href="#s1"><span class="i-n">01</span><span class="i-t">O que a plataforma é</span><span class="i-d">Enquadramento legal e as duas superfícies</span></a>
+    <a href="#s2"><span class="i-n">02</span><span class="i-t">Visão geral e stack</span><span class="i-d">Camadas, tecnologias e porquê cada escolha</span></a>
+    <a href="#s3"><span class="i-n">03</span><span class="i-t">Organização do código</span><span class="i-d">Rotas, features por domínio, caminho de uma escrita</span></a>
+    <a href="#s4"><span class="i-n">04</span><span class="i-t">O fluxo de onboarding</span><span class="i-d">Os sete passos, condicionais e validação em dois lados</span></a>
+    <a href="#s5"><span class="i-n">05</span><span class="i-t">Ciclo de vida do processo</span><span class="i-d">Oito estados, do rascunho ao arquivo</span></a>
+    <a href="#s6"><span class="i-n">06</span><span class="i-t">Modelo de dados</span><span class="i-d">29 tabelas, uma por secção, listas em 1:N</span></a>
+    <a href="#s7"><span class="i-n">07</span><span class="i-t">Auditoria imutável</span><span class="i-d">Cadeia de hashes garantida pela base de dados</span></a>
+    <a href="#s8"><span class="i-n">08</span><span class="i-t">Segurança e conformidade</span><span class="i-d">Tokens, papéis, dados sensíveis e retenção</span></a>
+    <a href="#s9"><span class="i-n">09</span><span class="i-t">O canal de email</span><span class="i-d">Seis templates, quatro canais, confirmação de entrega</span></a>
+    <a href="#s10"><span class="i-n">10</span><span class="i-t">Documentos e arquivo</span><span class="i-d">PDFs gerados e sincronização SFTP</span></a>
+    <a href="#s11"><span class="i-n">11</span><span class="i-t">Infraestrutura e deploy</span><span class="i-d">VPS, Coolify, Docker e migrações no arranque</span></a>
+    <a href="#s12"><span class="i-n">12</span><span class="i-t">Qualidade e estado atual</span><span class="i-d">Testes, build, lint e o que falta</span></a>
+  </div>
+
+  <div class="destaque">
+    <div class="v">A auditoria é o produto</div>
+    <p>Num sistema de KYC sujeito à Lei 83/2017, o valor não está no formulário — está em conseguir
+      provar, sete anos depois, quem declarou o quê, quando, e sobre que texto exato. É por isso que
+      a imutabilidade vive na base de dados e não numa convenção de código.</p>
+  </div>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">02</span></div>
+</section>
+
+<!-- ══════════════════ 01 ══════════════════ -->
+<section class="pagina" id="s1">
+  <div class="cab"><span>JMASSANO · 01 O que a plataforma é</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">01</div>
+  <h2>O que a plataforma é</h2>
+  <div class="chapeu">Plataforma de onboarding de clientes para um escritório de advogados, construída
+    à volta dos deveres de identificação e diligência que a lei impõe antes de haver relação de negócio.</div>
+
+  <h3>Enquadramento legal</h3>
+  <p>Três regimes determinam o que o sistema tem de fazer, e nenhum é opcional:</p>
+  <table>
+    <tr><th style="width:38mm">Regime</th><th>O que obriga</th></tr>
+    <tr><td class="m">Lei 83/2017</td><td>Identificação e diligência antes da relação de negócio; conservação dos elementos por sete anos; identificação de pessoas politicamente expostas.</td></tr>
+    <tr><td class="m">Reg. 2/2020 OA</td><td>Deveres específicos do advogado no branqueamento de capitais, incluindo registo do processo de identificação.</td></tr>
+    <tr><td class="m">RGPD</td><td>Consentimento com prova, minimização, direito ao apagamento — limitado pelo que a lei anterior obriga a conservar.</td></tr>
+  </table>
+
+  <div class="cartao">
+    <div class="rot">Consequência de desenho</div>
+    <p>O direito ao apagamento e o dever de conservação de sete anos entram em conflito direto. A
+      resolução no desenho: <code>apagado_em</code> esconde o processo da aplicação, uma rotina de
+      expurgo só remove de facto passados os sete anos, e <code>evento_auditoria</code> nunca é
+      tocado — regista <em>quem pediu</em> o apagamento, nunca os dados apagados.</p>
+  </div>
+
+  <h3>As duas superfícies</h3>
+  <p>A separação entre o que o cliente vê e o que a sociedade vê não é arrumação de ficheiros: são
+    superfícies de segurança com regras opostas, e misturá-las é a forma habitual de haver fugas de dados.</p>
+  <table>
+    <tr><th style="width:36mm"></th><th>Cliente</th><th>Escritório</th></tr>
+    <tr><td class="m">Quem entra</td><td>qualquer pessoa com o link</td><td>utilizador autenticado</td></tr>
+    <tr><td class="m">Autenticação</td><td>token de uso único no URL</td><td>email + palavra-passe, sessão em BD</td></tr>
+    <tr><td class="m">O que pode fazer</td><td>preencher e submeter o seu processo</td><td>consultar, filtrar, aprovar, rejeitar, reabrir</td></tr>
+    <tr><td class="m">Onde vive</td><td class="m">src/app/(cliente)/</td><td class="m">src/app/(backoffice)/</td></tr>
+    <tr><td class="m">Registo público</td><td>não aplicável</td><td>desativado — contas criadas no servidor</td></tr>
+  </table>
+
+  <h3>Quatro papéis</h3>
+  <p>Dentro do back-office, o que se pode ver depende do papel. O papel <code>assistente</code> é o
+    caso que mais pesa no desenho: não pode ver a declaração de PPE nem por URL direto nem por filtro
+    na listagem — a tentativa fica registada na auditoria.</p>
+  <table class="t-compacta">
+    <tr><th style="width:30mm">Papel</th><th>Alcance</th></tr>
+    <tr><td class="m">admin</td><td>tudo, incluindo o diário de emails e a configuração</td></tr>
+    <tr><td class="m">socio</td><td>processos, clientes, aprovação e rejeição</td></tr>
+    <tr><td class="m">advogado</td><td>processos e clientes</td></tr>
+    <tr><td class="m">assistente</td><td>processos sem a secção de PPE</td></tr>
+  </table>
+
+  <div class="nota">O <code>/emails</code> é restrito a <code>admin</code> com o guard na própria
+    página e não apenas na barra lateral: esconder a entrada da navegação não fecha o endereço a
+    quem o escreva à mão.</div>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">03</span></div>
+</section>
+
+<!-- ══════════════════ 02 ══════════════════ -->
+<section class="pagina" id="s2">
+  <div class="cab"><span>JMASSANO · 02 Visão geral e stack</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">02</div>
+  <h2>Visão geral e stack</h2>
+  <div class="chapeu">Uma aplicação Next.js única, servida de um contentor Docker num VPS europeu,
+    com Postgres na mesma máquina e sem porta publicada para fora.</div>
+
+<pre><span class="c">┌─ Cloudflare ─────────</span> DNS, TLS na borda, proxy desligado
+<span class="c">│</span>
+<span class="c">└─→</span> <span class="g">VPS Hostinger KVM 1</span> <span class="c">(Ubuntu 24.04, UE)</span>
+    <span class="c">│</span>
+    <span class="c">├─</span> <span class="l">Coolify</span> <span class="c">──────────</span> deploy a cada git push, certificados automáticos
+    <span class="c">│</span>
+    <span class="c">├─</span> <span class="l">Traefik</span> <span class="c">──────────</span> encaminhamento por domínio, Let's Encrypt
+    <span class="c">│</span>
+    <span class="c">├─</span> <span class="g">law-project</span> <span class="c">──────</span> Next.js 16, imagem Docker de 3 estágios
+    <span class="c">│                      </span> migra no arranque; falhando, não sobe
+    <span class="c">│</span>
+    <span class="c">├─</span> <span class="g">PostgreSQL</span> <span class="c">───────</span> sem porta publicada, só rede interna Docker
+    <span class="c">│</span>
+    <span class="c">└─→</span> <span class="l">SFTP</span> <span class="c">─────────────</span> servidor da sociedade, arquivo documental
+</pre>
+
+  <h3>Stack aplicacional</h3>
+  <table class="t-compacta">
+    <tr><th style="width:34mm">Camada</th><th style="width:44mm">Escolha</th><th>Razão</th></tr>
+    <tr><td class="m">Framework</td><td class="m">Next.js 16.2</td><td>Server Actions e Server Components eliminam a camada de API para escritas de formulário</td></tr>
+    <tr><td class="m">Linguagem</td><td class="m">TypeScript strict</td><td>zero <code>any</code>; build limpo é critério de aceitação</td></tr>
+    <tr><td class="m">UI</td><td class="m">React 19.2 · Tailwind 4</td><td>tokens de design em CSS, sem tema em JavaScript</td></tr>
+    <tr><td class="m">Componentes</td><td class="m">shadcn/ui · radix-ui</td><td>primitivas acessíveis; o diálogo e o leitor de documentos assentam nelas</td></tr>
+    <tr><td class="m">Base de dados</td><td class="m">PostgreSQL · Drizzle</td><td>schema em TypeScript, migrações geradas e versionadas</td></tr>
+    <tr><td class="m">Driver</td><td class="m">postgres 3.4</td><td><code>prepare:false</code> — compatível com poolers em modo transaction</td></tr>
+    <tr><td class="m">Autenticação</td><td class="m">Better Auth 1.6</td><td>sessões em BD de 8 horas; registo público desativado</td></tr>
+    <tr><td class="m">Validação</td><td class="m">Zod 4</td><td>o mesmo ficheiro de schemas corre no cliente e no servidor</td></tr>
+    <tr><td class="m">Formulários</td><td class="m">react-hook-form</td><td>com <code>@hookform/resolvers</code> sobre os mesmos schemas</td></tr>
+    <tr><td class="m">Email</td><td class="m">Resend + 3 canais</td><td>cascata com recurso; ver secção 09</td></tr>
+    <tr><td class="m">PDF</td><td class="m">pdf-lib</td><td>resumo do dossiê, capa e T&amp;C gerados no servidor</td></tr>
+    <tr><td class="m">Identificadores</td><td class="m">uuidv7</td><td>ordenáveis por tempo; gerados na aplicação porque o Postgres só os tem nativos na v18</td></tr>
+    <tr><td class="m">Estado no URL</td><td class="m">nuqs</td><td>filtros do back-office partilháveis por link</td></tr>
+    <tr><td class="m">Testes</td><td class="m">Vitest · PGlite</td><td>unitários e migrações validadas num Postgres em WASM</td></tr>
+  </table>
+
+  <h3>Três escolhas de infraestrutura, e o que as motivou</h3>
+  <div class="grelha-3">
+    <div class="caixa"><div class="k">VPS, não Vercel</div><div class="v">20 €</div>
+      <div class="d">O plano Hobby proíbe uso comercial; o Pro são 20 €/mês <em>por projeto</em>. Um custo fixo que não cresce com o número de clientes é melhor negócio.</div></div>
+    <div class="caixa"><div class="k">Postgres próprio</div><div class="v">7 dias</div>
+      <div class="d">O plano gratuito do Supabase suspende ao fim de 7 dias sem uso — exatamente o padrão de uma POC mostrada de duas em duas semanas.</div></div>
+    <div class="caixa"><div class="k">Fornecedor da UE</div><div class="v">RGPD</div>
+      <div class="d">O sistema guarda documentos de identificação e declarações de PPE. Um fornecedor americano traz exposição ao Cloud Act mesmo com datacenter europeu.</div></div>
+  </div>
+
+  <div class="nota">A imagem de produção assenta em <code>node:22-bookworm-slim</code> e não em Alpine:
+    o <code>curl</code> do Alpine é compilado sem libssh2 e não fala <code>sftp://</code>, o que
+    partia a sincronização do arquivo na primeira submissão. O Dockerfile verifica-o no build —
+    sem sftp, a imagem não se constrói.</div>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">04</span></div>
+</section>
+
+<!-- ══════════════════ 03 ══════════════════ -->
+<section class="pagina" id="s3">
+  <div class="cab"><span>JMASSANO · 03 Organização do código</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">03</div>
+  <h2>Organização do código</h2>
+  <div class="chapeu">Organizado por domínio e não por tipo de ficheiro: quem mexe no onboarding mexe
+    num sítio só, em vez de saltar entre quatro diretórios para uma alteração.</div>
+
+<pre>src/
+  app/
+    (cliente)/onboarding/[token]/       <span class="c">fluxo público, autenticado por token</span>
+      page · passo/[n] · submetido
+    (backoffice)/                       <span class="c">autenticado por sessão</span>
+      page · processos · processos/[id] · clientes · emails · configuracao
+    (auth)/entrar                       <span class="c">login; sem registo público</span>
+    termos-condicoes                    <span class="c">T&amp;C em página própria</span>
+    api/auth/[...all]                   <span class="c">Better Auth</span>
+  features/                             <span class="c">por domínio</span>
+    onboarding/   <span class="c">19 ficheiros · schemas · passos · dados · acoes · componentes</span>
+    processos/    <span class="c">10 ficheiros · criação, link mágico, aprovação</span>
+    emails/       <span class="c">3 ficheiros · diário e rótulos</span>
+    auditoria/    <span class="c">4 ficheiros · hash encadeado e escrita</span>
+    clientes/ · conta/ · configuracao/
+  db/       <span class="c">schema (10 ficheiros) · migrations (15)</span>
+  lib/      <span class="c">validacao-pt · token · email · emails/ · storage/ · sessao · termos</span>
+  components/  <span class="c">vocabulário visual partilhado</span>
+</pre>
+
+  <h3>O caminho de uma escrita</h3>
+  <p>Cada passo gravado percorre sempre a mesma sequência. A validação corre duas vezes de propósito,
+    com <strong>o mesmo ficheiro de schemas</strong> nos dois lados — é o que impede o erro clássico
+    de apertar o formulário e deixar a ação aberta.</p>
+
+<pre>Formulário <span class="c">(cliente)</span>
+  └─ Zod valida ................. <span class="c">conforto: erros imediatos</span>
+       └─ <span class="l">Server Action</span>
+            ├─ normaliza e revalida o token .. <span class="c">é um endpoint público como outro qualquer</span>
+            ├─ Zod outra vez ................. <span class="c">o cliente nunca é fonte de verdade</span>
+            ├─ upsert da secção
+            ├─ regras de negócio ............. <span class="c">PPE → risco elevado (e reposição)</span>
+            └─ <span class="g">evento de auditoria</span> ............. <span class="c">passo.N.gravado</span>
+</pre>
+
+  <h3>Uma regra aprendida a doer</h3>
+  <div class="cartao selo">
+    <div class="rot">Tudo o que corre depois de um INSERT corre no seu próprio try</div>
+    <p>O envio do email de registo vive atrás de um <code>if</code>, e entre o <code>INSERT</code> do
+      processo e esse <code>if</code> havia três <code>await</code> sem relação nenhuma com email —
+      os cabeçalhos do pedido, o evento de auditoria e o cálculo da origem pública. Qualquer um a
+      lançar produzia, ponto por ponto, o mesmo ecrã: processo criado e visível, diário de emails a
+      zero, nenhum evento de link na auditoria, e uma mensagem de erro que se lia como falha de rede.
+      Uma avaria em código de auditoria a apresentar-se como avaria de email, e a apagar o próprio
+      rasto pelo caminho.</p>
+  </div>
+  <p>A regra que ficou: a partir do <code>INSERT</code>, cada passo corre dentro do seu próprio
+    <code>try</code> e a ação tem uma saída só, levando sempre consigo o token em claro — que só
+    existe naquela chamada. Seis casos ficaram fixados em teste, um por cada peça que pode rebentar;
+    em todos, <em>o email foi tentado à mesma</em>.</p>
+
+  <h3>Convenções</h3>
+  <ul>
+    <li>Código, comentários, <em>commits</em> e interface em <strong>português europeu</strong>; identificadores de domínio em português.</li>
+    <li>Qualquer identificador visível — referência, NIF, IBAN, hash, data de auditoria — é renderizado em <code>IBM Plex Mono</code>. Regra, não sugestão.</li>
+    <li>Server Actions revalidam sempre com Zod no servidor; a validação do cliente é conforto.</li>
+    <li>Segredos só em <code>.env</code>, com <code>.env.example</code> documentado e versionado.</li>
+  </ul>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">05</span></div>
+</section>
+
+<!-- ══════════════════ 04 ══════════════════ -->
+<section class="pagina" id="s4">
+  <div class="cab"><span>JMASSANO · 04 Fluxo de onboarding</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">04</div>
+  <h2>O fluxo de onboarding</h2>
+  <div class="chapeu">Sete passos, cada um em rota própria, com o estado na base de dados e não em
+    memória: um refresh não perde nada e o cliente volta ao passo onde ficou.</div>
+
+  <table>
+    <tr><th style="width:7mm">#</th><th style="width:52mm">Passo</th><th>Conteúdo e condicionais</th></tr>
+    <tr><td class="m">1</td><td><strong>Identificação do cliente</strong></td><td>Ramifica particular/empresa — a escolha decide tudo o resto. Nome, contactos, nacionalidades (1:N), morada em sete campos.</td></tr>
+    <tr><td class="m">2</td><td><strong>Identificação fiscal</strong></td><td>NIF/NIPC com <em>checksum</em>, documento de identificação, natureza jurídica obrigatória para pessoa coletiva. Anexos por Server Action à parte.</td></tr>
+    <tr><td class="m">3</td><td><strong>Representante Legal</strong></td><td><span class="etq pend">só pessoa coletiva</span> Uma pessoa singular representa-se a si própria — a pergunta não tem resposta possível e o passo é saltado.</td></tr>
+    <tr><td class="m">4</td><td><strong>PPE e relação de negócio</strong></td><td>Declaração de pessoa politicamente exposta e origem dos fundos. Sugestões clicáveis por baixo de cada caixa. A secção mais sensível do sistema.</td></tr>
+    <tr><td class="m">5</td><td><strong>Dados para faturação</strong></td><td>Número fiscal aceita formatos estrangeiros; o <em>checksum</em> português só se aplica a nove dígitos.</td></tr>
+    <tr><td class="m">6</td><td><strong>RGPD</strong></td><td>Como chegou até nós (com «Outro» a abrir caixa livre), áreas de interesse, consentimentos de newsletter e convites.</td></tr>
+    <tr><td class="m">7</td><td><strong>Fecho</strong></td><td>T&amp;C, aceitação da proposta de honorários, declaração de veracidade e assinatura. Revisão de tudo antes de submeter.</td></tr>
+  </table>
+
+  <div class="nota">A numeração não se mexe quando um passo é saltado: o Representante Legal continua
+    a ser o 3 e o Fecho o 7. Renumerar partia os rótulos de auditoria (<code>passo.N.gravado</code>),
+    a restrição <code>passo_valido</code> da base de dados e os links de «Corrigir» já gravados. O
+    que muda é o percurso — a contagem do cabeçalho passa a «de 06».</div>
+
+  <h3>O passo 7 e as duas leituras obrigatórias</h3>
+  <p>Duas caixas do fecho só se destrancam depois de o respetivo documento ser aberto e percorrido até
+    ao fim, à maneira da banca:</p>
+  <div class="grelha-2">
+    <div class="caixa"><div class="k">Termos e Condições</div>
+      <div class="d">Renderizados dentro do leitor e não num <code>iframe</code> — assim o fim do
+        documento é uma medição do próprio elemento, sem depender de o browser deixar ler a posição
+        de outro documento. O mesmo texto está em <code>/termos-condicoes</code> e vai em PDF no
+        email de boas-vindas: três sítios, uma fonte.</div></div>
+    <div class="caixa"><div class="k">Proposta de honorários</div>
+      <div class="d">Mesmo padrão. O que se lê no modal é a versão HTML legível do documento; o
+        original oficial em PDF fica acessível por link. Um documento que caiba todo no ecrã conta
+        como lido — senão a caixa ficava trancada para sempre num monitor grande.</div></div>
+  </div>
+
+  <h3>Validações portuguesas</h3>
+  <table class="t-compacta">
+    <tr><th style="width:38mm">Campo</th><th>Regra</th></tr>
+    <tr><td class="m">NIF / NIPC</td><td>módulo 11; a mensagem de erro diz qual teria de ser o dígito de controlo</td></tr>
+    <tr><td class="m">IBAN</td><td>módulo 97</td></tr>
+    <tr><td class="m">Código postal</td><td>formato <code>0000-000</code></td></tr>
+    <tr><td class="m">Telefone</td><td>formatos nacionais e internacionais</td></tr>
+    <tr><td class="m">Datas</td><td>a data de constituição recusa o futuro</td></tr>
+  </table>
+
+  <div class="cartao">
+    <div class="rot">Detalhe que só apareceu a usar</div>
+    <p>O React 19 faz <em>reset</em> ao formulário depois de uma Server Action passada em
+      <code>action={}</code>. Um dígito errado no NIF apagava os outros dezanove campos. Passou a
+      <code>onSubmit</code> com <code>preventDefault</code>.</p>
+  </div>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">06</span></div>
+</section>
+
+<!-- ══════════════════ 05 ══════════════════ -->
+<section class="pagina" id="s5">
+  <div class="cab"><span>JMASSANO · 05 Ciclo de vida</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">05</div>
+  <h2>Ciclo de vida do processo</h2>
+  <div class="chapeu">Oito estados. O caminho normal atravessa quatro; os restantes existem para os
+    casos em que a sociedade precisa de devolver o processo ao cliente ou recusá-lo.</div>
+
+<pre>  <span class="l">rascunho</span>
+     │  <span class="c">cliente preenche os 7 passos e submete</span>
+     ▼
+  <span class="l">submetido</span> ──→ <span class="l">aguardar_aprovacao</span>
+                        │
+          ┌─────────────┼─────────────┐
+          ▼             ▼             ▼
+     <span class="g">aprovado</span>     <span class="c">em_revisao</span>      <span class="c">rejeitado</span>
+                   <span class="c">pendente_cliente</span>       │
+                                            │ <span class="c">reabertura</span>
+                                            ▼
+                                       <span class="l">rascunho</span>
+                                       <span class="c">(link novo)</span>
+  <span class="c">qualquer estado ──→ arquivado</span>
+</pre>
+
+  <table>
+    <tr><th style="width:40mm">Estado</th><th>Significado e efeito</th></tr>
+    <tr><td class="m">rascunho</td><td>o cliente ainda está a preencher; o link abre no passo onde ficou</td></tr>
+    <tr><td class="m">submetido</td><td>os sete passos estão gravados e a declaração final foi assinada</td></tr>
+    <tr><td class="m">aguardar_aprovacao</td><td>à espera da decisão de um sócio ou advogado</td></tr>
+    <tr><td class="m">em_revisao</td><td>em análise interna</td></tr>
+    <tr><td class="m">pendente_cliente</td><td>devolvido ao cliente para completar</td></tr>
+    <tr><td class="m">aprovado</td><td>dispara o email de boas-vindas com resumo, T&amp;C e proposta em anexo</td></tr>
+    <tr><td class="m">rejeitado</td><td>dispara o email de não aceitação; o motivo fica gravado no processo e na auditoria, mas não vai no corpo da mensagem</td></tr>
+    <tr><td class="m">arquivado</td><td>fora da aplicação; o link do cliente diz que o dossiê foi arquivado</td></tr>
+  </table>
+
+  <h3>Reabertura</h3>
+  <p>O texto de não aceitação abre expressamente a porta a «apresentar informação ou documentação
+    complementar que permita uma nova apreciação». A reabertura é o que concretiza essa frase: o
+    processo rejeitado volta a <code>rascunho</code>, recebe um <strong>link novo</strong> — não o
+    antigo, que já circulou — e o cliente é avisado por email.</p>
+
+  <h3>O link de acesso</h3>
+  <p>Um link que não abre é a falha mais cara do sistema, porque a olho o URL parece bem. Cinco
+    maneiras de um link <em>válido</em> não abrir foram fechadas:</p>
+  <table class="t-compacta">
+    <tr><th style="width:8mm">#</th><th>Falha</th><th style="width:62mm">Resolução</th></tr>
+    <tr><td class="m">1</td><td>o token apanha sujidade a caminho — ponto final da frase, <code>&lt;&gt;</code> do Outlook, espaço duro, barra do browser</td><td>normalização nas pontas antes de procurar; o hash normaliza antes de calcular</td></tr>
+    <tr><td class="m">2</td><td>token e hash gerados em dois sítios diferentes</td><td>saem os dois da mesma função</td></tr>
+    <tr><td class="m">3</td><td>colisão na tabela de tokens deixava um processo órfão</td><td>o erro de unicidade passa a distinguir referência de token</td></tr>
+    <tr><td class="m">4</td><td>ninguém experimentava o link antes de o entregar</td><td>o servidor abre-o pela mesma função que serve a página do cliente; falhando, avisa no ecrã</td></tr>
+    <tr><td class="m">5</td><td>havia dois links — um no email, outro montado no browser</td><td>o servidor monta-o uma vez e devolve-o à janela</td></tr>
+  </table>
+  <div class="nota">E o 404 em si: a consulta devolvia <code>null</code> para tudo e as rotas
+    respondiam-lhe com «esta página não existe». Passou a devolver quatro estados —
+    <code>ok</code>, <code>expirado</code>, <code>arquivado</code>, <code>desconhecido</code> — para
+    o cliente perceber o que aconteceu. Quem anda a adivinhar tokens continua a receber
+    <code>desconhecido</code>; os outros três só são alcançáveis por quem já traz um token válido.</div>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">07</span></div>
+</section>
+
+<!-- ══════════════════ 06 ══════════════════ -->
+<section class="pagina" id="s6">
+  <div class="cab"><span>JMASSANO · 06 Modelo de dados</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">06</div>
+  <h2>Modelo de dados</h2>
+  <div class="chapeu">29 tabelas em 10 ficheiros de schema, com 15 migrações versionadas. As tabelas
+    de secção são 1:1 com o processo — uma por passo do formulário.</div>
+
+<pre>organizacao ──┬── utilizador
+              ├── contador_referencia        <span class="c">sequencial atómico por ano</span>
+              ├── armazenamento_sociedade    <span class="c">credenciais SFTP, cifradas</span>
+              └── processo_onboarding ──┬── dados_identificacao ── nacionalidade <span class="c">(1:N)</span>
+                                        ├── dados_fiscais ──────── residencia_fiscal_adicional
+                                        ├── representante_legal ── beneficiario_efetivo
+                                        ├── declaracao_ppe
+                                        ├── relacao_negocio
+                                        ├── preferencias_contacto ─┬ email_newsletter
+                                        │                          └ area_interesse
+                                        ├── dados_faturacao
+                                        ├── fecho_proposta
+                                        ├── documento
+                                        ├── assinatura
+                                        ├── consentimento ──────── versao_texto_legal
+                                        ├── processo_token
+                                        └── nota
+
+<span class="g">evento_auditoria</span>   <span class="c">append-only, encadeado por hash, fora da árvore</span>
+<span class="g">email_log</span>          <span class="c">diário técnico do canal, uma linha por tentativa</span>
+</pre>
+
+  <h3>Quatro decisões que moldam o schema</h3>
+  <table>
+    <tr><th style="width:44mm">Decisão</th><th>Razão</th></tr>
+    <tr><td><strong>Uma tabela por secção,<br>não um JSONB gigante</strong></td><td>É preciso pesquisar por NIF, filtrar por PPE e indexar nome. O que se pesquisa é coluna; só o que é genuinamente variável vai para o <code>extra</code> JSONB de cada tabela.</td></tr>
+    <tr><td><strong>Listas em tabelas 1:N</strong></td><td>A pesquisa global tem de encontrar pelo NIF de um beneficiário efetivo, e isso não se faz dentro de um <em>array</em> JSON.</td></tr>
+    <tr><td><strong>Morada como conjunto<br>de sete colunas</strong></td><td>Morada, país, localidade, código postal, freguesia, concelho e distrito — repetido em cliente, representante e faturação. Reutilizável e pesquisável.</td></tr>
+    <tr><td><strong>IDs UUID v7 na aplicação</strong></td><td>Ordenáveis por tempo, o que dá localidade de índice e paginação por cursor estável. Gerados em código porque o Postgres só tem <code>uuidv7()</code> nativo na v18 — consequência prática: qualquer <code>INSERT</code> em SQL cru tem de indicar o <code>id</code>.</td></tr>
+  </table>
+
+  <h3>Pesquisa em português</h3>
+  <p>A pesquisa full-text é alimentada por <em>trigger</em> e não por coluna gerada: o
+    <code>unaccent</code> não é <em>immutable</em> e as fontes — nome, NIF — vivem noutras tabelas.
+    Quatro <em>triggers</em> mantêm o índice, e a configuração <code>pt_unaccent</code> resolve
+    acentos e maiúsculas. Uma pesquisa por «maria silva» encontra «Maria Sílvia».</p>
+
+  <h3>As 15 migrações</h3>
+  <table class="t-compacta">
+    <tr><th style="width:12mm">#</th><th style="width:52mm">Migração</th><th>O que traz</th></tr>
+    <tr><td class="m">0000</td><td class="m">esquema inicial</td><td>as tabelas de base</td></tr>
+    <tr><td class="m">0001</td><td class="m">pesquisa_full_text_pt</td><td><em>triggers</em> e <code>unaccent</code></td></tr>
+    <tr><td class="m">0002</td><td class="m">auditoria_imutavel</td><td><code>RULE</code> e <code>REVOKE</code></td></tr>
+    <tr><td class="m">0005</td><td class="m">adiciona_tc_aceitacao</td><td>aceitação dos T&amp;C no fecho</td></tr>
+    <tr><td class="m">0007</td><td class="m">armazenamento_so_sftp</td><td>remove OneDrive e WebDAV do schema</td></tr>
+    <tr><td class="m">0008</td><td class="m">email_log</td><td>diário de emails</td></tr>
+    <tr><td class="m">0009</td><td class="m">dados_abertura</td><td>dados recolhidos na criação do processo</td></tr>
+    <tr><td class="m">0010</td><td class="m">email_entrega</td><td>estados de entrega, canal e id da mensagem</td></tr>
+    <tr><td class="m">0011–0012</td><td class="m">canal_mailjet · canal_smtp</td><td>canais de recurso</td></tr>
+    <tr><td class="m">0013</td><td class="m">fluxo_aprovacao</td><td>estado <code>aguardar_aprovacao</code> e aceitação da proposta</td></tr>
+    <tr><td class="m">0014</td><td class="m">template_reabertura</td><td>sexto template de email</td></tr>
+  </table>
+
+  <div class="nota">As migrações são validadas sem servidor nenhum: <code>pnpm db:validar</code>
+    aplica-as todas num Postgres em WASM, conta as tabelas, confirma que a auditoria recusa mesmo
+    <code>UPDATE</code> e <code>DELETE</code> e que a pesquisa resolve acentos. É o que garante que
+    o primeiro <code>db:migrate</code> contra produção não rebenta.</div>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">08</span></div>
+</section>
+
+<!-- ══════════════════ 07 ══════════════════ -->
+<section class="pagina" id="s7">
+  <div class="cab"><span>JMASSANO · 07 Auditoria imutável</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">07</div>
+  <h2>Auditoria imutável</h2>
+  <div class="chapeu">A razão de ser do sistema, não um apêndice. Cada linha de
+    <code>evento_auditoria</code> inclui o hash da anterior, e a imutabilidade está garantida pela
+    base de dados — não por uma convenção de código que alguém possa contornar.</div>
+
+  <h3>A cadeia</h3>
+  <p>A cadeia é <strong>por organização</strong> e não global: uma cadeia única serializaria todas as
+    escritas do sistema num só ponto de contenção. A serialização é <strong>canónica</strong>, com as
+    chaves ordenadas a qualquer profundidade — sem isso, o mesmo objeto serializado por dois caminhos
+    dá hashes diferentes e a cadeia parece adulterada sem estar.</p>
+
+<pre>evento N-1  ┌──────────────────────────────┐
+            │ tipo, ator, alvo, dados      │
+            │ hash_anterior: <span class="l">a3f9…</span>          │
+            │ hash: <span class="g">7c2e…</span>                  │──┐
+            └──────────────────────────────┘  │
+                                              │ <span class="c">SHA-256 canónico</span>
+evento N    ┌──────────────────────────────┐  │
+            │ tipo, ator, alvo, dados      │  │
+            │ hash_anterior: <span class="g">7c2e…</span>  ◄───────┘
+            │ hash: <span class="l">e18b…</span>                  │
+            └──────────────────────────────┘</pre>
+
+  <h3>A imutabilidade está no Postgres</h3>
+<pre><span class="c">-- migração 0002</span>
+CREATE RULE evento_auditoria_sem_update AS ON UPDATE TO evento_auditoria DO INSTEAD NOTHING;
+CREATE RULE evento_auditoria_sem_delete AS ON DELETE TO evento_auditoria DO INSTEAD NOTHING;
+REVOKE UPDATE, DELETE, TRUNCATE ON evento_auditoria FROM app_user;</pre>
+  <p>Verificado em produção e em cada validação de migrações: <code>UPDATE</code> e
+    <code>DELETE</code> devolvem <strong>zero linhas afetadas</strong>, e o <code>INSERT</code>
+    continua a funcionar.</p>
+
+  <div class="cartao selo">
+    <div class="rot">Buraco conhecido, registado e não resolvido</div>
+    <p>O <code>REVOKE</code> não morde enquanto o utilizador da aplicação for também o
+      <em>owner</em> da tabela — e o <em>owner</em> contorna sempre um <code>REVOKE</code>. Neste
+      momento, só as <code>RULE</code> protegem de facto. Criar um papel <code>app_user</code>
+      distinto do <em>owner</em> é o passo que fecha isto; a migração 0002 já o aplica se o papel
+      existir.</p>
+  </div>
+
+  <h3>O que fica registado</h3>
+  <p>A auditoria não regista apenas o que correu bem. Vários eventos existem precisamente para
+    responder a perguntas que, sem eles, ficariam sem resposta:</p>
+  <table class="t-compacta">
+    <tr><th style="width:46mm">Evento</th><th>A pergunta a que responde</th></tr>
+    <tr><td class="m">processo.criado</td><td>quando é que o dossiê nasceu, e por ordem de quem</td></tr>
+    <tr><td class="m">passo.N.gravado</td><td>que secções foram preenchidas e quando</td></tr>
+    <tr><td class="m">risco.reposto</td><td>uma PPE declarada e depois corrigida para «Não» — o risco baixa, e fica escrito porquê</td></tr>
+    <tr><td class="m">link.sem_email</td><td>o processo nasceu sem endereço; o email não falhou, nunca foi pedido</td></tr>
+    <tr><td class="m">link.nao_resolve</td><td>o link foi gerado e não abre — descoberto por nós, não pela reclamação</td></tr>
+    <tr><td class="m">processo.rejeitado</td><td>a decisão e o seu motivo, que não viaja no email</td></tr>
+  </table>
+
+  <div class="nota">O <code>email_log</code> <strong>não é auditoria</strong> e não a substitui. É o
+    diário técnico do canal, que se trunca sem consequência; guarda o <em>hash</em> do token e nunca
+    o token em claro, e não guarda o corpo das mensagens — duplicar dados pessoais numa tabela de
+    diagnóstico é multiplicar superfície RGPD sem nada ganhar.</div>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">09</span></div>
+</section>
+
+<!-- ══════════════════ 08 ══════════════════ -->
+<section class="pagina" id="s8">
+  <div class="cab"><span>JMASSANO · 08 Segurança e conformidade</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">08</div>
+  <h2>Segurança e conformidade</h2>
+
+  <h3>O token do link mágico</h3>
+  <p>Guardado apenas em SHA-256. O valor em claro existe uma vez, no ecrã de criação do processo e no
+    email — quem tiver leitura da base de dados não fica com a chave de todos os dossiês. A comparação
+    é em tempo constante, para o tempo de resposta não deixar adivinhar o token byte a byte.</p>
+  <div class="nota">A limpeza do token é feita <strong>só nas pontas</strong>. Cortar o meio faria de
+    um token corrompido um token possivelmente válido, que é esconder a avaria; nas pontas não há
+    esse risco, porque o comprimento é fixo e nenhum token é prefixo de outro.</div>
+
+  <h3>Autenticação do back-office</h3>
+  <ul>
+    <li>Email e palavra-passe, com sessões em base de dados de <strong>8 horas</strong> — um dia de trabalho, não um mês.</li>
+    <li><strong>Sem registo público:</strong> o ecrã foi apagado e o <em>endpoint</em> da API desativado — a rota continuava a aceitar quem a chamasse à mão, mesmo sem página.</li>
+    <li>As contas criam-se no servidor por script, com o <em>hash</em> vindo do próprio pacote de autenticação e não de uma reimplementação — é a única forma de garantir que os parâmetros do <em>scrypt</em> não divergem numa atualização.</li>
+  </ul>
+
+  <h3>Dados sensíveis</h3>
+  <p>O passo 4 — PPE e origem de fundos — é a informação mais sensível do sistema. O papel
+    <code>assistente</code> não o pode ver, e o fecho é em dois sítios: o detalhe esconde-lhe a
+    secção e regista a tentativa, e o filtro <code>?ppe=sim</code> da listagem é ignorado no servidor
+    — sem isso, dava-lhe a mesma informação em bloco a partir do URL.</p>
+  <p>Uma PPE declarada força <code>nivel_risco = elevado</code>. Não é configurável: é o que a lei
+    exige. E o risco, ao contrário do que estava, <strong>desce</strong> quando a declaração é
+    corrigida — antes só subia, e um processo ficava em risco elevado para sempre por causa de uma
+    resposta que entretanto tinha mudado.</p>
+
+  <h3>Assinatura</h3>
+  <p>Assinatura eletrónica <strong>simples</strong>. O que vale como prova não é o desenho da rubrica:
+    é o conjunto de quem assinou, de que endereço, a que horas do <strong>relógio do servidor</strong>
+    — nunca o do cliente — e sobre que conteúdo exato. O <code>hash_documento</code> é o SHA-256 do
+    dossiê inteiro em serialização canónica no momento da assinatura; alterar um campo depois disso
+    faz o hash deixar de bater.</p>
+  <div class="cartao">
+    <div class="rot">Limite assumido</div>
+    <p>Nem esta abordagem nem integrar uma ferramenta de assinatura dariam assinatura
+      <strong>qualificada</strong>: para isso é preciso um prestador qualificado de serviços de
+      confiança (Chave Móvel Digital, Cartão de Cidadão). A rubrica é hoje guardada em base64 numa
+      coluna — aguenta uma POC, não aguenta escala; o certo é um <em>bucket</em> privado com a chave
+      na base de dados.</p>
+  </div>
+
+  <h3>Consentimentos com prova</h3>
+  <p>Cada consentimento aponta para uma linha de <code>versao_texto_legal</code>, e a procura é por
+    <strong>chave <em>e</em> versão</strong>. Antes procurava a linha mais recente da chave, e isso
+    significava que mudar o articulado no código nunca chegava a uma instalação a correr — o cliente
+    consentia o texto antigo enquanto o ecrã lhe mostrava o novo. Ao substituir um texto legal, subir
+    também a versão: é ela que fica gravada junto do consentimento, e mudar o texto sem mudar a versão
+    apaga a diferença entre o que o cliente aceitou e o que passou a estar escrito.</p>
+
+  <h3>Retenção</h3>
+  <p>Desenho descrito na secção 01. <strong>Precisa de validação jurídica</strong> — não é decisão
+    técnica.</p>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">10</span></div>
+</section>
+
+<!-- ══════════════════ 09 ══════════════════ -->
+<section class="pagina" id="s9">
+  <div class="cab"><span>JMASSANO · 09 O canal de email</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">09</div>
+  <h2>O canal de email</h2>
+  <div class="chapeu">Seis templates, quatro canais em cascata e confirmação de entrega por sondagem.
+    A parte do sistema que mais avarias produziu, e a que hoje mais se explica a si própria.</div>
+
+  <h3>Os seis emails</h3>
+  <table class="t-compacta">
+    <tr><th style="width:44mm">Template</th><th style="width:52mm">Assunto</th><th>Momento</th></tr>
+    <tr><td class="m">registo</td><td>JMASSANO | Registro</td><td>a sociedade cria o processo; leva o link</td></tr>
+    <tr><td class="m">confirmacao_rececao</td><td>Confirmação de Receção dos seus Dados</td><td>o cliente submete</td></tr>
+    <tr><td class="m">boas_vindas</td><td>Bem-vindo à JMASSANO</td><td>o processo é aprovado; leva resumo, T&amp;C e proposta em anexo</td></tr>
+    <tr><td class="m">rejeicao</td><td>JMASSANO | Feedback Registro</td><td>o processo é rejeitado</td></tr>
+    <tr><td class="m">reabertura</td><td>JMASSANO | Processo reaberto</td><td>um processo rejeitado volta a rascunho</td></tr>
+    <tr><td class="m">notificacao_backoffice</td><td>aviso interno</td><td>a sociedade é avisada de uma submissão</td></tr>
+  </table>
+  <div class="nota">Os textos dos primeiros seguem, à letra, os documentos entregues pelo cliente —
+    incluindo «Registro», que é como lá está e não se corrigiu para «Registo», e a assinatura em
+    aberto («Assinatura do Advogado gestor do Cliente»), que é o espaço deixado ao advogado que gere
+    cada cliente.</div>
+
+  <h3>Quatro canais, em cascata</h3>
+  <p>O Resend vem primeiro por ser o mais fiável na entrega, mesmo tendo a quota gratuita mais curta.
+    Falhando ele, tenta-se o seguinte — ser o primeiro não é ser o único, e uma conta suspensa ou uma
+    quota esgotada não podem parar o onboarding.</p>
+  <table class="t-compacta">
+    <tr><th style="width:10mm">Ordem</th><th style="width:34mm">Canal</th><th style="width:32mm">Quota gratuita</th><th>Papel</th></tr>
+    <tr><td class="m">1</td><td class="m">Resend</td><td class="m">100/dia · 3.000/mês</td><td>canal principal</td></tr>
+    <tr><td class="m">2</td><td class="m">Mailjet</td><td class="m">200/dia</td><td>primeiro recurso</td></tr>
+    <tr><td class="m">3</td><td class="m">Brevo</td><td class="m">300/dia</td><td>segundo recurso</td></tr>
+    <tr><td class="m">4</td><td class="m">SMTP próprio</td><td class="m">sem limite</td><td>último recurso, no servidor da sociedade</td></tr>
+  </table>
+  <p>Um erro de quota diária põe o canal em pausa até ao fim do dia UTC, em vez de o tentar a cada
+    mensagem. O custo assumido desta cascata é a hipótese de um duplicado, se um canal aceitar a
+    mensagem e a resposta se perder.</p>
+
+  <h3>«Aceite» não quer dizer «entregue»</h3>
+  <div class="cartao selo">
+    <div class="rot">O defeito que originou esta parte do desenho</div>
+    <p>Num teste de vinte empresas, <strong>um</strong> dos emails ficou registado como enviado e
+      nunca chegou à caixa do destinatário. Sem erro no servidor, sem nada na consola, e —
+      o que interessa — indistinguível na listagem dos dezanove que chegaram. A linha do diário era
+      escrita no momento em que o fornecedor respondia 200, o que é uma afirmação sobre a
+      <em>aceitação</em>, não sobre a entrega. Entre o 200 e a caixa há um servidor de destino que
+      ainda pode recusar.</p>
+  </div>
+  <p>Hoje o estado tem cinco valores: <code>enviado</code> (o fornecedor aceitou; a entrega está por
+    confirmar, e o rótulo no ecrã é <strong>Aceite</strong>), <code>erro</code>,
+    <code>entregue</code>, <code>devolvido</code> e <code>queixa</code>. O desfecho é perguntado ao
+    fornecedor aos 15 segundos, 45 segundos e 2 minutos e meio, e a linha fecha ao primeiro
+    resultado. Um devolvido escreve o motivo e conta, no cabeçalho da página, para as mensagens que
+    «não chegaram».</p>
+  <div class="nota">Sondagem e não <em>webhook</em>: o <em>webhook</em> seria a via certa num sistema
+    a sério, mas custa um endereço público fora da autenticação, a verificação da assinatura — sem a
+    qual é um botão para qualquer um marcar emails como entregues — e configuração no painel de
+    <em>cada</em> fornecedor, que fica por fazer no dia em que se muda de conta. A sondagem corre no
+    contentor de vida longa, usa a chave que já existe e funciona igual nos quatro canais.</div>
+
+  <h3>O diário</h3>
+  <p>A linha do <code>email_log</code> é escrita <strong>dentro</strong> da função de envio e não por
+    quem a chama, e o template é parâmetro obrigatório: um caminho de envio novo não compila sem
+    responder «que email é este». Sucesso e erro entram os dois — a pergunta que se faz é «o cliente
+    recebeu alguma coisa?», e ela só tem resposta se as falhas ficarem gravadas com o motivo.</p>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">11</span></div>
+</section>
+
+<!-- ══════════════════ 10 ══════════════════ -->
+<section class="pagina" id="s10">
+  <div class="cab"><span>JMASSANO · 10 Documentos e arquivo</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">10</div>
+  <h2>Documentos e arquivo</h2>
+  <div class="chapeu">Cada processo produz uma pasta no servidor da sociedade, com os anexos do
+    cliente e os documentos que a plataforma gera.</div>
+
+  <h3>O que a plataforma gera</h3>
+  <table>
+    <tr><th style="width:44mm">Documento</th><th>Conteúdo e destino</th></tr>
+    <tr><td class="m">summary.pdf</td><td>Detalhe completo do processo. Vai para o arquivo <em>e</em> em anexo ao email de boas-vindas — gerado do mesmo sítio, para o cliente e a sociedade não ficarem com versões diferentes do mesmo documento.</td></tr>
+    <tr><td class="m">dados_cliente.pdf</td><td>Capa com data, referência, nome, NIF e o índice dos ficheiros da pasta. O nome não é escolha nossa: é o que o auxiliar em Python já deixava em cada pasta, e por onde se procura o dossiê. Gera-se em último, quando já se sabe o que indexar, e não se indexa a si própria.</td></tr>
+    <tr><td class="m">T&amp;C em PDF</td><td>O articulado em vigor, na versão exata que o cliente aceitou, anexo ao email de boas-vindas.</td></tr>
+    <tr><td class="m">custos.pdf</td><td>A proposta de prestação de serviços — o template oficial entregue pelo cliente, servido tal e qual.</td></tr>
+  </table>
+
+  <h3>Sincronização SFTP</h3>
+  <p>Um só destino de armazenamento: o servidor da sociedade, por SFTP. O OneDrive e o WebDAV saíram
+    do código, do schema e dos scripts. O protocolo fica fixo no schema de validação e não
+    desaparece: é o que faz uma configuração antiga noutro protocolo rebentar à entrada em vez de ser
+    tratada como SFTP.</p>
+
+  <div class="cartao">
+    <div class="rot">Três avarias que só apareceram em produção</div>
+    <p><strong>1. Os nomes iam em cru no URL.</strong> Uma pasta de cliente chama-se
+      <code>Maria Silva (249886344)</code>, e o espaço não entra num URL: o pedido truncava aí e o
+      ficheiro ia parar a <code>/Clientes/Maria</code>. Os segmentos passaram a ser codificados.</p>
+    <p><strong>2. O comando de criar pasta parte a linha em palavras.</strong> O caminho acabava no
+      primeiro espaço e a pasta criada tinha o nome errado. Passou a ir entre aspas, com o escape
+      devido.</p>
+    <p><strong>3. A imagem base não falava SFTP.</strong> Resolvido trocando a base do contentor —
+      megabytes de imagem contra zero linhas de lógica.</p>
+  </div>
+
+  <h3>Nomes de pasta</h3>
+  <p>A sanitização preserva o ponto final de um nome de empresa («Lda.», «S.A.») e só o corta quando
+    o nome <em>começa</em> por ponto, que é a forma de um ficheiro oculto. Contraria de propósito a
+    regra de alguns sistemas de ficheiros: uma pasta com a denominação social errada é pior do que
+    uma pasta com um nome que o servidor normaliza.</p>
+
+  <h3>Anexos do cliente</h3>
+  <p>As extensões e os tipos MIME aceites vivem <strong>numa fonte só</strong>, com o filtro do campo
+    derivado dela. Estavam escritos em dois sítios e divergiram: o campo anunciava um formato que o
+    servidor recusava, e como o campo se limpa sozinho depois de cada tentativa, ficava a parecer que
+    anexar não fazia nada. O tipo MIME declarado manda quando é conhecido; só quando o browser não se
+    compromete é que a extensão decide — um ficheiro que se diz HTML e se chama <code>.pdf</code>
+    continua recusado.</p>
+  <div class="nota">O campo de anexo <strong>não é um campo do formulário</strong>: não tem
+    <code>name</code>, não entra na carga do passo, e o upload é uma ação à parte disparada na
+    escolha do ficheiro. O campo é limpo de propósito no fim — é isso que permite voltar a escolher o
+    <em>mesmo</em> ficheiro depois de um erro. Ficou fixado em teste, porque duas investigações
+    separadas o interpretaram como avaria.</div>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">12</span></div>
+</section>
+
+<!-- ══════════════════ 11 ══════════════════ -->
+<section class="pagina" id="s11">
+  <div class="cab"><span>JMASSANO · 11 Infraestrutura e deploy</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">11</div>
+  <h2>Infraestrutura e deploy</h2>
+
+  <h3>Composição</h3>
+  <table class="t-compacta">
+    <tr><th style="width:32mm">Camada</th><th style="width:50mm">Escolha</th><th>Nota</th></tr>
+    <tr><td class="m">Domínio</td><td>Cloudflare Registrar</td><td>DNS; proxy desligado</td></tr>
+    <tr><td class="m">Servidor</td><td>Hostinger VPS KVM 1, Ubuntu 24.04</td><td>1 vCPU, 4 GB, datacenter na UE</td></tr>
+    <tr><td class="m">PaaS</td><td>Coolify, auto-alojado</td><td>deploy a cada <em>push</em>, TLS automático</td></tr>
+    <tr><td class="m">Base de dados</td><td>PostgreSQL no próprio servidor</td><td>sem porta publicada</td></tr>
+    <tr><td class="m">Email</td><td>Resend + Mailjet + Brevo + SMTP</td><td>cascata com recurso</td></tr>
+    <tr><td class="m">Arquivo</td><td>SFTP no servidor da sociedade</td><td>credenciais cifradas em BD</td></tr>
+  </table>
+
+  <h3>A imagem</h3>
+  <p>Docker em três estágios, com <code>output: "standalone"</code>. As migrações correm no arranque
+    do contentor e, <strong>se falharem, ele não sobe</strong> — é preferível não haver serviço a
+    haver serviço contra um schema que não é o esperado.</p>
+
+  <div class="cartao arquivo">
+    <div class="rot">Regra de deploy aprendida</div>
+    <p>Testar contra uma imagem que não tem as correções mede o defeito antigo. Houve uma investigação
+      inteira — três passagens — conduzida contra uma imagem anterior às correções que se procurava
+      validar. Antes de voltar a testar em produção: correr os testes, o <em>typecheck</em>,
+      commitar, aplicar as migrações e só depois fazer <em>deploy</em>.</p>
+  </div>
+
+  <h3>Ferramentas de operação</h3>
+  <p>Todas correm também dentro do contentor, que é onde interessa:</p>
+  <table class="t-compacta">
+    <tr><th style="width:52mm">Comando</th><th>Para quê</th></tr>
+    <tr><td class="m">pnpm db:validar</td><td>aplica as 15 migrações num Postgres em WASM e verifica-as, sem servidor nenhum</td></tr>
+    <tr><td class="m">pnpm auditoria:verificar</td><td>revalida a cadeia de hashes de ponta a ponta</td></tr>
+    <tr><td class="m">pnpm email:testar &lt;destino&gt;</td><td>separa as três causas de «o cliente não recebeu nada» — chave que não chega ao ambiente, domínio por verificar, saída fechada — em segundos, sem criar processos a sério</td></tr>
+    <tr><td class="m">pnpm email:conferir</td><td>confere as mensagens que ficaram em «Aceite» e fecha-lhes o estado; cobre o reinício a meio e o desfecho que chega tarde</td></tr>
+    <tr><td class="m">scripts/criar_utilizador</td><td>cria contas do back-office no servidor (não há registo público)</td></tr>
+  </table>
+
+  <h3>Diagnóstico</h3>
+  <p>Uma lição atravessa quase todas as avarias deste sistema: <strong>o mesmo ecrã a significar
+    coisas diferentes</strong> é o que impede uma investigação de convergir. «0 mensagens» no diário
+    de emails queria dizer, ao mesmo tempo, «não havia endereço», «havia e perdeu-se a caminho» e
+    «tentou-se e a gravação falhou» — três causas que se resolvem em três sítios diferentes. O que
+    fecha esse tipo de buraco não é o remendo: é fazer a plataforma dizer qual dos casos é.</p>
+
+  <div class="rod"><span>Documento interno · Rev. A</span><span class="n">13</span></div>
+</section>
+
+<!-- ══════════════════ 12 ══════════════════ -->
+<section class="pagina" id="s12">
+  <div class="cab"><span>JMASSANO · 12 Qualidade e estado</span><span>Arquitetura da Plataforma</span></div>
+  <div class="num-sec">12</div>
+  <h2>Qualidade e estado atual</h2>
+
+  <h3>Verificação executada</h3>
+  <table>
+    <tr><th style="width:44mm">Verificação</th><th style="width:26mm">Resultado</th><th>Detalhe</th></tr>
+    <tr><td class="m">pnpm test</td><td><span class="etq ok">361 passam</span></td><td>19 ficheiros, 2,0 s</td></tr>
+    <tr><td class="m">pnpm typecheck</td><td><span class="etq ok">limpo</span></td><td>TypeScript strict, zero <code>any</code></td></tr>
+    <tr><td class="m">pnpm build</td><td><span class="etq ok">limpo</span></td><td>13 rotas compiladas</td></tr>
+    <tr><td class="m">pnpm db:validar</td><td><span class="etq ok">válido</span></td><td>15 migrações, 29 tabelas, 4 <em>triggers</em>, auditoria a recusar UPDATE e DELETE</td></tr>
+    <tr><td class="m">pnpm lint</td><td><span class="etq falta">6 erros</span></td><td>ver em baixo</td></tr>
+  </table>
+
+  <h3>Onde estão os testes</h3>
+  <table class="t-compacta">
+    <tr><th style="width:52mm">Área</th><th>O que fixam</th></tr>
+    <tr><td class="m">validacao-pt</td><td>NIF módulo 11, IBAN módulo 97, código postal, telefone</td></tr>
+    <tr><td class="m">auditoria/hash</td><td>determinismo, ordenação canónica, deteção de adulteração</td></tr>
+    <tr><td class="m">token</td><td>normalização, hash idempotente, geração conjunta</td></tr>
+    <tr><td class="m">email · smtp</td><td>cascata de canais, quota diária, confirmação de entrega, gravação em todos os caminhos</td></tr>
+    <tr><td class="m">emails/jmassano</td><td>os textos batem com os documentos do cliente</td></tr>
+    <tr><td class="m">processos/acoes</td><td>seis casos: cada peça a rebentar, e o email tentado à mesma</td></tr>
+    <tr><td class="m">processos/aprovacao</td><td>aprovação, rejeição e reabertura, incluindo os emails a falhar</td></tr>
+    <tr><td class="m">onboarding/schemas</td><td>condicionais por tipo de cliente, campos obrigatórios, formatos estrangeiros</td></tr>
+    <tr><td class="m">storage/*</td><td>sanitização de nomes, cifra de credenciais, geração de PDFs, adaptador do servidor</td></tr>
+  </table>
+
+  <h3>O lint falha — seis erros</h3>
+  <table class="t-compacta">
+    <tr><th style="width:56mm">Ficheiro</th><th>Erro</th></tr>
+    <tr><td class="m">Formulario.tsx:330</td><td><code>setState</code> síncrono dentro de um efeito</td></tr>
+    <tr><td class="m">Lombada.tsx:49</td><td><code>setState</code> síncrono dentro de um efeito</td></tr>
+    <tr><td class="m">use-mobile.ts:14</td><td><code>setState</code> síncrono dentro de um efeito</td></tr>
+    <tr><td class="m">LeitorProposta.tsx:105</td><td>acesso a <em>ref</em> durante o render</td></tr>
+    <tr><td class="m">LeitorTermos.tsx:113</td><td>acesso a <em>ref</em> durante o render</td></tr>
+    <tr><td class="m">smtp.ts:62</td><td><code>prefer-const</code></td></tr>
+  </table>
+  <p>Os dois avisos de <em>ref</em> apanham o padrão corrente de guardar a versão mais recente de uma
+    função numa <em>ref</em>; a correção é atribuí-la dentro de um efeito. Nenhum destes erros parte
+    o <em>build</em> nem falha um teste, mas <code>pnpm lint</code> devolve código de saída 1 — o que
+    torna qualquer verificação automática vermelha.</p>
+
+  <h3>O que falta, por ordem de importância</h3>
+  <ol>
+    <li><strong>Papel <code>app_user</code> separado do <em>owner</em></strong>, para o <code>REVOKE</code> da auditoria morder de facto.</li>
+    <li><strong>E2E automatizado.</strong> Não há Playwright nas dependências; o percurso continua a ser conduzido à mão. É o que falta para isto deixar de depender de alguém se lembrar de testar.</li>
+    <li><strong>Corrigir os seis erros de lint</strong>, para a verificação automática voltar a verde.</li>
+    <li><strong>Beneficiários efetivos e RCBE.</strong> Obrigação legal, schema pronto, sem interface.</li>
+    <li><strong>Articulado real dos T&amp;C.</strong> O texto atual é de demonstração, escrito a partir do que a lei obriga a constar — ao substituí-lo, subir a versão.</li>
+    <li><strong>Object storage</strong> para a rubrica e os documentos, em vez de base64 em coluna.</li>
+    <li><strong>Validação jurídica</strong> da retenção aos sete anos.</li>
+    <li><strong>Percurso Empresa validado contra imagens</strong> — foi construído a partir do texto do brief, com risco de retrabalho assumido.</li>
+  </ol>
+
+  <div class="destaque">
+    <div class="v">O diagnóstico é o produto</div>
+    <p>A maior parte do trabalho recente deste sistema não foi acrescentar funcionalidades — foi
+      tornar visíveis as diferenças entre causas que davam o mesmo ecrã. É isso que separa uma
+      plataforma que se opera de uma que se investiga.</p>
+  </div>
+
+  <div class="rod"><span>Documento interno · Rev. A · 11 de agosto de 2026</span><span class="n">14</span></div>
+</section>
+
+</body>
+</html>

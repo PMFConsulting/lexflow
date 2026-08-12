@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<title>Custo de Infraestrutura — Fornecedores de Confiança — JMASSANO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --tinta:#101a24; --tinta-suave:#5c6672; --papel:#edefea; --papel-alto:#ffffff;
+    --papel-tinta:#dde1d9;
+    --selo:#8c2f39; --arquivo:#2f5d50; --latao:#a9884f; --marca:#d9694b;
+    --display:'Instrument Serif',Georgia,'Times New Roman',serif;
+    --corpo:'Inter Tight','Segoe UI',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',Consolas,'Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  @page{ size:A4; margin:16mm 18mm; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family:var(--corpo); color:var(--tinta); background:var(--papel);
+        font-size:10.2pt; line-height:1.55; }
+
+  .pagina{ break-before:page; }
+  .pagina:first-child{ break-before:auto; }
+  p,li,td{ orphans:3; widows:3; }
+  h2,h3{ break-after:avoid; }
+  table,pre,.cartao,.caixa,.destaque,.grelha-3,.grelha-2{ break-inside:avoid; }
+
+  .cab{ display:flex; justify-content:space-between; align-items:baseline;
+        border-bottom:.6pt solid var(--papel-tinta); padding-bottom:2.5mm; margin-bottom:7mm;
+        font-family:var(--mono); font-size:6.8pt; letter-spacing:.09em;
+        text-transform:uppercase; color:var(--tinta-suave); }
+
+  .capa{ background:var(--tinta); color:var(--papel); min-height:262mm;
+         padding:20mm 16mm 14mm; display:flex; flex-direction:column;
+         justify-content:space-between; }
+  .capa .selo-marca{ font-family:var(--mono); font-size:7pt; letter-spacing:.34em;
+        text-transform:uppercase; color:var(--latao); }
+  .capa h1{ font-family:var(--display); font-size:38pt; line-height:1.05; font-weight:400;
+        letter-spacing:-.01em; margin:6mm 0 5mm; max-width:152mm; }
+  .capa .sub{ font-size:11.5pt; line-height:1.6; color:#b9c3cd; max-width:142mm; font-weight:300; }
+  .capa .regua{ height:.8pt; background:linear-gradient(90deg,var(--latao) 0%,var(--latao) 22%,#2b3947 22%); margin:9mm 0; }
+  .capa .meta{ display:grid; grid-template-columns:repeat(3,1fr); gap:7mm; }
+  .capa .meta .k{ font-family:var(--mono); font-size:6.6pt; letter-spacing:.14em;
+        text-transform:uppercase; color:#7e8b98; margin-bottom:1.6mm; }
+  .capa .meta .v{ font-size:10pt; color:var(--papel); font-weight:500; }
+  .capa .rodape-capa{ font-family:var(--mono); font-size:6.8pt; letter-spacing:.1em;
+        color:#6b7885; text-transform:uppercase; border-top:.6pt solid #2b3947; padding-top:4mm; }
+
+  .num-sec{ font-family:var(--mono); font-size:8pt; letter-spacing:.2em; color:var(--latao);
+        font-weight:500; margin-bottom:2mm; }
+  h2{ font-family:var(--display); font-size:24pt; font-weight:400; line-height:1.1; margin-bottom:3.5mm; }
+  h3{ font-size:11.5pt; font-weight:600; margin:6.5mm 0 2.5mm; }
+  .chapeu{ font-size:10.6pt; line-height:1.62; color:var(--tinta-suave); max-width:158mm;
+      margin-bottom:6mm; font-weight:300; }
+  p{ margin-bottom:3mm; max-width:162mm; }
+  strong{ font-weight:600; }
+  code,.mono{ font-family:var(--mono); font-size:8.6pt; background:var(--papel-tinta);
+      padding:.4mm 1.2mm; border-radius:1.2pt; }
+  ul,ol{ margin:0 0 3.5mm 4.5mm; } li{ margin-bottom:1.6mm; max-width:157mm; }
+
+  table{ width:100%; border-collapse:collapse; margin:3mm 0 4.5mm; font-size:8.9pt; }
+  th{ text-align:left; font-family:var(--mono); font-size:6.8pt; letter-spacing:.1em;
+      text-transform:uppercase; color:var(--tinta-suave); font-weight:500;
+      border-bottom:.9pt solid var(--tinta); padding:0 2.5mm 1.8mm 0; vertical-align:bottom; }
+  th.num{ text-align:right; }
+  td{ padding:1.9mm 2.5mm 1.9mm 0; border-bottom:.5pt solid var(--papel-tinta); vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  td.m{ font-family:var(--mono); font-size:8.3pt; white-space:nowrap; }
+  td.num{ text-align:right; font-family:var(--mono); font-size:8.6pt; white-space:nowrap; }
+  tr.total td{ border-top:.9pt solid var(--tinta); border-bottom:none; font-weight:600; padding-top:2.4mm; }
+  .t-compacta td{ padding:1.4mm 2.5mm 1.4mm 0; }
+  .gratis{ color:var(--arquivo); font-weight:600; }
+
+  .cartao{ background:var(--papel-alto); border:.6pt solid var(--papel-tinta);
+      border-left:2.2pt solid var(--latao); padding:4mm 4.5mm; margin:3.5mm 0; }
+  .cartao.selo{ border-left-color:var(--selo); }
+  .cartao.arquivo{ border-left-color:var(--arquivo); }
+  .cartao .rot{ font-family:var(--mono); font-size:6.6pt; letter-spacing:.13em;
+      text-transform:uppercase; color:var(--tinta-suave); margin-bottom:1.8mm; }
+  .cartao p:last-child{ margin-bottom:0; }
+
+  .grelha-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:3.5mm; margin:3.5mm 0; }
+  .grelha-2{ display:grid; grid-template-columns:1fr 1fr; gap:4mm; margin:3.5mm 0; }
+  .caixa{ background:var(--papel-alto); border:.6pt solid var(--papel-tinta); padding:3.5mm 4mm; }
+  .caixa .k{ font-family:var(--mono); font-size:6.5pt; letter-spacing:.12em;
+      text-transform:uppercase; color:var(--tinta-suave); margin-bottom:1.5mm; }
+  .caixa .v{ font-family:var(--display); font-size:19pt; line-height:1; margin-bottom:1.5mm; }
+  .caixa .d{ font-size:8.4pt; color:var(--tinta-suave); line-height:1.5; }
+
+  .destaque{ background:var(--tinta); color:var(--papel); padding:6mm 6.5mm; margin:4.5mm 0; }
+  .destaque .v{ font-family:var(--display); font-size:26pt; line-height:1.05; color:var(--latao);
+      margin-bottom:2.5mm; }
+  .destaque p{ color:#b9c3cd; font-size:9.6pt; margin:0; max-width:none; font-weight:300; }
+
+  .nota{ font-size:8.4pt; color:var(--tinta-suave); line-height:1.55;
+      border-left:1.6pt solid var(--papel-tinta); padding-left:3.5mm; margin:3.5mm 0; max-width:158mm; }
+  .indice a{ display:flex; align-items:baseline; gap:3mm; text-decoration:none; color:var(--tinta);
+      padding:2.2mm 0; border-bottom:.5pt solid var(--papel-tinta); }
+  .indice .i-n{ font-family:var(--mono); font-size:8pt; color:var(--latao); width:8mm; flex:none; }
+  .indice .i-t{ font-weight:500; font-size:10pt; }
+  .indice .i-d{ font-size:8.6pt; color:var(--tinta-suave); margin-left:auto; text-align:right;
+      max-width:84mm; font-weight:300; }
+  /* medidor de consumo de quota */
+  .med{ display:block; height:3.4mm; background:var(--papel-tinta); border-radius:1pt; position:relative; }
+  .med i{ position:absolute; left:0; top:0; bottom:0; background:var(--arquivo); border-radius:1pt; }
+  .med i.alto{ background:var(--latao); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ CAPA ═══════════ -->
+<section class="pagina capa">
+  <div>
+    <div class="selo-marca">JMASSANO · Escritório de Advogado</div>
+    <h1>Custo de Infraestrutura por Escala de Sociedade — Fornecedores de Confiança</h1>
+    <div class="sub">O que a plataforma de onboarding custa a correr, por dimensão de escritório —
+      com o arquivo documental alojado num fornecedor de armazenamento em nuvem de confiança,
+      S3-compatível, com opção de sede na União Europeia. Apenas custo de infraestrutura,
+      verificável em fatura. Sem mão-de-obra, sem implementação, sem margem.</div>
+    <div class="regua"></div>
+    <div class="meta">
+      <div><div class="k">Plataforma inteira</div><div class="v">70 – 106 €/ano</div></div>
+      <div><div class="k">Custo por sociedade</div><div class="v">0 € marginal</div></div>
+      <div><div class="k">Email</div><div class="v">gratuito nos 5 segmentos</div></div>
+      <div><div class="k">Comporta</div><div class="v">até ~4.500 proc./mês</div></div>
+      <div><div class="k">Arquivo, 7 anos, 5 segmentos</div><div class="v">~4 €/mês</div></div>
+      <div><div class="k">Moeda</div><div class="v">EUR, sem IVA</div></div>
+    </div>
+  </div>
+  <div class="rodape-capa">Documento interno · Rev. A · 12 de agosto de 2026</div>
+</section>
+
+<!-- ═══════════ 00 ═══════════ -->
+<section class="pagina">
+  <div class="cab"><span>JMASSANO · Índice e resumo</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">00</div>
+  <h2>Índice e resumo</h2>
+  <div class="chapeu">Este documento repete os números já verificados da plataforma — servidor,
+    domínio, email — e substitui uma única peça: onde antes o arquivo documental ficava no
+    servidor da própria sociedade, aqui fica num fornecedor de armazenamento em nuvem de
+    confiança. Todos os seis fornecedores comparados na secção 06 foram escolhidos por
+    durabilidade, presença na UE e compatibilidade S3 — critérios de confiança, não de preço mínimo.</div>
+
+  <div class="grelha-3">
+    <div class="caixa"><div class="k">Plataforma, por ano</div><div class="v">70–106 €</div>
+      <div class="d">Servidor e domínio. Idêntico à versão anterior deste relatório.</div></div>
+    <div class="caixa"><div class="k">Arquivo, 7 anos, 5 segmentos</div><div class="v">~4 €/mês</div>
+      <div class="d">Fornecedor recomendado: Backblaze B2. Ver secção 06.</div></div>
+    <div class="caixa"><div class="k">Acrescentar uma sociedade</div><div class="v">0 €</div>
+      <div class="d">Enquanto houver folga de quota, de máquina e de armazenamento.</div></div>
+  </div>
+
+  <div class="indice">
+    <a href="#s1"><span class="i-n">01</span><span class="i-t">O que se paga</span><span class="i-d">As seis camadas da plataforma e o que cada uma custa</span></a>
+    <a href="#s2"><span class="i-n">02</span><span class="i-t">Os cinco segmentos</span><span class="i-d">Consumo real de cada dimensão</span></a>
+    <a href="#s3"><span class="i-n">03</span><span class="i-t">Porque é que o custo é (quase) plano</span><span class="i-d">A única exceção é o armazenamento</span></a>
+    <a href="#s4"><span class="i-n">04</span><span class="i-t">Consumo contra as quotas</span><span class="i-d">Email e máquina, segmento a segmento</span></a>
+    <a href="#s5"><span class="i-n">05</span><span class="i-t">Pontos de rutura</span><span class="i-d">Onde o custo deixa de ser plano, e quanto sobe</span></a>
+    <a href="#s6"><span class="i-n">06</span><span class="i-t">O servidor de ficheiros</span><span class="i-d">Comparativo de fornecedores de armazenamento de confiança</span></a>
+    <a href="#s7"><span class="i-n">07</span><span class="i-t">Arquivo documental</span><span class="i-d">Volumes e custo, por segmento e por ano</span></a>
+    <a href="#s8"><span class="i-n">08</span><span class="i-t">Riscos de custo</span><span class="i-d">O que pode fazer esta conta subir</span></a>
+    <a href="#s9"><span class="i-n">09</span><span class="i-t">Pressupostos e fontes</span><span class="i-d">Cada preço, com o nome do fornecedor e a data de verificação</span></a>
+  </div>
+
+  <div class="destaque">
+    <div class="v">Sair do servidor da sociedade custa menos de 5 €/mês</div>
+    <p>É essa a diferença entre este documento e o anterior. Trocar o arquivo do servidor da
+      própria sociedade por um fornecedor de armazenamento em nuvem de confiança — sem depender
+      de um fornecedor de armazenamento de confiança — acrescenta, no pior caso, os cinco
+      segmentos somados ao fim de sete anos, menos de cinco euros por mês à conta da plataforma.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 01 ═══════════ -->
+<section class="pagina" id="s1">
+  <div class="cab"><span>JMASSANO · 01 O que se paga</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">01</div>
+  <h2>O que se paga</h2>
+  <div class="chapeu">Seis camadas da plataforma, inalteradas desde a versão anterior deste
+    relatório. O armazenamento fica de fora desta tabela de propósito — cresce com o volume
+    acumulado e não é um custo fixo mensal, por isso tem secção própria (06 e 07).</div>
+
+  <table>
+    <tr><th style="width:30mm">Camada</th><th style="width:56mm">Escolha</th><th class="num" style="width:24mm">Custo</th><th>Nota</th></tr>
+    <tr><td><strong>Servidor</strong></td><td>Hostinger VPS KVM 1<br><span class="mono" style="font-size:7.6pt">1 vCPU · 4 GB · Ubuntu 24.04 · UE</span></td><td class="num">5–8 €/mês</td><td>Corre a aplicação e o Postgres</td></tr>
+    <tr><td><strong>Domínio</strong></td><td>Cloudflare Registrar</td><td class="num">~10 €/ano</td><td>Ao preço de custo do registo</td></tr>
+    <tr><td><strong>PaaS</strong></td><td>Coolify, auto-alojado</td><td class="num gratis">0 €</td><td>Corre no próprio VPS</td></tr>
+    <tr><td><strong>Base de dados</strong></td><td>PostgreSQL no próprio servidor</td><td class="num gratis">0 €</td><td>Sem porta publicada</td></tr>
+    <tr><td><strong>TLS</strong></td><td>Let's Encrypt via Traefik</td><td class="num gratis">0 €</td><td>Renovação automática</td></tr>
+    <tr><td><strong>Email</strong></td><td>Resend, com Mailjet, Brevo e SMTP em cascata</td><td class="num gratis">0 €</td><td>Dentro das quotas gratuitas — secção 04</td></tr>
+    <tr class="total"><td colspan="2"><strong>Total da plataforma</strong></td><td class="num"><strong>70–106 €/ano</strong></td><td></td></tr>
+  </table>
+
+  <h3>As quatro gratuitas, e o que custaria não as ter</h3>
+  <table class="t-compacta">
+    <tr><th style="width:34mm">Camada</th><th style="width:48mm">Alternativa paga</th><th>O que se poupa</th></tr>
+    <tr><td class="m">PaaS</td><td>Plataforma gerida, plano comercial</td><td>20 €/mês <em>por projeto</em> — o plano gratuito proíbe uso comercial</td></tr>
+    <tr><td class="m">Base de dados</td><td>Postgres gerido, plano gratuito</td><td>Não é preço: o plano gratuito suspende o projeto ao fim de 7 dias sem uso</td></tr>
+    <tr><td class="m">Email</td><td>Plano pago do fornecedor</td><td>~20 €/mês; desnecessário abaixo de 4.500 processos/mês</td></tr>
+    <tr><td class="m">TLS</td><td>Certificado comercial</td><td>Dezenas de euros por ano, sem benefício técnico</td></tr>
+  </table>
+
+  <div class="cartao arquivo">
+    <div class="rot">O que muda em relação à versão anterior deste relatório</div>
+    <p><strong>Arquivo documental:</strong> deixa de ficar no servidor da própria sociedade, por
+      SFTP, e passa a ficar num fornecedor de armazenamento em nuvem de confiança —
+      S3-compatível, num fornecedor de confiança. Comparativo e recomendação na secção 06;
+      dimensionamento e custo na 07.</p>
+    <p><strong>Mão-de-obra, implementação e margem:</strong> fora do âmbito deste documento por
+      decisão expressa — não são custo de infraestrutura e não se medem em fatura de fornecedor.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 02 ═══════════ -->
+<section class="pagina" id="s2">
+  <div class="cab"><span>JMASSANO · 02 Os cinco segmentos</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">02</div>
+  <h2>Os cinco segmentos</h2>
+  <div class="chapeu">Os mesmos intervalos e os mesmos três derivados da versão anterior deste
+    relatório: utilizadores em simultâneo, emails por mês e documentos por mês.</div>
+
+  <table>
+    <tr>
+      <th style="width:24mm">Segmento</th>
+      <th class="num">Advogados</th><th class="num">Proc./mês</th>
+      <th class="num">Simultâneos</th><th class="num">Emails/mês</th><th class="num">Docs/mês</th>
+    </tr>
+    <tr><td><strong>Micro</strong></td><td class="num">0–5</td><td class="num">≤ 10</td><td class="num">1</td><td class="num">40</td><td class="num">100 MB</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">6–20</td><td class="num">≤ 40</td><td class="num">4</td><td class="num">160</td><td class="num">400 MB</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">21–50</td><td class="num">≤ 100</td><td class="num">12</td><td class="num">400</td><td class="num">1,0 GB</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">51–100</td><td class="num">≤ 200</td><td class="num">25</td><td class="num">800</td><td class="num">2,0 GB</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">101 +</td><td class="num">400</td><td class="num">50</td><td class="num">1.600</td><td class="num">4,0 GB</td></tr>
+  </table>
+
+  <h3>De onde vêm os três derivados</h3>
+  <p><strong>Utilizadores em simultâneo</strong> — um terço dos advogados, arredondado. É o número
+    que decide se a máquina chega, e por isso o mais importante do documento. Também é o mais
+    incerto: assenta em padrão de uso de escritório e não em medição.</p>
+  <p><strong>Emails por mês</strong> — quatro por processo, que são os que o fluxo dispara: registo
+    com o link, confirmação de receção, aviso interno ao back-office e um de decisão (boas-vindas se
+    aprovado, não aceitação se rejeitado). A reabertura é um quinto, condicional, e não entra na
+    base.</p>
+  <p><strong>Documentos por mês</strong> — cerca de 10 MB por processo: os anexos do cliente mais os
+    três PDFs gerados (resumo do dossiê, capa indexada e os Termos e Condições na versão aceite).
+    É este número, acumulado ao longo de sete anos, que decide a fatura de armazenamento — secção 07.</p>
+
+  <div class="cartao">
+    <div class="rot">Ad Hoc é um intervalo aberto</div>
+    <p>«101 ou mais advogados» não tem topo. Assume-se 150 utilizadores e 400 processos/mês — o dobro
+      do Grande. É o segmento onde as estimativas mandam mais e onde a secção 05 mostra o primeiro
+      limite a ser tocado.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 03 ═══════════ -->
+<section class="pagina" id="s3">
+  <div class="cab"><span>JMASSANO · 03 Porque é (quase) plano</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">03</div>
+  <h2>Porque é que o custo é (quase) plano</h2>
+  <div class="chapeu">Um custo de infraestrutura só sobe quando se atravessa um patamar. Quatro
+    das cinco rubricas continuam a não subir dentro dos cinco segmentos. A quinta — o armazenamento
+    — é a exceção desta versão do relatório, porque paga-se por byte guardado, e não é gratuita
+    como era o servidor da própria sociedade.</div>
+
+  <h3>Custo marginal de acrescentar cada segmento</h3>
+  <table>
+    <tr><th style="width:26mm">Segmento</th><th class="num">Servidor</th><th class="num">Domínio</th><th class="num">Email</th><th>Armazenamento</th><th class="num">Total marginal</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td>cresce com o volume</td><td class="num">~0,05 €/mês</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td>cresce com o volume</td><td class="num">~0,22 €/mês</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td>cresce com o volume</td><td class="num">~0,54 €/mês</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td>cresce com o volume</td><td class="num">~1,08 €/mês</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td class="num gratis">0 €</td><td>cresce com o volume</td><td class="num">~2,10 €/mês</td></tr>
+  </table>
+  <div class="nota">Os valores de armazenamento são o pior caso — o volume acumulado ao fim de sete
+    anos, ao preço do fornecedor recomendado na secção 06 (Backblaze B2, ~€6,40/TB). No primeiro
+    ano de cada sociedade, a fatura de armazenamento é uma fração pequena destes valores — ver a
+    progressão completa na secção 07.</div>
+
+  <h3>Duzentos processos por mês são sete por dia</h3>
+  <p>É a aritmética que explica o resto. Cada processo consome, ao longo de vários dias, algumas
+    dezenas de escritas na base de dados, três PDFs gerados e quatro emails enviados. Um servidor
+    com 1 vCPU faz isso em segundos e fica parado o resto do dia. <strong>O volume de processos não
+    é a carga.</strong></p>
+  <p>A carga é o back-office: páginas renderizadas no servidor, pesquisa full-text com
+    <code>unaccent</code>, listagens filtradas e o detalhe de processos com a auditoria a ser lida.
+    Acontece enquanto há pessoas a trabalhar — e por isso o único número que pode obrigar a mudar de
+    máquina é <em>quantas ao mesmo tempo</em>.</p>
+
+  <div class="grelha-2">
+    <div class="caixa"><div class="k">Não muda a fatura</div><div class="v">Processos</div>
+      <div class="d">Um pico de processos num mês não altera o escalão da máquina nem a quota de
+        email — só acrescenta alguns cêntimos ao armazenamento desse mês.</div></div>
+    <div class="caixa"><div class="k">Muda a fatura</div><div class="v">Pessoas</div>
+      <div class="d">Contratar quinze advogados pode obrigar ao escalão seguinte de servidor, mesmo
+        que o número de processos fique exatamente igual.</div></div>
+  </div>
+
+  <div class="cartao selo">
+    <div class="rot">Onde a planura acaba</div>
+    <p>Isto vale <strong>enquanto houver folga</strong> de quota e de máquina. A secção 04 mede
+      quanta folga resta a cada segmento, e a 05 diz o que acontece — e quanto custa — quando ela
+      acaba. O armazenamento nunca tem essa folga: cresce sempre, todos os meses, com o volume
+      arquivado. É por isso que fica tratado à parte, e não junto às outras quatro rubricas.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 04 ═══════════ -->
+<section class="pagina" id="s4">
+  <div class="cab"><span>JMASSANO · 04 Consumo contra as quotas</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">04</div>
+  <h2>Consumo contra as quotas</h2>
+  <div class="chapeu">Idêntico à versão anterior deste relatório: a única tabela em que os cinco
+    segmentos são diferentes uns dos outros. Não em euros — em folga.</div>
+
+  <h3>A cascata de email e o que dá de graça</h3>
+  <table class="t-compacta">
+    <tr><th style="width:10mm">Ordem</th><th style="width:30mm">Canal</th><th class="num" style="width:26mm">Grátis/dia</th><th class="num" style="width:26mm">Grátis/mês</th><th>Papel</th></tr>
+    <tr><td class="m">1</td><td class="m">Resend</td><td class="num">100</td><td class="num">3.000</td><td>principal</td></tr>
+    <tr><td class="m">2</td><td class="m">Mailjet</td><td class="num">200</td><td class="num">6.000</td><td>primeiro recurso</td></tr>
+    <tr><td class="m">3</td><td class="m">Brevo</td><td class="num">300</td><td class="num">9.000</td><td>segundo recurso</td></tr>
+    <tr><td class="m">4</td><td class="m">SMTP próprio</td><td class="num">sem limite</td><td class="num">sem limite</td><td>último recurso</td></tr>
+    <tr class="total"><td colspan="2">Capacidade gratuita combinada</td><td class="num">600</td><td class="num">18.000</td><td></td></tr>
+  </table>
+  <p>Um canal que esgote a quota diária fica em pausa até ao fim do dia UTC e o seguinte assume. É
+    por isso que a cascata não é redundância decorativa: é o que mantém a quota gratuita utilizável
+    num dia de ponta.</p>
+
+  <h3>Quanto é que cada segmento consome</h3>
+  <table>
+    <tr><th style="width:24mm">Segmento</th><th class="num">Emails/mês</th><th class="num">Emails/dia útil</th><th style="width:44mm">% do canal principal (dia)</th><th class="num">Folga até ao pago</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">40</td><td class="num">2</td><td><span class="med"><i style="width:2%"></i></span> 2 %</td><td class="num">450 ×</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">160</td><td class="num">8</td><td><span class="med"><i style="width:8%"></i></span> 8 %</td><td class="num">112 ×</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">400</td><td class="num">18</td><td><span class="med"><i style="width:18%"></i></span> 18 %</td><td class="num">45 ×</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">800</td><td class="num">36</td><td><span class="med"><i style="width:36%"></i></span> 36 %</td><td class="num">22 ×</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">1.600</td><td class="num">73</td><td><span class="med"><i class="alto" style="width:73%"></i></span> 73 %</td><td class="num">11 ×</td></tr>
+  </table>
+
+  <div class="cartao">
+    <div class="rot">O primeiro limite a ser tocado, em todo o documento</div>
+    <p>O segmento Ad Hoc consome <strong>73 % da quota diária do canal principal</strong> num dia
+      médio. Basta um dia de ponta — uma campanha de angariação, um lote de processos abertos de uma
+      vez — para o Resend esgotar e o Mailjet assumir. Não custa dinheiro nenhum, mas é a primeira
+      vez que a plataforma sai do caminho normal, e a entregabilidade do canal de recurso não é
+      idêntica à do principal.</p>
+  </div>
+
+  <h3>Máquina e disco</h3>
+  <table class="t-compacta">
+    <tr><th style="width:24mm">Segmento</th><th class="num" style="width:32mm">Simultâneos</th><th style="width:44mm">Ocupação do VPS 1</th><th>Postgres/ano</th></tr>
+    <tr><td class="m">Micro</td><td class="num">1</td><td><span class="med"><i style="width:12%"></i></span> confortável</td><td class="num">&lt; 10 MB</td></tr>
+    <tr><td class="m">Pequenas</td><td class="num">4</td><td><span class="med"><i style="width:50%"></i></span> confortável</td><td class="num">~25 MB</td></tr>
+    <tr><td class="m">Média</td><td class="num">12</td><td><span class="med"><i class="alto" style="width:100%"></i></span> no limite</td><td class="num">~60 MB</td></tr>
+    <tr><td class="m">Grande</td><td class="num">25</td><td><span class="med"><i class="alto" style="width:100%"></i></span> exige escalão acima</td><td class="num">~120 MB</td></tr>
+    <tr><td class="m">Ad Hoc</td><td class="num">50</td><td><span class="med"><i class="alto" style="width:100%"></i></span> exige escalão acima</td><td class="num">~250 MB</td></tr>
+  </table>
+  <div class="nota">O disco local do VPS deixa de guardar documentos nesta arquitetura — vão todos
+    para o fornecedor de armazenamento da secção 06. O Postgres guarda sobretudo texto: mesmo o
+    Ad Hoc acumula menos de 2 GB de base de dados em sete anos. <strong>A capacidade em
+    utilizadores simultâneos é uma estimativa por dimensionar</strong> — ver secção 09.</div>
+</section>
+
+<!-- ═══════════ 05 ═══════════ -->
+<section class="pagina" id="s5">
+  <div class="cab"><span>JMASSANO · 05 Pontos de rutura</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">05</div>
+  <h2>Pontos de rutura</h2>
+  <div class="chapeu">Onde o custo deixa de ser plano, quanto sobe, e qual dos cinco segmentos lá
+    chega primeiro. Idêntico à versão anterior — trocar o fornecedor de armazenamento não move
+    nenhum destes limites.</div>
+
+  <table>
+    <tr><th style="width:34mm">Limite</th><th style="width:32mm">Rompe em</th><th class="num" style="width:24mm">Custo depois</th><th>Quem lá chega primeiro</th></tr>
+    <tr><td><strong>Quota diária do canal principal</strong></td><td class="m">25 proc./dia</td><td class="num gratis">0 €</td><td>Ad Hoc, num dia de ponta. A cascata assume.</td></tr>
+    <tr><td><strong>Escalão de servidor</strong></td><td class="m">~10 utiliz. simultâneos</td><td class="num">+10 €/mês</td><td>Média. É a rutura mais próxima com custo real.</td></tr>
+    <tr><td><strong>Segundo escalão</strong></td><td class="m">~25 utiliz. simultâneos</td><td class="num">+20 €/mês</td><td>Grande e Ad Hoc.</td></tr>
+    <tr><td><strong>Quota gratuita combinada de email</strong></td><td class="m">≈4.500 proc./mês</td><td class="num">~20 €/mês</td><td>Nenhum. É 11 × o Ad Hoc.</td></tr>
+    <tr><td><strong>Base de dados em máquina própria</strong></td><td class="m">~50 utiliz. simultâneos</td><td class="num">+40 €/mês</td><td>Ad Hoc, no topo do intervalo.</td></tr>
+  </table>
+
+  <h3>O custo real, por segmento, depois dos patamares</h3>
+  <p>Somando o patamar de máquina que cada segmento exige à base da plataforma — sem contar ainda
+    o armazenamento, tratado à parte na secção 07:</p>
+  <table>
+    <tr><th style="width:26mm">Segmento</th><th style="width:34mm">Máquina necessária</th><th class="num">Servidor/mês</th><th class="num">Domínio/mês</th><th class="num">Total/mês</th><th class="num">Total/ano</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="m">VPS 1 (partilhado)</td><td class="num">5–8 €</td><td class="num">0,83 €</td><td class="num">6–9 €</td><td class="num">70–106 €</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="m">VPS 1 (partilhado)</td><td class="num">5–8 €</td><td class="num">0,83 €</td><td class="num">6–9 €</td><td class="num">70–106 €</td></tr>
+    <tr><td><strong>Média</strong></td><td class="m">VPS 2</td><td class="num">15–18 €</td><td class="num">0,83 €</td><td class="num">16–19 €</td><td class="num">190–226 €</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="m">VPS 2</td><td class="num">15–18 €</td><td class="num">0,83 €</td><td class="num">16–19 €</td><td class="num">190–226 €</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="m">VPS 4</td><td class="num">25–30 €</td><td class="num">0,83 €</td><td class="num">26–31 €</td><td class="num">310–370 €</td></tr>
+  </table>
+  <div class="nota">Estes totais são <strong>da plataforma inteira</strong> dimensionada para o
+    segmento mais exigente que ela serve — não são por sociedade. Uma instalação que sirva duas
+    Micro e uma Média custa o mesmo que uma que sirva só a Média: 190–226 €/ano.</div>
+
+  <div class="destaque">
+    <div class="v">Do mais barato ao mais caro: 5 ×</div>
+    <p>70 €/ano a servir escritórios Micro, 370 €/ano dimensionada para um Ad Hoc — antes de somar
+      o armazenamento. É essa a amplitude real do custo de plataforma, e continua a ser menos do
+      que uma única subscrição mensal de plataforma gerida ao fim de um ano.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 06 ═══════════ -->
+<section class="pagina" id="s6">
+  <div class="cab"><span>JMASSANO · 06 O servidor de ficheiros</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">06</div>
+  <h2>O servidor de ficheiros</h2>
+  <div class="chapeu">Em vez do servidor da própria sociedade, o arquivo documental fica num
+    fornecedor de armazenamento em nuvem. Seis fornecedores de confiança, verificados na net em
+    agosto de 2026, escolhidos por durabilidade, presença na UE e compatibilidade S3. Preços calculados para os dois
+    volumes que interessam: 630 GB, a soma dos cinco segmentos ao fim de sete anos, e 336 GB, o
+    Ad Hoc isolado.</div>
+
+  <table>
+    <tr>
+      <th style="width:26mm">Fornecedor</th>
+      <th class="num" style="width:20mm">Preço/TB</th>
+      <th class="num" style="width:20mm">630 GB/mês</th>
+      <th class="num" style="width:20mm">336 GB/mês</th>
+      <th style="width:20mm">Egress</th>
+      <th style="width:16mm">UE/RGPD</th>
+      <th style="width:10mm">S3</th>
+      <th>Nota</th>
+    </tr>
+    <tr>
+      <td><strong>Backblaze B2</strong></td><td class="num">$6,95 (~€6,40)</td>
+      <td class="num">~€4,00</td><td class="num">~€2,10</td>
+      <td>grátis até 3× armazenamento</td><td>sim (Amesterdão)</td><td>sim</td>
+      <td>11 noves de durabilidade; o mais citado para backup; sem mínimo mensal</td>
+    </tr>
+    <tr>
+      <td><strong>Wasabi</strong></td><td class="num">$7,99 (~€7,35)</td>
+      <td class="num">~€4,60</td><td class="num">~€2,50</td>
+      <td class="gratis">0 €</td><td>sim (UE)</td><td>sim</td>
+      <td>preço fixo por TB, egress sempre grátis</td>
+    </tr>
+    <tr>
+      <td><strong>OVHcloud</strong></td><td class="num">€0,0119/GB (~€11,90)</td>
+      <td class="num">~€7,50</td><td class="num">~€4,00</td>
+      <td>€0,0119/GB</td><td><strong>França</strong></td><td>sim</td>
+      <td>faturação simples por GB; grupo europeu</td>
+    </tr>
+    <tr>
+      <td><strong>Cloudflare R2</strong></td><td class="num">$0,015/GB (~€13,80)</td>
+      <td class="num">~€8,70</td><td class="num">~€4,60</td>
+      <td class="gratis">0 €</td><td>sim</td><td>sim</td>
+      <td>10 GB grátis por mês; rede global da Cloudflare</td>
+    </tr>
+    <tr>
+      <td><strong>Scaleway</strong></td><td class="num">~€0,015/GB (~€15,00)</td>
+      <td class="num">~€9,45</td><td class="num">~€5,00</td>
+      <td>~€0,01/GB</td><td><strong>França</strong></td><td>sim</td>
+      <td>object storage europeu, fora das big tech</td>
+    </tr>
+    <tr>
+      <td><strong>DigitalOcean Spaces</strong></td><td class="num">$5/mês + $0,02/GB</td>
+      <td class="num">~€11,60</td><td class="num">~€6,90</td>
+      <td>0 € até 1 TB incluído</td><td>EUA/UE</td><td>sim</td>
+      <td>250 GB incluídos no plano base; CDN incluído</td>
+    </tr>
+  </table>
+
+  <h3>Recomendações</h3>
+  <div class="grelha-3">
+    <div class="caixa"><div class="k">Menor custo real</div><div class="v">Backblaze B2</div>
+      <div class="d">~4 €/mês para o arquivo dos cinco segmentos somados, sete anos. Durabilidade
+        de 11 noves, egress grátis até 3× o volume guardado, S3-compatível.</div></div>
+    <div class="caixa"><div class="k">Máxima conformidade UE</div><div class="v">OVHcloud</div>
+      <div class="d">~7,50 €/mês. Empresa e datacenter em França — a resposta mais direta a um
+        cliente que pergunte pela residência dos dados dentro da UE.</div></div>
+    <div class="caixa"><div class="k">Egress € 0 garantido</div><div class="v">Wasabi</div>
+      <div class="d">~4,60 €/mês, sem cláusula de limite no egress gratuito — ao contrário do B2.
+        Cloudflare R2 (~8,70 €/mês) é a alternativa se se preferir ficar na rede Cloudflare.</div></div>
+  </div>
+
+  <div class="nota">O pior caso — 630 GB — é a soma dos cinco segmentos guardados na mesma conta.
+    No caso real, o arquivo de cada sociedade é dimensionado ao seu próprio segmento (ver secção
+    07), e a fatura é proporcionalmente menor: uma sociedade Micro paga, no fornecedor
+    recomendado, cêntimos por mês mesmo ao fim de sete anos.</div>
+
+  <h3>Segurança do arquivo, fora de qual fornecedor se escolha</h3>
+  <ul>
+    <li><strong>Encriptação em trânsito</strong> — TLS em todas as transferências para e do
+      fornecedor, como já acontece com qualquer chamada à API do Resend.</li>
+    <li><strong>Encriptação do lado do cliente</strong> — antes de sair do servidor, com
+      BorgBackup ou Restic, suportados nativamente por B2 e por OVHcloud. O fornecedor nunca vê o
+      conteúdo dos documentos, só blocos cifrados.</li>
+    <li><strong>Versões e snapshots</strong> — mantidos no próprio fornecedor, para recuperar de
+      um apagamento acidental sem depender de uma segunda cópia.</li>
+    <li><strong>Regra 3-2-1</strong> — três cópias do arquivo, em dois suportes diferentes, uma
+      delas fora do servidor. O fornecedor de armazenamento em nuvem é essa cópia fora do
+      servidor; o Postgres e o próprio VPS são as outras duas.</li>
+  </ul>
+</section>
+
+<!-- ═══════════ 07 ═══════════ -->
+<section class="pagina" id="s7">
+  <div class="cab"><span>JMASSANO · 07 Arquivo documental</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">07</div>
+  <h2>Arquivo documental</h2>
+  <div class="chapeu">A Lei 83/2017 obriga a conservar os elementos de identificação durante
+    <strong>sete anos</strong>. Um dossiê arquivado não liberta espaço, e por isso o volume do
+    sétimo ano é sete vezes o do primeiro — e é o volume que decide a fatura do fornecedor
+    escolhido na secção 06.</div>
+
+  <table>
+    <tr><th style="width:22mm">Segmento</th><th class="num">Por mês</th><th class="num">1.º ano</th><th class="num">3.º ano</th><th class="num">7.º ano</th><th class="num">Custo B2/mês, 7.º ano</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">100 MB</td><td class="num">1,2 GB</td><td class="num">3,6 GB</td><td class="num">8,4 GB</td><td class="num">~€0,05</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">400 MB</td><td class="num">4,8 GB</td><td class="num">14,4 GB</td><td class="num">33,6 GB</td><td class="num">~€0,22</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">1,0 GB</td><td class="num">12 GB</td><td class="num">36 GB</td><td class="num">84 GB</td><td class="num">~€0,54</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">2,0 GB</td><td class="num">24 GB</td><td class="num">72 GB</td><td class="num">168 GB</td><td class="num">~€1,08</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">4,0 GB</td><td class="num">48 GB</td><td class="num">144 GB</td><td class="num">336 GB</td><td class="num">~€2,10</td></tr>
+    <tr class="total"><td colspan="4"><strong>Soma dos cinco segmentos, 7.º ano</strong></td><td class="num"><strong>630 GB</strong></td><td class="num"><strong>~€4,00</strong></td></tr>
+  </table>
+
+  <p>Nenhum destes volumes é exigente para um fornecedor de armazenamento em nuvem — o maior,
+    336 GB no Ad Hoc isolado ao fim de sete anos, custa cêntimos por dia no fornecedor
+    recomendado. O que exige atenção não é o preço: é a rotina que estabiliza o crescimento.</p>
+
+  <div class="cartao selo">
+    <div class="rot">A rotina de expurgo ainda não corre</div>
+    <p>A retenção está desenhada — <code>apagado_em</code> esconde da aplicação, uma rotina remove de
+      facto passados os sete anos, e a auditoria nunca é tocada. Mas <strong>a rotina não existe
+      ainda</strong>. Sem ela, o volume do oitavo ano não estabiliza: continua a crescer, e a coluna
+      do sétimo ano desta tabela deixa de ser um teto para passar a ser um ponto de passagem —
+      com uma fatura de armazenamento a acompanhar, ainda que pequena.</p>
+  </div>
+
+  <div class="nota">O cálculo assume 10 MB por processo. Um percurso Empresa com certidão permanente
+    digitalizada e procuração chega facilmente ao dobro; um particular com o cartão de cidadão
+    fotografado fica bem abaixo. Errar por um fator de dois não muda nenhuma conclusão desta
+    secção — nem sequer duplica uma fatura que já está em cêntimos.</div>
+</section>
+
+<!-- ═══════════ 08 ═══════════ -->
+<section class="pagina" id="s8">
+  <div class="cab"><span>JMASSANO · 08 Riscos de custo</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">08</div>
+  <h2>Riscos de custo</h2>
+  <div class="chapeu">Com o arquivo fora do servidor da sociedade, os riscos mudam de natureza:
+    deixam de ser sobre disco local e passam a ser sobre o fornecedor de armazenamento e a
+    relação com ele.</div>
+
+  <table>
+    <tr><th style="width:44mm">Risco</th><th class="num" style="width:26mm">Impacto</th><th>Nota</th></tr>
+    <tr><td><strong>Renovação do plano do servidor a preço mais alto</strong></td><td class="num">+50 a 100 %</td><td>Já registado como risco na documentação de infraestrutura, com marcação no calendário. Continua a ser o risco mais provável de todos.</td></tr>
+    <tr><td><strong>Fornecedor de armazenamento sobe preço</strong></td><td class="num">variável, tipicamente pequeno</td><td>Ao volume desta plataforma (cêntimos a poucos euros por mês), mesmo uma subida de 50 % é irrelevante em euros absolutos.</td></tr>
+    <tr><td><strong>Escolha errada por egress</strong></td><td class="num">até dezenas de €/mês</td><td>Só relevante se houver descarregamento frequente do arquivo inteiro. Wasabi e Cloudflare R2 eliminam este risco por completo (egress a 0 €).</td></tr>
+    <tr><td><strong>Residência de dados fora da UE</strong></td><td class="num">indireto, contratual</td><td>Mitigado à partida: os seis fornecedores comparados oferecem região UE, e dois (OVHcloud, Scaleway) têm sede em França.</td></tr>
+    <tr><td><strong>Dependência de um único fornecedor</strong></td><td class="num">custo de migração</td><td>Mitigado pela escolha de S3-compatível em todos os seis — migrar entre eles é uma cópia de bucket, não uma reescrita de código.</td></tr>
+    <tr><td><strong>Expurgo aos 7 anos por implementar</strong></td><td class="num">indireto</td><td>Não tem fatura própria; faz o arquivo crescer sem teto, o que no fornecedor em nuvem se traduz em euros, não em disco a esgotar.</td></tr>
+  </table>
+
+  <div class="cartao">
+    <div class="rot">A recomendação que sai deste documento</div>
+    <p>Backblaze B2 como fornecedor principal, com encriptação do lado do cliente (BorgBackup ou
+      Restic) antes do envio. Ao preço de <strong>~4 €/mês</strong> para o arquivo inteiro dos
+      cinco segmentos, o risco de custo do armazenamento é, em termos absolutos, o mais pequeno
+      de toda esta conta — mesmo antes de qualquer mitigação.</p>
+  </div>
+
+  <h3>O que vigiar todos os meses</h3>
+  <ol>
+    <li>Percentagem da quota diária do canal principal de email consumida no dia de maior movimento.</li>
+    <li>Mensagens que ficaram em «Aceite» e nunca fecharam — entrega por confirmar.</li>
+    <li>Utilizadores em simultâneo no pico, contra a capacidade do escalão atual.</li>
+    <li>Volume acumulado no fornecedor de armazenamento, e a fatura correspondente.</li>
+    <li>Data de renovação do plano do servidor, e o preço que ela traz.</li>
+  </ol>
+</section>
+
+<!-- ═══════════ 09 ═══════════ -->
+<section class="pagina" id="s9">
+  <div class="cab"><span>JMASSANO · 09 Pressupostos</span><span>Custo de Infraestrutura — Fornecedores de Confiança</span></div>
+  <div class="num-sec">09</div>
+  <h2>Pressupostos e fontes</h2>
+  <div class="chapeu">Separados por grau de confiança, porque não se leem da mesma maneira: o que
+    está documentado e faturado, o que é medido no sistema, e o que é estimado. Os preços de
+    armazenamento foram verificados diretamente nos seis fornecedores em agosto de 2026.</div>
+
+  <h3>Documentado — sai de fatura</h3>
+  <table class="t-compacta">
+    <tr><th style="width:52mm">Valor</th><th>Fonte</th></tr>
+    <tr><td>Servidor 5–8 €/mês</td><td>Hostinger VPS KVM 1, registado na documentação de infraestrutura do projeto</td></tr>
+    <tr><td>Domínio ~10 €/ano</td><td>Cloudflare Registrar, ao preço de custo</td></tr>
+    <tr><td>Coolify, Postgres e TLS a 0 €</td><td>Auto-alojados no próprio VPS</td></tr>
+    <tr><td>Renovação a preço mais alto</td><td>Risco já registado no plano de operação</td></tr>
+  </table>
+
+  <h3>Preços de armazenamento — verificados em agosto de 2026</h3>
+  <table class="t-compacta">
+    <tr><th style="width:32mm">Fornecedor</th><th style="width:38mm">Preço publicado</th><th>Fonte</th></tr>
+    <tr><td class="m">Backblaze B2</td><td class="m">$6,95/TB/mês</td><td>Página de preços do Backblaze B2 Cloud Storage</td></tr>
+    <tr><td class="m">Wasabi</td><td class="m">$7,99/TB/mês</td><td>Página de preços do Wasabi Hot Cloud Storage</td></tr>
+    <tr><td class="m">OVHcloud</td><td class="m">€0,0119/GB/mês</td><td>Página de preços do OVHcloud Object Storage</td></tr>
+    <tr><td class="m">Cloudflare R2</td><td class="m">$0,015/GB/mês</td><td>Página de preços do Cloudflare R2</td></tr>
+    <tr><td class="m">Scaleway</td><td class="m">~€0,015/GB/mês</td><td>Página de preços do Scaleway Object Storage</td></tr>
+    <tr><td class="m">DigitalOcean Spaces</td><td class="m">$5/mês (250 GB) + $0,02/GB</td><td>Página de preços do DigitalOcean Spaces</td></tr>
+  </table>
+  <div class="nota">Conversões USD→EUR indicativas, ao câmbio de agosto de 2026. As colunas de
+    custo mensal na secção 06 usam estas conversões; confirmar a fatura exata em euros direto no
+    painel do fornecedor escolhido antes de contratar, porque o câmbio move-se.</div>
+
+  <h3>Medido no sistema</h3>
+  <table class="t-compacta">
+    <tr><th style="width:52mm">Valor</th><th>Onde se confirma</th></tr>
+    <tr><td>4 emails por processo</td><td>Os seis templates e os pontos do fluxo que os disparam</td></tr>
+    <tr><td>Cascata de 4 canais com pausa por quota</td><td>Ordem Resend → Mailjet → Brevo → SMTP</td></tr>
+    <tr><td>3 PDFs gerados por processo</td><td>Resumo, capa indexada e T&amp;C na versão aceite</td></tr>
+    <tr><td>Retenção de 7 anos</td><td>Lei 83/2017; apagamento lógico e expurgo diferido no schema</td></tr>
+  </table>
+
+  <h3>Estimado — a validar</h3>
+  <table class="t-compacta">
+    <tr><th style="width:52mm">Estimativa</th><th>Sensibilidade</th></tr>
+    <tr><td><strong>Capacidade em utilizadores simultâneos por escalão</strong></td><td><strong>O pressuposto mais frágil do documento.</strong> Não há teste de carga; os limites vêm de ordem de grandeza para uma aplicação Next.js com Postgres local. É o que decide os patamares da secção 05.</td></tr>
+    <tr><td>⅓ dos advogados em simultâneo</td><td>Padrão de uso de escritório, não medição. Errar aqui desloca os segmentos entre patamares de servidor.</td></tr>
+    <tr><td>10 MB por processo</td><td>Errar por 2× não muda nenhuma conclusão de custo — a fatura de armazenamento continua em cêntimos a poucos euros.</td></tr>
+    <tr><td>400 processos/mês no Ad Hoc</td><td>Arbitrado — o segmento é aberto no topo.</td></tr>
+    <tr><td>Preços dos escalões VPS 2 e VPS 4</td><td>Ordem de grandeza de fornecedores da UE. Confirmar em lista de preços antes de contratar.</td></tr>
+  </table>
+
+  <div class="cartao selo">
+    <div class="rot">O que fazer a seguir para fechar a incerteza</div>
+    <p>Um teste de carga com utilizadores simulados no back-office resolve o único pressuposto que
+      pode mover os números da plataforma: quantas pessoas em simultâneo é que cada escalão
+      aguenta. No armazenamento, o passo seguinte é abrir conta de teste no fornecedor escolhido e
+      confirmar o preço exato em euros contra a fatura real do primeiro mês.</p>
+  </div>
+
+  <div class="destaque">
+    <div class="v">70 € → 370 €/ano, mais ~4 €/mês de arquivo</div>
+    <p>É a amplitude do custo de infraestrutura, do mais pequeno ao maior dimensionamento, com o
+      arquivo documental num fornecedor de armazenamento em nuvem de confiança em vez do servidor
+      da própria sociedade.</p>
+  </div>
+
+  <p style="font-family:var(--mono);font-size:8pt;color:var(--tinta-suave);margin-top:8mm;">
+    Documento interno · Rev. A · 12 de agosto de 2026 · EUR, sem IVA · Custo de infraestrutura apenas
+    — sem mão-de-obra, implementação ou margem.
+  </p>
+</section>
+
+</body>
+</html>

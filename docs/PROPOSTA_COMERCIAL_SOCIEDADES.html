@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<title>Proposta Comercial — Plataforma de Onboarding de Clientes — JMASSANO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --tinta:#101a24; --tinta-suave:#5c6672; --papel:#edefea; --papel-alto:#ffffff;
+    --papel-tinta:#dde1d9;
+    --selo:#8c2f39; --arquivo:#2f5d50; --latao:#a9884f; --marca:#d9694b;
+    --display:'Instrument Serif',Georgia,'Times New Roman',serif;
+    --corpo:'Inter Tight','Segoe UI',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',Consolas,'Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  @page{ size:A4; margin:16mm 18mm; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family:var(--corpo); color:var(--tinta); background:var(--papel);
+        font-size:10.2pt; line-height:1.55; }
+
+  .pagina{ break-before:page; }
+  .pagina:first-child{ break-before:auto; }
+  p,li,td{ orphans:3; widows:3; }
+  h2,h3{ break-after:avoid; }
+  table,pre,.cartao,.caixa,.destaque,.grelha-3,.grelha-2{ break-inside:avoid; }
+
+  .cab{ display:flex; justify-content:space-between; align-items:baseline;
+        border-bottom:.6pt solid var(--papel-tinta); padding-bottom:2.5mm; margin-bottom:7mm;
+        font-family:var(--mono); font-size:6.8pt; letter-spacing:.09em;
+        text-transform:uppercase; color:var(--tinta-suave); }
+
+  .capa{ background:var(--tinta); color:var(--papel); min-height:262mm;
+         padding:20mm 16mm 14mm; display:flex; flex-direction:column;
+         justify-content:space-between; }
+  .capa .selo-marca{ font-family:var(--mono); font-size:7pt; letter-spacing:.34em;
+        text-transform:uppercase; color:var(--latao); }
+  .capa h1{ font-family:var(--display); font-size:42pt; line-height:1.03; font-weight:400;
+        letter-spacing:-.01em; margin:6mm 0 5mm; max-width:152mm; }
+  .capa .sub{ font-size:11.5pt; line-height:1.6; color:#b9c3cd; max-width:142mm; font-weight:300; }
+  .capa .regua{ height:.8pt; background:linear-gradient(90deg,var(--latao) 0%,var(--latao) 22%,#2b3947 22%); margin:9mm 0; }
+  .capa .meta{ display:grid; grid-template-columns:repeat(3,1fr); gap:7mm; }
+  .capa .meta .k{ font-family:var(--mono); font-size:6.6pt; letter-spacing:.14em;
+        text-transform:uppercase; color:#7e8b98; margin-bottom:1.6mm; }
+  .capa .meta .v{ font-size:10pt; color:var(--papel); font-weight:500; }
+  .capa .rodape-capa{ font-family:var(--mono); font-size:6.8pt; letter-spacing:.1em;
+        color:#6b7885; text-transform:uppercase; border-top:.6pt solid #2b3947; padding-top:4mm; }
+
+  .num-sec{ font-family:var(--mono); font-size:8pt; letter-spacing:.2em; color:var(--latao);
+        font-weight:500; margin-bottom:2mm; }
+  h2{ font-family:var(--display); font-size:24pt; font-weight:400; line-height:1.1; margin-bottom:3.5mm; }
+  h3{ font-size:11.5pt; font-weight:600; margin:6.5mm 0 2.5mm; }
+  .chapeu{ font-size:10.6pt; line-height:1.62; color:var(--tinta-suave); max-width:158mm;
+      margin-bottom:6mm; font-weight:300; }
+  p{ margin-bottom:3mm; max-width:162mm; }
+  strong{ font-weight:600; }
+  code,.mono{ font-family:var(--mono); font-size:8.6pt; background:var(--papel-tinta);
+      padding:.4mm 1.2mm; border-radius:1.2pt; }
+  ul,ol{ margin:0 0 3.5mm 4.5mm; } li{ margin-bottom:1.6mm; max-width:157mm; }
+
+  table{ width:100%; border-collapse:collapse; margin:3mm 0 4.5mm; font-size:8.9pt; }
+  th{ text-align:left; font-family:var(--mono); font-size:6.8pt; letter-spacing:.1em;
+      text-transform:uppercase; color:var(--tinta-suave); font-weight:500;
+      border-bottom:.9pt solid var(--tinta); padding:0 2.5mm 1.8mm 0; vertical-align:bottom; }
+  th.num{ text-align:right; }
+  td{ padding:1.9mm 2.5mm 1.9mm 0; border-bottom:.5pt solid var(--papel-tinta); vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  td.m{ font-family:var(--mono); font-size:8.3pt; white-space:nowrap; }
+  td.num{ text-align:right; font-family:var(--mono); font-size:8.6pt; white-space:nowrap; }
+  tr.total td{ border-top:.9pt solid var(--tinta); border-bottom:none; font-weight:600; padding-top:2.4mm; }
+  .t-compacta td{ padding:1.4mm 2.5mm 1.4mm 0; }
+  .gratis{ color:var(--arquivo); font-weight:600; }
+
+  .cartao{ background:var(--papel-alto); border:.6pt solid var(--papel-tinta);
+      border-left:2.2pt solid var(--latao); padding:4mm 4.5mm; margin:3.5mm 0; }
+  .cartao.selo{ border-left-color:var(--selo); }
+  .cartao.arquivo{ border-left-color:var(--arquivo); }
+  .cartao.marca{ border-left-color:var(--marca); }
+  .cartao .rot{ font-family:var(--mono); font-size:6.6pt; letter-spacing:.13em;
+      text-transform:uppercase; color:var(--tinta-suave); margin-bottom:1.8mm; }
+  .cartao p:last-child{ margin-bottom:0; }
+
+  .grelha-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:3.5mm; margin:3.5mm 0; }
+  .grelha-2{ display:grid; grid-template-columns:1fr 1fr; gap:4mm; margin:3.5mm 0; }
+  .caixa{ background:var(--papel-alto); border:.6pt solid var(--papel-tinta); padding:3.5mm 4mm; }
+  .caixa .k{ font-family:var(--mono); font-size:6.5pt; letter-spacing:.12em;
+      text-transform:uppercase; color:var(--tinta-suave); margin-bottom:1.5mm; }
+  .caixa .v{ font-family:var(--display); font-size:19pt; line-height:1; margin-bottom:1.5mm; }
+  .caixa .d{ font-size:8.4pt; color:var(--tinta-suave); line-height:1.5; }
+
+  .destaque{ background:var(--tinta); color:var(--papel); padding:6mm 6.5mm; margin:4.5mm 0; }
+  .destaque .v{ font-family:var(--display); font-size:26pt; line-height:1.05; color:var(--latao);
+      margin-bottom:2.5mm; }
+  .destaque p{ color:#b9c3cd; font-size:9.6pt; margin:0; max-width:none; font-weight:300; }
+
+  .nota{ font-size:8.4pt; color:var(--tinta-suave); line-height:1.55;
+      border-left:1.6pt solid var(--papel-tinta); padding-left:3.5mm; margin:3.5mm 0; max-width:158mm; }
+  .indice a{ display:flex; align-items:baseline; gap:3mm; text-decoration:none; color:var(--tinta);
+      padding:2.2mm 0; border-bottom:.5pt solid var(--papel-tinta); }
+  .indice .i-n{ font-family:var(--mono); font-size:8pt; color:var(--latao); width:8mm; flex:none; }
+  .indice .i-t{ font-weight:500; font-size:10pt; }
+  .indice .i-d{ font-size:8.6pt; color:var(--tinta-suave); margin-left:auto; text-align:right;
+      max-width:84mm; font-weight:300; }
+
+  tr.destaque-linha td{ background:#f5f0e8; font-weight:600; }
+  .pastilha{ display:inline-block; font-family:var(--mono); font-size:6.8pt; letter-spacing:.08em;
+      text-transform:uppercase; color:var(--papel-alto); background:var(--marca);
+      padding:.8mm 2mm; border-radius:1pt; margin-left:2mm; vertical-align:middle; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ CAPA ═══════════ -->
+<section class="pagina capa">
+  <div>
+    <div class="selo-marca">JMASSANO · Escritório de Advogado</div>
+    <h1>Proposta Comercial — Plataforma de Onboarding de Clientes</h1>
+    <div class="sub">Aceitação de clientes digital, do primeiro contacto ao processo arquivado —
+      sem papel, sem dispersão de ficheiros, com prova de cada etapa. Um preço fixo por mês,
+      ajustado à dimensão do escritório.</div>
+    <div class="regua"></div>
+    <div class="meta">
+      <div><div class="k">A partir de</div><div class="v">35 €/mês</div></div>
+      <div><div class="k">Segmentos</div><div class="v">5, de Micro a Ad Hoc</div></div>
+      <div><div class="k">Arranque</div><div class="v">5 dias úteis</div></div>
+      <div><div class="k">Fidelização</div><div class="v">nenhuma no plano mensal</div></div>
+      <div><div class="k">Retenção documental</div><div class="v">7 anos, Lei 83/2017</div></div>
+      <div><div class="k">Moeda</div><div class="v">EUR, sem IVA</div></div>
+    </div>
+  </div>
+  <div class="rodape-capa">Proposta Comercial · Rev. A · 12 de agosto de 2026</div>
+</section>
+
+<!-- ═══════════ 00 ═══════════ -->
+<section class="pagina">
+  <div class="cab"><span>JMASSANO · 00 Proposta</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">00</div>
+  <h2>Proposta</h2>
+  <div class="chapeu">Esta proposta cobre a plataforma de onboarding de clientes da JMASSANO —
+    o percurso completo desde o convite ao cliente até ao processo aprovado e arquivado —
+    com um preço mensal fixo, escalado à dimensão do escritório. Sem custos escondidos, sem
+    contagem de cliques: o preço depende só de quantos advogados usam a plataforma e de
+    quantos processos o escritório abre por mês.</div>
+
+  <div class="grelha-3">
+    <div class="caixa"><div class="k">Entrada</div><div class="v">35 €/mês</div>
+      <div class="d">Escritórios até 5 advogados, até 10 processos/mês.</div></div>
+    <div class="caixa"><div class="k">Sem fidelização</div><div class="v">mês a mês</div>
+      <div class="d">No plano mensal. O anual oferece dois meses.</div></div>
+    <div class="caixa"><div class="k">Arranque</div><div class="v">5 dias úteis</div>
+      <div class="d">Da assinatura à plataforma operacional, com a marca do escritório.</div></div>
+  </div>
+
+  <h3>Preço por escala de sociedade</h3>
+  <table>
+    <tr><th style="width:26mm">Segmento</th><th class="num">Advogados</th><th class="num">Processos/mês</th><th class="num">Preço/mês</th><th class="num">Anual (10 meses)</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">0–5</td><td class="num">até 10</td><td class="num">35 €</td><td class="num">350 €</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">6–20</td><td class="num">até 40</td><td class="num">125 €</td><td class="num">1.250 €</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">21–50</td><td class="num">até 100</td><td class="num">300 €</td><td class="num">3.000 €</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">51–100</td><td class="num">até 200</td><td class="num">600 €</td><td class="num">6.000 €</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">101 +</td><td class="num">sob consulta</td><td class="num">900 €</td><td class="num">9.000 €</td></tr>
+  </table>
+  <div class="nota">Preços de referência, EUR, sem IVA. O segmento Ad Hoc (101 ou mais advogados) é
+    sempre orçamentado à medida — 900 €/mês é o ponto de partida da conversa, não um tecto.</div>
+
+  <div class="indice">
+    <a href="#s1"><span class="i-n">01</span><span class="i-t">A plataforma</span><span class="i-d">O que faz, do convite ao arquivo</span></a>
+    <a href="#s2"><span class="i-n">02</span><span class="i-t">O que está incluído</span><span class="i-d">Igual em todos os segmentos</span></a>
+    <a href="#s3"><span class="i-n">03</span><span class="i-t">Preços por escala</span><span class="i-d">A tabela principal, detalhada</span></a>
+    <a href="#s4"><span class="i-n">04</span><span class="i-t">Mensal ou anual</span><span class="i-d">Dois meses de oferta no anual</span></a>
+    <a href="#s5"><span class="i-n">05</span><span class="i-t">Segurança e conformidade</span><span class="i-d">Encriptação, retenção, isolamento por sociedade</span></a>
+    <a href="#s6"><span class="i-n">06</span><span class="i-t">Perguntas frequentes</span><span class="i-d">Utilizadores, limites, migração, cancelamento</span></a>
+    <a href="#s7"><span class="i-n">07</span><span class="i-t">Próximos passos</span><span class="i-d">Contacto, demonstração, arranque</span></a>
+    <a href="#s8"><span class="i-n">08</span><span class="i-t">Notas</span><span class="i-d">IVA e validade da proposta</span></a>
+  </div>
+
+  <div class="destaque">
+    <div class="v">Um preço, cinco escalas, zero surpresas</div>
+    <p>O que o escritório paga é o que está nesta proposta — não há módulos vendidos à parte
+      nem contagem de utilizadores para além do escalão contratado. Crescer de escalão é uma
+      conversa, não uma renegociação.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 01 ═══════════ -->
+<section class="pagina" id="s1">
+  <div class="cab"><span>JMASSANO · 01 A plataforma</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">01</div>
+  <h2>A plataforma</h2>
+  <div class="chapeu">Aceitação de clientes é, hoje, uma sequência de formulários em papel,
+    documentos trocados por email e uma pasta a preencher à mão. A plataforma substitui essa
+    sequência por um percurso único, guiado, com prova de cada passo.</div>
+
+  <h3>O percurso do cliente</h3>
+  <p>O escritório envia um convite por email com uma ligação segura e pessoal. O cliente
+    preenche os seus dados em várias etapas curtas — identificação, elementos fiscais,
+    representação (quando aplicável), declarações obrigatórias, dados de faturação e
+    consentimentos — a partir de qualquer dispositivo, sem criar conta e sem instalar nada.
+    Pode interromper e retomar onde ficou: nada se perde entre sessões.</p>
+
+  <h3>O percurso do escritório</h3>
+  <p>Cada processo criado aparece de imediato no painel do escritório, com o estado visível
+    a cada etapa. Um advogado ou colaborador revê o processo submetido, e decide aceitar ou
+    não aceitar — com o motivo da decisão a ficar registado. A pesquisa e os filtros
+    encontram qualquer processo por nome, número fiscal ou referência em segundos.</p>
+
+  <h3>O que garante que nada se perde</h3>
+  <p>Todo o percurso — desde o envio do convite até à decisão final — fica registado num
+    diário de eventos que não pode ser alterado nem apagado, mesmo por quem administra a
+    plataforma. É essa garantia que torna a plataforma adequada a um contexto de aceitação
+    de clientes sujeito a obrigações legais de identificação e prevenção de branqueamento
+    de capitais, e não apenas a um formulário online comum.</p>
+
+  <div class="cartao">
+    <div class="rot">Pensada para escritórios de advocacia</div>
+    <p>O vocabulário, os campos e as declarações obrigatórias seguem o que a lei portuguesa
+      exige a um escritório de advogados na aceitação de um novo cliente — não é um formulário
+      genérico adaptado. É essa especialização que poupa tempo de configuração e evita
+      lacunas de conformidade.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 02 ═══════════ -->
+<section class="pagina" id="s2">
+  <div class="cab"><span>JMASSANO · 02 O que está incluído</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">02</div>
+  <h2>O que está incluído</h2>
+  <div class="chapeu">O mesmo conjunto, em todos os cinco segmentos. O que muda entre escalas é
+    o número de advogados e o volume de processos — nunca o que a plataforma faz.</div>
+
+  <div class="grelha-2">
+    <div class="caixa"><div class="k">Onboarding digital</div><div class="v">sem papel</div>
+      <div class="d">O cliente preenche online, em qualquer dispositivo, sem deslocação ao
+        escritório e sem imprimir nada.</div></div>
+    <div class="caixa"><div class="k">Decisão</div><div class="v">com motivo registado</div>
+      <div class="d">Submissão, revisão e aceitação ou não aceitação — sempre com o motivo da
+        decisão à guarda.</div></div>
+  </div>
+
+  <h3>Detalhe do que cada subscrição cobre</h3>
+  <ul>
+    <li><strong>Plataforma de onboarding digital de clientes</strong> — o cliente preenche
+      online, sem papel e sem deslocações, num percurso guiado por etapas.</li>
+    <li><strong>Fluxo de aprovação completo</strong> — submissão, revisão, aceitação ou não
+      aceitação, com o motivo da decisão sempre registado junto do processo.</li>
+    <li><strong>Documentos oficiais gerados automaticamente</strong> — proposta de honorários,
+      capa indexada do processo e termos e condições na versão que o cliente aceitou, sem
+      trabalho manual de formatação.</li>
+    <li><strong>Notificações automáticas ao cliente</strong> em cada etapa relevante — registo
+      do processo, confirmação de receção dos dados e comunicação da decisão.</li>
+    <li><strong>Arquivo documental seguro e encriptado</strong>, com retenção de sete anos
+      conforme a Lei 83/2017 — cada sociedade com o seu espaço, isolado e auditado.</li>
+    <li><strong>Cópias de segurança contínuas e monitorização</strong> da plataforma, para que
+      um incidente técnico não signifique perda de processos.</li>
+    <li><strong>Configuração e arranque incluídos</strong> — a plataforma fica operacional com
+      a identidade visual do escritório, sem custo de implementação à parte.</li>
+    <li><strong>Formação e suporte</strong> — acompanhamento na primeira utilização e apoio
+      contínuo às equipas do escritório.</li>
+  </ul>
+
+  <div class="cartao arquivo">
+    <div class="rot">Nada disto é opcional nem faturado à parte</div>
+    <p>Estes oito pontos definem a subscrição em qualquer dos cinco segmentos. O que distingue
+      um escalão de outro é apenas a capacidade — quantos advogados, quantos processos por
+      mês — nunca a lista de funcionalidades.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 03 ═══════════ -->
+<section class="pagina" id="s3">
+  <div class="cab"><span>JMASSANO · 03 Preços por escala</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">03</div>
+  <h2>Preços por escala de sociedade</h2>
+  <div class="chapeu">Cinco segmentos, definidos pelo número de advogados e pelo volume de
+    processos que o escritório abre por mês. O preço sobe com a escala; o que a plataforma
+    oferece não muda — ver secção 02.</div>
+
+  <table>
+    <tr><th style="width:24mm">Segmento</th><th class="num">Advogados</th><th class="num">Processos/mês</th><th class="num">Preço/mês</th><th class="num">Anual (10 meses)</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">0–5</td><td class="num">até 10</td><td class="num">35 €</td><td class="num">350 €</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">6–20</td><td class="num">até 40</td><td class="num">125 €</td><td class="num">1.250 €</td></tr>
+    <tr class="destaque-linha"><td><strong>Média</strong></td><td class="num">21–50</td><td class="num">até 100</td><td class="num">300 €</td><td class="num">3.000 €</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">51–100</td><td class="num">até 200</td><td class="num">600 €</td><td class="num">6.000 €</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">101 +</td><td class="num">sob consulta</td><td class="num">900 €</td><td class="num">9.000 €</td></tr>
+  </table>
+
+  <h3>Como se escolhe o segmento</h3>
+  <p>O segmento certo é o que cobre, ao mesmo tempo, o número de advogados que vão usar a
+    plataforma e o volume mensal de processos de aceitação de clientes do escritório. Um
+    escritório que satisfaça os dois critérios de um segmento está dentro dele; se ultrapassar
+    qualquer um dos dois de forma consistente, o segmento seguinte é o indicado — ver a
+    pergunta correspondente na secção 06.</p>
+
+  <div class="cartao marca">
+    <div class="rot">Segmento Ad Hoc — 101 advogados ou mais</div>
+    <p>Acima dos cem advogados, o volume de processos e as necessidades de cada escritório
+      variam demasiado para uma tabela fechada. O valor de <strong>900 €/mês</strong> é o
+      ponto de referência; a proposta final é ajustada em conversa direta com o escritório.</p>
+  </div>
+
+  <div class="nota">Todos os valores em EUR, sem IVA. O preço mensal não tem fidelização; o
+    preço anual pressupõe pagamento antecipado da totalidade do ano — ver secção 04.</div>
+</section>
+
+<!-- ═══════════ 04 ═══════════ -->
+<section class="pagina" id="s4">
+  <div class="cab"><span>JMASSANO · 04 Mensal ou anual</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">04</div>
+  <h2>Mensal ou anual</h2>
+  <div class="chapeu">Duas formas de pagar a mesma subscrição. A diferença é só o compromisso e
+    a poupança — o que a plataforma faz é idêntico nos dois casos.</div>
+
+  <table>
+    <tr><th style="width:30mm">Segmento</th><th class="num">12 meses ao preço mensal</th><th class="num">Preço anual</th><th class="num">Poupança</th></tr>
+    <tr><td><strong>Micro</strong></td><td class="num">420 €</td><td class="num">350 €</td><td class="num gratis">70 €</td></tr>
+    <tr><td><strong>Pequenas</strong></td><td class="num">1.500 €</td><td class="num">1.250 €</td><td class="num gratis">250 €</td></tr>
+    <tr><td><strong>Média</strong></td><td class="num">3.600 €</td><td class="num">3.000 €</td><td class="num gratis">600 €</td></tr>
+    <tr><td><strong>Grande</strong></td><td class="num">7.200 €</td><td class="num">6.000 €</td><td class="num gratis">1.200 €</td></tr>
+    <tr><td><strong>Ad Hoc</strong></td><td class="num">10.800 €</td><td class="num">9.000 €</td><td class="num gratis">1.800 €</td></tr>
+  </table>
+  <div class="nota">A poupança equivale a dois meses de subscrição, em qualquer segmento — o
+    preço anual corresponde sempre a dez mensalidades.</div>
+
+  <div class="grelha-2">
+    <div class="caixa"><div class="k">Plano mensal</div><div class="v">sem fidelização</div>
+      <div class="d">Paga-se mês a mês. Flexibilidade total, sem compromisso de permanência.</div></div>
+    <div class="caixa"><div class="k">Plano anual</div><div class="v">2 meses de oferta</div>
+      <div class="d">Pagamento único antecipado, com o valor de dois meses incluído sem custo.</div></div>
+  </div>
+
+  <div class="destaque">
+    <div class="v">Dois meses, todos os anos</div>
+    <p>Um escritório que opte pelo plano anual paga o equivalente a dez meses e usa a
+      plataforma durante doze — em qualquer dos cinco segmentos, sem exceção.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 05 ═══════════ -->
+<section class="pagina" id="s5">
+  <div class="cab"><span>JMASSANO · 05 Segurança e conformidade</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">05</div>
+  <h2>Segurança e conformidade</h2>
+  <div class="chapeu">Aceitação de clientes num escritório de advocacia lida com dados de
+    identificação, elementos fiscais e, nalguns casos, declarações sobre exposição política —
+    informação sensível, sujeita a obrigações legais específicas. A plataforma foi desenhada
+    para esse contexto desde o primeiro dia.</div>
+
+  <h3>O que protege os dados do cliente</h3>
+  <ul>
+    <li><strong>Encriptação</strong> dos documentos e dados pessoais, tanto em trânsito como
+      em repouso — nenhum documento circula nem fica guardado em claro.</li>
+    <li><strong>Isolamento por sociedade</strong>: os dados e processos de cada escritório
+      ficam separados dos de qualquer outro, sem partilha de espaço nem de visibilidade entre
+      clientes da plataforma.</li>
+    <li><strong>Diário de eventos imutável</strong> — cada ação relevante sobre um processo
+      fica registada de forma permanente, sem possibilidade de alteração ou remoção
+      posterior, mesmo por administradores.</li>
+    <li><strong>Retenção de sete anos</strong>, conforme a Lei 83/2017 relativa à prevenção do
+      branqueamento de capitais e do financiamento do terrorismo — os elementos de
+      identificação do cliente ficam guardados pelo prazo que a lei exige.</li>
+    <li><strong>Consentimentos com prova</strong> — a aceitação dos termos e condições fica
+      associada à versão exata do texto que o cliente leu e aceitou, com data e hora.</li>
+  </ul>
+
+  <h3>Conformidade com o RGPD</h3>
+  <p>A recolha de dados pessoais no percurso de onboarding está limitada ao que a aceitação de
+    um cliente de advocacia exige, com consentimento explícito recolhido em cada etapa
+    relevante e o direito do titular a ser informado sobre o tratamento dos seus dados
+    respeitado em todo o percurso.</p>
+
+  <div class="cartao selo">
+    <div class="rot">Sem detalhes técnicos nesta proposta, por opção</div>
+    <p>Os pormenores de arquitetura, alojamento e operação técnica da plataforma são
+      discutidos diretamente com o escritório, se e quando forem relevantes para uma decisão
+      de contratação — não é informação que caiba numa proposta comercial.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 06 ═══════════ -->
+<section class="pagina" id="s6">
+  <div class="cab"><span>JMASSANO · 06 Perguntas frequentes</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">06</div>
+  <h2>Perguntas frequentes</h2>
+  <div class="chapeu">As questões que mais surgem antes de um escritório decidir.</div>
+
+  <h3>O que acontece se ultrapassar os processos do meu segmento?</h3>
+  <p>Nada é interrompido. Um mês pontualmente acima do limite do segmento não tem qualquer
+    consequência; se o volume se mantiver acima de forma consistente, propomos a mudança para
+    o segmento seguinte — sempre em conversa prévia com o escritório, nunca de forma
+    automática ou surpreendente.</p>
+
+  <h3>Quantos utilizadores posso ter?</h3>
+  <p>O número de advogados de cada segmento é o número de pessoas com acesso ao back-office
+    da plataforma. Colaboradores de apoio (estagiários, secretariado) podem ter acesso
+    condicionado, conforme o papel que desempenham no processo de aceitação de clientes.</p>
+
+  <h3>Quem tem acesso a quê?</h3>
+  <p>O acesso é definido por papel: quem administra a conta do escritório, quem revê e decide
+    processos, e quem apenas consulta. Cada escritório controla quem vê o quê dentro da sua
+    própria conta — nenhum dado de um escritório é visível a outro.</p>
+
+  <h3>Como se faz a migração de dados existentes?</h3>
+  <p>Processos já em curso ou clientes já aceites por outras vias podem ser importados no
+    arranque, para que o histórico do escritório não se perca com a mudança de sistema. Este
+    trabalho está incluído na configuração inicial, discutida caso a caso conforme o volume.</p>
+
+  <h3>Como funciona o cancelamento?</h3>
+  <p>No plano mensal, sem fidelização: o escritório pode cancelar a qualquer momento, com
+    efeito no final do período já pago. No plano anual, o compromisso é pelo ano contratado;
+    os dados do escritório ficam disponíveis para exportação durante um período razoável após
+    o termo da subscrição.</p>
+
+  <h3>Posso mudar de segmento a meio do contrato?</h3>
+  <p>Sim, em qualquer altura. A mudança de segmento é sempre para cima ou para baixo conforme
+    a realidade do escritório, com o ajuste de preço a aplicar-se a partir do período seguinte.</p>
+</section>
+
+<!-- ═══════════ 07 ═══════════ -->
+<section class="pagina" id="s7">
+  <div class="cab"><span>JMASSANO · 07 Próximos passos</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">07</div>
+  <h2>Próximos passos</h2>
+  <div class="chapeu">Do primeiro contacto à plataforma a correr com a identidade do
+    escritório, em cinco dias úteis.</div>
+
+  <div class="grelha-3">
+    <div class="caixa"><div class="k">1 · Contacto</div><div class="v">conversa inicial</div>
+      <div class="d">Confirmação do segmento adequado ao escritório e esclarecimento de
+        dúvidas sobre o percurso.</div></div>
+    <div class="caixa"><div class="k">2 · Demonstração</div><div class="v">percurso completo</div>
+      <div class="d">Apresentação do onboarding do lado do cliente e do back-office do lado
+        do escritório.</div></div>
+    <div class="caixa"><div class="k">3 · Arranque</div><div class="v">5 dias úteis</div>
+      <div class="d">Configuração com a identidade do escritório e formação inicial da
+        equipa.</div></div>
+  </div>
+
+  <h3>O que precisamos do escritório para arrancar</h3>
+  <ul>
+    <li>Identidade visual (logótipo e cores, se existirem) para personalização da plataforma.</li>
+    <li>Lista dos advogados e colaboradores com acesso ao back-office, e o papel de cada um.</li>
+    <li>Texto de honorários e condições a usar na proposta gerada automaticamente.</li>
+    <li>Confirmação do segmento e da modalidade de pagamento — mensal ou anual.</li>
+  </ul>
+
+  <div class="destaque">
+    <div class="v">Cinco dias úteis, da assinatura ao primeiro cliente</div>
+    <p>Não há projeto de implementação a arrastar-se por semanas. A configuração inicial está
+      incluída em todos os segmentos, e o escritório está operacional na primeira semana.</p>
+  </div>
+</section>
+
+<!-- ═══════════ 08 ═══════════ -->
+<section class="pagina" id="s8">
+  <div class="cab"><span>JMASSANO · 08 Notas</span><span>Plataforma de Onboarding de Clientes</span></div>
+  <div class="num-sec">08</div>
+  <h2>Notas</h2>
+  <div class="chapeu">Condições gerais desta proposta.</div>
+
+  <ul>
+    <li>Todos os preços apresentados são em <strong>euros, sem IVA</strong>. O IVA aplicável
+      acresce à faturação, à taxa legal em vigor.</li>
+    <li>O plano mensal não tem período de fidelização. O plano anual corresponde a dez
+      mensalidades pagas antecipadamente, com direito de utilização durante doze meses.</li>
+    <li>O segmento Ad Hoc (101 advogados ou mais) é sempre objeto de proposta personalizada;
+      o valor de 900 €/mês apresentado nesta proposta é indicativo.</li>
+    <li>Esta proposta é válida por <strong>30 dias</strong> a contar da data de emissão.
+      Após esse prazo, os valores estão sujeitos a confirmação.</li>
+    <li>A mudança de segmento, a qualquer momento e em qualquer sentido, não implica
+      penalização — apenas o ajuste do valor a partir do período seguinte.</li>
+  </ul>
+
+  <div class="cartao">
+    <div class="rot">Contacto</div>
+    <p>Para esclarecimentos sobre esta proposta ou para agendar uma demonstração, contacte a
+      JMASSANO Escritório de Advogado através dos canais habituais.</p>
+  </div>
+
+  <p style="font-family:var(--mono);font-size:8pt;color:var(--tinta-suave);margin-top:8mm;">
+    Proposta Comercial · Rev. A · 12 de agosto de 2026 · EUR, sem IVA · Válida por 30 dias
+    a contar da data de emissão.
+  </p>
+</section>
+
+</body>
+</html>

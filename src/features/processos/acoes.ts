@@ -617,12 +617,12 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
   });
 
   try {
-    const { email } = await emailDoCliente(id);
+    const { email, nome } = await emailDoCliente(id);
     if (email) {
       await enviarEmail({
         para: email,
         assunto: ASSUNTO_REJEICAO,
-        html: emailRejeicao(),
+        html: emailRejeicao({ nome, referencia: processo.referencia }),
         template: "rejeicao",
         organizacaoId: processo.organizacaoId,
         processoId: processo.id,
@@ -719,7 +719,7 @@ export async function reabrirProcesso(id: string): Promise<ResultadoDecisao> {
   });
 
   try {
-    const { email } = await emailDoCliente(id);
+    const { email, nome } = await emailDoCliente(id);
     if (email) {
       let link = `/onboarding/${token}`;
       try {
@@ -734,7 +734,7 @@ export async function reabrirProcesso(id: string): Promise<ResultadoDecisao> {
       await enviarEmail({
         para: email,
         assunto: ASSUNTO_REABERTURA,
-        html: emailReabertura({ link }),
+        html: emailReabertura({ nome, referencia: processo.referencia, link }),
         template: "reabertura",
         organizacaoId: processo.organizacaoId,
         processoId: processo.id,

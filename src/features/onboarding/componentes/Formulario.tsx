@@ -668,9 +668,8 @@ export function Formulario({
               <Info className="mt-0.5 size-3.5 shrink-0" />
               <span>
                 Se é o próprio a representar legalmente a entidade — como gerente,
-                administrador ou procurador —, responda Sim: os seus dados já foram
-                recolhidos no primeiro passo e não há nada a repetir aqui. Responda Não
-                para identificar outra pessoa como representante legal.
+                administrador ou procurador —, responda Sim. Responda Não para
+                identificar outra pessoa como representante legal.
               </span>
             </p>
           ) : (

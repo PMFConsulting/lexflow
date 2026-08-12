@@ -166,8 +166,23 @@ function Modal({
         corpo.current?.focus();
       }}
     >
-      <DialogHeader>
+      {/* O PDF oficial vive aqui, em link discreto ao lado do título, e não
+          numa faixa própria por cima do rodapé: era uma barra da largura toda,
+          em latão, a competir com o botão que faz avançar o passo — e a repetir
+          o mesmo link que já está fora do modal. Continua ao alcance de quem o
+          queira, sem ser o que mais salta à vista num documento que se pede
+          para ler. */}
+      <DialogHeader className="flex-row items-baseline justify-between gap-4 pr-8">
         <DialogTitle>Proposta de Honorários</DialogTitle>
+        <a
+          href="/custos.pdf"
+          target="_blank"
+          rel="noopener"
+          className="text-muted-foreground hover:text-tinta shrink-0 text-xs underline underline-offset-2"
+        >
+          PDF oficial
+          <ExternalLink className="ml-1 inline size-3" />
+        </a>
       </DialogHeader>
 
       <div
@@ -200,18 +215,6 @@ function Modal({
             <div className="doc-proposta" dangerouslySetInnerHTML={{ __html: documento.html }} />
           </>
         )}
-      </div>
-
-      <div className="border-linha bg-latao/10 flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3">
-        <p className="text-tinta text-xs">
-          Prefere o ficheiro tal e qual? O PDF oficial abre num separador próprio.
-        </p>
-        <Button asChild variant="outline" size="sm" className="shrink-0">
-          <a href="/custos.pdf" target="_blank" rel="noopener">
-            <Maximize2 className="size-3.5" />
-            Abrir o PDF oficial
-          </a>
-        </Button>
       </div>
 
       <DialogFooter className="justify-between">

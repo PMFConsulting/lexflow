@@ -73,51 +73,14 @@
   --texto-3xl: clamp(1.75rem, 1.5rem + 1.25vw, 2.5rem);
 }
 
-/* Modo escuro: o mesmo dossier, à noite. Não é um tema alternativo — é a mesma
-   hierarquia com tinta e papel trocados. */
-.dark {
-  --papel: #0d151d;
-  --papel-alto: #141f29;
-  --papel-fundo: #1a2733;
-  --papel-tinta: #22303d;
-  --tinta: #e6eaee;
-  --tinta-suave: #94a1ae;
-  --linha: #22303d;
-  --selo: #c05561;
-  --arquivo: #4f9481;
-  --latao: #c8a86a;
-  /* Mais claro do que em papel branco: o mesmo #d9694b sobre tinta cai para
-     4,8:1 e o ícone dentro da ficha escolhida deixa de se ler. */
-  --marca: #e07a5f;
+/* Sem modo escuro. A plataforma é papel de arquivo, e só.
 
-  --background: var(--papel);
-  --foreground: var(--tinta);
-  --card: var(--papel-alto);
-  --card-foreground: var(--tinta);
-  --popover: var(--papel-alto);
-  --popover-foreground: var(--tinta);
-  --primary: var(--tinta);
-  --primary-foreground: var(--papel);
-  --secondary: var(--papel-fundo);
-  --secondary-foreground: var(--tinta);
-  --muted: var(--papel-fundo);
-  --muted-foreground: var(--tinta-suave);
-  --accent: var(--papel-tinta);
-  --accent-foreground: var(--tinta);
-  --destructive: var(--selo);
-  --border: var(--linha);
-  --input: var(--linha);
-  --ring: var(--latao);
-
-  --sidebar: #0a1118;
-  --sidebar-foreground: #c8cfd6;
-  --sidebar-primary: var(--latao);
-  --sidebar-primary-foreground: #0a1118;
-  --sidebar-accent: #16222e;
-  --sidebar-accent-foreground: var(--tinta);
-  --sidebar-border: #1e2b37;
-  --sidebar-ring: var(--latao);
-}
+   O `@custom-variant dark` no topo deste ficheiro FICA de propósito: sem ele,
+   o `dark:` do Tailwind volta ao comportamento de origem — seguir o
+   `prefers-color-scheme` do sistema — e as dezenas de `dark:` que vêm nos
+   componentes do shadcn passavam a morder sozinhas em quem tenha o sistema
+   em escuro. Redefinido para `.dark`, e não havendo nada que ponha essa
+   classe, ficam todas inertes. */
 
 @theme inline {
   --color-background: var(--background);

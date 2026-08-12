@@ -57,6 +57,7 @@
  * atenção, verde-arquivo (`ARQUIVO`) numa confirmação positiva, carmim
  * (`SELO`) só na única má notícia das cinco.
  */
+const TINTA = "#101a24";
 const TINTA_SUAVE = "#5c6672";
 const PAPEL = "#edefea";
 const PAPEL_ALTO = "#ffffff";
@@ -70,17 +71,52 @@ const FONTE_CORPO = "'Inter Tight','Segoe UI',Arial,sans-serif";
 const FONTE_DISPLAY = "'Instrument Serif',Georgia,serif";
 const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
 
+/**
+ * O emblema JMASSANO, o mesmo do site (`src/components/logotipo.tsx`), refeito
+ * em tabelas.
+ *
+ * O logo do site é um SVG, e SVG em email não serve: o Gmail remove-o e o
+ * Outlook não o desenha. Uma imagem alojada também não — metade dos clientes
+ * de email bloqueia imagens por omissão, e o cabeçalho da mensagem ficaria
+ * vazio precisamente na primeira vez que alguém a abre. Refeito em tabelas com
+ * texto, desenha-se sempre, em qualquer cliente, sem pedir nada à rede.
+ *
+ * As opacidades do original (a régua a 0.45, "ADVOGADO" a 0.7) vão em cor
+ * já misturada com o verde por baixo: `opacity` não é fiável em email, e o
+ * resultado a olho é o mesmo por ser sempre sobre o mesmo fundo.
+ */
+const emblema = () => `
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"
+       style="width:92px;background-color:${ARQUIVO};border-radius:8px;">
+  <tr>
+    <td style="padding:11px 6px 10px;text-align:center;">
+      <div style="font-family:${FONTE_DISPLAY};font-size:34px;line-height:1;
+                  color:${LATAO};letter-spacing:-0.01em;">JM</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+             align="center" style="margin:7px auto 6px;">
+        <tr><td style="width:44px;height:1px;background-color:#667050;
+                       font-size:0;line-height:0;">&nbsp;</td></tr>
+      </table>
+      <div style="font-family:${FONTE_MONO};font-size:9px;font-weight:500;
+                  line-height:1;color:${LATAO};letter-spacing:0.2em;">MASSANO</div>
+      <div style="font-family:${FONTE_MONO};font-size:6.5px;line-height:1;
+                  color:#847b4f;letter-spacing:0.16em;margin-top:4px;">ADVOGADO</div>
+    </td>
+  </tr>
+</table>`;
+
 const moldura = (conteudo: string, corAcento: string = MARCA) => `
 <div style="background:${PAPEL};padding:32px 16px;font-family:${FONTE_CORPO};">
   <div style="max-width:560px;margin:0 auto;">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"
+           style="margin:0 auto 22px;text-align:center;">
       <tr>
-        <td style="width:44px;height:44px;background-color:${ARQUIVO};border-radius:6px;
-                   text-align:center;vertical-align:middle;font-family:${FONTE_DISPLAY};
-                   font-size:20px;line-height:44px;color:${LATAO};">JM</td>
-        <td style="padding-left:12px;vertical-align:middle;">
+        <td style="text-align:center;">${emblema()}</td>
+      </tr>
+      <tr>
+        <td style="padding-top:8px;text-align:center;">
           <span style="font-family:${FONTE_MONO};font-size:11px;letter-spacing:0.18em;
-                       text-transform:uppercase;color:${LATAO};">JMASSANO Escritório de Advogados</span>
+                       text-transform:uppercase;color:${LATAO};">JMASSANO Escritório de Advogado</span>
         </td>
       </tr>
     </table>
@@ -134,7 +170,40 @@ const escapar = (v: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const saudacao = () => p("Caro(a) Sr.(a),");
+/**
+ * "Caro(a) Sr.(a)," é o que está no documento do cliente, e continua a ser o
+ * que sai quando não se sabe o nome — um processo pode nascer só com o
+ * endereço, e "Caro(a) Sr.(a) ," com a vírgula solta é pior do que a fórmula
+ * neutra. Sabendo-se o nome, ele entra: o mesmo email a dizer "Caro(a) Sr.(a),"
+ * a alguém cujo nome está no dossiê lê-se como circular, e esta é a primeira
+ * mensagem que um cliente recebe da sociedade.
+ *
+ * Só o primeiro e o último nome, que é como se trata alguém por escrito —
+ * "Caro(a) Sr.(a) Maria Antónia da Silva Ferreira," não é tratamento, é o
+ * campo do formulário despejado na saudação.
+ */
+const saudacao = (nome?: string | null) => {
+  const partes = (nome ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return p("Caro(a) Sr.(a),");
+  const tratamento =
+    partes.length === 1 ? partes[0] : `${partes[0]} ${partes[partes.length - 1]}`;
+  return p(`Caro(a) Sr.(a) ${escapar(tratamento)},`);
+};
+
+/**
+ * A referência do processo, em cima e em mono, como o "Ref.:" de um ofício.
+ *
+ * É o número por onde o cliente e a sociedade falam do mesmo dossiê ao
+ * telefone. Sem ela, uma pessoa com dois assuntos abertos não sabe a qual dos
+ * dois a mensagem diz respeito — e quem atende o telefone também não.
+ */
+const refProcesso = (referencia?: string | null) =>
+  referencia
+    ? `<p style="font-family:${FONTE_MONO};font-size:11px;letter-spacing:0.08em;
+         text-transform:uppercase;color:${TINTA_SUAVE};margin:0 0 18px;">
+         Processo n.º <span style="color:${TINTA};font-weight:500;">${escapar(referencia)}</span>
+       </p>`
+    : "";
 
 const despedida = () =>
   p("Com os melhores cumprimentos,<br />Assinatura do Advogado gestor do Cliente");
@@ -143,11 +212,17 @@ const despedida = () =>
 
 export const ASSUNTO_REGISTO = "JMASSANO | Registro";
 
-export function emailRegisto({ link }: { nome?: string | null; link: string }): string {
+export function emailRegisto({
+  nome,
+  link,
+}: {
+  nome?: string | null;
+  link: string;
+}): string {
   const href = escapar(link);
   return moldura(
     `
-    ${saudacao()}
+    ${saudacao(nome)}
     ${p(
       "É com grande satisfação que o recebemos como cliente da João Massano Escritório de Advogado.",
     )}
@@ -179,10 +254,14 @@ export function emailRegisto({ link }: { nome?: string | null; link: string }): 
 
 export const ASSUNTO_CONFIRMACAO = "JMASSANO | Confirmação de Receção dos seus Dados";
 
-export function emailConfirmacaoRececao(): string {
+export function emailConfirmacaoRececao({
+  nome,
+  referencia,
+}: { nome?: string | null; referencia?: string | null } = {}): string {
   return moldura(
     `
-    ${saudacao()}
+    ${refProcesso(referencia)}
+    ${saudacao(nome)}
     ${p("Agradecemos o registo e o envio das informações através da nossa plataforma.")}
     ${p(
       "Informamos que os dados e documentos submetidos foram recebidos com sucesso e o processo encontra-se agora a aguardar aprovação pela equipa da JMASSANO Escritório de Advogado.",
@@ -205,6 +284,8 @@ export function emailConfirmacaoRececao(): string {
 export const ASSUNTO_BOAS_VINDAS = "Bem-vindo à JMASSANO Escritório de Advogado";
 
 export function emailBoasVindas({
+  nome,
+  referencia,
   anexos,
 }: {
   nome?: string | null;
@@ -226,7 +307,8 @@ export function emailBoasVindas({
 
   return moldura(
     `
-    ${saudacao()}
+    ${refProcesso(referencia)}
+    ${saudacao(nome)}
     ${p(
       "Temos o prazer de informar que o processo de registo junto da JMASSANO Escritório de Advogado foi concluído com sucesso.",
     )}
@@ -252,14 +334,23 @@ export function emailBoasVindas({
 export const ASSUNTO_REJEICAO = "JMASSANO | Feedback Registro";
 
 /**
- * Template do cliente (11/08/2026), à letra. Não leva referência nem motivo
- * — os dois continuam obrigatórios e gravados no processo e na auditoria
- * (`motivoRejeicao`, `processo.rejeitado`), só deixaram de ir no email.
+ * Corpo do template do cliente (11/08/2026), à letra.
+ *
+ * Leva a referência e o nome, que são identificação e não redação: o texto
+ * entregue pelo cliente é o que está entre a saudação e a despedida, e
+ * continua palavra por palavra. **O motivo da rejeição não vai** — fica
+ * gravado no processo e na auditoria (`motivoRejeicao`, `processo.rejeitado`),
+ * que é onde tem de estar; a mensagem convida expressamente a contactar a
+ * sociedade, e é aí que ele se explica a uma pessoa.
  */
-export function emailRejeicao(): string {
+export function emailRejeicao({
+  nome,
+  referencia,
+}: { nome?: string | null; referencia?: string | null } = {}): string {
   return moldura(
     `
-    ${saudacao()}
+    ${refProcesso(referencia)}
+    ${saudacao(nome)}
     ${p(
       "Agradecemos a confiança depositada na JMASSANO Escritório de Advogado e o interesse demonstrado nos nossos serviços.",
     )}
@@ -292,11 +383,20 @@ export const ASSUNTO_REABERTURA = "JMASSANO | Processo reaberto";
  * token novo e renova a validade, em vez de tentar reenviar o que já não está
  * em lado nenhum para reenviar.
  */
-export function emailReabertura({ link }: { link: string }): string {
+export function emailReabertura({
+  nome,
+  referencia,
+  link,
+}: {
+  nome?: string | null;
+  referencia?: string | null;
+  link: string;
+}): string {
   const href = escapar(link);
   return moldura(
     `
-    ${saudacao()}
+    ${refProcesso(referencia)}
+    ${saudacao(nome)}
     ${p("Agradecemos a sua compreensão relativamente ao processo em curso junto da JMASSANO Escritório de Advogado.")}
     ${p("Informamos que o seu processo foi reaberto pela nossa equipa.")}
     ${p(
