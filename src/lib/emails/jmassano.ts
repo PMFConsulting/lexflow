@@ -11,12 +11,8 @@
  * 4. **JMASSANO | Feedback Registro** — quando o processo é rejeitado no
  *    back-office. Segue, à letra, o template entregue pelo cliente em
  *    11/08/2026 — que substitui a redação própria usada até aqui.
- * 5. **JMASSANO | Processo reaberto** — quando um processo rejeitado é
- *    reaberto no back-office e volta a `rascunho`. Não vem do documento do
- *    cliente (não existia essa possibilidade até 11/08/2026); redação
- *    própria, no mesmo tom e moldura dos outros quatro.
  *
- * Os quatro primeiros seguem os assuntos **e corpos** dos documentos do
+ * Os quatro seguem os assuntos **e corpos** dos documentos do
  * cliente, à letra — incluindo "Registro", que é como lá está e não se
  * corrigiu para "Registo" nos assuntos 1 e 4, e incluindo a assinatura em
  * aberto ("Assinatura do Advogado gestor do Cliente"), que é o espaço
@@ -32,10 +28,10 @@
  * não o prevê.
  *
  * O que a moldura acrescenta ao texto do cliente é só isto, e por razões
- * técnicas: o `(link)` do primeiro email e do quinto vira botão mais
- * endereço em texto (um email não tem onde carregar num parêntesis), a lista
- * de anexos do terceiro é montada a partir dos ficheiros que foram mesmo
- * gerados, e o rodapé de confidencialidade fecha as cinco mensagens.
+ * técnicas: o `(link)` do primeiro email vira botão mais endereço em texto
+ * (um email não tem onde carregar num parêntesis), a lista de anexos do
+ * terceiro é montada a partir dos ficheiros que foram mesmo gerados, e o
+ * rodapé de confidencialidade fecha as quatro mensagens.
  *
  * Consequência de seguir o texto à letra: a saudação é genérica — o documento
  * diz "Caro(a) Sr.(a)," e não abre espaço para o nome — e a referência do
@@ -55,7 +51,7 @@
  * escolhe a cor da régua sob o cabeçalho pelo que representa: terracota
  * (`MARCA`) num convite a agir, latão (`LATAO`) numa mensagem de espera ou de
  * atenção, verde-arquivo (`ARQUIVO`) numa confirmação positiva, carmim
- * (`SELO`) só na única má notícia das cinco.
+ * (`SELO`) só na única má notícia das quatro.
  */
 const TINTA = "#101a24";
 const TINTA_SUAVE = "#5c6672";
@@ -105,7 +101,7 @@ const moldura = (conteudo: string, corAcento: string = MARCA) => `
 const p = (texto: string) =>
   `<p style="font-family:${FONTE_CORPO};font-size:14px;line-height:1.7;color:${TINTA_SUAVE};margin:0 0 14px;">${texto}</p>`;
 
-/** O botão de ação — verde-arquivo, a única cor de CTA das cinco mensagens. */
+/** O botão de ação — verde-arquivo, a única cor de CTA das quatro mensagens. */
 const botao = (href: string, rotulo: string) => `
 <p style="margin:6px 0 18px;">
   <a href="${href}"
@@ -336,46 +332,5 @@ export function emailRejeicao({
     ${despedida()}
   `,
     SELO,
-  );
-}
-
-/* ------------------------------------------------------------ 5. reabertura */
-
-export const ASSUNTO_REABERTURA = "JMASSANO | Processo reaberto";
-
-/**
- * Quando um processo rejeitado é reaberto no back-office (volta a `rascunho`).
- * O template de rejeição (D33, 11/08/2026) abriu esta porta — "poderá
- * apresentar informação ou documentação complementar que permita uma nova
- * apreciação" — e este é o email que a concretiza. Leva um link novo e não o
- * antigo: o token em claro nunca fica gravado (D4), por isso reabrir gera um
- * token novo e renova a validade, em vez de tentar reenviar o que já não está
- * em lado nenhum para reenviar.
- */
-export function emailReabertura({
-  nome,
-  referencia,
-  link,
-}: {
-  nome?: string | null;
-  referencia?: string | null;
-  link: string;
-}): string {
-  const href = escapar(link);
-  return moldura(
-    `
-    ${refProcesso(referencia)}
-    ${saudacao(nome)}
-    ${p("Agradecemos a sua compreensão relativamente ao processo em curso junto da JMASSANO Escritório de Advogado.")}
-    ${p("Informamos que o seu processo foi reaberto pela nossa equipa.")}
-    ${p(
-      "Pode agora rever as informações e documentação do seu processo e, se pretender, voltar a submeter para nova apreciação:",
-    )}
-    ${botao(href, "Rever o meu processo")}
-    ${linkCopiavel(href)}
-    ${p("Permanecemos ao seu dispor para qualquer esclarecimento que entenda necessário.")}
-    ${despedida()}
-  `,
-    LATAO,
   );
 }

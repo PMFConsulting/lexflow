@@ -12,13 +12,21 @@ export type EstadoEmail = (typeof estadoEmail.enumValues)[number];
 export type TemplateEmail = (typeof templateEmail.enumValues)[number];
 export type CanalEmail = (typeof canalEmail.enumValues)[number];
 
-export const ROTULOS_TEMPLATE: Record<TemplateEmail, string> = {
+/**
+ * `Partial` e não `Record` completo: o enum da base de dados guarda valores que
+ * a aplicação já não escreve — `reabertura` deixou de existir quando a
+ * reabertura de processos rejeitados foi removida, e o valor fica no
+ * `template_email` porque um `ALTER TYPE` não os retira. Quem lê este mapa
+ * cai no próprio valor da coluna (`?? l.template`), que é o que mantém legível
+ * uma linha antiga de `email_log` sem ressuscitar o rótulo de uma
+ * funcionalidade que já não há.
+ */
+export const ROTULOS_TEMPLATE: Partial<Record<TemplateEmail, string>> = {
   registo: "Registo",
   confirmacao_rececao: "Confirmação de receção",
   boas_vindas: "Boas-vindas",
   notificacao_backoffice: "Aviso interno",
   rejeicao: "Rejeição",
-  reabertura: "Reabertura",
 };
 
 /**

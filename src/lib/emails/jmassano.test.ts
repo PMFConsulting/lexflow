@@ -2,12 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   ASSUNTO_BOAS_VINDAS,
   ASSUNTO_CONFIRMACAO,
-  ASSUNTO_REABERTURA,
   ASSUNTO_REGISTO,
   ASSUNTO_REJEICAO,
   emailBoasVindas,
   emailConfirmacaoRececao,
-  emailReabertura,
   emailRegisto,
   emailRejeicao,
 } from "./jmassano";
@@ -162,48 +160,6 @@ describe("4. JMASSANO | Feedback Registro", () => {
   });
 
   it("fecha com o mesmo rodapé e a mesma despedida dos outros três", () => {
-    const t = texto(html);
-    expect(t).toContain("JMASSANO — Escritório de Advogado");
-    expect(t).toContain(
-      "Com os melhores cumprimentos, Assinatura do Advogado gestor do Cliente",
-    );
-  });
-});
-
-/**
- * O quinto email — aviso ao cliente quando um processo rejeitado é reaberto
- * no back-office. Redação própria (não vem do documento do cliente), no
- * mesmo tom e moldura dos outros quatro.
- */
-describe("5. JMASSANO | Processo reaberto", () => {
-  const html = emailReabertura({ link: LINK });
-
-  it("tem o assunto certo", () => {
-    expect(ASSUNTO_REABERTURA).toBe("JMASSANO | Processo reaberto");
-  });
-
-  it("leva o link no botão e em texto, para quando o botão não funciona", () => {
-    expect(html).toContain(`href="${LINK}"`);
-    expect(html.split(LINK)).toHaveLength(3);
-    expect(texto(html)).toContain("Se o botão não funcionar");
-  });
-
-  it("diz que o processo foi reaberto e convida a rever e voltar a submeter", () => {
-    const t = texto(html);
-    expect(t).toContain("o seu processo foi reaberto pela nossa equipa");
-    expect(t).toContain("rever as informações e documentação do seu processo");
-    expect(t).toContain("voltar a submeter para nova apreciação");
-  });
-
-  it("escapa um link hostil em vez de o deixar fechar a etiqueta", () => {
-    const hostil = 'https://mau.pt/" onmouseover="alert(1)';
-    const saida = emailReabertura({ link: hostil });
-
-    expect(saida).not.toContain('onmouseover="alert(1)"');
-    expect(saida).toContain("&quot;");
-  });
-
-  it("fecha com o mesmo rodapé e a mesma despedida dos outros", () => {
     const t = texto(html);
     expect(t).toContain("JMASSANO — Escritório de Advogado");
     expect(t).toContain(

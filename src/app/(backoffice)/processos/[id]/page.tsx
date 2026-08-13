@@ -21,7 +21,6 @@ import {
 import { exigirSessao, podeAprovarProcesso, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 import { AcoesAprovacao } from "@/features/processos/componentes/AcoesAprovacao";
-import { AcoesReabrir } from "@/features/processos/componentes/AcoesReabrir";
 
 export const dynamic = "force-dynamic";
 
@@ -179,10 +178,6 @@ export default async function Processo({
       {/* ── decisão ───────────────────────────────────────────────────── */}
       {processo.estado === "aguardar_aprovacao" && podeAprovarProcesso(eu.papel) && (
         <AcoesAprovacao processoId={processo.id} />
-      )}
-
-      {processo.estado === "rejeitado" && podeAprovarProcesso(eu.papel) && (
-        <AcoesReabrir processoId={processo.id} />
       )}
 
       {processo.estado === "rejeitado" && processo.motivoRejeicao && (

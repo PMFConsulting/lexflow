@@ -9,7 +9,7 @@ import { ROTULOS_ESTADO, ROTULOS_TEMPLATE } from "../rotulos";
 
 type Faceta = { chave: string; n: number };
 
-const ROTULOS: Record<string, string> = { ...ROTULOS_ESTADO, ...ROTULOS_TEMPLATE };
+const ROTULOS: Record<string, string | undefined> = { ...ROTULOS_ESTADO, ...ROTULOS_TEMPLATE };
 
 /**
  * Pesquisa e filtros do diário de emails, com o estado no URL — mesmo padrão
