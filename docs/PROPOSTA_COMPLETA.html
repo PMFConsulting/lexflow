@@ -195,7 +195,7 @@
       <tr><td colspan="4" style="background:var(--verde-claro); font-family:var(--mono); font-size:7pt; letter-spacing:.12em; text-transform:uppercase; color:var(--verde); font-weight:700;">Bloco 1 · Custos fixos</td></tr>
       <tr><td><strong>Entrada</strong></td><td class="num"><strong>1.370,00 €</strong></td><td>Único</td><td>POC 500 + passagem a produção 435 + implementação do customer service 435 — <strong>já acordado a 14/08/2026</strong></td></tr>
       <tr><td><strong>Fee mensal de plataforma e serviço</strong></td><td class="num"><strong>1.500,00 €/mês</strong></td><td>Mensal</td><td>Manutenção, suporte, conformidade regulamentar, atualizações e implementação de até <strong>500 novos utilizadores/mês</strong></td></tr>
-      <tr><td><strong>Infraestrutura (estrutura)</strong></td><td class="num"><strong>297,98 €/ano</strong></td><td>Anual</td><td>Servidor + domínio + R2 + backups + contingência — custo de operação, por conta do cliente</td></tr>
+      <tr><td><strong>Infraestrutura (estrutura)</strong></td><td class="num"><strong>297,98 €/ano</strong></td><td>Anual</td><td>Servidor + domínio + AWS S3 + backups + contingência — custo de operação, por conta do cliente</td></tr>
       <tr><td><strong>Chatbot — contrato anual</strong></td><td class="num"><strong>≈ 67 €/ano</strong></td><td>Anual</td><td>10.000 conversas/mês · pay-as-you-go (ver B2) — por conta do cliente</td></tr>
       <tr><td colspan="4" style="background:var(--verde-claro); font-family:var(--mono); font-size:7pt; letter-spacing:.12em; text-transform:uppercase; color:var(--verde); font-weight:700;">Bloco 2 · Custos variáveis</td></tr>
       <tr><td><strong>Utilizador acima da capacidade</strong></td><td class="num"><strong>4,00 €</strong></td><td>Unitário</td><td>Só acima da capacidade contratada · faturado no mês seguinte · pré-aprovação escrita acima de 100 excedentes</td></tr>
@@ -311,11 +311,11 @@
 <section class="pagina" id="s4">
   <div class="sec-tag">04 · Arquitetura da plataforma</div>
   <h2>Uma arquitetura simples e robusta</h2>
-  <div class="chapeu">Um único servidor para a computação, <strong>Cloudflare R2</strong> para os documentos e <strong>e-mail próprio (Postfix)</strong> no mesmo servidor. Toda a infraestrutura na União Europeia, com configuração jurisdicional explícita. O customer service corre no mesmo servidor — sem componentes extra.</div>
+  <div class="chapeu">Um único servidor para a computação, <strong>AWS S3 (região UE)</strong> para os documentos e <strong>e-mail próprio (Postfix)</strong> no mesmo servidor. Toda a infraestrutura na União Europeia, com configuração jurisdicional explícita. O customer service corre no mesmo servidor — sem componentes extra.</div>
 
   <div class="grelha g3">
     <div class="card"><div class="k">1 · Computação</div><div class="v">Hostinger KVM</div><div class="d">Aplicação (Next.js), base de dados (PostgreSQL) e orquestração (Coolify + Docker + Traefik). Alocado na Lituânia (UE) — o mesmo servidor da plataforma de gestão de processos.</div></div>
-    <div class="card"><div class="k">2 · Dados</div><div class="v">Cloudflare R2</div><div class="d">Documentos dos processos . 10 GB/mês grátis, $0,015/GB depois, egress a 0 €. Bucket com restrição jurisdicional UE (<code>jurisdiction=eu</code>).</div></div>
+    <div class="card"><div class="k">2 · Dados</div><div class="v">AWS S3</div><div class="d">Documentos dos processos, região UE (<code>eu-west-3</code> ou <code>eu-central-1</code>). 92 GB × 0,0245 $/GB/mês ÷ 1,1540 ≈ 23,44 €/ano, com franquia de descargas de 100 GB/mês.</div></div>
     <div class="card"><div class="k">3 · Comunicações</div><div class="v">Postfix próprio</div><div class="d">E-mails transacionais e do suporte enviados pelo servidor da plataforma — já instalado e ativo (verificado ao vivo). Sem fornecedor externo, sem custo por e-mail.</div></div>
   </div>
 
@@ -325,12 +325,12 @@
     <tbody>
       <tr><td><strong>Aplicação</strong></td><td class="m">Next.js (web)</td><td>Portal de onboarding (6 passos), back-office de decisão, leitor de termos, área administrativa, chatbot e motor de tickets</td></tr>
       <tr><td><strong>Dados estruturados</strong></td><td class="m">PostgreSQL</td><td>Processos, organizações, utilizadores, auditoria, diário de e-mails, tickets (~250 KB/processo)</td></tr>
-      <tr><td><strong>Documentos</strong></td><td class="m">Cloudflare R2</td><td>Ficheiros dos processos (~10 MB cada): identificação, representante, anexos, PDFs com assinatura digital — jurisdição EU</td></tr>
+      <tr><td><strong>Documentos</strong></td><td class="m">AWS S3 (região UE)</td><td>Ficheiros dos processos (~10 MB cada): identificação, representante, anexos, PDFs com assinatura digital — região UE</td></tr>
       <tr><td><strong>Comunicações</strong></td><td class="m">Postfix (SMTP)</td><td>E-mails transacionais (registo, confirmação, aviso interno, decisão) e notificações de tickets — no próprio servidor, 0 €</td></tr>
       <tr><td><strong>IA do chatbot</strong></td><td class="m">Mistral Small 4 (API)</td><td>Respostas do assistente — França (UE); só a pergunta/resposta vai à API, os dados dos processos não saem do servidor</td></tr>
       <tr><td><strong>Infraestrutura</strong></td><td class="m">Hostinger · Coolify · Docker · Traefik · Let's Encrypt</td><td>Servidor único, deploys, roteamento, certificados TLS automáticos, reinício de contentores</td></tr>
       <tr><td><strong>Monitorização e alertas</strong></td><td class="m">Healthchecks (Coolify) + verificações de uptime</td><td>Alerta automático de queda do servidor, do Postfix e dos contentores — incluída na operação (0 € de licenças)</td></tr>
-      <tr><td><strong>Backups</strong></td><td class="m">pg_dump agendado (cron) → R2</td><td>Base de dados copiada diariamente para o R2 (jurisdição EU) — 1,12 €/ano na estrutura; restauro testado em operação</td></tr>
+      <tr><td><strong>Backups</strong></td><td class="m">pg_dump agendado (cron) → S3</td><td>Base de dados copiada diariamente para o S3 (região UE) — 0,47 €/ano na estrutura; restauro testado em operação</td></tr>
       <tr><td><strong>Segurança</strong></td><td class="m">Link seguro · assinatura digital · auditoria</td><td>Autenticação sem palavra-passe, tokens com expiração, decisões registadas com quem e quando, isolamento por sociedade</td></tr>
     </tbody>
   </table>
@@ -338,7 +338,7 @@
   <div class="cartao">
     <div class="rot">Soberania e conformidade</div>
     <ul>
-      <li><strong>100% UE:</strong> servidor na Lituânia · IA na França (Mistral) · armazenamento R2 com jurisdição EU · e-mail no próprio servidor (Lituânia).</li>
+      <li><strong>100% UE:</strong> servidor na Lituânia · IA na França (Mistral) · armazenamento AWS S3 em região UE · e-mail no próprio servidor (Lituânia).</li>
       <li><strong>RGPD:</strong> residência de dados europeia em todos os componentes; o servidor atual migra do Reino Unido (pós-Brexit) para a Lituânia — mesmo preço.</li>
       <li><strong>Retenção legal:</strong> os processos ficam retidos pelo ciclo legal (7 anos) — custo por processo calculado com essa retenção (0,0154 € no ciclo).</li>
       <li><strong>Sigilo profissional:</strong> dados de processos e clientes não saem do servidor; só a pergunta/resposta da conversa do chatbot vai à API da Mistral, e fica na UE.</li>
@@ -350,7 +350,7 @@
 <section class="pagina" id="s5">
   <div class="sec-tag">05 · Bloco 1 — Infraestrutura</div>
   <h2>Estrutura — 297,98 €/ano</h2>
-  <div class="chapeu">O custo fixo de correr a plataforma durante um ano — <strong>custo de operação do serviço, por conta do cliente</strong>, e não parte do fee. Verificado ao cêntimo, ajustado ao e-mail próprio (Postfix). <strong>100% UE</strong>: servidor na Lituânia, armazenamento R2 com jurisdição EU, e-mail no próprio servidor.</div>
+  <div class="chapeu">O custo fixo de correr a plataforma durante um ano — <strong>custo de operação do serviço, por conta do cliente</strong>, e não parte do fee. Verificado ao cêntimo, ajustado ao e-mail próprio (Postfix). <strong>100% UE</strong>: servidor na Lituânia, armazenamento AWS S3 em região UE, e-mail no próprio servidor.</div>
 
   <table>
     <thead><tr><th style="width:34%">Rubrica</th><th class="num" style="width:20%">Valor</th><th style="width:14%">Periodicidade</th><th>Detalhe</th></tr></thead>
@@ -358,12 +358,12 @@
       <tr><td><strong>Servidor</strong> (Hostinger KVM)</td><td class="num">155,88 €</td><td>Anual</td><td>$14,99/mês ÷ 1,1540 — Lituânia (UE); o customer service corre aqui — 0 € extra</td></tr>
       <tr><td><strong>Domínio</strong></td><td class="num">10,00 €</td><td>Anual</td><td>Registo anual do domínio da plataforma</td></tr>
       <tr><td><strong>E-mail transacional</strong></td><td class="num">0 €</td><td>—</td><td>Postfix próprio no servidor (já instalado, verificado ao vivo) — sem fornecedor</td></tr>
-      <tr><td><strong>Armazenamento (R2)</strong></td><td class="num">12,84 €</td><td>Anual</td><td>Dados da plataforma (12,48 + 0,36) · jurisdição EU · free tier 10 GB para a base de conhecimento do CS</td></tr>
-      <tr><td><strong>Backups</strong></td><td class="num">1,12 €</td><td>Anual</td><td>Com compressão (~40 %) ≈ 0,45 €/ano</td></tr>
-      <tr class="total"><td><strong>Subtotal</strong></td><td class="num">179,84 €</td><td>Anual</td><td>155,88 + 10,00 + 0 + 12,84 + 1,12</td></tr>
-      <tr class="total"><td><strong>Contingência (10 %)</strong></td><td class="num">17,98 €</td><td>—</td><td>Margem de reserva</td></tr>
-      <tr class="total"><td><strong>Estrutura base verificada</strong></td><td class="num">197,82 €/ano</td><td>Anual</td><td>Referência: Rev. I tinha 287,03 €/ano com e-mail de fornecedor — o Postfix elimina os 81,10 €</td></tr>
-      <tr class="total"><td><strong>Dimensionamento para 500 utilizadores/mês</strong></td><td class="num">100,16 €/ano</td><td>Anual</td><td>Reserva de capacidade do servidor e do armazenamento para o ritmo de implementação contratado</td></tr>
+      <tr><td><strong>Armazenamento (AWS S3)</strong></td><td class="num">23,44 €</td><td>Anual</td><td>92 GB × 0,0245 $/GB/mês ÷ 1,1540 · região UE (<code>eu-west-3</code> / <code>eu-central-1</code>) · franquia de descargas de 100 GB/mês</td></tr>
+      <tr><td><strong>Backups</strong></td><td class="num">0,47 €</td><td>Anual</td><td>Dumps da base de dados e pedidos de API no S3</td></tr>
+      <tr class="total"><td><strong>Subtotal</strong></td><td class="num">189,79 €</td><td>Anual</td><td>155,88 + 10,00 + 0 + 23,44 + 0,47</td></tr>
+      <tr class="total"><td><strong>Contingência (10 %)</strong></td><td class="num">18,98 €</td><td>—</td><td>Margem de reserva</td></tr>
+      <tr class="total"><td><strong>Estrutura base verificada</strong></td><td class="num">208,77 €/ano</td><td>Anual</td><td>Referência: Rev. I tinha 287,03 €/ano com e-mail de fornecedor — o Postfix elimina os 81,10 €</td></tr>
+      <tr class="total"><td><strong>Dimensionamento para 500 utilizadores/mês</strong></td><td class="num">89,21 €/ano</td><td>Anual</td><td>Reserva de capacidade do servidor e do armazenamento para o ritmo de implementação contratado</td></tr>
       <tr class="total"><td><strong>Total estrutura</strong></td><td class="num"><strong>297,98 €/ano</strong></td><td>Anual</td><td>Com o chatbot (≈ 67 €/ano, secção 06), a infraestrutura fica em <strong>≈ 365 €/ano</strong></td></tr>
     </tbody>
   </table>
@@ -442,7 +442,7 @@
 
   <div class="cartao">
     <div class="rot">O que NÃO está incluído no fee (é infraestrutura, por conta do cliente)</div>
-    <p><strong>Servidor</strong> 155,88 €/ano · <strong>domínio</strong> 10 €/ano · <strong>armazenamento R2</strong> 12,84 €/ano · <strong>backups</strong> 1,12 €/ano · <strong>contingência</strong> 17,98 €/ano · <strong>dimensionamento</strong> 100,16 €/ano · <strong>chatbot</strong> ≈ 67 €/ano (consumo de IA) — <strong>≈ 365 €/ano</strong> no total, já detalhado nas secções 05 e 06. O fee é o valor do <strong>serviço contínuo</strong>, à parte da infraestrutura.</p>
+    <p><strong>Servidor</strong> 155,88 €/ano · <strong>domínio</strong> 10 €/ano · <strong>armazenamento AWS S3</strong> 23,44 €/ano · <strong>backups</strong> 0,47 €/ano · <strong>contingência</strong> 18,98 €/ano · <strong>dimensionamento</strong> 89,21 €/ano · <strong>chatbot</strong> ≈ 67 €/ano (consumo de IA) — <strong>≈ 365 €/ano</strong> no total, já detalhado nas secções 05 e 06. O fee é o valor do <strong>serviço contínuo</strong>, à parte da infraestrutura.</p>
   </div>
 </section>
 
@@ -494,7 +494,7 @@
     <thead><tr><th style="width:32%">Rubrica</th><th class="num" style="width:18%">Valor</th><th style="width:14%">Periodicidade</th><th>Detalhe</th></tr></thead>
     <tbody>
       <tr><td><strong>Migração Reino Unido → Lituânia</strong></td><td class="num">Incluída</td><td>Único</td><td>Mesmo preço mensal — sem custo extra no plano</td></tr>
-      <tr><td><strong>R2 — jurisdição EU</strong></td><td class="num">0 €</td><td>—</td><td>Bucket novo com <code>jurisdiction=eu</code> — migrar o atual (obrigação contratual UE)</td></tr>
+      <tr><td><strong>AWS S3 — região UE</strong></td><td class="num">0 €</td><td>—</td><td>Bucket novo em região UE — migrar o atual (dados de processos: obrigação contratual UE)</td></tr>
       <tr><td><strong>Escalonamento humano L2/L3</strong></td><td class="num">À parte</td><td>Anual</td><td>Operação própria da sociedade (≈ 6–50 €/ticket, ver secção 08)</td></tr>
       <tr><td><strong>Upgrade de servidor (50+ soc.)</strong></td><td class="num">≈ 264 €/ano</td><td>Anual</td><td>KVM 4 (16 GB) — quando a plataforma cresce · a confirmar</td></tr>
       <tr><td><strong>Domínios adicionais</strong></td><td class="num">10 €/ano</td><td>Anual</td><td>Por domínio próprio adicional por sociedade</td></tr>
@@ -507,7 +507,7 @@
       <li><strong>IVA:</strong> todos os valores ex-IVA — acresce IVA à taxa legal em vigor (23 % em Portugal).</li>
       <li><strong>Moeda:</strong> valores em €; quando a fonte é em $ (servidor $14,99/mês, modelo $0,15/$0,60), conversão a <strong>1 EUR = 1,1540 USD</strong> (BCE, 11/08/2026).</li>
       <li><strong>Sem promoções</strong> — preços de renovação reais.</li>
-      <li><strong>100% UE:</strong> servidor Lituânia · IA França · R2 jurisdição EU · e-mail no próprio servidor.</li>
+      <li><strong>100% UE:</strong> servidor Lituânia · IA França · AWS S3 em região UE · e-mail no próprio servidor.</li>
       <li><strong>Fee mensal:</strong> 1.500 €/mês, com compromisso mínimo de 12 meses e revisão anual indexada ao IPC (secção 07).</li>
     </ul>
   </div>
@@ -568,10 +568,10 @@
     <thead><tr><th style="width:34mm">Valor</th><th>Custo usado</th><th>Fonte (URL)</th><th style="width:20mm">Verificação</th></tr></thead>
     <tbody>
       <tr><td><strong>POC e passagem à produção</strong></td><td class="m">1.370,00 €</td><td>Entrada única acordada a 14/08/2026 — POC 500 + produção 435 + implementação do CS 435</td><td><span class="ue">Verificado 13/08</span></td></tr>
-      <tr><td><strong>Estrutura</strong></td><td class="m">197,82 €/ano (sem e-mail fornecedor)</td><td>Rev. I (287,03 €/ano com fornecedor) — ajustado pelo Postfix próprio</td><td><span class="ue">Verificado 13/08</span></td></tr>
+      <tr><td><strong>Estrutura</strong></td><td class="m">208,77 €/ano (sem e-mail fornecedor)</td><td>Rev. I (287,03 €/ano com fornecedor) — ajustado pelo Postfix próprio</td><td><span class="ue">Verificado 13/08</span></td></tr>
       <tr><td><strong>Chatbot — Mistral Small 4</strong> <span class="ue">UE</span></td><td class="m">$0,15/1M in · $0,60/1M out → 0,00052 €/conversa</td><td>mistral.ai/pricing · openrouter.ai/mistralai/mistral-small-2603 · aipricing.guru/mistral-ai-pricing</td><td><span class="ue">Verificado 13/08</span></td></tr>
       <tr><td><strong>Servidor — Hostinger</strong> <span class="ue">Lituânia</span></td><td class="m">$14,99/mês ≈ 155,88 €/ano</td><td>hostinger.com/vps-hosting · hostinger.com/support/1583267 (localizações UE)</td><td><span class="ue">Verificado 13/08</span></td></tr>
-      <tr><td><strong>Armazenamento R2</strong> <span class="ue">jurisdição EU</span></td><td class="m">12,84 €/ano (12,48 + 0,36) · jurisdiction=eu</td><td>developers.cloudflare.com/r2/reference/data-location/ · Rev. I</td><td><span class="ue">Verificado 13/08</span></td></tr>
+      <tr><td><strong>Armazenamento AWS S3</strong> <span class="ue">região UE</span></td><td class="m">23,44 €/ano (92 GB × 0,0245 $/GB/mês ÷ 1,1540)</td><td>região UE · aws.amazon.com/s3/pricing/</td><td><span class="ue">Verificado 13/08</span></td></tr>
       <tr><td><strong>E-mail — Postfix</strong> <span class="ue">UE</span></td><td class="m">0 € (já instalado no servidor)</td><td>Verificado ao vivo: postfix 3.8.6 ativo, PTR/rDNS, porta 25 aberta. powerdmarc.com/self-hosting-email</td><td><span class="ue">Verificado 13/08</span></td></tr>
       <tr><td><strong>Custo por processo/utilizador</strong></td><td class="m">0,0053 / 0,0154 € · 0,63–25,47 €/ano</td><td>Documento de custos Rev. I — base de cálculo e cenários</td><td><span class="ue">Verificado 13/08</span></td></tr>
       <tr><td><strong>Câmbio</strong></td><td class="m">1 EUR = 1,1540 USD</td><td>ecb.europa.eu — referência BCE de 11/08/2026</td><td><span class="ue">Verificado 13/08</span></td></tr>
@@ -581,7 +581,7 @@
   <div class="cartao">
     <div class="rot">Nota de verificação</div>
     <ul>
-      <li><strong>Verificados:</strong> estrutura (ao cêntimo, ajustada ao Postfix), preços Mistral Small 4 e Hostinger, jurisdição EU do R2, Postfix ativo, câmbio — 13/08/2026.</li>
+      <li><strong>Verificados:</strong> estrutura (ao cêntimo, ajustada ao Postfix), preços Mistral Small 4 e Hostinger, região UE do S3, Postfix ativo, câmbio — 13/08/2026.</li>
       <li><strong>Fechados a 14/08 e 19/08:</strong> entrada única de 1.370 € (POC + produção + implementação do CS) e fee mensal de 1.500 € (plataforma e serviço, até 500 utilizadores/mês, rollover até 250).</li>
       <li><strong>A confirmar:</strong> upgrade KVM 4 para 50+ sociedades (≈ 264 €/ano).</li>
       <li><strong>Estimados</strong> (a medir em operação): tokens por conversa, taxa de conversas que geram ticket (~20 %), valor hora da equipa (20–30 €).</li>
