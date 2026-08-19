@@ -145,15 +145,15 @@
   </div>
 
   <div class="capa-corpo">
-    <div class="capa-kicker">Entrada única · Fee mensal · 500 utilizadores/mês · 100% UE</div>
+    <div class="capa-kicker">Entrada única · Fee por stock · 500 utilizadores · 100% UE</div>
     <h1>Os <em>custos</em> do projeto</h1>
-    <p class="capa-resumo">Todos os valores em <strong>€, ex-IVA</strong>, com periodicidade indicada em cada linha (<strong>único · anual · mensal · unitário</strong>). Valores em $ convertidos à taxa <strong>1 EUR = 1,1540 USD</strong> (BCE, 11/08/2026). O modelo tem <strong>duas linhas apenas</strong>: uma <strong>entrada única de 1.370 €</strong> e um <strong>fee mensal de 1.500 €</strong> que inclui plataforma, serviço e a implementação de até <strong>500 novos utilizadores por mês</strong>.</p>
+    <p class="capa-resumo">Todos os valores em <strong>€, ex-IVA</strong>, com periodicidade indicada em cada linha (<strong>único · por tranche · anual · unitário</strong>). Valores em $ convertidos à taxa <strong>1 EUR = 1,1540 USD</strong> (BCE, 11/08/2026). O modelo tem <strong>duas linhas apenas</strong>: uma <strong>entrada única de 1.370 €</strong> e um <strong>fee de 1.500 € por cada 500 utilizadores implementados</strong> (stock). A previsão de adesão é de <strong>500 utilizadores a cada 2 meses</strong>, e cada utilizador abre em média <strong>1,5 processos por mês</strong>.</p>
     <div class="capa-acento"></div>
 
     <div class="capa-total">
       <div><div class="k">Entrada única</div><div class="v">1.370 €</div><div class="d">POC · passagem a produção · customer service</div></div>
-      <div><div class="k">Fee mensal</div><div class="v">1.500 €/mês</div><div class="d">Plataforma e serviço · até 500 utilizadores/mês · rollover até 250</div></div>
-      <div><div class="k">Infraestrutura</div><div class="v">≈ 365 €/ano</div><div class="d">Servidor · AWS S3 · chatbot — por conta do cliente</div></div>
+      <div><div class="k">Fee por stock</div><div class="v">1.500 €</div><div class="d">Por cada 500 utilizadores implementados · previsão: 500 a cada 2 meses</div></div>
+      <div><div class="k">Infraestrutura</div><div class="v">≈ 340 €/ano</div><div class="d">Servidor · AWS S3 · chatbot — por conta do cliente</div></div>
     </div>
   </div>
 
@@ -169,11 +169,11 @@
     <tbody>
       <tr><td class="sec">01</td><td class="tit">Resumo</td><td class="desc">Tudo numa tabela · totais do ano 1</td></tr>
       <tr><td class="sec">02</td><td class="tit">Entrada — 1.370 €</td><td class="desc">POC · passagem a produção · implementação do customer service</td></tr>
-      <tr><td class="sec">03</td><td class="tit">Fee mensal, capacidade e rollover</td><td class="desc">1.500 €/mês · 500 utilizadores/mês · transição até 250 · excedente 4 €</td></tr>
+      <tr><td class="sec">03</td><td class="tit">Fee por stock, previsão e volume</td><td class="desc">1.500 € por 500 utilizadores · 500 a cada 2 meses · 1,5 processos/user/mês</td></tr>
       <tr><td class="sec">04</td><td class="tit">Arquitetura da plataforma</td><td class="desc">Stack técnica, componentes, segurança, soberania de dados</td></tr>
-      <tr><td class="sec">05</td><td class="tit">Infraestrutura</td><td class="desc">Servidor, domínio, armazenamento, backups — 297,98 €/ano</td></tr>
+      <tr><td class="sec">05</td><td class="tit">Infraestrutura</td><td class="desc">Servidor, domínio, armazenamento, backups — 269,19 €/ano</td></tr>
       <tr><td class="sec">06</td><td class="tit">Customer service fixo</td><td class="desc">Chatbot 67 €/ano · tickets 0 € · implementação incluída na entrada</td></tr>
-      <tr><td class="sec">07</td><td class="tit">O que o fee inclui e condições</td><td class="desc">Âmbito do fee mensal · compromisso, revisão, SLA e período de arranque</td></tr>
+      <tr><td class="sec">07</td><td class="tit">O que o fee inclui e condições</td><td class="desc">Âmbito do fee por stock · compromisso, revisão, SLA e ritmo de adesão</td></tr>
       <tr><td class="sec">08</td><td class="tit">Custos variáveis</td><td class="desc">Utilizador excedente · resposta a ticket · chatbot por conversa</td></tr>
       <tr><td class="sec">09</td><td class="tit">Outros custos</td><td class="desc">Migração · upgrade · contingência · domínios</td></tr>
       <tr><td class="sec">10</td><td class="tit">Controlo de horas</td><td class="desc">4 pilares — sem horas inflacionadas</td></tr>
@@ -187,48 +187,48 @@
 <section class="pagina" id="s1">
   <div class="sec-tag">01 · Resumo</div>
   <h2>Tudo numa tabela</h2>
-  <div class="chapeu">Três linhas: a <strong>entrada</strong> (uma vez), o <strong>fee mensal</strong> (plataforma, serviço e capacidade de implementação) e a <strong>infraestrutura</strong> (custo de operação, por conta do cliente). Depois, só o que é usado fora da capacidade contratada. Todos os valores ex-IVA, em €.</div>
+  <div class="chapeu">Duas linhas: a <strong>entrada</strong> (uma vez) e o <strong>fee por stock</strong> (1.500 € por cada 500 utilizadores implementados). Depois, a <strong>infraestrutura</strong> (custo de operação, por conta do cliente) e o que é usado fora da capacidade. Todos os valores ex-IVA, em €.</div>
 
   <table>
     <thead><tr><th style="width:32%">Rubrica</th><th class="num" style="width:16%">Valor</th><th style="width:12%">Tipo</th><th>Nota</th></tr></thead>
     <tbody>
       <tr><td colspan="4" style="background:var(--verde-claro); font-family:var(--mono); font-size:7pt; letter-spacing:.12em; text-transform:uppercase; color:var(--verde); font-weight:700;">O que se paga sempre</td></tr>
       <tr><td><strong>Entrada</strong></td><td class="num"><strong>1.370,00 €</strong></td><td>Único</td><td>POC 500 + passagem a produção 435 + implementação do customer service 435</td></tr>
-      <tr><td><strong>Fee mensal de plataforma e serviço</strong></td><td class="num"><strong>1.500,00 €/mês</strong></td><td>Mensal</td><td>Manutenção, suporte, conformidade regulamentar, atualizações e implementação de até <strong>500 novos utilizadores/mês</strong></td></tr>
-      <tr><td><strong>Infraestrutura (estrutura)</strong></td><td class="num"><strong>297,98 €/ano</strong></td><td>Anual</td><td>Servidor + domínio + AWS S3 + backups + contingência — custo de operação, por conta do cliente</td></tr>
+      <tr><td><strong>Fee por stock (500 utilizadores)</strong></td><td class="num"><strong>1.500,00 €</strong></td><td>Por tranche</td><td>1.500 € por cada 500 utilizadores implementados — plataforma, serviço, manutenção, suporte e implementação incluídos</td></tr>
+      <tr><td><strong>Infraestrutura (estrutura)</strong></td><td class="num"><strong>269,19 €/ano</strong></td><td>Anual</td><td>Servidor + domínio + AWS S3 + backups + contingência — custo de operação, por conta do cliente</td></tr>
       <tr><td><strong>Chatbot — contrato anual</strong></td><td class="num"><strong>≈ 67 €/ano</strong></td><td>Anual</td><td>10.000 conversas/mês · pay-as-you-go (ver B2) — por conta do cliente</td></tr>
       <tr><td colspan="4" style="background:var(--verde-claro); font-family:var(--mono); font-size:7pt; letter-spacing:.12em; text-transform:uppercase; color:var(--verde); font-weight:700;">Só se for usado (variável)</td></tr>
-      <tr><td><strong>Utilizador acima da capacidade</strong></td><td class="num"><strong>4,00 €</strong></td><td>Unitário</td><td>Apenas quando a capacidade do mês (500 + saldo) esgota — o valor é faturado no mês seguinte; acima de 100 extras, confirma-se primeiro por escrito</td></tr>
+      <tr><td><strong>Utilizador acima da capacidade</strong></td><td class="num"><strong>4,00 €</strong></td><td>Unitário</td><td>Apenas quando a capacidade do stock esgota — o valor é faturado no mês seguinte; acima de 100 extras, confirma-se primeiro por escrito</td></tr>
       <tr><td><strong>Novo processo de onboarding</strong></td><td class="num">0,0053 €</td><td>Unitário</td><td>Ano 1 · 0,0178 € no ciclo de 7 anos</td></tr>
       <tr><td><strong>Resposta a ticket — humano</strong></td><td class="num">6–50 €</td><td>Unitário</td><td>Simples 6 € · médio 12 € · complexo 25–50 €</td></tr>
       <tr><td><strong>Conversa no chatbot</strong></td><td class="num">≈ 0,0005 €</td><td>Unitário</td><td>Se exceder as 10.000/mês do contrato — à taxa unitária</td></tr>
       <tr><td colspan="4" style="background:var(--verde-claro); font-family:var(--mono); font-size:7pt; letter-spacing:.12em; text-transform:uppercase; color:var(--verde); font-weight:700;">Opcional / só em cenários concretos</td></tr>
-      <tr><td><strong>Migração Reino Unido → Lituânia</strong></td><td class="num">Incluída</td><td>Único</td><td>Mesmo preço mensal — sem custo extra</td></tr>
+      <tr><td><strong>Migração Reino Unido → Lituânia</strong></td><td class="num">Incluída</td><td>Único</td><td>Mesmo preço — sem custo extra</td></tr>
       <tr><td><strong>Upgrade de servidor (50+ soc.)</strong></td><td class="num">≈ 264 €/ano</td><td>Anual</td><td>KVM 4 (16 GB) — a confirmar</td></tr>
       <tr><td><strong>Domínios adicionais</strong></td><td class="num">10 €/ano</td><td>Anual</td><td>Por domínio próprio adicional</td></tr>
-      <tr class="total"><td><strong>Total recorrente (ano 2+)</strong></td><td class="num"><strong>18.365 €/ano</strong></td><td>Anual</td><td>Fee 1.500 × 12 = 18.000 + infraestrutura ≈ 365 (estrutura 297,98 + chatbot 67,00)</td></tr>
+      <tr class="total"><td><strong>Total ano 1 (previsão)</strong></td><td class="num"><strong>10.370,00 €</strong></td><td>—</td><td>Entrada 1.370 + 6 tranches de 500 users (500 a cada 2 meses) × 1.500 = 9.000</td></tr>
     </tbody>
   </table>
 
   <div class="dest">
     <div class="rot">Em três números</div>
-    <div class="v">Entrada 1.370 € · Fee 1.500 €/mês · Infraestrutura ≈ 365 €/ano</div>
-    <p>Uma <strong>entrada única</strong>, já acordada, e um <strong>fee mensal</strong> que cobre a plataforma, o serviço e a implementação de até 500 novos utilizadores por mês. A infraestrutura é o custo de operação do serviço e fica <strong>por conta do cliente</strong> (≈ 365 €/ano). Fora disto, só há custo variável se a capacidade contratada for ultrapassada (4,00 €/utilizador) e na <strong>equipa humana</strong> que responde a tickets (6–50 € cada — operação própria, à parte).</p>
+    <div class="v">Entrada 1.370 € · Fee por stock 1.500 € · Infraestrutura ≈ 340 €/ano</div>
+    <p>Uma <strong>entrada única</strong> e um <strong>fee de 1.500 € por cada 500 utilizadores implementados</strong> — a plataforma, o serviço, a manutenção e a implementação estão todos incluídos. A previsão de adesão é de <strong>500 utilizadores a cada 2 meses</strong> (6 tranches no primeiro ano) e cada utilizador abre em média <strong>1,5 processos por mês</strong>. A infraestrutura é o custo de operação do serviço e fica <strong>por conta do cliente</strong> (≈ 340 €/ano). Fora disto, só há custo variável se a capacidade do stock for ultrapassada (4,00 €/utilizador) e na <strong>equipa humana</strong> que responde a tickets (6–50 € cada — operação própria, à parte).</p>
   </div>
 
-  <h3>Totais do ano 1</h3>
-  <div class="chapeu">O investimento do primeiro ano, nos dois cenários previstos: com o <strong>fee pleno</strong> desde o mês 1, ou com o <strong>período de arranque</strong> (meses 1–3 a 750 €/mês, ver secção 07). A infraestrutura é apresentada à parte por ser custo de operação por conta do cliente.</div>
+  <h3>Totais do ano 1 (previsão)</h3>
+  <div class="chapeu">Projeção a 12 meses com a previsão de adesão de <strong>500 utilizadores a cada 2 meses</strong> e <strong>1,5 processos por utilizador por mês</strong>. O total varia com o ritmo real de adesão — o fee só é faturado quando cada tranche de 500 é implementada.</div>
   <table>
-    <thead><tr><th style="width:26%">Rubrica</th><th class="num" style="width:22%">Ano 1 · fee pleno</th><th class="num" style="width:22%">Ano 1 · com arranque</th><th>Nota</th></tr></thead>
+    <thead><tr><th style="width:26%">Rubrica</th><th class="num" style="width:22%">Ano 1 (previsão)</th><th>Nota</th></tr></thead>
     <tbody>
-      <tr><td><strong>Entrada</strong></td><td class="num">1.370,00 €</td><td class="num">1.370,00 €</td><td>Pagamento único — POC (500 €) + passagem a produção (435 €) + customer service (435 €)</td></tr>
-      <tr><td><strong>Fee mensal</strong></td><td class="num">18.000,00 €</td><td class="num">15.750,00 €</td><td class="f">1.500 € × 12 meses — plataforma e serviço, até 500 utilizadores/mês · com arranque: 750 € × 3 + 1.500 € × 9</td></tr>
-      <tr class="total"><td><strong>Total ano 1</strong></td><td class="num"><strong>19.370,00 €</strong></td><td class="num"><strong>17.120,00 €</strong></td><td>Entrada + fee mensal do ano</td></tr>
-      <tr><td><strong>Infraestrutura</strong></td><td class="num">≈ 365,00 €</td><td class="num">≈ 365,00 €</td><td>Por conta do cliente — servidor, AWS S3, chatbot (297,98 € + 67,00 €)</td></tr>
-      <tr class="total"><td><strong>Ano 2+ (recorrente)</strong></td><td class="num"><strong>18.000,00 €</strong></td><td class="num"><strong>18.000,00 €</strong></td><td>Fee pleno 1.500 € × 12 + infraestrutura ≈ 365 €/ano (por conta do cliente)</td></tr>
+      <tr><td><strong>Entrada</strong></td><td class="num">1.370,00 €</td><td>Pagamento único — POC (500 €) + passagem a produção (435 €) + customer service (435 €)</td></tr>
+      <tr><td><strong>Fee por stock</strong></td><td class="num">9.000,00 €</td><td class="f">6 tranches × 1.500 € — 500 utilizadores a cada 2 meses (meses 1, 3, 5, 7, 9 e 11)</td></tr>
+      <tr class="total"><td><strong>Total ano 1</strong></td><td class="num"><strong>10.370,00 €</strong></td><td>Entrada + fee por stock do ano (previsão)</td></tr>
+      <tr><td><strong>Infraestrutura</strong></td><td class="num">≈ 340,00 €</td><td>Por conta do cliente — servidor, AWS S3 (cresce com o stock), chatbot</td></tr>
+      <tr class="total"><td><strong>Utilizadores previstos</strong></td><td class="num"><strong>3.000</strong></td><td>Fim do ano 1 · ~31.500 processos acumulados (1,5/user/mês) · ~308 GB em S3</td></tr>
     </tbody>
   </table>
-  <p class="f">O fee é <strong>independente da dimensão da sociedade</strong>: o que ele mede é a capacidade de implementação (500 utilizadores/mês), não o número de advogados já instalados. A infraestrutura é idêntica em qualquer cenário.</p>
+  <p class="f">O fee é <strong>independente da dimensão da sociedade</strong>: o que ele mede são os <strong>utilizadores efetivamente implementados</strong> (tranches de 500), não o número de advogados já instalados. A infraestrutura é idêntica em qualquer cenário.</p>
 </section>
 
 <!-- ═══════════ 02 · POC ═══════════ -->
@@ -260,50 +260,50 @@
   <div class="dest">
     <div class="rot">O que a entrada garante</div>
     <div class="v">Plataforma provada, em produção e com suporte ativo — 1.370 €, uma só vez</div>
-    <p>Para além das funcionalidades, a POC valida a <strong>segurança e o controlo</strong>: acesso por ligação segura, tokens com expiração, validação de NIF, bloqueio de conformidade dos termos e condições e auditoria completa. Terminada a entrada, o único compromisso recorrente é o <strong>fee mensal</strong> (secção 03).</p>
+    <p>Para além das funcionalidades, a POC valida a <strong>segurança e o controlo</strong>: acesso por ligação segura, tokens com expiração, validação de NIF, bloqueio de conformidade dos termos e condições e auditoria completa. Terminada a entrada, o único compromisso posterior é o <strong>fee por stock</strong> (secção 03) — faturado a cada tranche de 500 utilizadores implementados.</p>
   </div>
 </section>
 
 <!-- ═══════════ 03 · PRODUÇÃO ═══════════ -->
 <section class="pagina" id="s3">
-  <div class="sec-tag">03 · Fee mensal, capacidade e rollover</div>
-  <h2>Um fee fixo, com capacidade contratada</h2>
-  <div class="chapeu">O modelo de implementação por sociedade dá lugar a um <strong>fee mensal fixo</strong> que inclui a implementação de novos utilizadores. Deixa de haver um custo por cada sociedade instalada: o que se contrata é <strong>capacidade de implementação</strong> — até 500 novos utilizadores por mês —, e a implementação passa a estar <strong>incluída no fee</strong>.</div>
+  <div class="sec-tag">03 · Fee por stock, previsão de adesão e volume</div>
+  <h2>Um fee por stock, simples e previsível</h2>
+  <div class="chapeu">O modelo de implementação por sociedade dá lugar a um <strong>fee de 1.500 € por cada 500 utilizadores implementados</strong>. Não há mensalidade: paga-se por tranche de utilizadores, quando cada tranche de 500 é ativada. A plataforma, o serviço, a manutenção, o suporte e a implementação estão todos incluídos no fee.</div>
 
   <table>
     <thead><tr><th style="width:34%">Rubrica</th><th class="num" style="width:20%">Valor</th><th style="width:14%">Periodicidade</th><th>Detalhe</th></tr></thead>
     <tbody>
-      <tr><td><strong>Fee mensal de plataforma e serviço</strong></td><td class="num"><strong>1.500,00 €</strong></td><td>Mensal</td><td>Manutenção da plataforma, suporte, conformidade regulamentar, atualizações e implementação de novos utilizadores</td></tr>
-      <tr><td><strong>Capacidade incluída</strong></td><td class="num"><strong>500 utilizadores</strong></td><td>Mensal</td><td>Novos utilizadores implementados por mês, sem custo adicional</td></tr>
-      <tr><td><strong>Transição de capacidade não usada</strong></td><td class="num"><strong>até 250</strong></td><td>Mensal</td><td>Os utilizadores não usados transitam para o mês seguinte; o saldo acumulado nunca excede 250</td></tr>
-      <tr><td><strong>Capacidade máxima num mês</strong></td><td class="num"><strong>750 utilizadores</strong></td><td>Mensal</td><td>500 do mês + até 250 transitados — é o teto de execução em qualquer mês</td></tr>
-      <tr><td><strong>Utilizador acima da capacidade</strong></td><td class="num"><strong>4,00 €</strong></td><td>Unitário</td><td>Apenas quando a capacidade do mês (500 + saldo) esgota — faturado no mês seguinte; acima de 100 extras, confirma-se por escrito</td></tr>
-      <tr class="total"><td><strong>Preço de tabela de referência</strong></td><td class="num">5,00 €/utilizador/mês</td><td>Mensal</td><td>2.500 €/mês por 500 utilizadores — o fee fixo de 1.500 € representa um <strong>desconto de 40 %</strong> sobre este valor</td></tr>
+      <tr><td><strong>Fee por stock</strong></td><td class="num"><strong>1.500,00 €</strong></td><td>Por tranche</td><td>Por cada 500 utilizadores implementados — plataforma, serviço, manutenção, suporte e implementação incluídos</td></tr>
+      <tr><td><strong>Tranche de capacidade</strong></td><td class="num"><strong>500 utilizadores</strong></td><td>—</td><td>O fee é faturado quando cada tranche de 500 utilizadores é ativada</td></tr>
+      <tr><td><strong>Previsão de adesão</strong></td><td class="num"><strong>500 a cada 2 meses</strong></td><td>Estimativa</td><td>Ritmo previsto de entrada de novos utilizadores — a faturação acompanha o ritmo real</td></tr>
+      <tr><td><strong>Volume por utilizador</strong></td><td class="num"><strong>1,5 processos/mês</strong></td><td>Média</td><td>Cada utilizador abre em média 1,5 processos por mês — base de dimensionamento do serviço</td></tr>
+      <tr><td><strong>Utilizador acima da capacidade</strong></td><td class="num"><strong>4,00 €</strong></td><td>Unitário</td><td>Apenas quando a capacidade da tranche esgota — faturado no mês seguinte; acima de 100 extras, confirma-se por escrito</td></tr>
+      <tr class="total"><td><strong>Preço de tabela de referência</strong></td><td class="num">3,00 €/utilizador</td><td>—</td><td>1.500 € ÷ 500 utilizadores = 3 € por utilizador implementado — referência para o fee por stock</td></tr>
     </tbody>
   </table>
 
   <div class="dest">
     <div class="rot">Como funciona na prática</div>
-    <div class="v">Mês 1: 180 de 500 · Mês 2: capacidade de 750</div>
-    <p><strong>Mês 1:</strong> o cliente implementa 180 utilizadores de 500. Sobram 320, dos quais 250 transitam (teto). <strong>Mês 2:</strong> capacidade total 750; implementa 300; sobram 450, dos quais 250 transitam (teto); o saldo fica em 250. Em qualquer mês, a capacidade máxima é <strong>750 utilizadores</strong>.</p>
+    <div class="v">500 utilizadores a cada 2 meses · 1,5 processos por utilizador por mês</div>
+    <p><strong>Meses 1–2:</strong> entram 500 utilizadores → 1.500 €. Com 1,5 processos cada, são <strong>750 processos/mês</strong>. <strong>Meses 3–4:</strong> entram mais 500 (1.000 ativos) → 1.500 € · <strong>1.500 processos/mês</strong>. Ao fim do ano: <strong>3.000 utilizadores</strong>, 6 tranches pagas (9.000 €) e <strong>~31.500 processos acumulados</strong>.</p>
   </div>
 
   <h3>O que conta como utilizador</h3>
-  <div class="chapeu">A regra de contagem está fixada para não haver dúvida sobre o que consome capacidade — e para que contas abertas e nunca usadas não sejam faturadas como implementações.</div>
+  <div class="chapeu">A regra de contagem está fixada para não haver dúvida sobre o que consome a tranche — e para que contas abertas e nunca usadas não sejam faturadas como implementações.</div>
 
   <table>
     <thead><tr><th style="width:30%">Regra</th><th>Como se aplica</th></tr></thead>
     <tbody>
       <tr><td><strong>1 utilizador = 1 advogado</strong></td><td>Identificado pelo número de cédula profissional</td></tr>
-      <tr><td><strong>Quando se debita</strong></td><td>Na <strong>primeira ativação</strong> — o primeiro início de sessão concluído. A criação da conta, por si só, não consome capacidade</td></tr>
-      <tr><td><strong>Contas nunca ativadas</strong></td><td>Ao fim de <strong>60 dias</strong> sem ativação, a conta é devolvida ao saldo de capacidade</td></tr>
+      <tr><td><strong>Quando se debita</strong></td><td>Na <strong>primeira ativação</strong> — o primeiro início de sessão concluído. A criação da conta, por si só, não consome a tranche</td></tr>
+      <tr><td><strong>Contas nunca ativadas</strong></td><td>Ao fim de <strong>60 dias</strong> sem ativação, a conta é devolvida à capacidade da tranche</td></tr>
       <tr><td><strong>Reimplementação</strong></td><td>O mesmo utilizador reimplementado dentro de <strong>12 meses</strong> (mudança de escritório, reposição) <strong>não consome capacidade</strong></td></tr>
     </tbody>
   </table>
 
   <div class="cartao">
-    <div class="rot">Validade do saldo acumulado</div>
-    <p>O saldo transitado <strong>caduca no termo de cada ano contratual</strong> — não se acumula de um ano para o outro. Dentro do ano, o teto de 250 utilizadores acumulados aplica-se em permanência: o saldo total transitado nunca excede 250, independentemente de quantos meses tenham ficado abaixo da capacidade.</p>
+    <div class="rot">Volume e dimensionamento — o que o fee suporta</div>
+    <p>Cada utilizador ativo gera em média <strong>1,5 processos/mês</strong>. Com a previsão de 500 utilizadores a cada 2 meses, o volume evolui assim: <strong>mês 2 → 750 processos/mês</strong> · <strong>mês 4 → 1.500</strong> · <strong>mês 6 → 2.250</strong> · <strong>mês 8 → 3.000</strong> · <strong>mês 10 → 3.750</strong> · <strong>mês 12 → 4.500 processos/mês</strong>. Ao fim do primeiro ano, o stock acumulado é de <strong>~31.500 processos</strong> (~308 GB em armazenamento), com retenção legal de 7 anos.</p>
   </div>
 </section>
 
@@ -315,7 +315,7 @@
 
   <div class="grelha g3">
     <div class="card"><div class="k">1 · Computação</div><div class="v">Hostinger KVM</div><div class="d">Aplicação (Next.js), base de dados (PostgreSQL) e orquestração (Coolify + Docker + Traefik). Alocado na Lituânia (UE) — o mesmo servidor da plataforma de gestão de processos.</div></div>
-    <div class="card"><div class="k">2 · Dados</div><div class="v">AWS S3</div><div class="d">Documentos dos processos, região UE (eu-central-1, Frankfurt). 92 GB × 0,0245 $/GB/mês × 12 ÷ 1,1540 ≈ 23,44 €/ano, com franquia de descargas de 100 GB/mês. Com 500 utilizadores/mês e retenção legal de 7 anos, o stock cresce ~60 GB/ano — custo anual do S3 sobe ~15 €/ano.</div></div>
+    <div class="card"><div class="k">2 · Dados</div><div class="v">AWS S3</div><div class="d">Documentos dos processos, região UE (eu-central-1, Frankfurt). Com 1,5 processos/utilizador/mês e 500 utilizadores a cada 2 meses, o stock atinge <strong>~308 GB no fim do ano 1</strong> — ≈ 78 €/ano de armazenamento, com franquia de descargas de 100 GB/mês. A retenção legal de 7 anos faz o stock crescer todos os anos.</div></div>
     <div class="card"><div class="k">3 · Comunicações</div><div class="v">Postfix próprio</div><div class="d">E-mails transacionais e do suporte enviados pelo servidor da plataforma — já instalado e ativo (verificado ao vivo). Sem fornecedor externo, sem custo por e-mail.</div></div>
   </div>
 
@@ -349,7 +349,7 @@
 <!-- ═══════════ 05 · INFRA ═══════════ -->
 <section class="pagina" id="s5">
   <div class="sec-tag">05 · Infraestrutura</div>
-  <h2>Estrutura — 297,98 €/ano</h2>
+  <h2>Estrutura — 269,19 €/ano</h2>
   <div class="chapeu">O custo fixo de correr a plataforma durante um ano — <strong>custo de operação do serviço, por conta do cliente</strong>, e não parte do fee. Verificado ao cêntimo, ajustado ao e-mail próprio (Postfix). <strong>100% UE</strong>: servidor na Lituânia, armazenamento AWS S3 em região UE, e-mail no próprio servidor.</div>
 
   <table>
@@ -358,13 +358,11 @@
       <tr><td><strong>Servidor</strong> (Hostinger KVM)</td><td class="num">155,88 €</td><td>Anual</td><td>$14,99/mês ÷ 1,1540 — Lituânia (UE); o customer service corre aqui — 0 € extra</td></tr>
       <tr><td><strong>Domínio</strong></td><td class="num">10,00 €</td><td>Anual</td><td>Registo anual do domínio da plataforma</td></tr>
       <tr><td><strong>E-mail transacional</strong></td><td class="num">0 €</td><td>—</td><td>Postfix próprio no servidor (já instalado, verificado ao vivo) — sem fornecedor</td></tr>
-      <tr><td><strong>Armazenamento (AWS S3)</strong></td><td class="num">23,44 €</td><td>Anual</td><td>92 GB × 0,0245 $/GB/mês × 12 ÷ 1,1540 · região UE (eu-central-1, Frankfurt) · franquia de descargas de 100 GB/mês · cresce ~15 €/ano com o ritmo de 500 utilizadores/mês</td></tr>
+      <tr><td><strong>Armazenamento (AWS S3)</strong></td><td class="num">78,37 €</td><td>Anual</td><td>~308 GB no fim do ano 1 (1,5 processos/user/mês · 500 users a cada 2 meses) × 0,0245 $/GB/mês × 12 ÷ 1,1540 · região UE (eu-central-1, Frankfurt) · franquia de descargas 100 GB/mês · cresce com o stock</td></tr>
       <tr><td><strong>Backups</strong></td><td class="num">0,47 €</td><td>Anual</td><td>Dumps da base de dados e pedidos de API no S3</td></tr>
-      <tr class="total"><td><strong>Subtotal</strong></td><td class="num">189,79 €</td><td>Anual</td><td>155,88 + 10,00 + 0 + 23,44 + 0,47</td></tr>
-      <tr class="total"><td><strong>Contingência (10 %)</strong></td><td class="num">18,98 €</td><td>—</td><td>Margem de reserva</td></tr>
-      <tr class="total"><td><strong>Estrutura base verificada</strong></td><td class="num">208,77 €/ano</td><td>Anual</td><td>Referência: Rev. I tinha 287,03 €/ano com e-mail de fornecedor — o Postfix elimina os 81,10 €</td></tr>
-      <tr class="total"><td><strong>Dimensionamento para 500 utilizadores/mês</strong></td><td class="num">89,21 €/ano</td><td>Anual</td><td>Reserva de capacidade do servidor e do armazenamento para o ritmo de implementação contratado</td></tr>
-      <tr class="total"><td><strong>Total estrutura</strong></td><td class="num"><strong>297,98 €/ano</strong></td><td>Anual</td><td>Com o chatbot (≈ 67 €/ano, secção 06), a infraestrutura fica em <strong>≈ 365 €/ano</strong></td></tr>
+      <tr class="total"><td><strong>Subtotal</strong></td><td class="num">244,72 €</td><td>Anual</td><td>155,88 + 10,00 + 0 + 78,37 + 0,47</td></tr>
+      <tr class="total"><td><strong>Contingência (10 %)</strong></td><td class="num">24,47 €</td><td>—</td><td>Margem de reserva</td></tr>
+      <tr class="total"><td><strong>Total estrutura</strong></td><td class="num"><strong>269,19 €/ano</strong></td><td>Anual</td><td>244,72 + 24,47 · com o chatbot (≈ 67 €/ano, secção 06), a infraestrutura fica em <strong>≈ 340 €/ano</strong> no fim do ano 1</td></tr>
     </tbody>
   </table>
 
@@ -388,7 +386,7 @@
       <tr><td><strong>Motor de tickets</strong></td><td class="num"><strong>0 €</strong></td><td>—</td><td>Desenvolvido na própria plataforma — sem SaaS, sem licenças</td></tr>
       <tr><td><strong>E-mails do suporte</strong></td><td class="num"><strong>0 €</strong></td><td>—</td><td>Enviados pela própria plataforma (Postfix já instalado)</td></tr>
       <tr><td><strong>Servidor e infraestrutura</strong></td><td class="num"><strong>0 € extra</strong></td><td>—</td><td>Mesmo servidor da plataforma — já contabilizado na estrutura (secção 05)</td></tr>
-      <tr class="total"><td><strong>Total fixo do customer service</strong></td><td class="num"><strong>≈ 67 €/ano</strong></td><td>Anual</td><td>A implementação está na entrada (435 €) e a manutenção no fee mensal (secção 07)</td></tr>
+      <tr class="total"><td><strong>Total fixo do customer service</strong></td><td class="num"><strong>≈ 67 €/ano</strong></td><td>Anual</td><td>A implementação está na entrada (435 €) e a manutenção no fee por stock (secção 07)</td></tr>
     </tbody>
   </table>
 
@@ -407,8 +405,8 @@
 <!-- ═══════════ 06 · MANUTENÇÃO ═══════════ -->
 <section class="pagina" id="s7">
   <div class="sec-tag">07 · O que o fee inclui e condições</div>
-  <h2>O âmbito do fee mensal</h2>
-  <div class="chapeu">A pergunta do grupo: <em>«qual o custo mensal de manutenção da plataforma — não servidor, mas o fee para manter a plataforma?»</em> A resposta é <strong>1.500 €/mês</strong>, um valor único que cobre a plataforma, o customer service e a implementação de novos utilizadores. Não há fees separados nem custo por sociedade instalada.</div>
+  <h2>O âmbito do fee por stock</h2>
+  <div class="chapeu">A pergunta: <em>«qual o custo de manutenção da plataforma — não servidor, mas o fee para manter a plataforma?»</em> A resposta é <strong>1.500 € por cada 500 utilizadores implementados</strong>, um valor único que cobre a plataforma, o customer service e a implementação de novos utilizadores. <strong>Não é uma mensalidade</strong>: o fee é faturado quando cada tranche de 500 utilizadores é ativada. Não há fees separados nem custo por sociedade instalada.</div>
 
   <table>
     <thead><tr><th style="width:34%">Incluído no fee</th><th>O que abrange</th></tr></thead>
@@ -417,7 +415,7 @@
       <tr><td><strong>Suporte</strong></td><td>Suporte à equipa da sociedade e ao serviço em operação</td></tr>
       <tr><td><strong>Conformidade regulamentar</strong></td><td>Acompanhamento das obrigações aplicáveis e adaptação da plataforma quando mudam</td></tr>
       <tr><td><strong>Atualizações</strong></td><td>Novas versões da plataforma e do customer service, sem custo por versão</td></tr>
-      <tr><td><strong>Implementação de novos utilizadores</strong></td><td>Até <strong>500 por mês</strong> — configuração, permissões e formação (secção 03)</td></tr>
+      <tr><td><strong>Implementação de novos utilizadores</strong></td><td><strong>500 utilizadores por tranche</strong> — configuração, permissões e formação (secção 03)</td></tr>
       <tr><td><strong>Customer service</strong></td><td>Ajustes da base de conhecimento, acompanhamento da taxa de resolução do chatbot, suporte técnico da integração</td></tr>
     </tbody>
   </table>
@@ -428,21 +426,22 @@
     <tbody>
       <tr><td><strong>Compromisso mínimo</strong></td><td><strong>12 meses</strong>, renovável — denúncia com <strong>60 dias</strong> de aviso prévio para o período seguinte</td></tr>
       <tr><td><strong>Revisão de preço</strong></td><td>Revisão anual indexada ao <strong>Índice de Preços no Consumidor (IPC)</strong></td></tr>
-      <tr><td><strong>SLA de implementação</strong></td><td>Garantido até <strong>500 utilizadores/mês</strong>. Acima disso — em picos até 750, com recurso ao saldo transitado — o prazo é acordado caso a caso</td></tr>
-      <tr><td><strong>Período de arranque</strong></td><td><strong>Meses 1 a 3: 750,00 €/mês</strong>, com capacidade de <strong>250 utilizadores/mês</strong> e o mesmo regime de transição. A partir do <strong>mês 4</strong> converte para o fee pleno de 1.500 €/mês com 500 utilizadores/mês</td></tr>
-      <tr><td><strong>Excedente</strong></td><td><strong>4,00 €</strong> por utilizador acima da capacidade, faturado no mês seguinte. Acima de <strong>100 excedentes</strong> exige pré-aprovação escrita</td></tr>
+      <tr><td><strong>SLA de implementação</strong></td><td>Cada pedido de utilizadores é <strong>aplicado em até 48 horas</strong> — o prazo conta do momento do pedido até à ativação/conclusão da implementação</td></tr>
+      <tr><td><strong>Previsão de adesão</strong></td><td><strong>500 utilizadores a cada 2 meses</strong> — estimativa de planeamento, não compromisso contratual. A faturação acompanha o ritmo real: cada tranche de 500 ativada gera um fee de 1.500 €</td></tr>
+      <tr><td><strong>Faturação do fee</strong></td><td>No momento em que cada tranche de <strong>500 utilizadores</strong> é ativada — sem mensalidade e sem valor mínimo entre tranches</td></tr>
+      <tr><td><strong>Excedente</strong></td><td><strong>4,00 €</strong> por utilizador acima da capacidade da tranche, faturado no mês seguinte. Acima de <strong>100 excedentes</strong> exige pré-aprovação escrita</td></tr>
     </tbody>
   </table>
 
   <div class="dest">
-    <div class="rot">O fee comparado com o preço de tabela</div>
-    <div class="v">1.500 €/mês fixos contra 2.500 €/mês ao preço unitário</div>
-    <p>O preço de tabela de referência é de <strong>5,00 € por utilizador/mês</strong> — a 500 utilizadores, 2.500 €/mês. O fee fixo de <strong>1.500 €/mês</strong> representa um <strong>desconto de 40 %</strong> sobre esse valor e, ao contrário do preço unitário, é <strong>previsível</strong>: não varia com o ritmo de implementação nem com o número de sociedades instaladas.</p>
+    <div class="rot">O fee traduzido em preço por utilizador</div>
+    <div class="v">1.500 € ÷ 500 utilizadores = 3,00 € por utilizador implementado</div>
+    <p>O fee por stock corresponde a <strong>3,00 € por utilizador implementado</strong> — pago <strong>uma vez</strong>, quando a tranche é ativada, e não por mês. É esta a referência para comparar com qualquer preço unitário: o valor não varia com o ritmo de adesão nem com o número de sociedades instaladas, e entre tranches não há qualquer valor a pagar.</p>
   </div>
 
   <div class="cartao">
     <div class="rot">O que NÃO está incluído no fee (é infraestrutura, por conta do cliente)</div>
-    <p><strong>Servidor</strong> 155,88 €/ano · <strong>domínio</strong> 10 €/ano · <strong>armazenamento AWS S3</strong> 23,44 €/ano · <strong>backups</strong> 0,47 €/ano · <strong>contingência</strong> 18,98 €/ano · <strong>dimensionamento</strong> 89,21 €/ano · <strong>chatbot</strong> ≈ 67 €/ano (consumo de IA) — <strong>≈ 365 €/ano</strong> no total, já detalhado nas secções 05 e 06. O fee é o valor do <strong>serviço contínuo</strong>, à parte da infraestrutura.</p>
+    <p><strong>Servidor</strong> 155,88 €/ano · <strong>domínio</strong> 10 €/ano · <strong>armazenamento AWS S3</strong> ≈ 78 €/ano (fim do ano 1) · <strong>backups</strong> 0,47 €/ano · <strong>contingência</strong> 24,47 €/ano · <strong>chatbot</strong> ≈ 67 €/ano (consumo de IA) — <strong>≈ 340 €/ano</strong> no total, já detalhado nas secções 05 e 06. O fee é o valor do <strong>serviço contínuo</strong>, à parte da infraestrutura.</p>
   </div>
 </section>
 
@@ -455,8 +454,8 @@
   <table>
     <thead><tr><th style="width:34%">Rubrica</th><th class="num" style="width:22%">Valor</th><th style="width:14%">Periodicidade</th><th>Detalhe</th></tr></thead>
     <tbody>
-      <tr><td><strong>Utilizador dentro da capacidade</strong></td><td class="num"><strong>0 €</strong></td><td>Unitário</td><td>Até 500 por mês (750 com saldo transitado) — incluído no fee</td></tr>
-      <tr><td><strong>Utilizador acima da capacidade</strong></td><td class="num"><strong>4,00 €</strong></td><td>Unitário</td><td>Apenas quando a capacidade do mês (500 + saldo) esgota — faturado no mês seguinte; acima de 100 extras, confirma-se por escrito</td></tr>
+      <tr><td><strong>Utilizador dentro da capacidade</strong></td><td class="num"><strong>0 €</strong></td><td>Unitário</td><td>Dentro dos 500 utilizadores da tranche — já incluído no fee por stock</td></tr>
+      <tr><td><strong>Utilizador acima da capacidade</strong></td><td class="num"><strong>4,00 €</strong></td><td>Unitário</td><td>Apenas quando a capacidade da tranche (500) esgota — faturado no mês seguinte; acima de 100 extras, confirma-se por escrito</td></tr>
       <tr><td><strong>Novo processo de onboarding</strong></td><td class="num">0,0053 €</td><td>Unitário</td><td>Ano 1 · 0,0178 € no ciclo de 7 anos (com retenção de dados)</td></tr>
       <tr><td><strong>Custo de infraestrutura por utilizador</strong></td><td class="num">0,63–25,47 €/ano</td><td>Anual</td><td>Consoante o volume de processos — rubrica de infraestrutura, não de faturação do serviço</td></tr>
       <tr><td><strong>Ticket simples (L2)</strong></td><td class="num">≈ 6 €</td><td>Unitário</td><td>~15 min × ≈ 25 €/h</td></tr>
@@ -479,8 +478,8 @@
   </div>
 
   <div class="aviso">
-    <div class="rot">Rollover do chatbot — distinto do rollover de utilizadores</div>
-    <p>O chatbot é <strong>pay-as-you-go</strong>: o contrato anual (≈ 67 €/ano) inclui 10.000 conversas/mês de referência. Aqui não há «crédito» que transite — se um mês tiver menos conversas, o custo efetivo é menor; se tiver mais, o excedente cobra-se à taxa de 0,00052 €. Não há risco de «perder» conversas não usadas. <strong>A transição de capacidade descrita na secção 03 aplica-se aos utilizadores, não às conversas</strong> — são dois mecanismos independentes.</p>
+    <div class="rot">O chatbot conta-se por conversa — a tranche conta-se por utilizador</div>
+    <p>O chatbot é <strong>pay-as-you-go</strong>: o contrato anual (≈ 67 €/ano) inclui 10.000 conversas/mês de referência. Se um mês tiver menos conversas, o custo efetivo é menor; se tiver mais, o excedente cobra-se à taxa de 0,00052 €. Não há risco de «perder» conversas não usadas. <strong>A capacidade de 500 utilizadores da tranche (secção 03) mede utilizadores implementados, não conversas</strong> — são dois mecanismos independentes.</p>
   </div>
 </section>
 
@@ -508,7 +507,7 @@
       <li><strong>Moeda:</strong> valores em €; quando a fonte é em $ (servidor $14,99/mês, modelo $0,15/$0,60), conversão a <strong>1 EUR = 1,1540 USD</strong> (BCE, 11/08/2026).</li>
       <li><strong>Sem promoções</strong> — preços de renovação reais.</li>
       <li><strong>100% UE:</strong> servidor Lituânia · IA França · AWS S3 em região UE · e-mail no próprio servidor.</li>
-      <li><strong>Fee mensal:</strong> 1.500 €/mês, com compromisso mínimo de 12 meses e revisão anual indexada ao IPC (secção 07).</li>
+      <li><strong>Fee por stock:</strong> 1.500 € por cada 500 utilizadores implementados, com compromisso mínimo de 12 meses e revisão anual indexada ao IPC (secção 07).</li>
     </ul>
   </div>
 </section>
@@ -543,9 +542,9 @@
   <table>
     <thead><tr><th style="width:16mm">Passo</th><th>O que acontece</th><th style="width:34mm">Prazo</th><th style="width:24mm">Decisão</th></tr></thead>
     <tbody>
-      <tr><td><strong>1</strong></td><td>Confirmação do modelo comercial: fee mensal, capacidade de utilizadores e condições</td><td class="m">Reunião</td><td>—</td></tr>
+      <tr><td><strong>1</strong></td><td>Confirmação do modelo comercial: fee por stock, capacidade da tranche e condições</td><td class="m">Reunião</td><td>—</td></tr>
       <tr><td><strong>2</strong></td><td>Passagem da app a produção — migração do servidor para a Lituânia, DNS, e-mail, configuração geral</td><td class="m"><strong>2 semanas</strong></td><td>—</td></tr>
-      <tr><td><strong>3</strong></td><td>Implementação da sociedade — dados reais, utilizadores, permissões, formação</td><td class="m">+1–2 semanas por sociedade</td><td class="m">Incluída no fee mensal</td></tr>
+      <tr><td><strong>3</strong></td><td>Implementação da sociedade — dados reais, utilizadores, permissões, formação</td><td class="m">+1–2 semanas por sociedade</td><td class="m">Incluída no fee por stock</td></tr>
       <tr><td><strong>4</strong></td><td>Implementação do customer service — chatbot, motor de tickets, e-mail</td><td class="m">+2–4 semanas</td><td class="m">Incluída na entrada</td></tr>
       <tr class="total"><td><strong>Total</strong></td><td>Plataforma em produção, sociedade implementada, com customer service</td><td class="m"><strong>≈ 5–8 semanas</strong></td><td>—</td></tr>
     </tbody>
@@ -553,8 +552,8 @@
 
   <div class="dest">
     <div class="rot">Modelo fechado</div>
-    <div class="v">Entrada 1.370 € · fee mensal 1.500 € (até 500 utilizadores/mês) · infraestrutura ≈ 365 €/ano por conta do cliente</div>
-    <p>Tudo o resto está verificado e fechado: a POC funciona, a infraestrutura custa 297,98 €/ano, o chatbot ≈ 67 €/ano, e o customer service não acrescenta custos de servidor. <strong>Ano 1: 1.370 € + 18.000 € de fee mensal + ≈ 365 € de infraestrutura.</strong></p>
+    <div class="v">Entrada 1.370 € · fee por stock 1.500 € (500 utilizadores) · infraestrutura ≈ 340 €/ano por conta do cliente</div>
+    <p>Tudo o resto está verificado e fechado: a POC funciona, a infraestrutura custa 269,19 €/ano, o chatbot ≈ 67 €/ano, e o customer service não acrescenta custos de servidor. <strong>Ano 1 (previsão): 1.370 € + 9.000 € de fee por stock + ≈ 340 € de infraestrutura.</strong></p>
   </div>
 </section>
 
@@ -568,10 +567,10 @@
     <thead><tr><th style="width:34mm">Valor</th><th>Custo usado</th><th>Fonte (URL)</th><th style="width:20mm">Verificação</th></tr></thead>
     <tbody>
       <tr><td><strong>POC e passagem à produção</strong></td><td class="m">1.370,00 €</td><td>Entrada única — POC 500 + produção 435 + implementação do CS 435</td><td><span class="ue">Verificado 13/08</span></td></tr>
-      <tr><td><strong>Estrutura</strong></td><td class="m">208,77 €/ano (sem e-mail fornecedor)</td><td>Rev. I (287,03 €/ano com fornecedor) — ajustado pelo Postfix próprio</td><td><span class="ue">Verificado 13/08</span></td></tr>
+      <tr><td><strong>Estrutura</strong></td><td class="m">269,19 €/ano (com contingência de 10 %)</td><td>Servidor 155,88 + domínio 10,00 + S3 78,37 + backups 0,47 = 244,72 · e-mail a 0 € pelo Postfix próprio</td><td><span class="ue">Verificado 13/08 + Opus 19/08</span></td></tr>
       <tr><td><strong>Chatbot — Mistral Small 4</strong> <span class="ue">UE</span></td><td class="m">$0,15/1M in · $0,60/1M out → 0,00052 €/conversa</td><td>mistral.ai/pricing · openrouter.ai/mistralai/mistral-small-2603 · aipricing.guru/mistral-ai-pricing</td><td><span class="ue">Verificado 13/08</span></td></tr>
       <tr><td><strong>Servidor — Hostinger</strong> <span class="ue">Lituânia</span></td><td class="m">$14,99/mês ≈ 155,88 €/ano</td><td>hostinger.com/vps-hosting · hostinger.com/support/1583267 (localizações UE)</td><td><span class="ue">Verificado 13/08</span></td></tr>
-      <tr><td><strong>Armazenamento AWS S3</strong> <span class="ue">região UE</span></td><td class="m">23,44 €/ano (92 GB × 0,0245 $/GB/mês × 12 ÷ 1,1540)</td><td>eu-central-1 (Frankfurt) · aws.amazon.com/s3/pricing/</td><td><span class="ue">Verificado 13/08 + Opus 19/08</span></td></tr>
+      <tr><td><strong>Armazenamento AWS S3</strong> <span class="ue">região UE</span></td><td class="m">≈ 78 €/ano (fim do ano 1, ~308 GB × 0,0245 $/GB/mês × 12 ÷ 1,1540)</td><td>eu-central-1 (Frankfurt) · aws.amazon.com/s3/pricing/</td><td><span class="ue">Verificado 13/08 + Opus 19/08</span></td></tr>
       <tr><td><strong>E-mail — Postfix</strong> <span class="ue">UE</span></td><td class="m">0 € (já instalado no servidor)</td><td>Verificado ao vivo: postfix 3.8.6 ativo, PTR/rDNS, porta 25 aberta. powerdmarc.com/self-hosting-email</td><td><span class="ue">Verificado 13/08</span></td></tr>
       <tr><td><strong>Custo por processo/utilizador</strong></td><td class="m">0,0053 / 0,0178 € · 0,63–25,47 €/ano</td><td>Recalculado com S3 (10 MB × 0,0245 × 84 meses ÷ 1,1540) · Rev. I para cenários</td><td><span class="ue">Verificado 13/08 + Opus 19/08</span></td></tr>
       <tr><td><strong>Câmbio</strong></td><td class="m">1 EUR = 1,1540 USD</td><td>ecb.europa.eu — referência BCE de 11/08/2026</td><td><span class="ue">Verificado 13/08</span></td></tr>
@@ -582,7 +581,7 @@
     <div class="rot">Nota de verificação</div>
     <ul>
       <li><strong>Verificados:</strong> estrutura (ao cêntimo, ajustada ao Postfix), preços Mistral Small 4 e Hostinger, região UE do S3, Postfix ativo, câmbio — 13/08/2026.</li>
-      <li><strong>Fechados a 14/08 e 19/08:</strong> entrada única de 1.370 € (POC + produção + implementação do CS) e fee mensal de 1.500 € (plataforma e serviço, até 500 utilizadores/mês, rollover até 250).</li>
+      <li><strong>Modelo comercial:</strong> entrada única de 1.370 € (POC + produção + implementação do CS) e fee por stock de 1.500 € (por cada 500 utilizadores implementados — plataforma, serviço, manutenção, suporte, conformidade e implementação).</li>
       <li><strong>A confirmar:</strong> upgrade KVM 4 para 50+ sociedades (≈ 264 €/ano).</li>
       <li><strong>Estimados</strong> (a medir em operação): tokens por conversa, taxa de conversas que geram ticket (~20 %), valor hora da equipa (20–30 €).</li>
       <li>Este documento <strong>não substitui</strong> parecer jurídico, fiscal, de proteção de dados ou de cibersegurança.</li>
