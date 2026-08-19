@@ -227,7 +227,7 @@
     <tbody>
       <tr><td><strong>Tranche de 500 utilizadores</strong></td><td class="num"><strong>1.500,00 €</strong></td><td class="m">na ativação da tranche</td><td>Implementação dos 500 utilizadores — criação de contas, dados, permissões e formação, com SLA de 48 h laborais</td></tr>
       <tr><td><strong>Manutenção da plataforma</strong></td><td class="num"><strong>incluída</strong></td><td class="m">—</td><td>Atualizações, monitorização, correções e afinação do chatbot e da base de conhecimento — sem custo adicional</td></tr>
-      <tr><td><strong>Acumulação de stock não usado</strong></td><td class="num"><strong>até 250</strong></td><td class="m">transita</td><td>Os utilizadores não ativados de uma tranche transitam para o período seguinte, com teto máximo de 250 acumulados</td></tr>
+      <tr><td><strong>Acumulação de stock não usado</strong></td><td class="num"><strong>até 250</strong></td><td class="m">transita</td><td>Os utilizadores não ativados de uma tranche transitam para o período seguinte, com teto máximo de <strong>250 acumulados</strong> — capacidade máxima de <strong>750 utilizadores (500 + 250)</strong></td></tr>
       <tr class="total"><td><strong>Custo por utilizador implementado</strong></td><td class="num"><strong>3,00 €</strong></td><td class="m"><strong>único</strong></td><td>1.500 € ÷ 500 utilizadores — pago uma vez, não todos os meses</td></tr>
     </tbody>
   </table>
@@ -243,8 +243,8 @@
       <tr><td><strong>Armazenamento</strong> (AWS S3) <span class="ue">UE</span></td><td class="num">22,39 €</td><td class="m">anual</td><td>≈ 88 GB no fim do ano 1 (stock de 500 utilizadores · 1,5 processos/utilizador/mês) · região eu-central-1 (Frankfurt)</td></tr>
       <tr><td><strong>Backups</strong> (S3)</td><td class="num">0,47 €</td><td class="m">anual</td><td>Dumps da base de dados no AWS S3</td></tr>
       <tr><td><strong>Base de dados, software, TLS, orquestração</strong></td><td class="num">0,00 €</td><td class="m">—</td><td>PostgreSQL self-hosted, licenças permissivas, Let's Encrypt, Coolify</td></tr>
-      <tr><td><strong>Contingência</strong> (10 % sobre a estrutura)</td><td class="num">26,98 €</td><td class="m">anual</td><td>Variação cambial, upgrade antecipado, excedentes de quota</td></tr>
-      <tr class="total"><td><strong>Subtotal estrutura</strong></td><td class="num"><strong>296,83 €</strong></td><td class="m"><strong>anual</strong></td><td>155,88 + 10 + 81,10 + 22,39 + 0,47 = 269,84 + 10 % · Infraestrutura base 100% UE</td></tr>
+      <tr><td><strong>Contingência</strong> (10 % sobre a estrutura)</td><td class="num">26,99 €</td><td class="m">anual</td><td>Variação cambial, upgrade antecipado, excedentes de quota</td></tr>
+      <tr class="total"><td><strong>Subtotal estrutura</strong></td><td class="num"><strong>296,83 €</strong></td><td class="m"><strong>anual</strong></td><td>155,88 + 10 + 81,10 + 22,39 + 0,47 = 269,84 + 10 % = 296,82 ≈ 296,83 · Infraestrutura base 100% UE</td></tr>
       <tr><td><strong>Customer service — chatbot IA</strong> (Mistral Small 4) <span class="ue">UE</span></td><td class="num">≈ 67,00 €</td><td class="m">anual</td><td>França · referência de 10.000 conversas/mês · inclui o motor de tickets</td></tr>
       <tr class="total"><td><strong>Total operação</strong></td><td class="num"><strong>≈ 363,83 €</strong></td><td class="m"><strong>anual</strong></td><td>296,83 + 67,00 · custo do serviço, por conta do cliente</td></tr>
     </tbody>
@@ -512,7 +512,7 @@
   <div class="dest">
     <div class="rot">Em resumo</div>
     <div class="v">Está tudo fechado — falta decidir a dimensão e adjudicar</div>
-    <p><strong>Da nossa parte:</strong> 1.370 € uma vez + <strong>fee por stock de 1.500 € por cada 500 utilizadores</strong> implementados. <strong>Operação:</strong> ≈ 364 €/ano, custo do serviço. <strong>Suporte fora da manutenção e da implementação:</strong> pago em bolsa de horas, desde 250 €. Ano 1 (Micro, Pequena ou Média — até 500 utilizadores): <strong>3.234 €</strong> + operação · Ano 2+: <strong>1.864 €/ano</strong> + operação. Plataforma pronta em <strong>2 semanas</strong>.</p>
+    <p><strong>Da nossa parte:</strong> 1.370 € uma vez + <strong>fee por stock de 1.500 € por cada 500 utilizadores</strong> implementados. <strong>Operação:</strong> ≈ 364 €/ano, custo do serviço. <strong>Suporte fora da manutenção e da implementação:</strong> pago em bolsa de horas, desde 250 €. Ano 1 (Micro, Pequena ou Média — até 500 utilizadores): <strong>3.234 €, operação incluída</strong> · Ano 2+: <strong>1.864 €/ano, operação incluída</strong>. Plataforma pronta em <strong>2 semanas</strong>.</p>
   </div>
 
   <div class="cartao" style="margin-top:4mm;">
