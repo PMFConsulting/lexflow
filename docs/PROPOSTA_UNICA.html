@@ -240,6 +240,7 @@
   <p class="f">A tranche inclui a criação de novos utilizadores sem custo unitário até à sua capacidade. Esgotada a capacidade e antes de a tranche seguinte ser ativada, o excedente é faturado a <strong>4,00 €</strong> por utilizador, no mês seguinte (secção 03.3).</p>
 
   <h3>1.3 · Estrutura — custo de operação do serviço</h3>
+  <div class="chapeu">O custo fixo de correr a plataforma durante um ano — <strong>custo de operação do serviço, por conta do cliente</strong>. O armazenamento cresce com o uso real, mas a maior parte do custo é fixa: por isso a operação varia pouco entre escalas (ver tabela em baixo).</div>
   <table>
     <thead><tr><th style="width:34%">Componente</th><th class="num" style="width:16%">Valor</th><th class="num" style="width:14%">Periodicidade</th><th>Detalhe</th></tr></thead>
     <tbody>
@@ -255,6 +256,19 @@
       <tr class="total"><td><strong>Total operação</strong></td><td class="num"><strong>≈ 363,83 €</strong></td><td class="m"><strong>anual</strong></td><td>296,83 + 67,00 · custo do serviço, por conta do cliente</td></tr>
     </tbody>
   </table>
+
+  <h3>Operação por escala — como varia com a dimensão</h3>
+  <div class="chapeu">A operação é quase toda <strong>custo fixo</strong>: servidor, domínio, e-mail e chatbot não mudam com o número de utilizadores. O que cresce é o <strong>armazenamento</strong> (1,5 processos/utilizador/mês × ~10 MB cada) — e mesmo no máximo do stock, a diferença é pequena.</div>
+  <table>
+    <thead><tr><th style="width:22%">Escala</th><th class="num" style="width:16%">Utilizadores</th><th class="num" style="width:16%">Processos/ano</th><th class="num" style="width:14%">Armazenamento</th><th class="num">Operação (ano)</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Micro</strong></td><td class="num">5</td><td class="num">90</td><td class="num">~1 GB</td><td class="num"><strong>≈ 339 €</strong></td></tr>
+      <tr><td><strong>Pequena</strong></td><td class="num">20</td><td class="num">360</td><td class="num">~4 GB</td><td class="num"><strong>≈ 340 €</strong></td></tr>
+      <tr><td><strong>Média</strong></td><td class="num">50</td><td class="num">900</td><td class="num">~9 GB</td><td class="num"><strong>≈ 342 €</strong></td></tr>
+      <tr><td><strong>Grande</strong> (stock máximo)</td><td class="num">500</td><td class="num">9.000</td><td class="num">~88 GB</td><td class="num"><strong>≈ 364 €</strong></td></tr>
+    </tbody>
+  </table>
+  <p class="f">Exemplo: uma sociedade Micro (5 utilizadores) custa ≈ 339 €/ano de operação; no máximo do stock (500 utilizadores), ≈ 364 €/ano. A diferença entre a menor e a maior escala é de ~25 €/ano.</p>
 
   <div class="aviso">
     <div class="rot">Moeda e câmbio</div>
@@ -315,7 +329,11 @@
       <tr><td><strong>Novo processo de onboarding</strong><br><span class="f">0,0178 € no ciclo legal de 7 anos</span></td><td class="num">0,0025 €</td><td class="m">unitário</td><td>Custo de operação · consumo real</td></tr>
     </tbody>
   </table>
-  <p class="f">O excedente só existe quando a capacidade da tranche esgota e ainda não foi ativada a seguinte — ativada a tranche seguinte, os utilizadores voltam a estar incluídos. Acima de <strong>100 utilizadores em excedente</strong>, a faturação é confirmada por escrito antes de ser emitida: nenhuma fatura de excedente relevante sai sem acordo prévio.</p>
+  <div class="dest">
+    <div class="rot">Os 4 €, com exemplo</div>
+    <div class="v">Só se paga quando o stock de 500 esgota</div>
+    <p>O <strong>4,00 € por utilizador</strong> é o custo de cada utilizador que entra <strong>depois de os 500 do stock estarem preenchidos</strong> e <strong>antes de a tranche seguinte ser ativada</strong>. Exemplo: a sociedade preenche os 500 do stock em junho e pede mais 20 utilizadores em julho → <strong>20 × 4,00 € = 80 €</strong>, faturados no mês seguinte. Ativada a tranche seguinte (mais 500 por 1.500 €), os utilizadores voltam a estar incluídos no stock e o excedente desaparece. Acima de <strong>100 utilizadores em excedente</strong>, a faturação é confirmada por escrito antes de ser emitida.</p>
+  </div>
 </section>
 
 <!-- ═══════════ 04 · BLOCO 3 ═══════════ -->
