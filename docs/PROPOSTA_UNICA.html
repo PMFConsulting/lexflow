@@ -201,7 +201,7 @@
 
   <div class="cartao">
     <div class="rot">Volume previsto — por utilizador</div>
-    <p>Cada utilizador ativo abre em média <strong>1,5 processos por mês</strong> (~18 processos por ano). Com o stock de 500 utilizadores no máximo, o armazenamento cresce com o uso real: <strong>~9.000 processos</strong> e <strong>~88 GB</strong> ao fim do primeiro ano no cenário de stock cheio — já incluídos no valor da operação (secção 02.3).</p>
+    <p>Cada utilizador ativo abre em média <strong>1,5 processos por mês</strong> (~18 processos por ano). Com o stock de 500 utilizadores no máximo, o armazenamento cresce com o uso real: <strong>~9.000 processos</strong> e <strong>~88 GB</strong> ao fim do primeiro ano no cenário de stock cheio — já incluídos no valor da operação (secção 02 · 1.3).</p>
   </div>
 
   <div class="cartao">
@@ -239,7 +239,7 @@
       <tr class="total"><td><strong>Custo por utilizador implementado</strong></td><td class="num"><strong>3,00 €</strong></td><td class="m"><strong>único</strong></td><td>1.500 € ÷ 500 utilizadores — pago uma vez, não todos os meses</td></tr>
     </tbody>
   </table>
-  <p class="f">A tranche inclui a criação de novos utilizadores sem custo unitário até à sua capacidade. <strong>O que não for usado acumula — até ao máximo de 250 utilizadores</strong>: comprou 500 e ativou 300, ficam 200 de saldo para o período seguinte (e até 250 em permanência). Esgotada a capacidade total (500 + saldo) e antes de a tranche seguinte ser ativada, o excedente é faturado a <strong>4,00 €</strong> por utilizador, no mês seguinte (secção 03.3).</p>
+  <p class="f">A tranche inclui a criação de novos utilizadores sem custo unitário até à sua capacidade. <strong>O que não for usado acumula — até ao máximo de 250 utilizadores</strong>: comprou 500 e ativou 300, ficam 200 de saldo para o período seguinte (e até 250 em permanência). Esgotada a capacidade total (500 + saldo) e antes de a tranche seguinte ser ativada, o excedente é faturado a <strong>4,00 €</strong> por utilizador, no mês seguinte (secção 03 · 2.3).</p>
 
   <h3>1.3 · Estrutura — custo de operação do serviço</h3>
   <div class="chapeu">O custo fixo de correr a plataforma durante um ano — <strong>custo de operação do serviço, por conta do cliente</strong>. O armazenamento cresce com o uso real, mas a maior parte do custo é fixa: por isso a operação varia pouco entre escalas (ver tabela em baixo).</div>
@@ -288,7 +288,7 @@
   <table>
     <thead><tr><th style="width:40%">Situação</th><th class="num" style="width:14%">Custo</th><th>Porquê</th></tr></thead>
     <tbody>
-      <tr><td><strong>Criação de novo utilizador</strong><br><span class="f">SLA de 48 horas entre o pedido e a entrega das credenciais ativas</span></td><td class="num"><strong>0,00 €</strong></td><td>Incluída no fee por stock até esgotar a capacidade da tranche. Acima dessa capacidade, <strong>4,00 €</strong> por utilizador (secção 03.3)</td></tr>
+      <tr><td><strong>Criação de novo utilizador</strong><br><span class="f">SLA de 48 horas entre o pedido e a entrega das credenciais ativas</span></td><td class="num"><strong>0,00 €</strong></td><td>Incluída no fee por stock até esgotar a capacidade da tranche. Acima dessa capacidade, <strong>4,00 €</strong> por utilizador (secção 03 · 2.3)</td></tr>
       <tr><td><strong>Resposta do assistente a um ticket</strong><br><span class="f">SLA de 24 h laborais</span></td><td class="num"><strong>0,00 €</strong></td><td>É o nível 1 do atendimento — respondido pelo chatbot, sem intervenção humana</td></tr>
       <tr><td><strong>E-mails da plataforma e do suporte</strong></td><td class="num">81,10 €/ano</td><td>Twilio SendGrid pay-as-you-go · 72.000 e-mails/ano a preço de lista (incluído na operação)</td></tr>
     </tbody>
@@ -369,27 +369,27 @@
 
   <div class="cartao">
     <div class="rot">1 · As 10.000 conversas mensais não consumidas transitam para o mês seguinte?</div>
-    <p><strong>Não transitam — porque não existe saldo a transitar, e isso é a vosso favor.</strong> O chatbot é pago ao consumo real, a 0,00052 € por conversa; as 10.000/mês são uma <strong>referência de dimensionamento</strong>, não um pacote comprado. Num mês de menor utilização paga-se menos; num mês de maior utilização, o excedente é cobrado à mesma taxa unitária. Não há conversas a perder. Onde há transição real de saldo é na <strong>bolsa de horas</strong>: essas mantêm-se disponíveis durante 12 meses (secção 03.2).</p>
+    <p><strong>Não transitam — porque não existe saldo a transitar, e isso é a vosso favor.</strong> O chatbot é pago ao consumo real, a 0,00052 € por conversa; as 10.000/mês são uma <strong>referência de dimensionamento</strong>, não um pacote comprado. Num mês de menor utilização paga-se menos; num mês de maior utilização, o excedente é cobrado à mesma taxa unitária. Não há conversas a perder. Onde há transição real de saldo é na <strong>bolsa de horas</strong>: essas mantêm-se disponíveis durante 12 meses (secção 03 · 2.2).</p>
   </div>
 
   <div class="cartao">
     <div class="rot">2 · A resposta do assistente ao ticket, com SLA de 24 h laborais, tem custo?</div>
-    <p><strong>Não tem. Confirmado.</strong> A resposta do assistente é o <strong>nível 1</strong> do atendimento, dada pelo chatbot, e o seu custo — 0,00052 € por conversa — já está dentro dos ≈ 67 €/ano da secção 02.3. Só consome bolsa o ticket que o assistente não resolve e que passa para uma pessoa.</p>
+    <p><strong>Não tem. Confirmado.</strong> A resposta do assistente é o <strong>nível 1</strong> do atendimento, dada pelo chatbot, e o seu custo — 0,00052 € por conversa — já está dentro dos ≈ 67 €/ano da secção 02 · 1.3. Só consome bolsa o ticket que o assistente não resolve e que passa para uma pessoa.</p>
   </div>
 
   <div class="cartao">
     <div class="rot">3 · Quais os custos de implementação do chatbot e do workflow de customer service?</div>
-    <p><strong>435,00 €, pagamento único</strong>, já incluídos nos 1.370 € de entrada (secção 02.1). Cobrem o chatbot com IA, o motor de tickets, o e-mail de suporte, a base de conhecimento e todo o desenho do workflow de atendimento, incluindo as regras de escalonamento entre níveis. <strong>Não há custo de infraestrutura adicional</strong>: o customer service corre no mesmo servidor da plataforma.</p>
+    <p><strong>435,00 €, pagamento único</strong>, já incluídos nos 1.370 € de entrada (secção 02 · 1.1). Cobrem o chatbot com IA, o motor de tickets, o e-mail de suporte, a base de conhecimento e todo o desenho do workflow de atendimento, incluindo as regras de escalonamento entre níveis. <strong>Não há custo de infraestrutura adicional</strong>: o customer service corre no mesmo servidor da plataforma.</p>
   </div>
 
   <div class="cartao">
     <div class="rot">4 · Qual o custo unitário de onboarding por utilizador?</div>
-    <p><strong>Zero, dentro da tranche.</strong> A criação de utilizadores está incluída no <strong>fee por stock</strong>, com <strong>SLA de 48 horas</strong> entre o pedido e a ativação das credenciais. O limite é a <strong>capacidade da tranche</strong> — 500 utilizadores por cada 1.500 € — e não uma quota mensal: um mês de 200 novos utilizadores e um mês de nenhum custam o mesmo. Esgotada a capacidade e enquanto a tranche seguinte não for ativada, o excedente é de <strong>4,00 €</strong> por utilizador, faturado no mês seguinte (secção 03.3).</p>
+    <p><strong>Zero, dentro da tranche.</strong> A criação de utilizadores está incluída no <strong>fee por stock</strong>, com <strong>SLA de 48 horas</strong> entre o pedido e a ativação das credenciais. O limite é a <strong>capacidade da tranche</strong> — 500 utilizadores por cada 1.500 € — e não uma quota mensal: um mês de 200 novos utilizadores e um mês de nenhum custam o mesmo. Esgotada a capacidade e enquanto a tranche seguinte não for ativada, o excedente é de <strong>4,00 €</strong> por utilizador, faturado no mês seguinte (secção 03 · 2.3).</p>
   </div>
 
   <div class="cartao">
     <div class="rot">5 · Qual o fee só para manter a plataforma, sem servidor nem infraestrutura?</div>
-    <p><strong>Deixou de ser mensal.</strong> São <strong>1.500,00 € por cada 500 utilizadores implementados</strong> (secção 02.2), faturados quando cada tranche é ativada — e nada mais. Esse valor cobre plataforma, serviço, manutenção, suporte, conformidade e implementação. Servidor, domínio, armazenamento, backups e chatbot estão todos <strong>fora do fee</strong>, na secção 02.3 — são custos de operação do serviço, ≈ 364 €/ano.</p>
+    <p><strong>Deixou de ser mensal.</strong> São <strong>1.500,00 € por cada 500 utilizadores implementados</strong> (secção 02 · 1.2), faturados quando cada tranche é ativada — e nada mais. Esse valor cobre plataforma, serviço, manutenção, suporte, conformidade e implementação. Servidor, domínio, armazenamento, backups e chatbot estão todos <strong>fora do fee</strong>, na secção 02 · 1.3 — são custos de operação do serviço, ≈ 364 €/ano.</p>
   </div>
 </section>
 
