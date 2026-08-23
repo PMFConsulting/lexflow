@@ -7,7 +7,11 @@ import { Carimbos } from "@/components/carimbo";
 import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { auditoriaDoProcesso, ACOES } from "@/features/auditoria/consultas";
-import { documentosDoProcesso, processoPorId } from "@/features/processos/consultas";
+import {
+  documentosDoProcesso,
+  processoPorId,
+  propostaDoProcesso,
+} from "@/features/processos/consultas";
 import {
   assinaturaDoProcesso,
   passosGravados,
@@ -21,6 +25,7 @@ import {
 import { exigirSessao, podeAprovarProcesso, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 import { AcoesAprovacao } from "@/features/processos/componentes/AcoesAprovacao";
+import { PropostaComercial } from "@/features/processos/componentes/PropostaComercial";
 
 export const dynamic = "force-dynamic";
 
@@ -107,11 +112,12 @@ export default async function Processo({
   // quem tem sessão em qualquer organização da instalação.
   if (!processo || processo.organizacaoId !== eu.organizacaoId) notFound();
 
-  const [s, docs, eventos, assinatura] = await Promise.all([
+  const [s, docs, eventos, assinatura, proposta] = await Promise.all([
     seccoesDoProcesso(processo.id),
     documentosDoProcesso(processo.id),
     auditoriaDoProcesso(processo.id),
     assinaturaDoProcesso(processo.id),
+    propostaDoProcesso(processo.id),
   ]);
 
   const vePpe = podeVerPpe(eu.papel);
@@ -425,6 +431,13 @@ export default async function Processo({
               ))}
             </ul>
           )}
+          <PropostaComercial
+            processoId={processo.id}
+            atual={
+              proposta ? { id: proposta.id, nome: proposta.nome, bytes: proposta.bytes } : null
+            }
+          />
+
           <p className="mt-3 text-xs text-muted-foreground">
             O download no painel vem da base de dados, com sessão exigida, e fica registado na
             auditoria. O URL assinado do armazenamento dedicado fica para quando houver object

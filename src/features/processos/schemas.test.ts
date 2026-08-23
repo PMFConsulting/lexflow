@@ -163,6 +163,30 @@ describe("novoProcesso — pessoa coletiva", () => {
     expect(r.error.issues[0]?.path).toEqual(["nif"]);
   });
 
+  /**
+   * A régua que o mod-11 sozinho não podia dar.
+   *
+   * Um NIF de pessoa singular passa o checksum com distinção — é um NIF válido,
+   * só não é o de uma entidade — e ficava gravado em `nif_cliente` a dizer que a
+   * sociedade é aquela pessoa. Aqui a certidão está à frente de quem escreve: o
+   * primeiro dígito é 5, 6, 8 ou 9, e mais nenhum.
+   */
+  it("recusa um NIF de pessoa singular na caixa do NIPC", () => {
+    for (const nif of ["123456789", "213456788"]) {
+      const r = novoProcesso.safeParse({ ...valido, nif });
+      expect(r.success).toBe(false);
+      if (r.success) return;
+      expect(r.error.issues[0]?.path).toEqual(["nif"]);
+      expect(r.error.issues[0]?.message).toContain("5, 6, 8 ou 9");
+    }
+  });
+
+  it("aceita os quatro primeiros dígitos de pessoa coletiva", () => {
+    for (const nif of ["500000000", "600000001", "800000005", "900000007"]) {
+      expect(novoProcesso.safeParse({ ...valido, nif }).success).toBe(true);
+    }
+  });
+
   it("normaliza o NIPC escrito com espaços", () => {
     const r = novoProcesso.safeParse({ ...valido, nif: " 501 442 600 " });
 

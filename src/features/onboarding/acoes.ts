@@ -1,15 +1,21 @@
 "use server";
 
-import { createHash } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { env } from "@/env";
 import { enviarEmail } from "@/lib/email";
-import { ASSUNTO_CONFIRMACAO, emailConfirmacaoRececao } from "@/lib/emails/jmassano";
+import {
+  ASSUNTO_CONFIRMACAO,
+  ASSUNTO_OTP,
+  emailCodigoOtp,
+  emailConfirmacaoRececao,
+} from "@/lib/emails/jmassano";
 import { origemPublica } from "@/lib/origem";
-import { assinatura } from "@/db/schema/documentos";
+import { assinatura, documento } from "@/db/schema/documentos";
+import { codigoOtp } from "@/db/schema/otp";
 import { processoOnboarding } from "@/db/schema/processo";
 import {
   areaInteresse,
@@ -32,6 +38,7 @@ import {
   motivoDoAcesso,
   seccoesDoProcesso,
   type AcessoOnboarding,
+  type Processo,
 } from "./dados";
 import { SCHEMAS } from "./schemas";
 import { passoAplicavel, proximoPasso } from "./passos";
@@ -56,6 +63,21 @@ async function contexto() {
     ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
     userAgent: h.get("user-agent") ?? null,
   };
+}
+
+/**
+ * Os tipos dos documentos vivos de um processo.
+ *
+ * `isNull(apagadoEm)` porque a remoção pelo cliente é soft delete (a lei manda
+ * reter): sem o filtro, anexar o cartão de cidadão e removê-lo a seguir deixava
+ * o passo 2 a dar-se por satisfeito com um documento que já não está lá.
+ */
+async function tiposAnexados(processoId: string): Promise<string[]> {
+  const linhas = await db()
+    .select({ tipo: documento.tipo })
+    .from(documento)
+    .where(and(eq(documento.processoId, processoId), isNull(documento.apagadoEm)));
+  return linhas.map((l) => l.tipo);
 }
 
 /**
@@ -103,7 +125,48 @@ export async function guardarPasso(
     };
   }
 
-  const r = schema.safeParse(dados);
+  /*
+   * A verificação por email é condição da assinatura, e a pergunta é feita
+   * **antes do Zod**, não depois.
+   *
+   * Não é ordem arbitrária. Enquanto o código não estiver verificado, o ecrã não
+   * desenha o quadro da assinatura — e um campo que não está no ecrã não entra
+   * no `FormData`, por isso o `passo7` recusaria a carga com «Assine no quadro
+   * antes de submeter», que é a resposta certa à pergunta errada: quem lê isso
+   * vai procurar um quadro de assinatura que a plataforma está deliberadamente a
+   * esconder. A primeira coisa que falta é a que tem de ser dita.
+   *
+   * E não chega travar o `submeter`: o que dá prova de quem assinou é a linha em
+   * `assinatura` — com o hash do dossier e o relógio do servidor —, e deixá-la
+   * ser escrita sem verificação era gravar a prova primeiro e pensar no fator de
+   * autenticação depois. O ecrã é conforto; uma Server Action é um endpoint
+   * público como qualquer outro.
+   */
+  if (n === 7 && !(await verificacaoValida(processo.id))) return RECUSA_SEM_OTP;
+
+  /*
+   * O passo 2 é validado contra dois factos que o formulário não tem como
+   * enviar, e não deve: o percurso do processo e os documentos que estão mesmo
+   * anexados.
+   *
+   * O primeiro decide se o NIF leva a régua de pessoa coletiva (primeiro dígito
+   * 5, 6, 8 ou 9); o segundo decide se o passo fecha. Nenhum dos dois pode vir
+   * da carga — o `Anexos` sobe por uma Server Action à parte e o input nem
+   * `name` tem, por isso o `new FormData(form)` nunca soube de ficheiros, e o
+   * `tipoCliente` que a janela mandasse era exatamente o que a regra existe para
+   * não deixar escolher. Vêm daqui, e o que a carga trouxesse com estes nomes é
+   * substituído, não acreditado.
+   */
+  const entrada =
+    n === 2 && typeof dados === "object" && dados !== null
+      ? {
+          ...(dados as Record<string, unknown>),
+          tipoCliente,
+          documentos: await tiposAnexados(processo.id),
+        }
+      : dados;
+
+  const r = schema.safeParse(entrada);
   if (!r.success) {
     const erros: Record<string, string[]> = {};
     for (const problema of r.error.issues) {
@@ -186,15 +249,24 @@ export async function guardarPasso(
       break;
     }
 
-    case 2:
+    case 2: {
+      // `tipoCliente` e `documentos` entram no schema para decidir as regras e
+      // não são colunas de `dados_fiscais`: saem antes do INSERT, senão o
+      // Drizzle escreve `insert into dados_fiscais ("tipo_cliente"…)` e rebenta
+      // num campo que o cliente nunca viu.
+      const fiscais = { ...v };
+      delete fiscais.tipoCliente;
+      delete fiscais.documentos;
+
       await base
         .insert(dadosFiscais)
-        .values(insere<typeof dadosFiscais.$inferInsert>(v))
+        .values(insere<typeof dadosFiscais.$inferInsert>(fiscais))
         .onConflictDoUpdate({
           target: dadosFiscais.processoId,
-          set: v as Partial<typeof dadosFiscais.$inferInsert>,
+          set: fiscais as Partial<typeof dadosFiscais.$inferInsert>,
         });
       break;
+    }
 
     case 3: {
       const { eRepresentante, nacionalidades } = v as {
@@ -468,14 +540,381 @@ export async function guardarPasso(
 
   const seguinte = proximoPasso(n, tipoCliente);
 
+  /*
+   * `passo_atual` é o ponto onde o cliente retoma, e um retomar não anda para
+   * trás.
+   *
+   * Estava `seguinte ?? n` à seca, e isso valia enquanto o formulário só se
+   * percorresse para a frente. Com os links "Corrigir" da revisão a levarem de
+   * volta ao passo 2, gravar lá punha o `passo_atual` a 3 — e quem fechasse o
+   * separador e voltasse a abrir o link caía no passo 3 de um processo que já
+   * ia no 7. O `max` guarda o mais avançado dos dois; o `check` da base de dados
+   * (`between 1 and 7`) continua satisfeito porque nenhum dos dois o excede.
+   */
+  const marca = Math.max(processo.passoAtual, seguinte ?? n);
+
   await base
     .update(processoOnboarding)
-    .set({ passoAtual: seguinte ?? n })
+    .set({ passoAtual: marca })
     .where(eq(processoOnboarding.id, processo.id));
 
   revalidatePath(`/onboarding/${token}`, "layout");
   return { ok: true, proximo: seguinte };
 }
+
+/* ── código de verificação por email (OTP) ───────────────────────────────── */
+
+/**
+ * A verificação do fecho.
+ *
+ * O passo 7 pedia uma caixa marcada, uma rubrica desenhada com o rato e um
+ * clique. Nada disso prova **quem** está do outro lado: o link mágico é o único
+ * fator, e um link mágico é um segredo que viaja por email, se cola em conversas
+ * e fica em históricos de browser. Quem o apanhe assina em nome do cliente, e a
+ * assinatura fica gravada com o hash do dossier a dizer que foi ele.
+ *
+ * O código fecha essa distância no único momento em que ela importa: quem assina
+ * tem de provar, no momento de assinar, que continua a ter acesso à caixa de
+ * correio para onde a sociedade escreveu. Não é autenticação forte e não se
+ * apresenta como tal — é um segundo fator sobre o mesmo canal, e o que ele
+ * apanha é o link reencaminhado, que é o caso real.
+ */
+
+/** Quanto tempo o código serve depois de gerado. */
+const VALIDADE_OTP_MINUTOS = 10;
+
+/**
+ * Quanto tempo uma verificação bem-sucedida vale.
+ *
+ * Não é o mesmo prazo do código, e não podia ser: entre acertar no código e
+ * carregar em Submeter há a leitura dos T&C, a leitura da proposta e a rubrica,
+ * e obrigar a repetir a verificação a meio disso era transformar uma medida de
+ * segurança num obstáculo que se contorna pedindo outro código. Uma hora chega
+ * para fechar o passo e é curta o suficiente para não valer no dia seguinte.
+ */
+const VALIDADE_VERIFICACAO_MINUTOS = 60;
+
+/** Ao quinto engano o código morre: seis dígitos são um milhão de hipóteses. */
+const MAX_TENTATIVAS_OTP = 5;
+
+/** Intervalo mínimo entre dois pedidos de código, em segundos. */
+const INTERVALO_REENVIO_S = 60;
+
+/**
+ * O código nunca é guardado em claro, e o processo entra como sal.
+ *
+ * Sem o sal, dois processos com o mesmo código de seis dígitos — que acontece,
+ * são só um milhão de hipóteses e a POC não vai ter um milhão de fechos —
+ * partilhavam o hash, e uma tabela arco-íris de um milhão de linhas resolvia-os
+ * todos de uma vez. Mesma regra do token do link mágico (D4).
+ */
+function hashCodigo(processoId: string, codigo: string): string {
+  return createHash("sha256").update(`${processoId}:${codigo.trim()}`, "utf8").digest("hex");
+}
+
+/** `randomInt` e não `Math.random`: isto é um segredo, não um sorteio. */
+function gerarCodigo(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+/** Comparação em tempo constante — os dois lados são hashes hex de 64 caracteres. */
+function hashesIguais(a: string, b: string): boolean {
+  const x = Buffer.from(a, "utf8");
+  const y = Buffer.from(b, "utf8");
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+/**
+ * `joao.silva@exemplo.pt` → `j••••••••a@exemplo.pt`.
+ *
+ * O cliente já sabe qual é o seu endereço — escreveu-o no passo 1 —, por isso
+ * isto não lhe esconde nada. O que evita é que um link reencaminhado mostre o
+ * endereço completo a quem o abrir: quem tem o link não pode ficar a saber para
+ * onde é que o código vai.
+ */
+function mascarar(email: string): string {
+  const [local, dominio] = email.split("@");
+  if (!dominio) return "•••";
+  if (local.length <= 2) return `${local[0] ?? "•"}•••@${dominio}`;
+  return `${local[0]}${"•".repeat(Math.min(local.length - 2, 8))}${local[local.length - 1]}@${dominio}`;
+}
+
+/** O endereço para onde o código vai, com as mesmas prioridades dos outros emails. */
+async function emailDoProcesso(processo: Processo): Promise<string | null> {
+  const base = db();
+  const [identificacao] = await base
+    .select({ email: dadosIdentificacao.email, nome: dadosIdentificacao.nome })
+    .from(dadosIdentificacao)
+    .where(eq(dadosIdentificacao.processoId, processo.id))
+    .limit(1);
+  const [faturacao] = await base
+    .select({ email: dadosFaturacao.email })
+    .from(dadosFaturacao)
+    .where(eq(dadosFaturacao.processoId, processo.id))
+    .limit(1);
+
+  return identificacao?.email ?? faturacao?.email ?? processo.emailCliente ?? null;
+}
+
+/** O código mais recente de um processo, verificado ou não. */
+async function ultimoCodigo(processoId: string) {
+  const [linha] = await db()
+    .select()
+    .from(codigoOtp)
+    .where(eq(codigoOtp.processoId, processoId))
+    .orderBy(desc(codigoOtp.criadoEm))
+    .limit(1);
+  return linha ?? null;
+}
+
+/**
+ * Há uma verificação válida para este processo?
+ *
+ * É esta a pergunta que trava a assinatura e a submissão, e é feita à base de
+ * dados e não ao estado do browser — o `submeter` é um endpoint público como
+ * qualquer outro, e um cliente que decida nunca lhe chamar `verificarCodigoOtp`
+ * não pode ficar em vantagem sobre quem o fez.
+ */
+async function verificacaoValida(processoId: string): Promise<boolean> {
+  const linha = await ultimoCodigo(processoId);
+  if (!linha?.verificadoEm) return false;
+  const limite = new Date(linha.verificadoEm.getTime() + VALIDADE_VERIFICACAO_MINUTOS * 60_000);
+  return limite > new Date();
+}
+
+export type EstadoOtp = {
+  /** Já há um código verificado e dentro do prazo. */
+  verificado: boolean;
+  /** Já foi pedido um código (e continua válido), logo há caixa a que ir. */
+  pedido: boolean;
+  /** O endereço mascarado do último código pedido. */
+  para: string | null;
+};
+
+/** O que o passo 7 precisa de saber ao montar, sem pedir código nenhum. */
+export async function estadoDoCodigo(bruto: string): Promise<EstadoOtp> {
+  const acesso = await acessoPorToken(bruto);
+  if (acesso.estado !== "ok") return { verificado: false, pedido: false, para: null };
+
+  const linha = await ultimoCodigo(acesso.processo.id);
+  if (!linha) return { verificado: false, pedido: false, para: null };
+
+  return {
+    verificado: await verificacaoValida(acesso.processo.id),
+    pedido: linha.expiraEm > new Date() && !linha.verificadoEm,
+    para: mascarar(linha.enviadoPara),
+  };
+}
+
+export type ResultadoOtp =
+  | { ok: true; para: string; expiraEmMinutos: number }
+  | { ok: false; erro: string; esperarSegundos?: number };
+
+/**
+ * Gera um código, grava-lhe o hash e manda-o por email.
+ *
+ * Pedido explícito e não automático ao entrar no passo: o passo 7 é revisitado
+ * (o cliente vai corrigir um campo e volta), e um envio por cada visita enchia a
+ * caixa do cliente de códigos, gastava a quota do fornecedor e treinava-o a
+ * ignorar exatamente a mensagem que ele precisa de ler.
+ */
+export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
+  const acesso = await acessoPorToken(bruto);
+  if (acesso.estado !== "ok") {
+    const { titulo, descricao } = motivoDoAcesso(acesso);
+    return { ok: false, erro: `${titulo} ${descricao}` };
+  }
+
+  const { processo } = acesso;
+  if (processo.estado !== "rascunho" && processo.estado !== "pendente_cliente") {
+    return { ok: false, erro: "Este processo já foi submetido." };
+  }
+
+  const destino = await emailDoProcesso(processo);
+  if (!destino) {
+    return {
+      ok: false,
+      erro:
+        "Não há endereço de email neste processo. Volte ao passo 1, indique o seu email e tente de novo.",
+    };
+  }
+
+  // Um pedido a cada minuto, no máximo. Sem isto, o botão "Enviar código" é um
+  // botão para mandar emails a partir do domínio da sociedade — em nome dela e
+  // à custa da quota dela.
+  const anterior = await ultimoCodigo(processo.id);
+  if (anterior) {
+    const passaram = (Date.now() - anterior.criadoEm.getTime()) / 1000;
+    if (passaram < INTERVALO_REENVIO_S) {
+      const falta = Math.ceil(INTERVALO_REENVIO_S - passaram);
+      return {
+        ok: false,
+        erro: `Já enviámos um código há instantes. Aguarde ${falta} segundos antes de pedir outro.`,
+        esperarSegundos: falta,
+      };
+    }
+  }
+
+  const codigo = gerarCodigo();
+  const expiraEm = new Date(Date.now() + VALIDADE_OTP_MINUTOS * 60_000);
+
+  await db().insert(codigoOtp).values({
+    processoId: processo.id,
+    codigoHash: hashCodigo(processo.id, codigo),
+    enviadoPara: destino,
+    expiraEm,
+  });
+
+  const [identificacao] = await db()
+    .select({ nome: dadosIdentificacao.nome })
+    .from(dadosIdentificacao)
+    .where(eq(dadosIdentificacao.processoId, processo.id))
+    .limit(1);
+
+  const envio = await enviarEmail({
+    para: destino,
+    assunto: ASSUNTO_OTP,
+    html: emailCodigoOtp({
+      nome: identificacao?.nome,
+      codigo,
+      referencia: processo.referencia,
+      minutos: VALIDADE_OTP_MINUTOS,
+    }),
+    template: "otp",
+    organizacaoId: processo.organizacaoId,
+    processoId: processo.id,
+  });
+
+  const { ip, userAgent } = await contexto();
+
+  // O **código nunca entra em auditoria**, nem mascarado: o registo é imutável
+  // e legível por quem tem o back-office, e um segredo de dez minutos escrito
+  // num sítio que dura sete anos é um segredo mal guardado. O que fica é que
+  // foi pedido, para onde, e se saiu.
+  await registarEvento({
+    organizacaoId: processo.organizacaoId,
+    processoId: processo.id,
+    acao: envio.ok ? "otp.enviado" : "otp.envio_falhou",
+    entidade: "codigo_otp",
+    entidadeId: processo.id,
+    valorNovo: { para: destino, ...(envio.ok ? {} : { erro: envio.erro }) },
+    ip,
+    userAgent,
+  });
+
+  if (!envio.ok) {
+    return {
+      ok: false,
+      erro:
+        "Não foi possível enviar o código por email. Tente novamente dentro de instantes ou contacte a sociedade.",
+    };
+  }
+
+  return {
+    ok: true,
+    para: mascarar(destino),
+    expiraEmMinutos: VALIDADE_OTP_MINUTOS,
+  };
+}
+
+export type ResultadoVerificacao = { ok: true } | { ok: false; erro: string };
+
+/** Confere o código introduzido pelo cliente e liberta a assinatura. */
+export async function verificarCodigoOtp(
+  bruto: string,
+  codigoBruto: string,
+): Promise<ResultadoVerificacao> {
+  const acesso = await acessoPorToken(bruto);
+  if (acesso.estado !== "ok") {
+    const { titulo, descricao } = motivoDoAcesso(acesso);
+    return { ok: false, erro: `${titulo} ${descricao}` };
+  }
+
+  const { processo } = acesso;
+
+  // Só dígitos, e exatamente seis: um `912 345` colado com espaço não é engano
+  // do cliente, é formatação, e não vale gastar-lhe uma tentativa por isso.
+  const codigo = codigoBruto.replace(/\D/g, "");
+  if (codigo.length !== 6) {
+    return { ok: false, erro: "O código tem 6 dígitos. Confirme o que recebeu por email." };
+  }
+
+  const linha = await ultimoCodigo(processo.id);
+  if (!linha) {
+    return { ok: false, erro: "Ainda não pediu nenhum código. Carregue em «Enviar código»." };
+  }
+  if (linha.verificadoEm) return { ok: true };
+
+  if (linha.expiraEm <= new Date()) {
+    return { ok: false, erro: "Este código expirou. Peça um novo código." };
+  }
+  if (linha.tentativas >= MAX_TENTATIVAS_OTP) {
+    return {
+      ok: false,
+      erro: "Este código foi bloqueado ao fim de 5 tentativas. Peça um novo código.",
+    };
+  }
+
+  const { ip, userAgent } = await contexto();
+
+  if (!hashesIguais(linha.codigoHash, hashCodigo(processo.id, codigo))) {
+    const tentativas = linha.tentativas + 1;
+    await db()
+      .update(codigoOtp)
+      .set({ tentativas })
+      .where(eq(codigoOtp.id, linha.id));
+
+    // As tentativas falhadas ficam em auditoria porque são o único sinal de
+    // alguém a martelar o código de outra pessoa — e é um sinal que só se lê
+    // depois, quando já se está a investigar.
+    await registarEvento({
+      organizacaoId: processo.organizacaoId,
+      processoId: processo.id,
+      acao: "otp.falhado",
+      entidade: "codigo_otp",
+      entidadeId: linha.id,
+      valorNovo: { tentativas },
+      ip,
+      userAgent,
+    });
+
+    const restam = MAX_TENTATIVAS_OTP - tentativas;
+    return {
+      ok: false,
+      erro:
+        restam > 0
+          ? `Código errado. ${restam === 1 ? "Resta 1 tentativa" : `Restam ${restam} tentativas`} antes de ter de pedir um novo.`
+          : "Código errado. Esgotou as tentativas — peça um novo código.",
+    };
+  }
+
+  await db()
+    .update(codigoOtp)
+    .set({ verificadoEm: new Date(), tentativas: linha.tentativas + 1 })
+    .where(eq(codigoOtp.id, linha.id));
+
+  await registarEvento({
+    organizacaoId: processo.organizacaoId,
+    processoId: processo.id,
+    acao: "otp.verificado",
+    entidade: "codigo_otp",
+    entidadeId: linha.id,
+    valorNovo: { para: linha.enviadoPara },
+    ip,
+    userAgent,
+  });
+
+  return { ok: true };
+}
+
+/** A mesma recusa nos dois sítios que a fazem — o passo 7 e a submissão. */
+const RECUSA_SEM_OTP: Resultado = {
+  ok: false,
+  erros: {
+    otp: ["Introduza o código de verificação que recebeu por email para poder assinar."],
+  },
+  mensagem: "Falta verificar o código enviado por email.",
+};
 
 /** Submissão final: fecha o processo e passa-o para a fila de revisão. */
 export async function submeter(bruto: string): Promise<Resultado> {
@@ -526,6 +965,12 @@ export async function submeter(bruto: string): Promise<Resultado> {
       mensagem: "A assinatura é obrigatória.",
     };
   }
+
+  // Segunda fechadura na mesma porta. O `guardarPasso` já a exige antes de
+  // escrever a rubrica, mas o `submeter` é uma Server Action à parte e chamável
+  // por si: um processo com uma rubrica antiga na tabela e nenhuma verificação
+  // válida agora não passa por aqui.
+  if (!(await verificacaoValida(processo.id))) return RECUSA_SEM_OTP;
 
   const { ip, userAgent } = await contexto();
 

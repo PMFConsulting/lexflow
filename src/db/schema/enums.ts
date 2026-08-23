@@ -51,6 +51,24 @@ export const tipoDocumento = pgEnum("tipo_documento", [
   "comprovativo_rcbe",
   "dossier_assinado",
   "outro",
+  /**
+   * A proposta comercial que a sociedade anexa ao convite, na janela "Novo
+   * processo". Ao contrário dos outros valores desta lista, não é um documento
+   * que o cliente carregue: é um documento que ele **recebe** — o passo 7
+   * mostra-o no lugar da proposta genérica, e é essa a proposta que ele aceita.
+   *
+   * No fim do array porque é onde o `ALTER TYPE ADD VALUE` o põe (migração
+   * `0015`); divergir a ordem faz o `db:generate` seguinte propor uma migração
+   * a corrigir o que não está errado. Mesma nota do `canal_email`.
+   */
+  "proposta_comercial",
+  /**
+   * Os Termos e Condições da própria sociedade — o slot da revisão de produto
+   * (ver `docs/TERMOS_SOCIEDADE.md`). **Ainda não é escrito por nada**: fica
+   * reservado para o dia em que a sociedade submeter o seu articulado, para
+   * esse dia ser uma UI e não uma migração de enum com o sistema a correr.
+   */
+  "termos_sociedade",
 ]);
 
 /** Quem é o titular de uma nacionalidade — o cliente ou o representante. */
@@ -94,6 +112,13 @@ export const templateEmail = pgEnum("template_email", [
   "notificacao_backoffice",
   "rejeicao",
   "reabertura",
+  /**
+   * Sétimo: o código de verificação do fecho. É o único email desta lista que
+   * carrega um segredo de curta duração — daí ficar de fora do `tokenHash` e
+   * nunca levar o código para `email_log`, que guarda assunto e destinatário e
+   * não o corpo (D34).
+   */
+  "otp",
 ]);
 
 /**

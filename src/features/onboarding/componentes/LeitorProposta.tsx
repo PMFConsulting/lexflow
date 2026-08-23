@@ -12,28 +12,50 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+/** A proposta que a sociedade anexou a **este** processo, quando existe. */
+export type PropostaAnexada = {
+  nome: string;
+  bytes: number;
+  /** A rota que a serve, autorizada pelo mesmo token do link mágico. */
+  url: string;
+};
+
+const kb = (b: number) =>
+  b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
+
 /**
  * A proposta de honorários, e a porta que ela fecha.
  *
  * Mesmo padrão do `LeitorTermos`: a caixa "Aceito a proposta" só se destranca
- * depois de o documento ser aberto e percorrido até ao fim — a proposta é o
- * documento que fixa o que o cliente vai pagar, e uma aceitação sem o ter visto
- * não prova nada.
+ * depois de o documento ser aberto — a proposta é o documento que fixa o que o
+ * cliente vai pagar, e uma aceitação sem o ter visto não prova nada.
  *
- * O que se lê dentro do modal é `/custos.html` — a versão HTML do mesmo
- * conteúdo, injetada num `<div>` nosso com scroll natural, exatamente como o
- * `LeitorTermos` já fazia com os T&C. Um `<iframe>` de PDF não serve para
- * isto: o visualizador nativo do browser corre no seu próprio contexto e o
- * documento oficial (`/custos.pdf`) é um slide deck em paisagem — ilegível à
- * largura do modal. O PDF oficial continua acessível, mas como opção
- * secundária: quem quiser o ficheiro tal e qual pode abri-lo à parte.
+ * **Há dois documentos possíveis, e a diferença entre eles importa.**
+ *
+ * Quando a sociedade anexou uma proposta ao convite (`anexada`), é essa que se
+ * mostra — é a proposta *deste* cliente, com os valores que lhe foram
+ * negociados, e é essa que ele aceita. Sem anexo, cai-se no `/custos.html` que
+ * vive em `public/`: a proposta genérica, igual para toda a gente, que é o que
+ * havia antes de o upload existir e continua a servir uma demonstração.
+ *
+ * A medição de "leu até ao fim" só se aplica ao segundo. O HTML é injetado num
+ * `<div>` nosso e o fim do documento é uma medição do próprio elemento (D30); um
+ * PDF anexado não se pode medir assim, e nem sequer se pode embeber — o
+ * `X-Frame-Options: DENY` de `next.config.ts` recusa **também** o mesmo domínio,
+ * e um `<iframe>` daria ao cliente um retângulo em branco sem explicação
+ * nenhuma. Com anexo, portanto, a porta destranca-se ao **abrir** o documento
+ * em separador próprio, e não ao chegar ao fim dele. É menos do que a D30 pedia
+ * e é o que se consegue prometer com verdade; fingir uma medição que não se faz
+ * seria pior do que não a fazer.
  */
 export function LeitorProposta({
   lido,
   aoLer,
+  anexada = null,
 }: {
   lido: boolean;
   aoLer: () => void;
+  anexada?: PropostaAnexada | null;
 }) {
   const [aberto, setAberto] = useState(false);
 
@@ -45,38 +67,119 @@ export function LeitorProposta({
           {lido ? "Rever a proposta de honorários" : "Abrir e ler a proposta de honorários"}
         </Button>
 
-        <a
-          href="/custos.pdf"
-          target="_blank"
-          rel="noopener"
-          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-tinta"
-        >
-          Abrir o PDF oficial em separador próprio
-          <ExternalLink className="ml-1 inline size-3" />
-        </a>
+        {!anexada && (
+          <a
+            href="/custos.pdf"
+            target="_blank"
+            rel="noopener"
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-tinta"
+          >
+            Abrir o PDF oficial em separador próprio
+            <ExternalLink className="ml-1 inline size-3" />
+          </a>
+        )}
       </div>
 
       {lido ? (
         <p className="text-arquivo flex items-center gap-1.5 text-xs">
           <Check className="size-3.5" strokeWidth={2.5} />
-          Documento lido até ao fim.
+          {anexada ? "Documento aberto." : "Documento lido até ao fim."}
         </p>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Para poder aceitar, abra o documento e percorra-o até ao fim.
+          {anexada
+            ? "Para poder aceitar, abra o documento que a sociedade lhe enviou."
+            : "Para poder aceitar, abra o documento e percorra-o até ao fim."}
         </p>
       )}
 
       <Dialog open={aberto} onOpenChange={setAberto}>
-        {aberto && (
-          <Modal
-            aoFechar={() => setAberto(false)}
-            lido={lido}
-            aoChegarAoFim={aoLer}
-          />
-        )}
+        {aberto &&
+          (anexada ? (
+            <ModalAnexada
+              aoFechar={() => setAberto(false)}
+              lido={lido}
+              aoAbrir={aoLer}
+              proposta={anexada}
+            />
+          ) : (
+            <Modal aoFechar={() => setAberto(false)} lido={lido} aoChegarAoFim={aoLer} />
+          ))}
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * A proposta que a sociedade anexou: um PDF, servido pela rota do token.
+ *
+ * Não se embebe (ver a nota do componente acima). O que o modal faz é dizer que
+ * documento é, dar-lhe um botão que o abre em separador próprio, e só depois
+ * disso deixar fechar com "Li e compreendi" — que é o gesto que destranca a
+ * caixa de aceitação lá fora.
+ */
+function ModalAnexada({
+  aoFechar,
+  lido,
+  aoAbrir,
+  proposta,
+}: {
+  aoFechar: () => void;
+  lido: boolean;
+  aoAbrir: () => void;
+  proposta: PropostaAnexada;
+}) {
+  const [abriu, setAbriu] = useState(lido);
+
+  return (
+    <DialogContent className="max-w-lg" aria-describedby={undefined}>
+      <DialogHeader className="pr-8">
+        <DialogTitle>Proposta de Honorários</DialogTitle>
+      </DialogHeader>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 py-5">
+        <p className="text-sm text-muted-foreground">
+          Esta é a proposta que a JMASSANO preparou para si. Abra-a e leia-a com
+          atenção antes de a aceitar — é o documento que fixa os serviços e os
+          honorários acordados.
+        </p>
+
+        <div className="border-linha bg-papel-alto flex items-center gap-3 rounded-sm border p-3">
+          <FileText className="text-tinta-suave size-5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm">{proposta.nome}</p>
+            <p className="text-xs text-muted-foreground">PDF · {kb(proposta.bytes)}</p>
+          </div>
+        </div>
+
+        <Button asChild variant={abriu ? "outline" : "default"} className="w-fit">
+          <a
+            href={proposta.url}
+            target="_blank"
+            rel="noopener"
+            onClick={() => {
+              setAbriu(true);
+              aoAbrir();
+            }}
+          >
+            <Maximize2 className="size-3.5" />
+            {abriu ? "Abrir outra vez" : "Abrir a proposta (PDF)"}
+          </a>
+        </Button>
+      </div>
+
+      <DialogFooter className="justify-between">
+        <p
+          className={cn("text-xs", abriu ? "text-arquivo" : "text-muted-foreground")}
+          aria-live="polite"
+        >
+          {abriu ? "Documento aberto." : "Abra o documento para poder continuar."}
+        </p>
+        <Button type="button" onClick={aoFechar} disabled={!abriu}>
+          {abriu ? "Li e compreendi" : "Abra o documento"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
 

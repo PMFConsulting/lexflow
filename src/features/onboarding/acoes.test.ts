@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AcessoOnboarding } from "./dados";
 
@@ -79,6 +80,8 @@ vi.mock("@/db/schema/documentos", () => ({
   documento: "documento",
 }));
 
+vi.mock("@/db/schema/otp", () => ({ codigoOtp: "codigo_otp" }));
+
 vi.mock("@/db/schema/seccoes", () => ({
   areaInteresse: "area_interesse",
   dadosFaturacao: "dados_faturacao",
@@ -108,16 +111,24 @@ vi.mock("@/db", () => {
   return {
     db: () => ({
       select: () => ({
-        from: (t: unknown) => ({
-          where: () => ({
-            limit: async () => {
-              if (selectRebentaEm === String(t)) {
-                throw new Error(`o SELECT em ${String(t)} rebentou`);
-              }
-              return linhas[String(t)] ?? [];
-            },
-          }),
-        }),
+        from: (t: unknown) => {
+          const ler = async () => {
+            if (selectRebentaEm === String(t)) {
+              throw new Error(`o SELECT em ${String(t)} rebentou`);
+            }
+            return linhas[String(t)] ?? [];
+          };
+          // Um SELECT termina de três maneiras — `.limit()`, `.orderBy().limit()`
+          // ou o próprio `where` esperado diretamente (a lista dos tipos de
+          // documento anexados não pede limite nenhum). As três têm de devolver
+          // as mesmas linhas.
+          const fim = () => ({
+            limit: ler,
+            orderBy: () => ({ limit: ler }),
+            then: (aceitar: (v: unknown) => unknown) => ler().then(aceitar),
+          });
+          return { where: fim, ...fim() };
+        },
       }),
       insert: (t: unknown) => ({
         values: (v: Linha | Linha[]) => {
@@ -184,8 +195,10 @@ vi.mock("@/lib/email", () => ({
 vi.mock("@/lib/emails/jmassano", () => ({
   ASSUNTO_CONFIRMACAO: "JMASSANO | Confirmação de Receção dos seus Dados",
   ASSUNTO_BOAS_VINDAS: "Bem-vindo à JMASSANO Escritório de Advogado",
+  ASSUNTO_OTP: "JMASSANO | Código de verificação",
   emailConfirmacaoRececao: () => "<p>confirmação</p>",
   emailBoasVindas: () => "<p>boas-vindas</p>",
+  emailCodigoOtp: () => "<p>código</p>",
 }));
 
 vi.mock("@/lib/origem", () => ({ origemPublica: async () => "https://poc.terlicalabs.com" }));
@@ -213,7 +226,7 @@ vi.mock("node:fs/promises", () => ({
   readFile: async () => Buffer.from("%PDF-proposta"),
 }));
 
-const { guardarPasso, submeter } = await import("./acoes");
+const { guardarPasso, submeter, enviarCodigoOtp, verificarCodigoOtp } = await import("./acoes");
 const { motivoDoAcesso } = await import("./dados");
 
 /* ── cargas válidas, uma por passo ────────────────────────────────────── */
@@ -235,6 +248,9 @@ const PASSO_1 = {
   concelho: "Porto",
   distrito: "Porto",
 };
+
+/** NIPC de pessoa coletiva: começa por 5 e o mod-11 fecha. */
+const NIPC_VALIDO = "500000000";
 
 const PASSO_2 = {
   nifPortugues: true,
@@ -284,7 +300,28 @@ beforeEach(() => {
   arquivados.length = 0;
   // A linha que o `returning()` da submissão devolve, para o arquivo receber a
   // referência e a data de submissão e não um objeto só com o que mudou.
-  linhas = { processo_onboarding: [processo()] };
+  //
+  // `documento` traz os dois anexos que o passo 2 passou a exigir, e `codigo_otp`
+  // uma verificação acabada de fazer: são agora pré-condições do fluxo normal, e
+  // sem elas todos os testes de passo 2 e de passo 7 mediriam a trava nova em
+  // vez do que se propõem medir. As travas em si têm testes próprios, mais
+  // abaixo, que **tiram** estas linhas de propósito.
+  linhas = {
+    processo_onboarding: [processo()],
+    documento: [{ tipo: "identificacao" }, { tipo: "comprovativo_nif" }],
+    codigo_otp: [
+      {
+        id: "otp-1",
+        processoId: "proc-1",
+        codigoHash: "irrelevante",
+        enviadoPara: "maria@exemplo.pt",
+        expiraEm: new Date(AGORA.getTime() + 5 * 60_000),
+        tentativas: 1,
+        verificadoEm: new Date(AGORA.getTime() - 60_000),
+        criadoEm: new Date(AGORA.getTime() - 120_000),
+      },
+    ],
+  };
   selectRebentaEm = null;
   arquivoRebenta = false;
   acesso = { estado: "ok", processo: processo() as never, token: TOKEN };
@@ -403,8 +440,15 @@ describe("guardarPasso — o passo seguinte é o do percurso, não o número a s
 
   it("numa empresa, o 2 avança para o 3", async () => {
     acesso = { estado: "ok", processo: processo({ tipoCliente: "empresa" }) as never, token: TOKEN };
+    // O percurso Empresa pede mais uma coisa a cada uma das duas regras novas:
+    // um NIPC de pessoa coletiva e a certidão permanente entre os anexos.
+    linhas.documento = [
+      { tipo: "identificacao" },
+      { tipo: "comprovativo_nif" },
+      { tipo: "certidao_permanente" },
+    ];
 
-    const r = await guardarPasso(TOKEN, 2, PASSO_2);
+    const r = await guardarPasso(TOKEN, 2, { ...PASSO_2, nif: NIPC_VALIDO });
 
     expect(r).toEqual({ ok: true, proximo: 3 });
   });
@@ -602,6 +646,142 @@ describe("guardarPasso — o passo 7 assina o dossier, não a caixa", () => {
   });
 });
 
+/**
+ * A verificação por email, e o momento em que ela é perguntada.
+ *
+ * O link mágico é o único fator de autenticação do onboarding, e um link mágico
+ * é um segredo que viaja por email e se cola em conversas. O código fecha essa
+ * distância no único ponto em que ela importa — quem assina prova, no momento de
+ * assinar, que continua a ter acesso à caixa para onde a sociedade escreveu.
+ *
+ * O que estes testes fixam é sobretudo a **ordem**: a pergunta é feita antes do
+ * Zod e antes de qualquer escrita. Feita depois, a resposta ao cliente seria
+ * «Assine no quadro antes de submeter» — sobre um quadro que a própria
+ * plataforma está a esconder até ele validar o código.
+ */
+describe("guardarPasso — o passo 7 exige o código verificado", () => {
+  it("sem código nenhum, recusa antes de escrever seja o que for", async () => {
+    linhas.codigo_otp = [];
+
+    const r = await guardarPasso(TOKEN, 7, PASSO_7);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(Object.keys(r.erros)).toEqual(["otp"]);
+    expect(operacoes).toHaveLength(0);
+    expect(auditados).toHaveLength(0);
+  });
+
+  it("um código pedido mas por verificar não abre a porta", async () => {
+    linhas.codigo_otp = [
+      {
+        expiraEm: new Date(AGORA.getTime() + 5 * 60_000),
+        tentativas: 0,
+        verificadoEm: null,
+        criadoEm: AGORA,
+      },
+    ];
+
+    const r = await guardarPasso(TOKEN, 7, PASSO_7);
+
+    expect(r.ok).toBe(false);
+    expect(operacoes).toHaveLength(0);
+  });
+
+  /**
+   * A verificação vale uma hora, e não para sempre: entre acertar no código e
+   * carregar em Submeter há a leitura dos T&C, a da proposta e a rubrica, e
+   * obrigar a repetir a meio disso era transformar a medida num obstáculo que se
+   * contorna pedindo outro código. Ao fim da hora, deixa de valer.
+   */
+  it("uma verificação de ontem já não vale hoje", async () => {
+    linhas.codigo_otp = [
+      {
+        expiraEm: new Date(AGORA.getTime() - 23 * 3600_000),
+        tentativas: 1,
+        verificadoEm: new Date(AGORA.getTime() - 24 * 3600_000),
+        criadoEm: new Date(AGORA.getTime() - 25 * 3600_000),
+      },
+    ];
+
+    const r = await guardarPasso(TOKEN, 7, PASSO_7);
+
+    expect(r.ok).toBe(false);
+    expect(operacoes).toHaveLength(0);
+  });
+
+  /** A trava é só do fecho: os outros passos não sabem que ela existe. */
+  it("não trava os passos que não assinam nada", async () => {
+    linhas.codigo_otp = [];
+
+    expect((await guardarPasso(TOKEN, 2, PASSO_2)).ok).toBe(true);
+  });
+});
+
+/**
+ * Os anexos obrigatórios do passo 2, medidos contra a **base de dados**.
+ *
+ * O `Anexos` não é campo do formulário — sobe por uma Server Action à parte e o
+ * input nem `name` tem —, por isso a carga do passo nunca traz ficheiro nenhum e
+ * nunca poderia trazer. A única fonte honesta do que está anexado é a tabela
+ * `documento`, e é de lá que o `guardarPasso` a injeta antes do Zod.
+ */
+describe("guardarPasso — o passo 2 não fecha sem os documentos", () => {
+  it("sem anexo nenhum, recusa e nomeia o campo", async () => {
+    linhas.documento = [];
+
+    const r = await guardarPasso(TOKEN, 2, PASSO_2);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(Object.keys(r.erros)).toEqual(["documentos"]);
+    expect(r.erros.documentos[0]).toBe("Anexe o documento de identificação para continuar.");
+    expect(operacoes).toHaveLength(0);
+  });
+
+  /**
+   * A remoção pelo cliente é soft delete (a lei manda reter). Sem o filtro de
+   * `apagado_em`, anexar o cartão de cidadão e removê-lo a seguir deixava o
+   * passo dar-se por satisfeito com um documento que já não está lá — e é o
+   * `where` da consulta que o garante, não este teste; o que aqui se fixa é que
+   * a lista vem da base e não da carga.
+   */
+  it("um `documentos` inventado na carga não substitui o que está na base", async () => {
+    linhas.documento = [];
+
+    const r = await guardarPasso(TOKEN, 2, {
+      ...PASSO_2,
+      documentos: ["identificacao", "comprovativo_nif"],
+    });
+
+    expect(r.ok).toBe(false);
+    expect(operacoes).toHaveLength(0);
+  });
+
+  /**
+   * O mesmo vale para o `tipoCliente`: quem o mandasse na carga escolhia a régua
+   * do seu próprio NIF. Um particular a declarar-se empresa levaria com a régua
+   * do NIPC; uma empresa a declarar-se particular escapava-lhe. O que decide é a
+   * linha do processo.
+   */
+  it("um `tipoCliente` inventado na carga não muda a régua do NIF", async () => {
+    const r = await guardarPasso(TOKEN, 2, { ...PASSO_2, tipoCliente: "empresa" });
+
+    // O processo é `particular` e o NIF é de pessoa singular: passa, apesar de a
+    // carga pedir a régua de coletiva.
+    expect(r.ok).toBe(true);
+  });
+
+  it("nem `tipoCliente` nem `documentos` chegam a `dados_fiscais`", async () => {
+    await guardarPasso(TOKEN, 2, PASSO_2);
+
+    const gravado = valoresDe("insert", "dados_fiscais");
+    expect(gravado).not.toHaveProperty("tipoCliente");
+    expect(gravado).not.toHaveProperty("documentos");
+    expect(gravado).toMatchObject({ processoId: "proc-1", nif: "123456789" });
+  });
+});
+
 /* ── a submissão ──────────────────────────────────────────────────────── */
 
 /**
@@ -695,6 +875,202 @@ describe("submeter — as quatro travas", () => {
     acesso = { estado: "expirado", referencia: "JM-2026-0007", expirouEm: AGORA };
 
     const r = await submeter(TOKEN);
+
+    expect(r.ok).toBe(false);
+    expect(operacoes).toHaveLength(0);
+  });
+
+  /**
+   * A quinta trava, e é a que fecha o caminho de trás.
+   *
+   * O `guardarPasso` já exige o código antes de escrever a rubrica, mas o
+   * `submeter` é uma Server Action à parte e chamável por si. Um processo com
+   * uma rubrica de outro dia na tabela e nenhuma verificação válida agora não
+   * pode passar por aqui só porque a linha já lá estava.
+   */
+  it("sem verificação por email válida, não submete", async () => {
+    completo();
+    linhas.codigo_otp = [];
+
+    const r = await submeter(TOKEN);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(Object.keys(r.erros)).toEqual(["otp"]);
+    expect(escritas("update")).toHaveLength(0);
+  });
+});
+
+/* ── o código de verificação ──────────────────────────────────────────── */
+
+describe("enviarCodigoOtp", () => {
+  beforeEach(() => {
+    linhas.dados_identificacao = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+    linhas.dados_faturacao = [];
+    linhas.codigo_otp = [];
+  });
+
+  it("grava o hash — nunca o código — e manda o email", async () => {
+    const r = await enviarCodigoOtp(TOKEN);
+
+    expect(r.ok).toBe(true);
+    const linha = valoresDe("insert", "codigo_otp");
+    expect(linha).toMatchObject({ processoId: "proc-1", enviadoPara: "maria@exemplo.pt" });
+    // Sessenta e quatro hexadecimais, e nenhuma coluna com o código em claro.
+    expect(String(linha?.codigoHash)).toMatch(/^[0-9a-f]{64}$/);
+    expect(linha).not.toHaveProperty("codigo");
+    expect(enviados).toEqual([{ para: "maria@exemplo.pt", template: "otp" }]);
+  });
+
+  /**
+   * O endereço vai mascarado para o ecrã. O cliente já sabe qual é o seu — não
+   * lhe esconde nada —, mas um link reencaminhado não pode dizer a quem o abrir
+   * para onde é que o código está a ir.
+   */
+  it("devolve o destino mascarado, e não o endereço inteiro", async () => {
+    const r = await enviarCodigoOtp(TOKEN);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.para).not.toContain("maria");
+    expect(r.para.endsWith("@exemplo.pt")).toBe(true);
+  });
+
+  /**
+   * Sem intervalo, o botão "Enviar código" é um botão para mandar emails a
+   * partir do domínio da sociedade — em nome dela e à custa da quota dela.
+   */
+  it("não deixa pedir dois códigos no mesmo minuto", async () => {
+    linhas.codigo_otp = [
+      { expiraEm: new Date(AGORA.getTime() + 9 * 60_000), verificadoEm: null, tentativas: 0, criadoEm: new Date(AGORA.getTime() - 10_000) },
+    ];
+
+    const r = await enviarCodigoOtp(TOKEN);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.esperarSegundos).toBe(50);
+    expect(operacoes).toHaveLength(0);
+    expect(enviados).toHaveLength(0);
+  });
+
+  it("sem endereço no processo, diz onde é que ele se põe", async () => {
+    linhas.dados_identificacao = [];
+    acesso = {
+      estado: "ok",
+      processo: processo({ emailCliente: null }) as never,
+      token: TOKEN,
+    };
+
+    const r = await enviarCodigoOtp(TOKEN);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("passo 1");
+    expect(operacoes).toHaveLength(0);
+  });
+
+  it("um processo já submetido não pede códigos", async () => {
+    acesso = { estado: "ok", processo: processo({ estado: "submetido" }) as never, token: TOKEN };
+
+    expect((await enviarCodigoOtp(TOKEN)).ok).toBe(false);
+    expect(operacoes).toHaveLength(0);
+  });
+
+  /** O código nunca entra em auditoria: é um segredo de dez minutos num registo que dura sete anos. */
+  it("audita o pedido sem o código lá dentro", async () => {
+    await enviarCodigoOtp(TOKEN);
+
+    expect(auditados.map((e) => e.acao)).toEqual(["otp.enviado"]);
+    expect(JSON.stringify(auditados)).not.toContain("codigo:");
+    expect(auditados[0].valorNovo).toEqual({ para: "maria@exemplo.pt" });
+  });
+});
+
+describe("verificarCodigoOtp", () => {
+  const CODIGO = "482913";
+  const hashDe = (codigo: string) =>
+    createHash("sha256").update(`proc-1:${codigo}`, "utf8").digest("hex");
+
+  const pendente = (extra: Linha = {}) => {
+    linhas.codigo_otp = [
+      {
+        id: "otp-1",
+        codigoHash: hashDe(CODIGO),
+        enviadoPara: "maria@exemplo.pt",
+        expiraEm: new Date(AGORA.getTime() + 5 * 60_000),
+        tentativas: 0,
+        verificadoEm: null,
+        criadoEm: AGORA,
+        ...extra,
+      },
+    ];
+  };
+
+  it("aceita o código certo, marca-o e deixa rasto", async () => {
+    pendente();
+
+    const r = await verificarCodigoOtp(TOKEN, CODIGO);
+
+    expect(r.ok).toBe(true);
+    expect(valoresDe("update", "codigo_otp")).toMatchObject({ verificadoEm: AGORA });
+    expect(auditados.map((e) => e.acao)).toEqual(["otp.verificado"]);
+  });
+
+  /** Espaços colados na cópia são formatação, não engano: não valem uma tentativa. */
+  it("ignora a formatação de quem cola o código do email", async () => {
+    pendente();
+    expect((await verificarCodigoOtp(TOKEN, " 482 913 ")).ok).toBe(true);
+  });
+
+  it("conta a tentativa falhada, diz quantas restam e não verifica nada", async () => {
+    pendente({ tentativas: 2 });
+
+    const r = await verificarCodigoOtp(TOKEN, "000000");
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("Restam 2 tentativas");
+    expect(valoresDe("update", "codigo_otp")).toEqual({ tentativas: 3 });
+    expect(auditados.map((e) => e.acao)).toEqual(["otp.falhado"]);
+  });
+
+  it("ao fim de cinco tentativas o código morre", async () => {
+    pendente({ tentativas: 5 });
+
+    const r = await verificarCodigoOtp(TOKEN, CODIGO);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("bloqueado");
+    // Nem sequer se compara: um código bloqueado não é um código.
+    expect(operacoes).toHaveLength(0);
+  });
+
+  it("um código expirado manda pedir outro", async () => {
+    pendente({ expiraEm: new Date(AGORA.getTime() - 1_000) });
+
+    const r = await verificarCodigoOtp(TOKEN, CODIGO);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("expirou");
+  });
+
+  it("sem código pedido, diz o que fazer em vez de dizer que está errado", async () => {
+    linhas.codigo_otp = [];
+
+    const r = await verificarCodigoOtp(TOKEN, CODIGO);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("Enviar código");
+  });
+
+  it("um código com menos de seis dígitos não gasta tentativa", async () => {
+    pendente();
+
+    const r = await verificarCodigoOtp(TOKEN, "4829");
 
     expect(r.ok).toBe(false);
     expect(operacoes).toHaveLength(0);

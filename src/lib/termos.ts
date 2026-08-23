@@ -13,6 +13,25 @@
  * trás: é ela que fica gravada em `versao_texto_legal` junto do consentimento,
  * e mudar o texto sem mudar a versão apaga a diferença entre o que o cliente
  * aceitou e o que passou a estar escrito.
+ *
+ * ---------------------------------------------------------------------------
+ * TODO(T&C da sociedade) — revisão de produto de 23/08/2026. **Por acionar.**
+ *
+ * O que está escrito em baixo é texto da *plataforma*, e isso é uma inversão de
+ * papéis que não se pode manter: quem contrata com o cliente é a sociedade, e o
+ * articulado que o vincula tem de ser o dela. A plataforma é o canal.
+ *
+ * O espaço já existe e está vazio de propósito — três colunas anuláveis em
+ * `organizacao` (`termos_documento_ref`, `termos_versao`, `termos_atualizado_em`,
+ * migração `0015`) e o valor `termos_sociedade` no enum `tipo_documento`.
+ * **Nada as lê ainda**, e é essa a intenção: enquanto forem `null`, o passo 7
+ * comporta-se exatamente como antes e o cliente não tem de fazer nada de novo.
+ *
+ * O que falta, e a ordem por que se faz, está em `docs/TERMOS_SOCIEDADE.md`.
+ * O ponto que não se pode esquecer é o da D3/D38: os consentimentos apontam para
+ * uma **versão**, e substituir o articulado sem subir a versão apaga a diferença
+ * entre o que o cliente aceitou e o que passou a estar escrito.
+ * ---------------------------------------------------------------------------
  */
 
 export const VERSAO_TERMOS = "2026.08-poc";

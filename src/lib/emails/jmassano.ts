@@ -11,6 +11,10 @@
  * 4. **JMASSANO | Feedback Registro** — quando o processo é rejeitado no
  *    back-office. Segue, à letra, o template entregue pelo cliente em
  *    11/08/2026 — que substitui a redação própria usada até aqui.
+ * 5. **JMASSANO | Código de verificação** — o código de seis dígitos que
+ *    destranca a assinatura no passo 7. É o único dos cinco que **não** vem de
+ *    um documento do cliente: é mensagem da plataforma, redigida aqui, porque
+ *    não havia nada deste género para seguir à letra.
  *
  * Os quatro seguem os assuntos **e corpos** dos documentos do
  * cliente, à letra — incluindo "Registro", que é como lá está e não se
@@ -291,6 +295,59 @@ export function emailBoasVindas({
     ${despedida()}
   `,
     ARQUIVO,
+  );
+}
+
+/* ------------------------------------------- 5. código de verificação (OTP) */
+
+export const ASSUNTO_OTP = "JMASSANO | Código de verificação";
+
+/**
+ * O código que destranca a assinatura no fecho.
+ *
+ * Não vem de documento nenhum do cliente — é mensagem da plataforma, e a
+ * redação é curta de propósito: um email cujo único conteúdo útil são seis
+ * dígitos não deve obrigar a procurá-los no meio de dois parágrafos de
+ * cortesia. Daí o código em bloco, em mono e grande, com o prazo por baixo.
+ *
+ * A frase final não é boilerplate. Um código de verificação que chega sem ter
+ * sido pedido é o primeiro sinal de que alguém tem o link de acesso — e a
+ * pessoa que o recebe é a única em posição de dar o alarme.
+ */
+export function emailCodigoOtp({
+  nome,
+  codigo,
+  referencia,
+  minutos,
+}: {
+  nome?: string | null;
+  codigo: string;
+  referencia?: string | null;
+  minutos: number;
+}): string {
+  return moldura(
+    `
+    ${refProcesso(referencia)}
+    ${saudacao(nome)}
+    ${p(
+      "Para concluir o registo e assinar digitalmente, introduza o código abaixo na plataforma:",
+    )}
+    <p style="margin:6px 0 10px;text-align:center;">
+      <span style="display:inline-block;background:${PAPEL};border:1px solid ${LINHA};
+                   border-radius:6px;padding:14px 26px;font-family:${FONTE_MONO};
+                   font-size:30px;letter-spacing:0.28em;color:${TINTA};font-weight:600;">
+        ${escapar(codigo)}
+      </span>
+    </p>
+    ${p(
+      `O código é válido durante ${minutos} minutos. Findo esse prazo, peça um novo código na própria página.`,
+    )}
+    ${p(
+      "Se não foi o senhor(a) que pediu este código, não o utilize e contacte-nos de imediato — pode significar que o seu link de acesso está em mãos de terceiros.",
+    )}
+    ${despedida()}
+  `,
+    LATAO,
   );
 }
 

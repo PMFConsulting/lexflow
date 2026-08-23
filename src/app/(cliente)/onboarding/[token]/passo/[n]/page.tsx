@@ -1,17 +1,32 @@
 import { notFound, redirect } from "next/navigation";
-import { acessoPorToken, seccoesDoProcesso } from "@/features/onboarding/dados";
+import { estadoDoCodigo } from "@/features/onboarding/acoes";
+import {
+  acessoPorToken,
+  passosGravados,
+  seccoesDoProcesso,
+} from "@/features/onboarding/dados";
 import { Formulario } from "@/features/onboarding/componentes/Formulario";
 import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndisponivel";
 import {
   passoAplicavel,
   passoPorNumero,
+  passosDoProcesso,
   proximoPasso,
+  ultimoPasso,
 } from "@/features/onboarding/passos";
 
 export default async function PaginaPasso({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string; n: string }>;
+  /**
+   * Lido no servidor e passado como prop, em vez de `useSearchParams()` no
+   * cliente: o hook empurra o componente para uma fronteira de Suspense e faz
+   * do parâmetro uma afirmação do browser. Aqui o parâmetro é uma sugestão que
+   * se confirma contra o estado do processo antes de valer alguma coisa.
+   */
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token: recebido, n: bruto } = await params;
   const n = Number(bruto);
@@ -44,6 +59,36 @@ export default async function PaginaPasso({
 
   const seccoes = await seccoesDoProcesso(processo.id);
 
+  /*
+   * "Vim da revisão para corrigir" é uma afirmação do URL, e um URL não é fonte
+   * de verdade sobre nada.
+   *
+   * Confirma-se contra o processo: só se aceita o regresso ao fecho quando o
+   * fecho é de facto alcançável, ou seja, quando todos os passos anteriores
+   * deste percurso já estão gravados. Sem esta confirmação, escrever
+   * `?regresso=fecho` no passo 1 de um processo acabado de abrir mandava o
+   * cliente, ao guardar, para um ecrã de revisão de um formulário vazio — que é
+   * um beco, e um beco que ele próprio não sabe que abriu.
+   *
+   * O último passo não se corrige a si próprio: no fecho o parâmetro não faz
+   * sentido nenhum e é ignorado.
+   */
+  const feitos = new Set(passosGravados(seccoes, processo.tipoCliente));
+  const fechoAlcancavel = passosDoProcesso(processo.tipoCliente)
+    .filter((p) => p.n < ultimoPasso(processo.tipoCliente))
+    .every((p) => feitos.has(p.n));
+
+  const { regresso } = await searchParams;
+  const voltarAoFecho =
+    regresso === "fecho" && n !== ultimoPasso(processo.tipoCliente) && fechoAlcancavel;
+
+  // Só o fecho precisa do estado do código; nos outros passos poupa-se a
+  // consulta e passa-se o estado vazio, que é o que ele é.
+  const otp =
+    n === ultimoPasso(processo.tipoCliente)
+      ? await estadoDoCodigo(token)
+      : { verificado: false, pedido: false, para: null };
+
   return (
     <Formulario
       token={token}
@@ -51,6 +96,8 @@ export default async function PaginaPasso({
       seccoes={seccoes}
       tipoCliente={processo.tipoCliente}
       referencia={processo.referencia}
+      otp={otp}
+      voltarAoFecho={voltarAoFecho}
     />
   );
 }

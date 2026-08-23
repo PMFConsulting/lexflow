@@ -64,6 +64,49 @@ export function validarNif(valor: string): Resultado {
   return ok;
 }
 
+/**
+ * Primeiro dígito de um número de pessoa coletiva.
+ *
+ * 5 sociedades comerciais · 6 organismos públicos · 8 empresário em nome
+ * individual · 9 condomínios, heranças indivisas e pessoas coletivas
+ * irregulares. Ficam de fora o 1, 2 e 3 (pessoas singulares) e os prefixos de
+ * dois dígitos que começam por 4 e 7 — não residentes e heranças —, que o
+ * `validarNif` continua a aceitar onde a pergunta é "isto é um NIF válido?".
+ */
+const PRIMEIRO_DIGITO_COLETIVA = ["5", "6", "8", "9"];
+
+/**
+ * NIPC — o NIF de uma pessoa coletiva.
+ *
+ * O `validarNif` responde a "isto é um NIF português válido?", e a resposta
+ * certa para o NIF de uma pessoa singular é "sim". Só que, no sítio onde se
+ * está a abrir o dossier de uma **entidade**, essa resposta está errada em
+ * substância: um 2 ou um 3 no primeiro dígito é o número pessoal de alguém
+ * escrito na caixa da empresa, e é um erro que passava por bom até alguém
+ * reparar — quando repara — meses depois, com o processo já a correr.
+ *
+ * A ordem das duas verificações não é indiferente. O prefixo vem primeiro
+ * porque é o defeito mais grosso: dizer "com estes oito dígitos o último teria
+ * de ser 4" sobre um número que nem sequer é de pessoa coletiva manda corrigir
+ * a coisa errada, e o cliente acaba a inventar um dígito de controlo para um
+ * número que nunca podia servir. O comprimento fica para o `validarNif`, que
+ * já o conta e já o diz.
+ */
+export function validarNipc(valor: string): Resultado {
+  const nipc = normalizarNif(valor);
+
+  if (nipc.length === 0) return erro("Indique o NIPC da entidade.");
+
+  if (/^\d{9}$/.test(nipc) && !PRIMEIRO_DIGITO_COLETIVA.includes(nipc[0])) {
+    return erro(
+      `O NIPC de uma pessoa coletiva começa por 5, 6, 8 ou 9 — este começa por ${nipc[0]}. ` +
+        "Confirme se não escreveu o NIF de uma pessoa singular.",
+    );
+  }
+
+  return validarNif(nipc);
+}
+
 /* ---------------------------------------------------------------- Código postal */
 
 export function validarCodigoPostal(valor: string): Resultado {
@@ -142,13 +185,71 @@ export function formatarIban(valor: string): string {
 
 /* ------------------------------------------------------------------ Telefone */
 
-/** E.164 permissivo: aceita indicativo internacional e espaços de leitura. */
+/**
+ * Tira ao número o indicativo português, se ele lá estiver.
+ *
+ * Devolve `null` quando o indicativo é de outro país — que é informação
+ * diferente de "o número tem o tamanho errado" e merece outra mensagem.
+ *
+ * O `351` sem `+` nem `00` só conta como indicativo quando sobram exatamente
+ * nove dígitos depois dele. Não é generosidade: nenhum número nacional começa
+ * por 3 (fixos começam por 2, móveis por 9), por isso não há número legítimo de
+ * nove dígitos a ser mutilado por esta regra.
+ */
+function semIndicativoPt(tel: string): string | null {
+  if (tel.startsWith("+")) {
+    return tel.startsWith("+351") ? tel.slice(4) : null;
+  }
+  if (tel.startsWith("00")) {
+    return tel.startsWith("00351") ? tel.slice(5) : null;
+  }
+  if (tel.length === 12 && tel.startsWith("351")) return tel.slice(3);
+  return tel;
+}
+
+/**
+ * Contacto telefónico — nove dígitos, com ou sem o indicativo de Portugal.
+ *
+ * O que aqui estava era um `^\+?\d{6,15}$`, e a folga não era neutra: aceitava
+ * `123` e aceitava `9123456789`. O primeiro não é número nenhum; o segundo é o
+ * defeito caro, porque um dígito a mais num telemóvel português tem exatamente
+ * o aspeto de um número certo e só se descobre quando alguém tenta ligar — e
+ * quem tenta ligar é a sociedade, semanas depois, a um cliente que já não está
+ * a olhar para o formulário.
+ *
+ * Aceita-se `912 345 678`, `912345678`, `+351 912 345 678`, `00351912345678` e
+ * as variantes com espaços, hífenes, pontos ou parênteses: são formas de
+ * escrever o mesmo número, e recusar a formatação de quem copia do cartão de
+ * visita é recusar o número certo pelo motivo errado.
+ *
+ * Só números portugueses, e é uma decisão de POC: o passo 2 aceita um NIF
+ * estrangeiro de propósito, mas o telefone passa a exigir os nove dígitos
+ * nacionais. Um indicativo de outro país é recusado com essa razão à frente,
+ * para não se ler como erro de contagem.
+ */
 export function validarTelefone(valor: string): Resultado {
-  const tel = valor.replace(/[\s-]/g, "");
+  const tel = valor.replace(/[\s\-().]/g, "");
 
   if (tel.length === 0) return erro("Indique o contacto telefónico.");
-  if (!/^\+?\d{6,15}$/.test(tel)) {
-    return erro("Indique o número com o indicativo do país — por exemplo +351 912 345 678.");
+
+  if (!/^(\+|00)?\d+$/.test(tel)) {
+    return erro(
+      "O telefone só pode ter dígitos e, opcionalmente, o indicativo +351 — por exemplo 912 345 678.",
+    );
+  }
+
+  const nacional = semIndicativoPt(tel);
+
+  if (nacional === null) {
+    return erro(
+      "De momento só aceitamos números portugueses. Indique um número de 9 dígitos, com ou sem o indicativo +351.",
+    );
+  }
+
+  if (nacional.length !== 9) {
+    return erro(
+      `O número de telefone tem de ter 9 dígitos — indicou ${nacional.length}. Por exemplo 912 345 678.`,
+    );
   }
 
   return ok;

@@ -8,6 +8,7 @@ import {
   Copy,
   ExternalLink,
   FilePlus,
+  FileText,
   LoaderCircle,
   Mail,
   Plus,
@@ -28,9 +29,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Ref } from "@/components/ref-processo";
-import { validarNif } from "@/lib/validacao-pt";
+import { validarNipc } from "@/lib/validacao-pt";
 import { cn } from "@/lib/utils";
 import { criarProcesso } from "../acoes";
+import { carregarPropostaComercial } from "../proposta";
 import type { NovoProcesso } from "../schemas";
 
 /**
@@ -104,10 +106,22 @@ type Resultado = {
    * Resend. Ver a nota do banner.
    */
   paraServidor: string | null;
+  /**
+   * A proposta comercial, quando foi escolhida uma.
+   *
+   * `null` quando não se anexou nada — que continua a ser um caso legítimo: a
+   * proposta pode ainda estar por fechar quando o dossier se abre, e o cliente
+   * pode começar a preencher sem ela. Sem anexo, o passo 7 mostra a proposta
+   * genérica, como fazia antes.
+   */
+  proposta: { nome: string; ok: boolean; erro?: string } | null;
 };
 
 /** Os erros por campo, para o aviso ficar por baixo da caixa que o causou. */
-type Erros = Partial<Record<"nome" | "nif" | "email", string>>;
+type Erros = Partial<Record<"nome" | "nif" | "email" | "proposta", string>>;
+
+/** O mesmo limite do servidor (`carregarPropostaComercial`), para o dizer antes da subida. */
+const MAX_PROPOSTA = 4 * 1024 * 1024;
 
 export function BotaoNovoProcesso({ tamanho = "default" }: { tamanho?: "default" | "sm" }) {
   const [aberto, setAberto] = useState(false);
@@ -248,11 +262,13 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
   const idNome = useId();
   const idNif = useId();
   const idEmail = useId();
+  const idProposta = useId();
   const [aCriar, transicao] = useTransition();
   const [tipoCliente, setTipoCliente] = useState<TipoCliente>("particular");
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
   const [nif, setNif] = useState("");
+  const [proposta, setProposta] = useState<File | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [erros, setErros] = useState<Erros>({});
@@ -309,11 +325,21 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
       if (nomeLimpo.length < 2) {
         novos.nome = "Indique a denominação social da entidade.";
       }
-      const r = validarNif(nifLimpo);
+      const r = validarNipc(nifLimpo);
       if (!r.valido) novos.nif = r.mensagem;
     }
     if (destinatario && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
       novos.email = "Falta o @ ou o domínio — por exemplo nome@empresa.pt.";
+    }
+    // O servidor recusa pelas mesmas duas razões; dizê-lo aqui poupa a subida de
+    // um ficheiro que já se sabe que não entra — e, sobretudo, poupa criar o
+    // processo primeiro e só depois descobrir que a proposta ficou de fora.
+    if (proposta) {
+      if (proposta.size > MAX_PROPOSTA) {
+        novos.proposta = `A proposta tem ${(proposta.size / 1024 / 1024).toFixed(1)} MB. O máximo são 4 MB.`;
+      } else if (!proposta.name.toLowerCase().endsWith(".pdf")) {
+        novos.proposta = `«${proposta.name}» não é um PDF. A proposta comercial tem de ser um ficheiro PDF.`;
+      }
     }
 
     setErros(novos);
@@ -346,6 +372,38 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           }
           return;
         }
+
+        /*
+         * A proposta sobe **depois** de o processo existir, e a falha dela não
+         * desfaz nada.
+         *
+         * Não podia ser de outra maneira: o documento pendura-se num processo, e
+         * antes do INSERT não há processo onde o pendurar. O que isso obriga é a
+         * dizer a verdade no ecrã seguinte — o dossier está aberto, o link é
+         * válido, e a proposta ou entrou ou não entrou. Um upload falhado a
+         * apresentar-se como criação falhada mandava repetir tudo e deixava atrás
+         * um processo órfão; a apresentar-se como silêncio, deixava o cliente a
+         * aceitar a proposta genérica sem ninguém saber porquê.
+         */
+        let estadoProposta: Resultado["proposta"] = null;
+        if (proposta) {
+          const fd = new FormData();
+          fd.set("ficheiro", proposta);
+          try {
+            const p = await carregarPropostaComercial(r.processoId, fd);
+            estadoProposta = p.ok
+              ? { nome: proposta.name, ok: true }
+              : { nome: proposta.name, ok: false, erro: p.erro };
+          } catch (e) {
+            console.error("[novo processo] o upload da proposta rebentou", e);
+            estadoProposta = {
+              nome: proposta.name,
+              ok: false,
+              erro: "O servidor não respondeu ao envio do ficheiro.",
+            };
+          }
+        }
+
         setResultado({
           referencia: r.referencia,
           nome: nomeLimpo,
@@ -360,6 +418,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           erroEmail: r.erroEmail,
           para: destinatario,
           paraServidor: r.paraServidor,
+          proposta: estadoProposta,
         });
       } catch (e) {
         // Uma Server Action que rebenta rejeita esta promessa, e sem `catch` a
@@ -456,6 +515,42 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
           )}
 
           {resultado.para && <AvisoEmail r={resultado} />}
+
+          {resultado.proposta && (
+            <div
+              className={cn(
+                "flex items-start gap-2 rounded-sm border p-3 text-xs",
+                resultado.proposta.ok
+                  ? "border-arquivo/40 bg-arquivo/5 text-arquivo"
+                  : "border-selo/40 bg-selo/5 text-selo",
+              )}
+              role={resultado.proposta.ok ? undefined : "alert"}
+            >
+              {resultado.proposta.ok ? (
+                <FileText className="mt-px size-3.5 shrink-0" />
+              ) : (
+                <TriangleAlert className="mt-px size-3.5 shrink-0" />
+              )}
+              <div className="flex min-w-0 flex-col gap-1">
+                {resultado.proposta.ok ? (
+                  <span>
+                    Proposta comercial anexada ({resultado.proposta.nome}). É esta que o cliente
+                    lê e aceita no último passo.
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      O processo foi criado, mas a proposta <strong>não ficou anexada</strong>.
+                      Sem ela, o cliente aceita a proposta genérica.
+                    </span>
+                    <span className="font-mono break-all opacity-80">
+                      {resultado.proposta.erro}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="np-link" className="text-tinta text-sm font-medium">
@@ -637,7 +732,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
               id={idNif}
               etiqueta="NIPC"
               erro={erros.nif}
-              ajuda="Nove dígitos, sem espaços. O dígito de controlo é verificado aqui."
+              ajuda="Nove dígitos, a começar por 5, 6, 8 ou 9. O dígito de controlo é verificado aqui."
             >
               <Input
                 id={idNif}
@@ -672,6 +767,33 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
               className="h-9"
               aria-invalid={Boolean(erros.email)}
               aria-describedby={erros.email ? `${idEmail}-erro` : `${idEmail}-ajuda`}
+            />
+          </Campo>
+
+          {/* A proposta comercial deste cliente.
+              Opcional, e é uma decisão e não uma folga: a proposta pode ainda
+              estar por fechar quando o dossier se abre, e obrigar a tê-la para
+              poder criar o processo seria travar o passo 1 do cliente por causa
+              do passo 7. Sem ela, o fecho mostra a proposta genérica; com ela,
+              mostra esta — e é esta que ele aceita. */}
+          <Campo
+            id={idProposta}
+            etiqueta="Proposta comercial"
+            opcional
+            erro={erros.proposta}
+            ajuda="PDF, até 4 MB. É o documento que o cliente lê e aceita no último passo. Pode anexá-lo mais tarde, no detalhe do processo."
+          >
+            <input
+              id={idProposta}
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={(e) => {
+                setProposta(e.target.files?.[0] ?? null);
+                setErros((s) => ({ ...s, proposta: undefined }));
+              }}
+              aria-invalid={Boolean(erros.proposta)}
+              aria-describedby={erros.proposta ? `${idProposta}-erro` : `${idProposta}-ajuda`}
+              className="file:bg-tinta file:text-papel-alto text-sm file:mr-3 file:rounded-sm file:border-0 file:px-3 file:py-1.5 file:text-sm"
             />
           </Campo>
         </div>

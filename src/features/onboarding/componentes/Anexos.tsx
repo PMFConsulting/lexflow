@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, useTransition } from "react";
-import { Paperclip, Trash2 } from "lucide-react";
+import { Check, Circle, Paperclip, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { classeSelect } from "./Campo";
@@ -17,6 +17,9 @@ const ROTULOS: Record<string, string> = {
   procuracao: "Procuração",
   ata_designacao: "Ata de designação",
   comprovativo_rcbe: "Comprovativo RCBE",
+  proposta_comercial: "Proposta comercial",
+  termos_sociedade: "Termos e Condições da sociedade",
+  dossier_assinado: "Dossier assinado",
   outro: "Outro",
 };
 
@@ -35,12 +38,23 @@ export function Anexos({
   iniciais,
   titulo,
   ajuda,
+  obrigatorios = [],
+  erros = {},
 }: {
   token: string;
   tipos: string[];
   iniciais: Anexo[];
   titulo: string;
   ajuda?: string;
+  /**
+   * Os tipos sem os quais o passo não fecha. A decisão é do servidor
+   * (`ANEXOS_OBRIGATORIOS`, em `../schemas`); isto é a mesma lista, para o
+   * cliente poder ver o que falta **antes** de carregar em Guardar em vez de o
+   * descobrir por um erro no fim.
+   */
+  obrigatorios?: readonly string[];
+  /** Os erros do passo, para as mensagens de `documentos` aterrarem aqui. */
+  erros?: Record<string, string[]>;
 }) {
   const [anexos, setAnexos] = useState<Anexo[]>(iniciais);
   const [tipo, setTipo] = useState(tipos[0] ?? "outro");
@@ -130,6 +144,9 @@ export function Anexos({
       if (r.ok) setAnexos((a) => a.filter((x) => x.id !== id));
     });
 
+  const temTipo = (t: string) => anexos.some((a) => a.tipo === t);
+  const mensagens = erros.documentos ?? [];
+
   return (
     // `data-anexos` com a contagem: é o sinal que diz se um anexo entrou, sem
     // depender de ler o `files` de um campo que se limpa de propósito.
@@ -141,6 +158,68 @@ export function Anexos({
       <div>
         <h2 className="text-lg">{titulo}</h2>
         {ajuda && <p className="mt-1 text-sm text-muted-foreground">{ajuda}</p>}
+      </div>
+
+      {/* Este `div` é também a âncora do resumo de erros — ver o `input`
+          escondido lá dentro. `alvoDoErro` sobe do campo ao `closest("div")`, e
+          é a este que ele tem de chegar: a lista do que falta é o sítio certo
+          para onde levar quem carregou em "Anexe o documento de identificação",
+          e fica logo por cima da caixa onde se escolhe o ficheiro. */}
+      <div className="flex flex-col gap-3">
+        {/* A lista do que é preciso, com o que já entrou riscado da conta.
+            Estava tudo dito em prosa na linha de ajuda, e em prosa "o documento
+            de identificação e o comprovativo de NIF" lê-se como uma frase, não
+            como uma lista de duas coisas a fazer — e ninguém contava. */}
+        {obrigatorios.length > 0 && (
+          <ul className="border-linha bg-muted flex flex-col gap-1.5 rounded-sm border p-3">
+            {obrigatorios.map((t) => {
+              const entregue = temTipo(t);
+              return (
+                <li
+                  key={t}
+                  className={cn(
+                    "flex items-center gap-2 text-xs",
+                    entregue ? "text-arquivo" : "text-muted-foreground",
+                  )}
+                >
+                  {entregue ? (
+                    <Check className="size-3.5 shrink-0" strokeWidth={2.5} />
+                  ) : (
+                    <Circle className="size-3.5 shrink-0" />
+                  )}
+                  <span>
+                    {ROTULOS[t] ?? t}
+                    <span className="text-muted-foreground">
+                      {entregue ? " · anexado" : " · obrigatório"}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {/* O `name` que o resumo de erros procura. Escondido porque o anexo não
+            é campo do passo — o `carga()` não o lê e o ficheiro nunca entra no
+            `FormData` do formulário —, mas sem ele um erro em `documentos` não
+            tinha para onde saltar (ver `alvoDoErro` em `Formulario.tsx`). Sem
+            `label` por perto de propósito: as mensagens nomeiam-se a si próprias
+            ("Anexe o documento de identificação…") e uma etiqueta à frente delas
+            só acrescentaria ruído. */}
+        <input type="hidden" name="documentos" value={anexos.map((a) => a.tipo).join(",")} />
+
+        {mensagens.length > 0 && (
+          <ul
+            className="border-selo/40 bg-selo/5 flex flex-col gap-1 rounded-sm border p-3"
+            role="alert"
+          >
+            {mensagens.map((m) => (
+              <li key={m} className="text-selo text-xs">
+                {m}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {anexos.length > 0 && (

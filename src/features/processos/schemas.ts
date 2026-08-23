@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizarNif, validarNif } from "@/lib/validacao-pt";
+import { normalizarNif, validarNipc } from "@/lib/validacao-pt";
 
 /**
  * O que se pede na janela "Novo processo", validado no mesmo ficheiro dos dois
@@ -32,17 +32,22 @@ const nomeOpcional = z.preprocess(
 );
 
 /**
- * NIPC com o mod-11 inteiro, ao contrário do NIF de faturação do passo 5, que
- * aceita números estrangeiros. Aqui a entidade está a ser aberta por quem tem a
- * certidão à frente: um dígito trocado é erro de cópia, e é exatamente isso que
- * o checksum apanha.
+ * NIPC com o mod-11 inteiro **e** o primeiro dígito de pessoa coletiva, ao
+ * contrário do NIF de faturação do passo 5, que aceita números estrangeiros.
+ * Aqui a entidade está a ser aberta por quem tem a certidão à frente: um dígito
+ * trocado é erro de cópia, e é exatamente isso que o checksum apanha.
+ *
+ * O `validarNipc` acrescenta ao `validarNif` a única coisa que ele não podia
+ * saber deste sítio: que o número é de uma **entidade**. Um NIF de pessoa
+ * singular — 1, 2 ou 3 no primeiro dígito — passa o mod-11 com distinção e está
+ * na mesma errado aqui, e era um erro que ficava gravado sem nada o assinalar.
  */
 const nipc = z
   .string()
   .trim()
   .min(1, "O NIPC é obrigatório.")
   .superRefine((v, ctx) => {
-    const r = validarNif(v);
+    const r = validarNipc(v);
     if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
   })
   .transform(normalizarNif);

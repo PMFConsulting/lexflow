@@ -62,16 +62,24 @@ describe("NIF de faturação", () => {
 /**
  * O passo 2 no percurso Empresa.
  *
- * Relatado como "o passo não avança e o anexo não fica preenchido". O anexo é
- * uma pista falsa: o schema não pede documento nenhum, e o campo de ficheiro é
- * limpo de propósito depois de o upload correr. O que travava o passo era o
- * único campo que o schema recusava — o NIF, com o dígito de controlo trocado.
+ * Relatado como "o passo não avança e o anexo não fica preenchido". O anexo era
+ * uma pista falsa **e deixou de o ser**: o campo de ficheiro continua a limpar-se
+ * de propósito depois do upload (e por isso `files.length` continua a ser 0 a
+ * seguir a um anexo que entrou), mas o schema passou a exigir que os documentos
+ * obrigatórios estejam anexados — não pela carga do formulário, que nunca soube
+ * de ficheiros, mas pela lista que o `guardarPasso` lhe injeta a partir da
+ * tabela `documento`.
+ *
+ * O `nif` do percurso Empresa é agora um NIPC: além do mod-11, o primeiro dígito
+ * tem de ser 5, 6, 8 ou 9.
  */
 describe("passo 2 — percurso Empresa", () => {
   const empresa = {
+    tipoCliente: "empresa",
+    documentos: ["identificacao", "comprovativo_nif", "certidao_permanente"],
     nifPortugues: true,
     resideEmPortugal: true,
-    nif: "213456788",
+    nif: "500000000",
     docTipo: "cartao_cidadao",
     docNumero: "12345678",
     docValidade: "2999-01-01",
@@ -85,7 +93,12 @@ describe("passo 2 — percurso Empresa", () => {
     return r.success ? [] : r.error.issues.map((i) => i.path.join("."));
   };
 
-  it("não exige anexos — o passo fecha sem documento nenhum", () => {
+  const mensagensDe = (dados: Record<string, unknown>, campo: string) => {
+    const r = passo2.safeParse(dados);
+    return r.success ? [] : r.error.issues.filter((i) => i.path[0] === campo).map((i) => i.message);
+  };
+
+  it("fecha com os três anexos obrigatórios e um NIPC de coletiva", () => {
     expect(campos(empresa)).toEqual([]);
   });
 
@@ -98,7 +111,62 @@ describe("passo 2 — percurso Empresa", () => {
   });
 
   it("recusa só o NIF quando o dígito de controlo está trocado", () => {
-    expect(campos({ ...empresa, nif: "213456789" })).toEqual(["nif"]);
+    expect(campos({ ...empresa, nif: "500000001" })).toEqual(["nif"]);
+  });
+
+  /**
+   * A regra nova, e é a que apanha o erro caro: um NIF de pessoa singular passa
+   * o mod-11 com distinção — é um NIF válido, só não é o de uma entidade — e
+   * ficava gravado a dizer que a empresa é aquela pessoa. Sem o primeiro dígito
+   * na régua, nada o assinalava.
+   */
+  it("recusa um NIF de pessoa singular na caixa de uma empresa", () => {
+    // 213456788 é um NIF válido: só não é de pessoa coletiva.
+    expect(campos({ ...empresa, nif: "213456788" })).toEqual(["nif"]);
+    expect(mensagensDe({ ...empresa, nif: "213456788" }, "nif")[0]).toContain("5, 6, 8 ou 9");
+  });
+
+  it("aceita os quatro primeiros dígitos de coletiva e recusa os outros", () => {
+    // Um por cada família: 5 sociedades, 6 organismos públicos, 8 ENI,
+    // 9 condomínios e irregulares.
+    for (const nipc of ["500000000", "600000001", "800000005", "900000007"]) {
+      expect(campos({ ...empresa, nif: nipc })).toEqual([]);
+    }
+    // 1, 2 e 3 são de pessoa singular; o 7 das heranças indivisas também não
+    // serve para abrir o dossier de uma entidade. Todos com o mod-11 certo — o
+    // que os recusa é o primeiro dígito, não o último.
+    for (const nif of ["123456789", "213456788", "700000003"]) {
+      expect(campos({ ...empresa, nif })).toEqual(["nif"]);
+    }
+  });
+
+  it("não fecha sem os anexos obrigatórios, e diz qual falta", () => {
+    expect(campos({ ...empresa, documentos: [] })).toEqual([
+      "documentos",
+      "documentos",
+      "documentos",
+    ]);
+
+    const semCertidao = { ...empresa, documentos: ["identificacao", "comprovativo_nif"] };
+    expect(campos(semCertidao)).toEqual(["documentos"]);
+    expect(mensagensDe(semCertidao, "documentos")).toEqual([
+      "Anexe a certidão permanente da entidade para continuar.",
+    ]);
+  });
+
+  /**
+   * A certidão permanente é a única exigência que não atravessa os dois
+   * percursos, e pela mesma razão do passo 3 (D28): uma pessoa singular não tem
+   * certidão a que ir buscar, e pedir-lha era um passo sem saída.
+   */
+  it("a certidão permanente só se exige à pessoa coletiva", () => {
+    const singular = {
+      ...empresa,
+      tipoCliente: "particular",
+      nif: "123456789",
+      documentos: ["identificacao", "comprovativo_nif"],
+    };
+    expect(campos(singular)).toEqual([]);
   });
 
   /**
@@ -407,6 +475,12 @@ describe("passo 2 — documento de identificação", () => {
     docTipo: "cartao_cidadao",
     docNumero: "12345678",
     docValidade: "2999-01-01",
+    // Os anexos obrigatórios do percurso particular. Estão no fixture porque a
+    // exigência é agora pré-condição de o passo fechar, e sem eles todos os
+    // testes deste bloco mediriam a trava dos documentos em vez do que se
+    // propõem medir — que é o documento de identificação declarado, não o
+    // ficheiro anexado. A trava tem testes próprios, em «percurso Empresa».
+    documentos: ["identificacao", "comprovativo_nif"],
   };
 
   const campos = (dados: Record<string, unknown>) => {

@@ -190,6 +190,46 @@ export async function processoPorId(id: string) {
 }
 
 /** Documentos de um processo, sem os bytes. */
+/**
+ * A proposta comercial viva de um processo, ou `null`.
+ *
+ * Uma consulta só, partilhada pela rota que a serve ao cliente durante o
+ * onboarding e por quem só queira saber se ela existe. Duas consultas com o
+ * mesmo propósito divergem, e a que diverge é sempre a que não está no caminho
+ * do cliente (D48).
+ *
+ * Vive aqui e **não** em `proposta.ts`: esse ficheiro é `"use server"`, e tudo
+ * o que se exporte de lá fica alcançável a partir do browser. Uma função que
+ * devolve os bytes de um documento não pode ser uma dessas.
+ *
+ * `desc(criadoEm)` com `limit(1)` apesar de o carregamento apagar a anterior:
+ * a ordenação é a rede de segurança para o caso de duas linhas vivas coexistirem
+ * (uma corrida entre dois uploads simultâneos), e nesse caso a mais recente é a
+ * resposta certa.
+ */
+export async function propostaDoProcesso(processoId: string) {
+  const [linha] = await db()
+    .select({
+      id: documento.id,
+      nome: documento.nomeOriginal,
+      mime: documento.mime,
+      bytes: documento.tamanhoBytes,
+      dados: documento.dados,
+    })
+    .from(documento)
+    .where(
+      and(
+        eq(documento.processoId, processoId),
+        eq(documento.tipo, "proposta_comercial"),
+        isNull(documento.apagadoEm),
+      ),
+    )
+    .orderBy(desc(documento.criadoEm))
+    .limit(1);
+
+  return linha ?? null;
+}
+
 export async function documentosDoProcesso(processoId: string) {
   return db()
     .select({

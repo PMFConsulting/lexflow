@@ -8,3 +8,4 @@ export * from "./legal";
 export * from "./auditoria";
 export * from "./armazenamento";
 export * from "./email";
+export * from "./otp";

@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { ArrowLeft, ArrowRight, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { guardarPasso, submeter, type Resultado } from "../acoes";
+import { guardarPasso, submeter, type EstadoOtp, type Resultado } from "../acoes";
 import { CHAVE_CARIMBO } from "./Lombada";
 import {
   PASSOS,
@@ -16,8 +16,10 @@ import {
   ultimoPasso,
 } from "../passos";
 import type { Seccoes } from "../dados";
+import { ANEXOS_OBRIGATORIOS } from "../schemas";
 import { Anexos } from "./Anexos";
 import { Assinatura } from "./Assinatura";
+import { CodigoOtp } from "./CodigoOtp";
 import { LeitorTermos } from "./LeitorTermos";
 import { LeitorProposta } from "./LeitorProposta";
 import { Ref } from "@/components/ref-processo";
@@ -300,12 +302,26 @@ export function Formulario({
   seccoes,
   tipoCliente,
   referencia,
+  otp,
+  voltarAoFecho = false,
 }: {
   token: string;
   n: number;
   seccoes: Seccoes;
   tipoCliente: "particular" | "empresa";
   referencia: string;
+  /** O estado do código de verificação, lido no servidor ao montar o passo 7. */
+  otp: EstadoOtp;
+  /**
+   * O cliente veio da revisão do fecho para corrigir este passo.
+   *
+   * Ligado pelo `?regresso=fecho` dos links "Corrigir", e **confirmado no
+   * servidor**: a página só o passa a `true` quando o fecho é de facto
+   * alcançável (todos os passos anteriores gravados). Sem essa confirmação,
+   * bastava escrever o parâmetro à mão no primeiro passo para ser atirado para
+   * um ecrã de revisão de um formulário vazio.
+   */
+  voltarAoFecho?: boolean;
 }) {
   const router = useRouter();
   const [erros, setErros] = useState<Erros>({});
@@ -364,9 +380,23 @@ export function Formulario({
   const [propostaLida, setPropostaLida] = useState(seccoes.fecho?.propostaAceitacao ?? false);
   const [newsletter, setNewsletter] = useState(seccoes.preferencias?.newsletter ?? null);
   const [convites, setConvites] = useState(seccoes.preferencias?.convitesIniciativas ?? null);
+  const [otpVerificado, setOtpVerificado] = useState(otp.verificado);
 
   const anterior = passoAnterior(n, tipoCliente);
   const passo = PASSOS.find((p) => p.n === n)!;
+
+  /**
+   * A proposta comercial que a sociedade anexou ao convite, se anexou.
+   *
+   * Sai dos documentos do processo — não é preciso consulta nenhuma nova, o
+   * `seccoesDoProcesso` já os traz — e o URL é a rota autorizada pelo mesmo
+   * token que abriu esta página. Sem anexo fica `null`, e o leitor volta ao
+   * documento genérico de `public/`, como antes de isto existir.
+   */
+  const anexo = seccoes.documentos.find((d) => d.tipo === "proposta_comercial");
+  const propostaAnexada = anexo
+    ? { nome: anexo.nome, bytes: anexo.bytes, url: `/onboarding/${token}/proposta` }
+    : null;
 
   // A contagem do cabeçalho é a do percurso deste cliente, não a dos sete
   // passos que existem: uma pessoa singular não passa pelo Representante Legal
@@ -469,6 +499,12 @@ export function Formulario({
       if (!r.ok) {
         setErros(r.erros);
         setMensagem(r.mensagem ?? null);
+        // O servidor a recusar por falta de verificação desmente o que este
+        // ecrã está a mostrar: a validade de uma hora pode ter-se esgotado
+        // entre validar o código e carregar em Submeter. Repor o estado é o que
+        // devolve o bloco do código ao ecrã — sem isto ficava o visto verde a
+        // dizer que estava tudo bem e um botão apagado sem saída nenhuma.
+        if (r.erros.otp) setOtpVerificado(false);
         // leva o foco para o primeiro erro em vez de o deixar perdido
         const primeiro = Object.keys(r.erros)[0];
         if (primeiro) {
@@ -484,6 +520,18 @@ export function Formulario({
 
       if (eUltimo) {
         router.push(`/onboarding/${token}/submetido`);
+      } else if (voltarAoFecho) {
+        /*
+         * Veio da revisão para corrigir: volta lá, e não ao passo seguinte.
+         *
+         * O que aqui estava mandava-o sempre para a frente, um passo de cada
+         * vez, e obrigava-o a atravessar de novo três ou quatro ecrãs já
+         * corretos só para chegar ao botão de submeter — com um "Guardar e
+         * continuar" a gravar outra vez, em cada um, dados que ninguém tocou.
+         * Quem vai corrigir uma vírgula no NIF quer voltar ao sítio de onde
+         * saiu.
+         */
+        router.push(`/onboarding/${token}/passo/${ultimoPasso(tipoCliente)}`);
       } else if (r.proximo) {
         router.push(`/onboarding/${token}/passo/${r.proximo}`);
       } else {
@@ -503,6 +551,24 @@ export function Formulario({
       </header>
 
       <Separator />
+
+      {/* Quem veio corrigir tem de saber para onde vai a seguir. Sem esta
+          linha, o botão de baixo dizer "Guardar e voltar ao fecho" quando na
+          visita anterior dizia "Guardar e continuar" lê-se como um salto que a
+          plataforma decidiu sozinha. */}
+      {voltarAoFecho && (
+        <div className="border-latao/40 bg-latao/5 flex flex-wrap items-center justify-between gap-2 rounded-sm border p-3 text-sm">
+          <span className="text-tinta-suave">
+            Está a corrigir este passo. Ao guardar, volta à revisão final.
+          </span>
+          <Link
+            href={`/onboarding/${token}/passo/${ultimoPasso(tipoCliente)}`}
+            className="hover:text-selo shrink-0 text-xs underline underline-offset-2"
+          >
+            Voltar sem guardar
+          </Link>
+        </div>
+      )}
 
       {mensagem && (
         <p className="border-selo/40 bg-selo/10 text-selo rounded-sm border p-3 text-sm" role="alert">
@@ -608,7 +674,21 @@ export function Formulario({
             <CampoCaixa etiqueta="Reside em Portugal?" nome="resideEmPortugal" erros={erros} valorInicial={seccoes.fiscais?.resideEmPortugal ?? true} />
           </div>
 
-          <CampoTexto etiqueta="Número de contribuinte" nome="nif" erros={erros} obrigatorio mono ajuda={nifPt ? "Nove dígitos, validado por checksum." : "Número de identificação fiscal do país de residência."} valorInicial={seccoes.fiscais?.nif ?? ""} />
+          <CampoTexto
+            etiqueta={tipoCliente === "empresa" ? "NIPC" : "Número de contribuinte"}
+            nome="nif"
+            erros={erros}
+            obrigatorio
+            mono
+            ajuda={
+              !nifPt
+                ? "Número de identificação fiscal do país de residência."
+                : tipoCliente === "empresa"
+                  ? "Nove dígitos, a começar por 5, 6, 8 ou 9. O dígito de controlo é verificado."
+                  : "Nove dígitos, validado por checksum."
+            }
+            valorInicial={seccoes.fiscais?.nif ?? ""}
+          />
 
           <p className="border-linha bg-muted rounded-sm border p-3 text-sm text-muted-foreground">
             Anexe um documento comprovativo do seu Número de Identificação Fiscal,
@@ -634,6 +714,8 @@ export function Formulario({
                 ? ["identificacao", "comprovativo_nif", "certidao_permanente", "outro"]
                 : ["identificacao", "comprovativo_nif", "outro"]
             }
+            obrigatorios={ANEXOS_OBRIGATORIOS[tipoCliente]}
+            erros={erros}
             iniciais={seccoes.documentos.filter((d) =>
               ["identificacao", "comprovativo_nif", "certidao_permanente", "outro"].includes(d.tipo),
             )}
@@ -995,12 +1077,17 @@ export function Formulario({
             <div>
               <h2 className="text-lg">Proposta de Honorários</h2>
               <p className="text-sm text-muted-foreground">
-                Ao aceitar, confirma que leu e aceita os serviços e as condições
-                descritos na proposta que lhe foi apresentada.
+                {propostaAnexada
+                  ? "Ao aceitar, confirma que leu e aceita os serviços e as condições descritos na proposta comercial que a sociedade lhe enviou."
+                  : "Ao aceitar, confirma que leu e aceita os serviços e as condições descritos na proposta que lhe foi apresentada."}
               </p>
             </div>
 
-            <LeitorProposta lido={propostaLida} aoLer={() => setPropostaLida(true)} />
+            <LeitorProposta
+              lido={propostaLida}
+              aoLer={() => setPropostaLida(true)}
+              anexada={propostaAnexada}
+            />
 
             <CampoCaixa
               etiqueta="Aceito a proposta de honorários."
@@ -1024,12 +1111,46 @@ export function Formulario({
             <Separator />
 
             <div>
+              <h2 className="text-lg">Verificação por email</h2>
+              <p className="text-sm text-muted-foreground">
+                O último passo antes de assinar: confirmamos que é o senhor(a) quem
+                está a submeter.
+              </p>
+            </div>
+
+            <CodigoOtp
+              token={token}
+              inicial={otp}
+              verificado={otpVerificado}
+              erros={erros}
+              aoVerificar={setOtpVerificado}
+            />
+
+            <Separator />
+
+            <div>
               <h2 className="text-lg">Assinatura digital</h2>
               <p className="text-sm text-muted-foreground">
                 A sua rubrica fecha e confirma tudo o que aceitou acima.
               </p>
             </div>
-            <Assinatura nome="assinatura" erros={erros} />
+
+            {/* O quadro só monta depois da verificação, e não fica desativado
+                por cima: um canvas de assinatura semitransparente convida na
+                mesma a desenhar, e desenhar sem que nada aconteça é a pior
+                forma de dizer que falta um passo. O servidor faz a mesma
+                pergunta antes de escrever a rubrica — ver `guardarPasso`. */}
+            {otpVerificado ? (
+              <Assinatura nome="assinatura" erros={erros} />
+            ) : (
+              <p className="border-linha bg-muted flex items-start gap-2 rounded-sm border p-3 text-xs text-muted-foreground">
+                <Info className="mt-0.5 size-3.5 shrink-0" />
+                <span>
+                  O quadro de assinatura abre assim que validar o código enviado por
+                  email.
+                </span>
+              </p>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             Ao submeter, o processo fica a aguardar aprovação da equipa — deixa
@@ -1067,8 +1188,28 @@ export function Formulario({
           <span />
         )}
 
-        <Button type="submit" disabled={aGuardar} size="lg" className="md:h-9">
-          {aGuardar ? "A guardar…" : eUltimo ? "Submeter" : "Guardar e continuar"}
+        {/* No fecho, o botão só acorda depois do código verificado — a mesma
+            condição que o servidor impõe antes de escrever a rubrica. Um botão
+            que se pode carregar e devolve sempre o mesmo erro é pior do que um
+            botão que diz porque está apagado. */}
+        <Button
+          type="submit"
+          disabled={aGuardar || (eUltimo && !otpVerificado)}
+          size="lg"
+          className="md:h-9"
+          title={
+            eUltimo && !otpVerificado
+              ? "Valide o código enviado por email para poder submeter."
+              : undefined
+          }
+        >
+          {aGuardar
+            ? "A guardar…"
+            : eUltimo
+              ? "Submeter"
+              : voltarAoFecho
+                ? "Guardar e voltar ao fecho"
+                : "Guardar e continuar"}
           {eUltimo ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
         </Button>
       </div>
@@ -1260,8 +1401,13 @@ function Revisao({
               <h3 className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
                 {String(b.passo).padStart(2, "0")} · {b.titulo}
               </h3>
+              {/* `?regresso=fecho` é o que diz ao passo de destino que este
+                  cliente veio corrigir e não veio preencher — e é o que faz o
+                  "Guardar" de lá trazê-lo de volta aqui em vez de o atirar para
+                  o passo seguinte. A página valida-o contra o estado real do
+                  processo antes de o acreditar. */}
               <Link
-                href={`/onboarding/${token}/passo/${b.passo}`}
+                href={`/onboarding/${token}/passo/${b.passo}?regresso=fecho`}
                 className="text-xs underline underline-offset-2 hover:text-selo"
               >
                 Corrigir

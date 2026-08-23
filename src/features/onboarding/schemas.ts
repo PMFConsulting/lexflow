@@ -4,6 +4,7 @@ import {
   validarCodigoPostal,
   validarIban,
   validarNif,
+  validarNipc,
   validarTelefone,
 } from "@/lib/validacao-pt";
 
@@ -163,8 +164,52 @@ export const passo1 = z
 
 /* ── passo 2 — fiscal ─────────────────────────────────────────────────── */
 
+/**
+ * Os anexos sem os quais o passo 2 não fecha, por percurso.
+ *
+ * Eram todos opcionais, e a consequência aparecia tarde: o cliente chegava ao
+ * fim, submetia, e a sociedade ficava com um dossier de KYC sem cópia do
+ * documento de identificação — que é precisamente a peça que a Lei 83/2017
+ * obriga a conservar. Recuperá-la depois é um email, uma espera e um processo
+ * que fica parado; pedi-la no ecrã em que ela é o assunto custa um clique.
+ *
+ * A certidão permanente só se exige à pessoa coletiva, pela mesma razão por que
+ * o passo 3 só a ela aparece (D28): uma pessoa singular não tem certidão a que
+ * ir buscar, e pedir-lha era um passo sem saída.
+ */
+export const ANEXOS_OBRIGATORIOS = {
+  particular: ["identificacao", "comprovativo_nif"],
+  empresa: ["identificacao", "comprovativo_nif", "certidao_permanente"],
+} as const;
+
+/** O que se diz ao cliente por cada anexo em falta — nomeia o documento. */
+const FALTA_ANEXO: Record<string, string> = {
+  identificacao: "Anexe o documento de identificação para continuar.",
+  comprovativo_nif:
+    "Anexe o comprovativo de NIF, obtido no portal da Autoridade Tributária, para continuar.",
+  certidao_permanente: "Anexe a certidão permanente da entidade para continuar.",
+};
+
 export const passo2 = z
   .object({
+    /**
+     * O percurso deste processo. **Não vem do formulário** — é injetado pelo
+     * `guardarPasso` a partir da linha do processo, e é por isso que é opcional
+     * aqui: o schema tem de continuar a parsear a carga que a janela constrói,
+     * e o que decide a regra é o servidor. Uma carga que traga `tipoCliente` de
+     * fora é substituída antes de chegar aqui, não acreditada.
+     */
+    tipoCliente: z.enum(["particular", "empresa"]).optional(),
+    /**
+     * Os tipos dos documentos já anexados a este processo, também injetados
+     * pelo servidor a partir da tabela `documento`.
+     *
+     * O `Anexos` não é campo do formulário — sobe pela sua própria Server Action
+     * e o input nem `name` tem — por isso a carga do passo nunca traz ficheiro
+     * nenhum, e nunca poderia trazer. A única fonte honesta do que está anexado
+     * é a base de dados, e é de lá que isto vem.
+     */
+    documentos: z.array(z.string()).optional().default([]),
     nifPortugues: z.boolean().default(true),
     resideEmPortugal: z.boolean().default(true),
     nif: z.string().trim().min(1, "O número de contribuinte é obrigatório."),
@@ -177,9 +222,28 @@ export const passo2 = z
   .superRefine((v, ctx) => {
     // O mod-11 só se aplica a NIF português. Um TIN estrangeiro tem outra forma
     // e rejeitá-lo com a regra portuguesa seria bloquear clientes legítimos.
+    //
+    // Numa pessoa coletiva a régua é mais apertada: além do checksum, o primeiro
+    // dígito tem de ser 5, 6, 8 ou 9. Um NIF de pessoa singular na caixa de uma
+    // empresa passa o mod-11 e está errado à mesma — e fica gravado a dizer que
+    // a entidade é aquela pessoa.
     if (v.nifPortugues) {
-      const r = validarNif(v.nif);
+      const r = v.tipoCliente === "empresa" ? validarNipc(v.nif) : validarNif(v.nif);
       if (!r.valido) ctx.addIssue({ code: "custom", path: ["nif"], message: r.mensagem });
+    }
+
+    // Um erro por documento em falta, e não um "faltam anexos" só: o resumo de
+    // erros do formulário lista uma linha por campo, e três documentos por
+    // anexar têm de se ler como três coisas a fazer.
+    const anexados = new Set(v.documentos);
+    for (const tipo of ANEXOS_OBRIGATORIOS[v.tipoCliente ?? "particular"]) {
+      if (!anexados.has(tipo)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["documentos"],
+          message: FALTA_ANEXO[tipo] ?? `Falta anexar o documento «${tipo}».`,
+        });
+      }
     }
   });
 
