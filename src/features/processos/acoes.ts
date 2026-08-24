@@ -47,6 +47,13 @@ function restricaoViolada(erro: unknown): string {
  * nunca faz falhar a criação: o processo já existe e o link continua a ser
  * mostrado no ecrã, que é a forma de o recuperar quando o email não sai.
  *
+ * **Exige sessão** (D59). Era uma Server Action pública: um `POST` direto ao
+ * identificador da ação criava processos e fazia sair o email "JMASSANO |
+ * Registro" para qualquer endereço, em nome da sociedade e à custa da quota do
+ * fornecedor. A organização deixa de ser "a primeira que a base de dados
+ * devolver" e passa a ser a de quem está autenticado — que é a mesma regra que
+ * o `processoParaDecisao` e o download de documentos já aplicavam.
+ *
  * **A partir do `INSERT` do processo esta função não rejeita** (D46). Cada passo
  * a seguir — cabeçalhos, auditoria, endereço público, envio, revalidação —
  * corre dentro do seu próprio `try`, e nenhum pode impedir o seguinte. Não é
@@ -80,6 +87,23 @@ export async function criarProcesso(entrada: NovoProcesso) {
       : `${typeof bruto}:${String(bruto)}`;
   console.info(`[processo] pedido de criação recebido — carga=${forma}`);
 
+  /*
+   * Sessão primeiro, antes de qualquer trabalho e antes de qualquer email.
+   *
+   * Uma Server Action é um endpoint HTTP como outro qualquer — a mesma nota que
+   * o `guardarPasso` do onboarding traz há muito, e que aqui faltava. Sem esta
+   * linha, quem descobrisse o identificador da ação (que vai no HTML de
+   * qualquer página do back-office, e chega a viajar em separadores abertos)
+   * tinha um botão para abrir processos e disparar o email de registo para
+   * endereços à escolha, com o remetente e o domínio da sociedade à frente.
+   *
+   * `exigirSessao` redireciona para `/entrar` quando não há sessão — o mesmo
+   * comportamento do `processoParaDecisao` e das páginas do back-office. Numa
+   * chamada sem sessão a ação não devolve resultado nenhum, que é exatamente o
+   * que se pretende.
+   */
+  const { eu } = await exigirSessao();
+
   // O cliente já validou, e isso é conforto. A decisão é aqui: um NIPC com o
   // checksum errado não entra por a janela ter sido contornada.
   const analise = novoProcesso.safeParse(entrada);
@@ -104,7 +128,19 @@ export async function criarProcesso(entrada: NovoProcesso) {
 
   const base = db();
 
-  const [org] = await base.select().from(organizacao).limit(1);
+  /*
+   * A organização é a de quem está autenticado, e não a primeira da tabela.
+   *
+   * O `limit(1)` sem `where` funcionava enquanto houvesse uma organização só —
+   * e é assim na POC —, mas escreve a regra errada: no dia em que houver duas,
+   * um utilizador da segunda abria processos com a referência, o contador e a
+   * cadeia de auditoria da primeira, sem erro nenhum a assinalá-lo.
+   */
+  const [org] = await base
+    .select()
+    .from(organizacao)
+    .where(eq(organizacao.id, eu.organizacaoId))
+    .limit(1);
   if (!org) {
     return falha("Não há organização criada. Corra `pnpm db:seed`.");
   }
@@ -316,6 +352,9 @@ export async function criarProcesso(entrada: NovoProcesso) {
       await registarEvento({
         organizacaoId: org.id,
         processoId: dossier.id,
+        // Agora há autor: o processo nasce de alguém com sessão iniciada, e é
+        // essa a pergunta que o dossier passa a responder por escrito.
+        atorId: eu.id,
         acao,
         entidade: "processo_onboarding",
         entidadeId: dossier.id,

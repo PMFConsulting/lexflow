@@ -23,8 +23,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const ORG = { id: "org-1", prefixoReferencia: "JM" };
+const EU = { id: "utilizador-1", organizacaoId: "org-1", papel: "admin" };
 
 let organizacoes: unknown[] = [ORG];
+/** Falso quando se quer encenar uma chamada sem sessão iniciada. */
+let haSessao = true;
 const auditados: { acao: string; valorNovo?: Record<string, unknown> }[] = [];
 const enviados: { para: string; template: string; html: string }[] = [];
 const processosInseridos: Record<string, unknown>[] = [];
@@ -78,9 +81,30 @@ vi.mock("@/db/schema/organizacao", () => ({
 
 vi.mock("@/db/schema/processo", () => ({ processoOnboarding: "processo_onboarding" }));
 
+/**
+ * A sessão do back-office.
+ *
+ * `criarProcesso` deixou de ser uma ação pública (D59): sem sessão não há
+ * processo nem email. O `exigirSessao` real redireciona para `/entrar`, e um
+ * `redirect()` do Next é uma exceção — é isso que o mock imita, para o teste
+ * poder afirmar que **nada** acontece do outro lado.
+ */
+vi.mock("@/lib/sessao", () => ({
+  exigirSessao: async () => {
+    if (!haSessao) throw new Error("NEXT_REDIRECT;/entrar");
+    return { conta: { id: "auth-1" }, eu: EU };
+  },
+  podeAprovarProcesso: () => true,
+}));
+
 vi.mock("@/db", () => ({
   db: () => ({
-    select: () => ({ from: () => ({ limit: async () => organizacoes }) }),
+    select: () => ({
+      from: () => ({
+        limit: async () => organizacoes,
+        where: () => ({ limit: async () => organizacoes }),
+      }),
+    }),
     insert: () => ({
       values: (v: Record<string, unknown>) => ({
         onConflictDoNothing: async () => undefined,
@@ -170,6 +194,7 @@ const carga = (email?: string) => ({ tipoCliente: "particular" as const, nome: u
 
 beforeEach(() => {
   organizacoes = [ORG];
+  haSessao = true;
   auditados.length = 0;
   enviados.length = 0;
   processosInseridos.length = 0;
@@ -352,6 +377,27 @@ describe("criarProcesso — o que o schema recusa, recusa antes de haver process
 
     expect(r.ok).toBe(false);
     expect(enviados).toHaveLength(0);
+  });
+});
+
+/**
+ * A porta da rua.
+ *
+ * Isto era uma Server Action pública: um `POST` ao identificador da ação criava
+ * um processo e fazia sair o email de registo — em nome da sociedade, do
+ * domínio da sociedade e à custa da quota do fornecedor — para qualquer
+ * endereço que o corpo do pedido trouxesse. Não é uma fuga de dados; é um
+ * remetente de spam com a assinatura de um escritório de advogados.
+ */
+describe("criarProcesso — sem sessão não há processo nem email", () => {
+  it("uma chamada sem sessão não chega ao INSERT nem ao envio", async () => {
+    haSessao = false;
+
+    await expect(criarProcesso(carga("teste1@emalupe.com"))).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(processosInseridos).toHaveLength(0);
+    expect(enviados).toHaveLength(0);
+    expect(auditados).toHaveLength(0);
   });
 });
 

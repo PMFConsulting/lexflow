@@ -27,6 +27,27 @@ export function normalizarNif(valor: string): string {
   return valor.replace(/\s/g, "");
 }
 
+/**
+ * A forma com que um número fiscal fica **gravado**.
+ *
+ * As validações já toleram `123 456 789` — e bem, porque é assim que o número
+ * está impresso no cartão. O que não estava certo era guardá-lo assim: a
+ * pesquisa do back-office compara texto (`ilike`), a deduplicação de clientes
+ * agrupa por NIF (`/clientes`), e o mesmo contribuinte escrito com espaços num
+ * processo e sem espaços noutro passava a ser duas pessoas diferentes.
+ *
+ * Os pontos e os hífenes só caem quando o que sobra são exatamente nove
+ * dígitos, isto é, quando o número é português. Um TIN estrangeiro — que o
+ * passo 2 aceita de propósito, com `nifPortugues = false` — pode ter o
+ * separador como parte do número, e limpá-lo seria estragar um identificador
+ * legítimo por zelo.
+ */
+export function normalizarNumeroFiscal(valor: string): string {
+  const semEspacos = valor.replace(/\s/g, "");
+  const semSeparadores = semEspacos.replace(/[.\-/]/g, "");
+  return /^\d{9}$/.test(semSeparadores) ? semSeparadores : semEspacos;
+}
+
 export function validarNif(valor: string): Resultado {
   const nif = normalizarNif(valor);
 
@@ -227,6 +248,22 @@ function semIndicativoPt(tel: string): string | null {
  * nacionais. Um indicativo de outro país é recusado com essa razão à frente,
  * para não se ler como erro de contagem.
  */
+/**
+ * A forma com que um telefone fica **gravado**: nove dígitos, sem mais nada.
+ *
+ * `+351 912 345 678`, `912-345-678` e `912345678` são o mesmo número escrito de
+ * três maneiras, e guardá-los como três textos diferentes é o que faz um
+ * `ilike` de pesquisa falhar sobre um número que está lá. A limpeza só se
+ * aplica quando o resultado é reconhecidamente português; qualquer outra coisa
+ * fica como veio, para não mutilar o que a validação vai recusar a seguir com
+ * uma mensagem própria.
+ */
+export function normalizarTelefone(valor: string): string {
+  const limpo = valor.replace(/[\s\-().]/g, "");
+  const nacional = semIndicativoPt(limpo);
+  return nacional !== null && nacional.length === 9 ? nacional : limpo;
+}
+
 export function validarTelefone(valor: string): Resultado {
   const tel = valor.replace(/[\s\-().]/g, "");
 

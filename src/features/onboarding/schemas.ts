@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   normalizarNif,
+  normalizarNumeroFiscal,
+  normalizarTelefone,
   validarCodigoPostal,
   validarIban,
   validarNif,
@@ -27,10 +29,22 @@ const email = z
   .min(1, "O email é obrigatório.")
   .email("Falta o @ ou o domínio — por exemplo nome@empresa.pt.");
 
-const telefone = z.string().trim().superRefine((v, ctx) => {
-  const r = validarTelefone(v);
-  if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
-});
+/**
+ * O `transform` no fim é o que separa "o que se aceita escrever" de "o que fica
+ * gravado". O cliente escreve `+351 912 345 678` porque é assim que o número
+ * está no cartão; a base de dados guarda `912345678`, porque é assim que ele se
+ * compara com o do processo seguinte. Corre depois da validação — um número
+ * recusado não chega a ser normalizado, e a mensagem de erro fala do que o
+ * cliente escreveu.
+ */
+const telefone = z
+  .string()
+  .trim()
+  .superRefine((v, ctx) => {
+    const r = validarTelefone(v);
+    if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
+  })
+  .transform(normalizarTelefone);
 
 /**
  * NIF de faturação — português *ou* estrangeiro.
@@ -54,7 +68,8 @@ const nifFaturacao = z
     if (!/^\d{9}$/.test(normalizarNif(v))) return;
     const r = validarNif(v);
     if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
-  });
+  })
+  .transform(normalizarNumeroFiscal);
 
 const pais = z
   .string()
@@ -245,7 +260,18 @@ export const passo2 = z
         });
       }
     }
-  });
+  })
+  /*
+   * A normalização fica no fim, e ao nível do objeto e não do campo.
+   *
+   * Ao nível do campo, o `superRefine` em baixo passaria a ler um `nif` que o
+   * `transform` pode não ter chegado a produzir — e `validarNif(undefined)`
+   * rebenta, o que trocaria uma mensagem de erro por um 500. Aqui, corre depois
+   * de tudo e só sobre dados que já passaram: o que se grava é `500000000` e
+   * não `500 000 000`, e é isso que faz a pesquisa e a deduplicação por NIF do
+   * `/clientes` encontrarem o mesmo contribuinte escrito de duas maneiras.
+   */
+  .transform((v) => ({ ...v, nif: normalizarNumeroFiscal(v.nif) }));
 
 /* ── passo 3 — representante legal ────────────────────────────────────── */
 
@@ -321,7 +347,14 @@ export const passo3 = z
       const r = validarCodigoPostal(v.codigoPostal);
       if (!r.valido) falta("codigoPostal", r.mensagem);
     }
-  });
+  })
+  // Mesma razão do passo 2: no fim, sobre dados já validados, e sem tocar no
+  // campo quando ele não foi preenchido (com "Sim" no interruptor, não há
+  // representante nenhum a normalizar).
+  .transform((v) => ({
+    ...v,
+    telefone: v.telefone ? normalizarTelefone(v.telefone) : v.telefone,
+  }));
 
 /* ── passo 4 — PPE e relação de negócio ───────────────────────────────── */
 

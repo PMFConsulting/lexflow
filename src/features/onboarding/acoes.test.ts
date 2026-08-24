@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { limparLimites } from "@/lib/limites";
 import type { AcessoOnboarding } from "./dados";
 
 /**
@@ -70,7 +71,12 @@ vi.mock("drizzle-orm", () => ({
   eq: (...c: unknown[]) => c,
   isNull: (...c: unknown[]) => c,
   desc: (...c: unknown[]) => c,
-  sql: (...c: unknown[]) => c,
+  gte: (...c: unknown[]) => c,
+  lt: (...c: unknown[]) => c,
+  count: () => "count(*)",
+  // O incremento do OTP passa por aqui: `sql\`${col} + 1\``. O que interessa ao
+  // mock não é o texto, é distingui-lo de um número — ver a nota no `update`.
+  sql: (...c: unknown[]) => ({ incremento: c }),
 }));
 
 vi.mock("@/db/schema/processo", () => ({ processoOnboarding: "processo_onboarding" }));
@@ -143,9 +149,30 @@ vi.mock("@/db", () => {
       update: (t: unknown) => ({
         set: (v: Linha) => ({
           where: () => {
-            operacoes.push({ tipo: "update", tabela: String(t), valores: v });
+            const tabela = String(t);
+
+            /*
+             * O `UPDATE codigo_otp SET tentativas = tentativas + 1 WHERE
+             * tentativas < 5`, modelado.
+             *
+             * É a peça toda da correção: o limite deixou de ser um `if` em
+             * JavaScript sobre um valor lido antes (dez pedidos em paralelo
+             * liam todos `0` e passavam todos) e passou a ser o Postgres a
+             * contar. Um mock que ignorasse o `WHERE` mediria a versão antiga —
+             * por isso ele honra a condição e devolve **zero linhas** quando o
+             * código já está queimado, que é o sinal de que a ação lê.
+             */
+            const incremento = tabela === "codigo_otp" && typeof v.tentativas === "object";
+            if (incremento) {
+              const atual = Number(linhas[tabela]?.[0]?.tentativas ?? 0);
+              if (atual >= 5) return esperavel({ returning: async () => [] });
+              operacoes.push({ tipo: "update", tabela, valores: { tentativas: atual + 1 } });
+              return esperavel({ returning: async () => [{ tentativas: atual + 1 }] });
+            }
+
+            operacoes.push({ tipo: "update", tabela, valores: v });
             return esperavel({
-              returning: async () => [{ ...(linhas[String(t)]?.[0] ?? {}), ...v }],
+              returning: async () => [{ ...(linhas[tabela]?.[0] ?? {}), ...v }],
             });
           },
         }),
@@ -293,6 +320,9 @@ const valoresDe = (tipo: "insert" | "update", tabela: string) =>
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(AGORA);
+  // O limitador de ritmo do OTP vive em memória e o relógio está congelado:
+  // sem isto, as tentativas de um teste contariam para o limite do seguinte.
+  limparLimites();
   operacoes.length = 0;
   auditados.length = 0;
   consentimentos.length = 0;
@@ -977,6 +1007,39 @@ describe("enviarCodigoOtp", () => {
     expect(operacoes).toHaveLength(0);
   });
 
+  /**
+   * O intervalo de 60 segundos limitava o **ritmo**, e nada mais.
+   *
+   * Quem esperasse o minuto podia pedir 1440 códigos por dia, e cada código
+   * novo traz cinco tentativas frescas: sete mil hipóteses por dia contra um
+   * milhão é uma conta que um script fecha em meses, e são meses que ninguém
+   * está a contar. Com o teto diário, o orçamento passa a 25 hipóteses — e o
+   * botão "Enviar código" deixa de ser um gerador de emails à custa da quota da
+   * sociedade.
+   */
+  it("cinco códigos por dia e o sexto não sai", async () => {
+    linhas.codigo_otp = [
+      {
+        // O `count(*)` das últimas 24 horas, tal como o mock o devolve.
+        total: 5,
+        expiraEm: new Date(AGORA.getTime() - 60_000),
+        verificadoEm: null,
+        tentativas: 0,
+        // Fora da janela dos 60 segundos: o que trava não é o intervalo.
+        criadoEm: new Date(AGORA.getTime() - 5 * 60_000),
+      },
+    ];
+
+    const r = await enviarCodigoOtp(TOKEN);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("24 horas");
+    expect(operacoes).toHaveLength(0);
+    expect(enviados).toHaveLength(0);
+    expect(auditados.map((e) => e.acao)).toEqual(["otp.limite_diario"]);
+  });
+
   /** O código nunca entra em auditoria: é um segredo de dez minutos num registo que dura sete anos. */
   it("audita o pedido sem o código lá dentro", async () => {
     await enviarCodigoOtp(TOKEN);
@@ -1013,7 +1076,11 @@ describe("verificarCodigoOtp", () => {
     const r = await verificarCodigoOtp(TOKEN, CODIGO);
 
     expect(r.ok).toBe(true);
-    expect(valoresDe("update", "codigo_otp")).toMatchObject({ verificadoEm: AGORA });
+    // Dois UPDATEs, e por esta ordem: a tentativa é consumida **antes** de o
+    // código ser comparado (é isso que torna o limite atómico), e só depois se
+    // marca a verificação. O que interessa é que o segundo aconteceu.
+    const updates = operacoes.filter((o) => o.tipo === "update" && o.tabela === "codigo_otp");
+    expect(updates.at(-1)?.valores).toMatchObject({ verificadoEm: AGORA });
     expect(auditados.map((e) => e.acao)).toEqual(["otp.verificado"]);
   });
 
@@ -1073,6 +1140,81 @@ describe("verificarCodigoOtp", () => {
     const r = await verificarCodigoOtp(TOKEN, "4829");
 
     expect(r.ok).toBe(false);
+    expect(operacoes).toHaveLength(0);
+  });
+
+  /**
+   * A contagem das tentativas deixou de ser um `read-modify-write`.
+   *
+   * O que aqui estava lia `tentativas`, comparava com 5 em JavaScript e
+   * escrevia `tentativas + 1` calculado do lado da aplicação. Dez verificações
+   * em paralelo liam todas o mesmo valor, passavam todas a comparação e
+   * escreviam todas o mesmo número: cinco tentativas de limite a valerem
+   * tentativas sem fim, e sem uma linha fora do sítio a denunciá-lo. Agora quem
+   * conta é o Postgres — `SET tentativas = tentativas + 1 WHERE tentativas < 5`
+   * —, e zero linhas alteradas é a resposta a "ainda havia tentativas?".
+   */
+  it("o limite é o UPDATE condicional e não uma leitura anterior", async () => {
+    pendente({ tentativas: 4 });
+
+    const r = await verificarCodigoOtp(TOKEN, "000000");
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("Esgotou as tentativas");
+    // O incremento veio do Postgres (4 → 5), não de um `4 + 1` em JavaScript
+    // sobre um valor que podia já estar velho.
+    expect(valoresDe("update", "codigo_otp")).toEqual({ tentativas: 5 });
+  });
+
+  /**
+   * O amortecedor à frente do limite duro.
+   *
+   * Sem ele, um script gasta as cinco tentativas de cada código em
+   * milissegundos e passa o dia a pedir códigos novos — e cada golpe custa uma
+   * consulta e uma escrita de auditoria, o que faz deste endpoint uma negação
+   * de serviço barata sobre a base de dados.
+   */
+  it("dez verificações por minuto e a décima primeira é recusada sem tocar na base", async () => {
+    pendente();
+
+    for (let i = 0; i < 10; i += 1) {
+      await verificarCodigoOtp(TOKEN, "000000");
+    }
+    operacoes.length = 0;
+
+    const r = await verificarCodigoOtp(TOKEN, "000000");
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("Demasiadas tentativas");
+    expect(operacoes).toHaveLength(0);
+  });
+
+  /**
+   * Uma verificação vale uma hora (`VALIDADE_VERIFICACAO_MINUTOS`), e é isso
+   * que o `submeter` já exigia. Este ramo devolvia `ok` para sempre a partir do
+   * momento em que o código fosse acertado — a caixa do passo 7 dizia
+   * "verificado" e o `submeter` recusava a seguir, sem dizer porquê.
+   */
+  it("uma verificação de ontem já não devolve ok", async () => {
+    pendente({
+      verificadoEm: new Date(AGORA.getTime() - 2 * 3600_000),
+      tentativas: 1,
+    });
+
+    const r = await verificarCodigoOtp(TOKEN, CODIGO);
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("caducou");
+    expect(operacoes).toHaveLength(0);
+  });
+
+  it("uma verificação recente continua a devolver ok sem gastar tentativa", async () => {
+    pendente({ verificadoEm: new Date(AGORA.getTime() - 60_000), tentativas: 1 });
+
+    expect((await verificarCodigoOtp(TOKEN, CODIGO)).ok).toBe(true);
     expect(operacoes).toHaveLength(0);
   });
 });

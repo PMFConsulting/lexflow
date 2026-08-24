@@ -55,9 +55,11 @@ describe("1. JMASSANO | Registro", () => {
   });
 
   /**
-   * O anfitrião do link sai dos cabeçalhos do pedido (`origemPublica`), que
-   * quem chama a página controla. Um `Host` com aspas fechava o `href` e o
-   * resto da etiqueta passava a ser atributo.
+   * O anfitrião do link deixou de sair dos cabeçalhos do pedido — o
+   * `origemPublica` passou a aceitar só o que está em `BETTER_AUTH_URL`, e um
+   * `Host` de fora da lista já não monta link nenhum. O escape fica: é a
+   * segunda fechadura, e uma etiqueta que se fecha a meio por causa de aspas no
+   * endereço continua a ser um defeito, venha o endereço de onde vier.
    */
   it("escapa um link hostil em vez de o deixar fechar a etiqueta", () => {
     const hostil = 'https://mau.pt/" onmouseover="alert(1)';

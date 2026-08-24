@@ -4,11 +4,12 @@ import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { and, eq, isNull } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
 import { documento } from "@/db/schema/documentos";
 import { registarEvento } from "@/features/auditoria/registar";
 import { acessoPorToken, motivoDoAcesso } from "./dados";
-import { MENSAGEM_FORMATO, mimeAceite } from "./formatos";
+import { assinaturaConfere, MENSAGEM_FORMATO, mensagemConteudo, mimeAceite } from "./formatos";
 
 /**
  * Upload de documentos.
@@ -19,6 +20,33 @@ import { MENSAGEM_FORMATO, mimeAceite } from "./formatos";
  */
 
 const MAX_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Os tipos que o **cliente** pode escolher.
+ *
+ * O que aqui estava era um `String(formData.get("tipo") ?? "outro")` a entrar no
+ * INSERT com um `as never` por cima — ou seja, sem allowlist nenhuma e com o
+ * TypeScript calado à força. Um valor fora do enum era um 500 vindo do Postgres
+ * a partir de um campo de formulário; e um valor *dentro* do enum mas fora do
+ * que o cliente devia poder escrever era pior: `proposta_comercial` é o
+ * documento que a **sociedade** anexa (D52) e que o passo 7 lhe mostra como a
+ * proposta a aceitar. Um cliente que carregasse um ficheiro com esse tipo
+ * passava a ler, e a aceitar, uma proposta escrita por ele próprio. O mesmo
+ * vale para `termos_sociedade` e `dossier_assinado`, que a plataforma produz.
+ */
+const TIPOS_DO_CLIENTE = [
+  "identificacao",
+  "comprovativo_nif",
+  "certidao_permanente",
+  "procuracao",
+  "ata_designacao",
+  "comprovativo_rcbe",
+  "outro",
+] as const;
+
+type TipoDoCliente = (typeof TIPOS_DO_CLIENTE)[number];
+
+const tipoDoCliente = z.enum(TIPOS_DO_CLIENTE);
 
 export type ResultadoUpload =
   | { ok: true; id: string; nome: string }
@@ -40,7 +68,12 @@ export async function carregarDocumento(
   }
 
   const ficheiro = formData.get("ficheiro");
-  const tipo = String(formData.get("tipo") ?? "outro");
+
+  const analiseTipo = tipoDoCliente.safeParse(String(formData.get("tipo") ?? "outro"));
+  if (!analiseTipo.success) {
+    return { ok: false, erro: "Escolha uma categoria de documento da lista." };
+  }
+  const tipo: TipoDoCliente = analiseTipo.data;
 
   if (!(ficheiro instanceof File) || ficheiro.size === 0) {
     return { ok: false, erro: "Escolha um ficheiro." };
@@ -60,6 +93,16 @@ export async function carregarDocumento(
   }
 
   const bytes = Buffer.from(await ficheiro.arrayBuffer());
+
+  // O nome e o MIME vêm os dois do cliente. Os primeiros bytes vêm do ficheiro,
+  // e são a única coisa aqui que ele não escolheu — ver `assinaturaConfere`.
+  if (!assinaturaConfere(mime, bytes)) {
+    console.warn(
+      `[documento] ${processo.referencia}: «${ficheiro.name}» declara ${mime} e o conteúdo não bate — recusado.`,
+    );
+    return { ok: false, erro: mensagemConteudo(ficheiro.name) };
+  }
+
   const hash = createHash("sha256").update(bytes).digest("hex");
 
   const base = db();
@@ -85,7 +128,7 @@ export async function carregarDocumento(
     .insert(documento)
     .values({
       processoId: processo.id,
-      tipo: tipo as never,
+      tipo,
       nomeOriginal: ficheiro.name.slice(0, 200),
       mime,
       tamanhoBytes: ficheiro.size,

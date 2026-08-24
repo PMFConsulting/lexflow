@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { passo1, passo2, passo3, passo4, passo5, passo6, passo7 } from "./schemas";
-import { mimeAceite } from "./formatos";
+import { assinaturaConfere, mimeAceite } from "./formatos";
 
 /**
  * O NIF de faturação tinha de aceitar números estrangeiros.
@@ -56,6 +56,68 @@ describe("NIF de faturação", () => {
 
   it("continua a exigir que o campo seja preenchido", () => {
     expect(erroNoNif(comNif(""))).toBeDefined();
+  });
+});
+
+/**
+ * O que se aceita escrever e o que fica gravado são duas coisas.
+ *
+ * As validações sempre toleraram `123 456 789` e `+351 912 345 678` — e bem,
+ * porque é assim que os números estão impressos no cartão e no cartão de
+ * visita. O que estava errado era guardá-los assim: a pesquisa do back-office
+ * compara texto (`ilike` + `unaccent`) e a página `/clientes` deduplica
+ * agrupando por NIF, de modo que o mesmo contribuinte escrito com espaços num
+ * processo e sem espaços noutro passava a contar como duas pessoas.
+ */
+describe("normalização antes de gravar", () => {
+  it("o NIF de faturação fica sem espaços nem separadores", () => {
+    const r = comNif("123 456 789");
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.nif).toBe("123456789");
+  });
+
+  it("um número fiscal estrangeiro perde os espaços e mantém o resto", () => {
+    // O separador pode ser parte do identificador noutro país: só cai quando o
+    // que sobra são exatamente nove dígitos, isto é, quando o número é daqui.
+    const r = comNif(" ES X1234567 L ");
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.nif).toBe("ESX1234567L");
+  });
+
+  it("o telefone do passo 1 fica nos nove dígitos nacionais", () => {
+    const dados = {
+      tipoCliente: "particular" as const,
+      nome: "Maria Silva",
+      profissao: "Advogada",
+      entidadePatronal: "N/A",
+      dataNascimento: "1985-03-12",
+      nacionalidades: ["PT"],
+      telefone: "+351 912 345 678",
+      email: "maria@exemplo.pt",
+      morada: "Rua das Flores, 12",
+      pais: "PT",
+      localidade: "Porto",
+      codigoPostal: "4000-001",
+      freguesia: "Cedofeita",
+      concelho: "Porto",
+      distrito: "Porto",
+    };
+
+    const r = passo1.safeParse(dados);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.telefone).toBe("912345678");
+
+    const comHifenes = passo1.safeParse({ ...dados, telefone: "912-345-678" });
+    if (comHifenes.success) expect(comHifenes.data.telefone).toBe("912345678");
+  });
+
+  /**
+   * A normalização corre **depois** da validação e nunca antes. Um número
+   * recusado não chega a ser limpo, e a mensagem de erro continua a falar do
+   * que o cliente escreveu — que é o que ele tem à frente para corrigir.
+   */
+  it("não normaliza o que a validação recusa", () => {
+    expect(comNif("213 456 789").success).toBe(false);
   });
 });
 
@@ -287,6 +349,54 @@ describe("formatos aceites nos anexos", () => {
     expect(mimeAceite("contrato.docx", "")).toBeNull();
     expect(mimeAceite("semextensao", "")).toBeNull();
     expect(mimeAceite("arquivo.zip", "application/zip")).toBeNull();
+  });
+});
+
+/**
+ * O que o ficheiro **é**, contra o que ele diz ser.
+ *
+ * O nome e o MIME declarado vêm os dois do lado do cliente, e o `mimeAceite` em
+ * cima só sabe arbitrar entre os dois — não tem como saber que nenhum deles é
+ * verdade. Um ficheiro com HTML e `<script>` lá dentro, chamado `cc.pdf` e
+ * declarado `application/pdf`, passava as duas verificações e ficava gravado
+ * como PDF. Os primeiros bytes são a única coisa aqui que quem envia não
+ * escolhe.
+ */
+describe("assinatura do conteúdo (magic bytes)", () => {
+  const bytes = (...v: number[]) => new Uint8Array(v);
+  const texto = (s: string) => new TextEncoder().encode(s);
+
+  it("aceita um PDF que começa por %PDF-", () => {
+    expect(assinaturaConfere("application/pdf", texto("%PDF-1.7\n%âãÏÓ"))).toBe(true);
+  });
+
+  it("recusa HTML com nome e tipo de PDF", () => {
+    expect(
+      assinaturaConfere("application/pdf", texto("<html><script>alert(1)</script>")),
+    ).toBe(false);
+  });
+
+  it("recusa um PDF que não começa no primeiro byte", () => {
+    // Alguns geradores toleram lixo à cabeça; nós não. O `%PDF-` no início é o
+    // que distingue um documento de um ficheiro que traz um documento dentro.
+    expect(assinaturaConfere("application/pdf", texto("   %PDF-1.4"))).toBe(false);
+  });
+
+  it("conhece as assinaturas das imagens aceites", () => {
+    expect(assinaturaConfere("image/jpeg", bytes(0xff, 0xd8, 0xff, 0xe0))).toBe(true);
+    expect(assinaturaConfere("image/png", bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a))).toBe(true);
+    expect(assinaturaConfere("image/webp", texto("RIFF    WEBP"))).toBe(true);
+    expect(assinaturaConfere("image/heic", texto("   ftypheic"))).toBe(true);
+  });
+
+  it("recusa uma imagem que é outra coisa", () => {
+    expect(assinaturaConfere("image/png", texto("%PDF-1.7"))).toBe(false);
+    expect(assinaturaConfere("image/jpeg", texto("GIF89a"))).toBe(false);
+  });
+
+  it("um ficheiro vazio ou truncado não passa por PDF", () => {
+    expect(assinaturaConfere("application/pdf", bytes())).toBe(false);
+    expect(assinaturaConfere("application/pdf", texto("%PD"))).toBe(false);
   });
 });
 

@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { documento } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
+import { assinaturaConfere, mensagemConteudo } from "@/features/onboarding/formatos";
 import { exigirSessao } from "@/lib/sessao";
 
 /**
@@ -84,6 +85,28 @@ export async function carregarPropostaComercial(
   }
 
   const bytes = Buffer.from(await ficheiro.arrayBuffer());
+
+  /*
+   * Os primeiros bytes, que é a única coisa aqui que quem envia não escolheu.
+   *
+   * O nome e o MIME vêm ambos do browser, e um ficheiro com HTML lá dentro,
+   * chamado `proposta.pdf` e declarado `application/pdf`, passava as duas
+   * verificações em cima. Ficava gravado com `mime: "application/pdf"` escrito
+   * à mão no INSERT — e a rota `/onboarding/[token]/proposta` serve-o **inline**
+   * ao cliente com esse `Content-Type`, porque é para ser lido. É o único
+   * ficheiro desta plataforma que é servido inline a alguém, e por isso é o
+   * único onde a diferença entre "diz que é PDF" e "é PDF" tem consequência.
+   *
+   * Cinco bytes: `%PDF-`. Não valida o interior do documento — um PDF com
+   * JavaScript continua a ser um PDF —, fecha o degrau de baixo.
+   */
+  if (!assinaturaConfere("application/pdf", bytes)) {
+    console.warn(
+      `[proposta] «${ficheiro.name}» diz ser PDF e o conteúdo não começa por %PDF- — recusada.`,
+    );
+    return { ok: false, erro: mensagemConteudo(ficheiro.name) };
+  }
+
   const hash = createHash("sha256").update(bytes).digest("hex");
 
   /*

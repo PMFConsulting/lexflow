@@ -69,3 +69,64 @@ export function mimeAceite(nome: string, tipoDeclarado: string | null | undefine
   const extensao = partes[partes.length - 1];
   return FORMATOS_ACEITES[extensao as keyof typeof FORMATOS_ACEITES] ?? null;
 }
+
+/* ------------------------------------------------------------ magic bytes */
+
+/**
+ * O que o ficheiro **é**, e não o que ele diz ser.
+ *
+ * O nome e o MIME declarado vêm os dois do lado do cliente, e nenhum é prova de
+ * nada: um ficheiro com HTML e `<script>` lá dentro, chamado `cc.pdf` e
+ * declarado `application/pdf`, passava as duas verificações e ficava gravado
+ * como PDF — e a rota de download servia-o com esse `Content-Type`. O `nosniff`
+ * e o `Content-Disposition: attachment` do back-office já lhe tiravam os
+ * dentes, mas a defesa certa é não o deixar entrar: um dossier de KYC não
+ * guarda um ficheiro que não é o que diz ser.
+ *
+ * A assinatura são os primeiros bytes, e os cinco formatos aceites têm uma:
+ *
+ *   · PDF   `%PDF-`
+ *   · JPEG  `FF D8 FF`
+ *   · PNG   `89 50 4E 47 0D 0A 1A 0A`
+ *   · WEBP  `RIFF` … `WEBP` (bytes 0-3 e 8-11)
+ *   · HEIC  `ftyp` nos bytes 4-7 (a caixa ISO-BMFF que o HEIF também usa)
+ *
+ * O que **não** se faz aqui é analisar o conteúdo do documento. Um PDF com
+ * JavaScript lá dentro tem `%PDF-` à cabeça como qualquer outro, e continua a
+ * entrar — desarmá-lo é trabalho de um sanitizador, não de cinco bytes. O que
+ * isto fecha é o degrau de baixo, que é o que estava aberto.
+ */
+const ASSINATURAS: Record<string, (b: Uint8Array) => boolean> = {
+  "application/pdf": (b) => temPrefixo(b, [0x25, 0x50, 0x44, 0x46, 0x2d]), // %PDF-
+  "image/jpeg": (b) => temPrefixo(b, [0xff, 0xd8, 0xff]),
+  "image/png": (b) => temPrefixo(b, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  "image/webp": (b) =>
+    temPrefixo(b, [0x52, 0x49, 0x46, 0x46]) && temPrefixo(b, [0x57, 0x45, 0x42, 0x50], 8),
+  // `ftyp` na segunda palavra: é a caixa `ftyp` do ISO-BMFF, e a marca que o
+  // HEIC e o HEIF partilham. O subtipo que vem a seguir (`heic`, `heix`,
+  // `mif1`…) varia com o telemóvel que tirou a fotografia, e exigi-lo seria
+  // recusar câmaras por causa de uma tabela que envelhece.
+  "image/heic": (b) => temPrefixo(b, [0x66, 0x74, 0x79, 0x70], 4),
+};
+
+function temPrefixo(bytes: Uint8Array, esperado: number[], desvio = 0): boolean {
+  if (bytes.length < desvio + esperado.length) return false;
+  return esperado.every((v, i) => bytes[desvio + i] === v);
+}
+
+/**
+ * Os primeiros bytes batem com o formato anunciado?
+ *
+ * Um MIME sem assinatura conhecida passa — a tabela é a lista dos aceites e
+ * nenhum outro chega aqui, mas acrescentar um formato à `FORMATOS_ACEITES` e
+ * esquecer a assinatura não pode transformar-se em "nada entra".
+ */
+export function assinaturaConfere(mime: string, bytes: Uint8Array): boolean {
+  const verificar = ASSINATURAS[mime];
+  return verificar ? verificar(bytes) : true;
+}
+
+/** A mensagem de um ficheiro cujo conteúdo não bate com a extensão. */
+export function mensagemConteudo(nome: string): string {
+  return `O conteúdo de «${nome}» não corresponde ao formato do ficheiro. Confirme que não mudou a extensão a um documento de outro tipo e volte a exportá-lo.`;
+}

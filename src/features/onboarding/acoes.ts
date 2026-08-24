@@ -3,10 +3,11 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { env } from "@/env";
 import { enviarEmail } from "@/lib/email";
+import { consumir } from "@/lib/limites";
 import {
   ASSUNTO_CONFIRMACAO,
   ASSUNTO_OTP,
@@ -601,6 +602,33 @@ const MAX_TENTATIVAS_OTP = 5;
 const INTERVALO_REENVIO_S = 60;
 
 /**
+ * Teto diário de códigos por processo.
+ *
+ * O intervalo de 60 segundos limitava o **ritmo** e não o **total**, e a
+ * diferença é toda: cinco tentativas por código valem pouco, mas 1440 códigos
+ * por dia valem 7200 tentativas — e a paciência de um script é infinita. Com o
+ * teto, o orçamento de um dia inteiro passa a ser 5 códigos × 5 tentativas =
+ * 25 hipóteses em um milhão. É também o que impede o botão "Enviar código" de
+ * ser um gerador de emails à custa da quota da sociedade.
+ *
+ * Cinco chegam para o percurso real com folga: o cliente pede um, não recebe,
+ * pede outro, corrige o email no passo 1 e pede um terceiro.
+ */
+const MAX_CODIGOS_POR_DIA = 5;
+
+/**
+ * Verificações por minuto, por processo.
+ *
+ * O `tentativas` da linha é o limite duro; isto é o amortecedor à frente dele,
+ * e existe por duas razões. A primeira é que sem ele um script gasta as cinco
+ * tentativas de cada código em milissegundos e passa o dia a pedir códigos
+ * novos. A segunda é o custo: cada verificação é uma consulta e uma escrita de
+ * auditoria, e um martelo sobre este endpoint é uma negação de serviço barata
+ * sobre a base de dados.
+ */
+const MAX_VERIFICACOES_POR_MINUTO = 10;
+
+/**
  * O código nunca é guardado em claro, e o processo entra como sal.
  *
  * Sem o sal, dois processos com o mesmo código de seis dígitos — que acontece,
@@ -654,6 +682,16 @@ async function emailDoProcesso(processo: Processo): Promise<string | null> {
     .limit(1);
 
   return identificacao?.email ?? faturacao?.email ?? processo.emailCliente ?? null;
+}
+
+/** Quantos códigos este processo já pediu nas últimas 24 horas. */
+async function codigosDoDia(processoId: string): Promise<number> {
+  const desde = new Date(Date.now() - 24 * 60 * 60_000);
+  const [linha] = await db()
+    .select({ total: count() })
+    .from(codigoOtp)
+    .where(and(eq(codigoOtp.processoId, processoId), gte(codigoOtp.criadoEm, desde)));
+  return Number(linha?.total ?? 0);
 }
 
 /** O código mais recente de um processo, verificado ou não. */
@@ -755,6 +793,36 @@ export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
     }
   }
 
+  /*
+   * O teto do dia, que é o que faltava.
+   *
+   * O intervalo de 60 segundos em cima limita o ritmo e nada mais: quem
+   * esperasse o minuto podia pedir 1440 códigos por dia, e cada um traz cinco
+   * tentativas frescas. Sete mil hipóteses por dia contra um milhão é uma
+   * questão de meses, não de séculos — e é uma conta que se faz num script.
+   * Com o teto, o orçamento diário são 25 hipóteses.
+   *
+   * Conta-se na base de dados e não em memória: o contentor reinicia, e um
+   * limite que se apaga com um reinício é um limite que se contorna com um
+   * pedido bem escolhido.
+   */
+  const doDia = await codigosDoDia(processo.id);
+  if (doDia >= MAX_CODIGOS_POR_DIA) {
+    await registarEvento({
+      organizacaoId: processo.organizacaoId,
+      processoId: processo.id,
+      acao: "otp.limite_diario",
+      entidade: "codigo_otp",
+      entidadeId: processo.id,
+      valorNovo: { pedidos: doDia, maximo: MAX_CODIGOS_POR_DIA },
+      ...(await contexto()),
+    });
+    return {
+      ok: false,
+      erro: `Já foram pedidos ${MAX_CODIGOS_POR_DIA} códigos para este processo nas últimas 24 horas. Contacte a sociedade para concluir a submissão.`,
+    };
+  }
+
   const codigo = gerarCodigo();
   const expiraEm = new Date(Date.now() + VALIDADE_OTP_MINUTOS * 60_000);
 
@@ -839,31 +907,80 @@ export async function verificarCodigoOtp(
     return { ok: false, erro: "O código tem 6 dígitos. Confirme o que recebeu por email." };
   }
 
+  const { ip, userAgent } = await contexto();
+
+  /*
+   * O amortecedor, à frente do limite duro.
+   *
+   * Dez verificações por minuto por processo (e por IP, quando há IP) não
+   * incomodam ninguém a escrever seis dígitos à mão, e tiram ao martelo a única
+   * coisa que ele tem: velocidade. Fica **antes** de qualquer consulta, para
+   * que um endpoint martelado não seja também uma consulta e uma escrita de
+   * auditoria por cada golpe.
+   */
+  const veredicto = consumir(`otp:verificar:${processo.id}:${ip ?? "sem-ip"}`, MAX_VERIFICACOES_POR_MINUTO, 60_000);
+  if (!veredicto.permitido) {
+    return {
+      ok: false,
+      erro: `Demasiadas tentativas seguidas. Aguarde ${veredicto.esperarSegundos} segundos e tente de novo.`,
+    };
+  }
+
   const linha = await ultimoCodigo(processo.id);
   if (!linha) {
     return { ok: false, erro: "Ainda não pediu nenhum código. Carregue em «Enviar código»." };
   }
-  if (linha.verificadoEm) return { ok: true };
+
+  /*
+   * Um código já acertado só vale enquanto a verificação valer.
+   *
+   * O que aqui estava devolvia `ok` a qualquer momento depois do acerto, e isso
+   * contrariava o próprio `verificacaoValida` que trava a submissão: a caixa do
+   * passo 7 dizia "verificado" sobre uma verificação de ontem e o `submeter`
+   * recusava-a de seguida, sem explicar porquê. Pior — quem chamasse esta ação
+   * diretamente lia um "ok" que já não era verdade.
+   */
+  if (linha.verificadoEm) {
+    if (await verificacaoValida(processo.id)) return { ok: true };
+    return {
+      ok: false,
+      erro: `A verificação anterior caducou (vale ${VALIDADE_VERIFICACAO_MINUTOS} minutos). Peça um novo código.`,
+    };
+  }
 
   if (linha.expiraEm <= new Date()) {
     return { ok: false, erro: "Este código expirou. Peça um novo código." };
   }
-  if (linha.tentativas >= MAX_TENTATIVAS_OTP) {
+
+  /*
+   * A tentativa é consumida **antes** de o código ser comparado, e num só
+   * `UPDATE ... WHERE tentativas < 5`.
+   *
+   * O que estava aqui era um `read-modify-write`: lia-se `tentativas`,
+   * comparava-se com 5, e escrevia-se `tentativas + 1` calculado em JavaScript.
+   * Dez pedidos ao mesmo tempo liam todos `0`, passavam todos a verificação e
+   * escreviam todos `1` — cinco tentativas de limite a valerem tentativas sem
+   * fim, e sem uma única linha fora do sítio a denunciá-lo. Com o incremento no
+   * Postgres e a condição no `WHERE`, o limite é o Postgres a contar: zero
+   * linhas alteradas quer dizer, à letra, "já não havia tentativas", e não é
+   * preciso lê-las primeiro para o saber.
+   */
+  const [consumida] = await db()
+    .update(codigoOtp)
+    .set({ tentativas: sql`${codigoOtp.tentativas} + 1` })
+    .where(and(eq(codigoOtp.id, linha.id), lt(codigoOtp.tentativas, MAX_TENTATIVAS_OTP)))
+    .returning({ tentativas: codigoOtp.tentativas });
+
+  if (!consumida) {
     return {
       ok: false,
-      erro: "Este código foi bloqueado ao fim de 5 tentativas. Peça um novo código.",
+      erro: `Este código foi bloqueado ao fim de ${MAX_TENTATIVAS_OTP} tentativas. Peça um novo código.`,
     };
   }
 
-  const { ip, userAgent } = await contexto();
+  const tentativas = Number(consumida.tentativas);
 
   if (!hashesIguais(linha.codigoHash, hashCodigo(processo.id, codigo))) {
-    const tentativas = linha.tentativas + 1;
-    await db()
-      .update(codigoOtp)
-      .set({ tentativas })
-      .where(eq(codigoOtp.id, linha.id));
-
     // As tentativas falhadas ficam em auditoria porque são o único sinal de
     // alguém a martelar o código de outra pessoa — e é um sinal que só se lê
     // depois, quando já se está a investigar.
@@ -890,7 +1007,7 @@ export async function verificarCodigoOtp(
 
   await db()
     .update(codigoOtp)
-    .set({ verificadoEm: new Date(), tentativas: linha.tentativas + 1 })
+    .set({ verificadoEm: new Date() })
     .where(eq(codigoOtp.id, linha.id));
 
   await registarEvento({
