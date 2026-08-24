@@ -24,19 +24,20 @@ import {
 } from "./pdf";
 
 /**
- * O `summary.pdf` que acompanha cada pasta de cliente.
+ * The `summary.pdf` that accompanies each client folder.
  *
- * Desenhado com o pdf-lib e não convertido de HTML: o repo não tem — nem quer —
- * um Chrome headless no contentor só para isto. O que se mantém é o estilo de
- * `public/custos.html`: a marca em versaletes, o título em serifa, a tabela de
- * linhas finas e o rodapé.
+ * Drawn with pdf-lib and not converted from HTML: the repo does not have — nor
+ * want — a headless Chrome in the container just for this. What is kept is the
+ * style of `public/custos.html`: the brand in small caps, the title in serif,
+ * the thin-ruled table and the footer.
  *
- * Regra do conteúdo, e é a parte importante: só entra aqui o que serve para
- * identificar o dossier na pasta. Fica de fora, deliberadamente, tudo o que a
- * pasta não precisa de ter em claro — a declaração de PPE, a origem de fundos,
- * o número e a validade do documento de identificação, a morada completa e a
- * rubrica. Esses vivem na aplicação, com o controlo de acesso por papel que
- * uma pasta no servidor de arquivo não tem.
+ * The content rule, and this is the important part: only what serves to
+ * identify the case file in the folder goes in here. Deliberately left out is
+ * everything the folder does not need to hold in the clear — the PEP
+ * declaration, the source of funds, the identification document's number and
+ * validity, the full address and the signature. Those live in the application,
+ * with the per-role access control a folder on the archive server does not
+ * have.
  */
 
 export type DadosResumo = {
@@ -56,7 +57,7 @@ export type DadosResumo = {
   newsletter: boolean;
   submetidoEm: Date | null;
   documentos: { nome: string; tipo: string; bytes: number }[];
-  /** Data de geração. Entra por parâmetro para o PDF ser reproduzível nos testes. */
+  /** Generation date. Passed as a parameter so the PDF is reproducible in the tests. */
   geradoEm: Date;
 };
 
@@ -85,12 +86,12 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
   pdf.setCreationDate(d.geradoEm);
   pdf.setModificationDate(d.geradoEm);
 
-  // O `setTitle` do pdf-lib grava o texto em UTF-16BE hexadecimal, que é
-  // ilegível para quem abrir o ficheiro num editor ou correr um `grep` sobre a
-  // pasta do cliente. A referência entra também como entrada própria do
-  // dicionário Info, em texto simples: é o que identifica o dossier sem abrir
-  // o PDF. Filtrada para ASCII de referência — um parêntese solto partia a
-  // sintaxe da string literal.
+  // pdf-lib's `setTitle` writes the text in hexadecimal UTF-16BE, which is
+  // unreadable for anyone opening the file in an editor or running a `grep`
+  // over the client's folder. The reference also goes in as its own entry in
+  // the Info dictionary, in plain text: it is what identifies the case file
+  // without opening the PDF. Filtered down to reference ASCII — a stray
+  // parenthesis broke the literal string's syntax.
   const info = pdf.context.lookup(pdf.context.trailerInfo.Info, PDFDict);
   info.set(
     PDFName.of("Referencia"),
@@ -115,9 +116,9 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
   ) => {
     const limpo = paraWinAnsi(texto);
 
-    // O `drawText` do pdf-lib não tem tracking. As linhas em versaletes de
-    // `custos.html` vivem dele, por isso desenha-se carácter a carácter — só
-    // aí, que é onde o custo se justifica.
+    // pdf-lib's `drawText` has no tracking. The small-caps lines of
+    // `custos.html` depend on it, so it is drawn character by character — only
+    // there, which is where the cost is justified.
     if (espacamento > 0) {
       let cursor = x;
       for (const c of limpo) {
@@ -136,7 +137,7 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
     y = A4.altura - MARGEM.topo;
   };
 
-  /* --------------------------------------------------------------- cabeça */
+  /* ---------------------------------------------------------------- header */
 
   escrever("JMASSANO · DOSSIER DO CLIENTE", MARGEM.x, y, corpo, 8, LATAO, 2.2);
   y -= 26;
@@ -154,7 +155,7 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
   );
   y -= 30;
 
-  /* --------------------------------------------------------------- blocos */
+  /* ---------------------------------------------------------------- blocks */
 
   const seccao = (titulo: string) => {
     espaco(52);
@@ -230,7 +231,7 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
     }
   }
 
-  /* --------------------------------------------------------------- rodapé */
+  /* ---------------------------------------------------------------- footer */
 
   espaco(46);
   y -= 12;
@@ -260,9 +261,9 @@ export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
     RODAPE,
   );
 
-  // Sem fluxos de objetos: com eles, o dicionário de cada página e o Info ficam
-  // dentro de um bloco comprimido, e um resumo de arquivo deixa de ser
-  // inspecionável sem uma biblioteca de PDF à mão. Custa uns kilobytes por
-  // dossier — que é o que um documento destes tem de sobra.
+  // No object streams: with them, each page's dictionary and the Info end up
+  // inside a compressed block, and an archive summary stops being inspectable
+  // without a PDF library at hand. It costs a few kilobytes per case file —
+  // which is what a document like this has to spare.
   return Buffer.from(await pdf.save({ useObjectStreams: false }));
 }

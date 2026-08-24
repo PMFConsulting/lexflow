@@ -1,5 +1,5 @@
 /**
- * Seeds de desenvolvimento. Nunca corre fora de development — regra 2 do §10.
+ * Development seeds. Never runs outside development — rule 2 of §10.
  *
  *   pnpm db:seed
  */
@@ -48,8 +48,8 @@ async function main() {
     { organizacaoId: org.id, nome: "Assistente", email: "assistente@pmf.local", papel: "assistente" },
   ]);
 
-  // Os textos legais são versionados desde o início: sem eles não há
-  // consentimento com prova do que a pessoa viu.
+  // The legal texts are versioned from the start: without them there is no
+  // consent with evidence of what the person saw.
   await db.insert(versaoTextoLegal).values([
     {
       chave: "declaracao_veracidade",

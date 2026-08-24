@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * O canal de email, do lado em que ele falha.
+ * The email channel, from the side where it fails.
  *
- * O que estes testes fixam é sempre a mesma regra: **uma tentativa de envio
- * produz sempre uma linha em `email_log` e nunca propaga uma exceção a quem
- * chamou**. Enquanto assim não foi, "o cliente não recebeu nada" e "nem sequer
- * se tentou" liam-se os dois como `/emails` a dizer «0 mensagens» — e não há
- * como investigar uma diferença que o sistema não regista.
+ * What these tests pin down is always the same rule: **a send attempt always
+ * produces a row in `email_log` and never propagates an exception to the
+ * caller**. While that was not so, "the client received nothing" and "it was
+ * not even attempted" both read as `/emails` saying «0 mensagens» — and there
+ * is no way to investigate a difference the system does not record.
  */
 
 const linhas: Record<string, unknown>[] = [];
-/** Uma entrada por `update` ao diário — o que `confirmarEntrega` lá escreveu. */
+/** One entry per `update` to the log — what `confirmarEntrega` wrote there. */
 const atualizacoes: Record<string, unknown>[] = [];
 let gravacaoRebenta = false;
 let atualizacaoRebenta = false;
@@ -47,8 +47,8 @@ vi.mock("@/db", () => ({
 }));
 
 /**
- * Importação dinâmica e não estática: as fábricas dos `vi.mock` fecham sobre as
- * variáveis declaradas acima, e uma importação estática corre antes delas.
+ * Dynamic import and not static: the `vi.mock` factories close over the
+ * variables declared above, and a static import runs before them.
  */
 const { confirmarEntrega, enviarEmail, limparPausasDeQuota, verificarEntrega } = await import("./email");
 
@@ -78,19 +78,19 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
-  // A pausa de quota vive no módulo e atravessa os testes — um 429 num teste
-  // não pode condicionar os que vêm a seguir.
+  // The quota pause lives in the module and crosses tests — a 429 in one test
+  // cannot condition the ones that follow.
   limparPausasDeQuota();
 });
 
-/** Um `fetch` com a assinatura do verdadeiro, para o `signal` ser inspecionável. */
+/** A `fetch` with the real signature, so the `signal` is inspectable. */
 const espiarFetch = (impl: (url: string, opcoes?: RequestInit) => Promise<Response>) => {
   const espia = vi.fn(impl);
   vi.stubGlobal("fetch", espia);
   return espia;
 };
 
-/** Uma resposta do Resend, sem rede pelo meio. */
+/** A Resend response, with no network in between. */
 const responde = (status: number, corpo = "") =>
   espiarFetch(async () => new Response(corpo, { status }));
 
@@ -108,8 +108,9 @@ describe("enviarEmail", () => {
     expect(linhas[0]).toMatchObject({
       para: "cliente@exemplo.pt",
       template: "registo",
-      // Aceite, não entregue. O que confirma a entrega é o `confirmarEntrega`,
-      // minutos depois — e sem o `mensagem_id` não haveria a quem perguntar.
+      // Accepted, not delivered. What confirms delivery is `confirmarEntrega`,
+      // minutes later — and without the `mensagem_id` there would be nobody to
+      // ask.
       estado: "enviado",
       erro: null,
       canal: "resend",
@@ -118,24 +119,25 @@ describe("enviarEmail", () => {
   });
 
   /**
-   * O envio não pode ficar à espera da entrega. Se ficasse, a criação de um
-   * processo passava a demorar os minutos que o servidor de destino demorasse
-   * a decidir — e o utilizador via o botão em "A criar…" durante esse tempo.
+   * The send cannot wait on delivery. If it did, creating a matter would take
+   * as many minutes as the destination server took to decide — and the user
+   * would watch the button sit on "A criar…" for that whole time.
    */
   it("devolve o resultado sem esperar pela confirmação de entrega", async () => {
     const espia = espiarFetch(async () => new Response('{"id":"abc"}', { status: 200 }));
 
     await enviarEmail(base);
 
-    // Um pedido só: o POST do envio. A consulta de entrega vem depois, solta.
+    // A single request: the send's POST. The delivery lookup comes later,
+    // detached.
     expect(espia).toHaveBeenCalledTimes(1);
     expect(espia.mock.calls[0]?.[1]?.method).toBe("POST");
   });
 
   /**
-   * Um fornecedor que aceita sem devolver id deixa uma mensagem que nunca vai
-   * poder ser confirmada. Fica em `enviado` para sempre — e isso tem de ser
-   * dito, senão lê-se como "ainda a caminho".
+   * A provider that accepts without returning an id leaves a message that will
+   * never be confirmable. It stays at `enviado` forever — and that has to be
+   * said, otherwise it reads as "still on its way".
    */
   it("avisa quando o fornecedor aceita sem devolver id", async () => {
     responde(200, "ok, mas não em JSON");
@@ -148,7 +150,7 @@ describe("enviarEmail", () => {
 
     expect(linhas[0]).toMatchObject({ estado: "enviado", mensagemId: null });
     expect(consolaAviso).toHaveBeenCalledWith(
-      expect.stringContaining("não vai poder ser confirmada"),
+      expect.stringContaining("will not be confirmable"),
     );
   });
 
@@ -159,17 +161,17 @@ describe("enviarEmail", () => {
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    // As duas variáveis no motivo, e não só uma: quem lê isto no `/emails` tem
-    // de saber que há dois sítios possíveis onde a configurar.
+    // Both variables in the reason, and not just one: whoever reads this in
+    // `/emails` has to know there are two possible places to configure it.
     expect(r.erro).toContain("BREVO_API_KEY");
     expect(r.erro).toContain("RESEND_API_KEY");
     expect(linhas[0]).toMatchObject({ estado: "erro" });
   });
 
   /**
-   * O Resend tem prioridade por ser o mais fiável na entrega, mas ser o
-   * primeiro não é ser o único: uma conta suspensa ou um remetente por
-   * verificar num dos fornecedores não pode deixar o cliente sem o link.
+   * Resend takes priority for being the most reliable on delivery, but being
+   * first is not being the only one: a suspended account or an unverified
+   * sender at one of the providers cannot leave the client without the link.
    */
   it("cai para o Brevo quando o Resend recusa", async () => {
     ambiente = {
@@ -192,9 +194,9 @@ describe("enviarEmail", () => {
 
     expect(espia.mock.calls[0]?.[0]).toContain("api.resend.com");
     expect(espia.mock.calls[1]?.[0]).toContain("api.brevo.com");
-    // O canal gravado é o que **aceitou**, não o que se tentou primeiro: é a
-    // ele que se vai perguntar pelo desfecho, e o id do Brevo não existe no
-    // Resend.
+    // The recorded channel is the one that **accepted**, not the one tried
+    // first: it is the one that will be asked for the outcome, and Brevo's id
+    // does not exist in Resend.
     expect(linhas[0]).toMatchObject({ estado: "enviado", canal: "brevo" });
   });
 
@@ -239,11 +241,11 @@ describe("enviarEmail", () => {
   });
 
   /**
-   * O caso que se paga mais caro em produção: a chave está lá, o envio é
-   * tentado, e o Resend recusa porque o domínio do remetente não está
-   * verificado na conta. Sem o remetente na mensagem, o 403 não diz o que
-   * corrigir — e `POC@jmassano.pt` é um valor por omissão que ninguém escreveu
-   * e de que, por isso mesmo, ninguém desconfia.
+   * The case that costs most in production: the key is there, the send is
+   * attempted, and Resend refuses because the sender's domain is not verified
+   * on the account. Without the sender in the message, the 403 does not say
+   * what to fix — and `POC@jmassano.pt` is a default value nobody wrote and,
+   * for that very reason, nobody suspects.
    */
   it("põe o estado, o remetente e o corpo na mensagem de um 403", async () => {
     responde(403, '{"message":"The jmassano.pt domain is not verified"}');
@@ -278,17 +280,17 @@ describe("enviarEmail", () => {
 
     await enviarEmail(base);
 
-    // Sem `signal`, uma saída para a Internet fechada deixava a Server Action
-    // que criou o processo à espera para sempre — sem link e sem erro.
+    // Without `signal`, a closed outbound path to the internet left the Server
+    // Action that created the matter waiting forever — no link and no error.
     expect(espia.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 
   /**
-   * A regressão que este ficheiro existe para impedir. O `tentarEnviar` lê o
-   * ambiente *antes* do seu próprio `try`, e o `env()` lança quando falta uma
-   * variável: essa exceção saltava por cima da gravação **e** propagava-se a
-   * quem chamou — que é como um email falhado se transformava em criação de
-   * processo falhada, sem uma linha em lado nenhum a explicá-lo.
+   * The regression this file exists to prevent. `tentarEnviar` reads the
+   * environment *before* its own `try`, and `env()` throws when a variable is
+   * missing: that exception jumped over the write **and** propagated to the
+   * caller — which is how a failed email turned into a failed matter creation,
+   * with not a line anywhere explaining it.
    */
   it("não propaga uma exceção do ambiente e regista-a", async () => {
     ambienteRebenta = new Error("Variáveis de ambiente em falta ou inválidas");
@@ -304,17 +306,18 @@ describe("enviarEmail", () => {
     responde(200);
     gravacaoRebenta = true;
 
-    // O envio já aconteceu; falhar aqui seria trocar o essencial pelo registo.
+    // The send has already happened; failing here would be trading the
+    // essential for the record.
     await expect(enviarEmail(base)).resolves.toEqual({
       ok: true,
       canal: "resend",
       mensagemId: null,
     });
 
-    // E a consola tem de o gritar: é o único sinal que sobra de que o `/emails`
-    // está a mostrar menos mensagens do que as que foram tentadas.
+    // And the console has to shout it: it is the only signal left that
+    // `/emails` is showing fewer messages than were attempted.
     expect(consolaErro).toHaveBeenCalledWith(
-      expect.stringContaining("FALHOU a gravação em email_log"),
+      expect.stringContaining("FAILED to write to email_log"),
       expect.anything(),
     );
   });
@@ -346,13 +349,13 @@ describe("enviarEmail", () => {
 });
 
 /**
- * A metade nova do diário: o que aconteceu à mensagem **depois** de o
- * fornecedor a ter aceite.
+ * The log's new half: what happened to the message **after** the provider
+ * accepted it.
  *
- * O defeito que isto existe para fechar tinha o tamanho de uma palavra: um
- * `enviado` que se lia como "chegou". Num teste de vinte empresas, uma das
- * mensagens ficou nesse estado e nunca chegou a caixa nenhuma — sem erro no
- * servidor, e indistinguível na listagem das dezanove que chegaram.
+ * The defect this exists to close was the size of one word: an `enviado` that
+ * read as "it arrived". In a test with twenty companies, one of the messages
+ * stayed in that state and never reached any mailbox — no server error, and
+ * indistinguishable in the listing from the nineteen that arrived.
  */
 describe("enviarEmail", () => {
   it("usa Basic auth e o campo Attachments no Mailjet", async () => {
@@ -427,7 +430,7 @@ describe("enviarEmail", () => {
       mensagemId: "mj-3",
     });
     expect(consolaAviso).toHaveBeenCalledWith(
-      expect.stringContaining("Resend falhou"),
+      expect.stringContaining("Resend failed"),
     );
     expect(espia.mock.calls.some(([url]) => String(url).includes("mailjet"))).toBe(true);
   });
@@ -441,22 +444,22 @@ describe("enviarEmail", () => {
     };
     const espia = espiarFetch(async (url) => {
       if (url.includes("mailjet")) return new Response("boom", { status: 500 });
-      // 429 com a palavra quota — a resposta real do Resend quando o dia acabou.
+      // 429 with the word quota — Resend's real response when the day is over.
       return new Response('{"statusCode":429,"message":"You have reached your daily email sending quota."}', { status: 429 });
     });
 
-    // Primeiro envio: Mailjet 500, Resend 429 (quota esgotada) → erro com os dois motivos.
+    // First send: Mailjet 500, Resend 429 (quota exhausted) → error with both reasons.
     const r1 = await enviarEmail(base);
     expect(r1.ok).toBe(false);
     if (!r1.ok) expect(r1.erro).toContain("429");
-    // Segundo envio: o Resend está em pausa — nem é chamado; o Mailjet é tentado outra vez.
+    // Second send: Resend is paused — it is not even called; Mailjet is tried again.
     const r2 = await enviarEmail(base);
     expect(r2.ok).toBe(false);
 
     const chamadasResend = espia.mock.calls.filter(([url]) => String(url).includes("resend"));
     expect(chamadasResend).toHaveLength(1);
     expect(consolaAviso).toHaveBeenCalledWith(
-      expect.stringContaining("em pausa por quota"),
+      expect.stringContaining("paused on quota"),
     );
   });
 
@@ -472,9 +475,9 @@ describe("enviarEmail", () => {
       return new Response('{"Messages":[{"To":[{"MessageID":"mj-4"}]}]}', { status: 200 });
     });
 
-    // Primeiro envio: Resend 500 (não é quota), Mailjet aceita.
+    // First send: Resend 500 (not a quota issue), Mailjet accepts.
     await expect(enviarEmail(base)).resolves.toEqual({ ok: true, canal: "mailjet", mensagemId: "mj-4" });
-    // Segundo envio: o Resend é tentado outra vez (não está em pausa).
+    // Second send: Resend is tried again (it is not paused).
     await expect(enviarEmail(base)).resolves.toEqual({ ok: true, canal: "mailjet", mensagemId: "mj-4" });
 
     const chamadasResend = espia.mock.calls.filter(([url]) => String(url).includes("resend"));
@@ -483,11 +486,11 @@ describe("enviarEmail", () => {
 });
 
 describe("verificarEntrega", () => {
-  /** A resposta do `GET /emails/{id}` do Resend. */
+  /** The response of Resend's `GET /emails/{id}`. */
   const resend = (corpo: unknown, status = 200) =>
     espiarFetch(async () => new Response(JSON.stringify(corpo), { status }));
 
-  /** A resposta do `GET /v3/smtp/statistics/events` do Brevo. */
+  /** The response of Brevo's `GET /v3/smtp/statistics/events`. */
   const brevo = (eventos: { event: string; reason?: string }[], status = 200) => {
     ambiente = { BREVO_API_KEY: "xkeysib-teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
     return espiarFetch(
@@ -540,9 +543,9 @@ describe("verificarEntrega", () => {
   });
 
   /**
-   * `sent`, `queued` e `delivery_delayed` são o fornecedor a dizer que ainda
-   * não sabe. Chamar-lhes falha seria inventar uma avaria — e chamar-lhes
-   * entrega seria repetir o defeito de origem com outro nome.
+   * `sent`, `queued` and `delivery_delayed` are the provider saying it does not
+   * know yet. Calling them a failure would be inventing a fault — and calling
+   * them delivery would be repeating the original defect under another name.
    */
   it.each(["sent", "queued", "delivery_delayed", "coisa_nova_do_resend"])(
     "deixa «%s» em pendente, com o nome cru no motivo",
@@ -597,15 +600,15 @@ describe("verificarEntrega", () => {
 
     const [url, opcoes] = espia.mock.calls[0] ?? [];
     expect(url).toContain("api.brevo.com/v3/smtp/statistics/events");
-    // Um `<` ou um `@` em cru no URL não sobrevive à viagem.
+    // A raw `<` or `@` in the URL does not survive the trip.
     expect(url).toContain(`messageId=${encodeURIComponent("<1@brevo>")}`);
     expect((opcoes?.headers as Record<string, string>)["api-key"]).toBe("xkeysib-teste");
   });
 
   /**
-   * O Brevo devolve uma lista, e a ordem dela não é a de gravidade: uma
-   * mensagem pode ter `delivered` e, dias depois, `spam`. Ficar-se pelo
-   * primeiro elemento era ler o desfecho errado nos casos em que ele importa.
+   * Brevo returns a list, and its order is not the order of severity: a message
+   * can have `delivered` and, days later, `spam`. Stopping at the first element
+   * meant reading the wrong outcome in exactly the cases where it matters.
    */
   it("fica com o evento mais grave da lista do Brevo, não com o primeiro", async () => {
     brevo([
@@ -633,7 +636,7 @@ describe("verificarEntrega", () => {
     },
   );
 
-  /** O 404 do Brevo quer dizer "ainda não há eventos", não "correu mal". */
+  /** Brevo's 404 means "there are no events yet", not "something went wrong". */
   it("trata o 404 do Brevo como pendente", async () => {
     brevo([], 404);
 
@@ -660,7 +663,7 @@ describe("confirmarEntrega", () => {
     mensagemId: "id-123",
     para: "cliente@exemplo.pt",
     template: "registo" as const,
-    // Sem espera: o que se está a testar é a decisão, não o relógio.
+    // No waiting: what is being tested is the decision, not the clock.
     esperas: [0],
   };
 
@@ -672,8 +675,8 @@ describe("confirmarEntrega", () => {
     expect(atualizacoes).toHaveLength(1);
     expect(atualizacoes[0]).toMatchObject({ estado: "entregue" });
     expect(atualizacoes[0]?.verificadoEm).toBeInstanceOf(Date);
-    // Um `entregue` não pode apagar a razão de uma tentativa anterior: sem
-    // motivo, o `erro` nem sequer entra no `set`.
+    // An `entregue` cannot erase the reason of an earlier attempt: with no
+    // reason, `erro` does not even enter the `set`.
     expect(atualizacoes[0]).not.toHaveProperty("erro");
   });
 
@@ -692,8 +695,9 @@ describe("confirmarEntrega", () => {
       estado: "devolvido",
       erro: "mailbox not found",
     });
-    // E fica dito na consola: um dossier sem link é uma pessoa à espera.
-    expect(consolaErro).toHaveBeenCalledWith(expect.stringContaining("DEVOLVIDO"));
+    // And it is stated in the console: a case file without a link is a person
+    // waiting.
+    expect(consolaErro).toHaveBeenCalledWith(expect.stringContaining("BOUNCED"));
   });
 
   it("trunca o motivo em 2000 caracteres, como o erro do envio", async () => {
@@ -711,9 +715,9 @@ describe("confirmarEntrega", () => {
   });
 
   /**
-   * A regra que impede a confirmação de piorar o diagnóstico: uma consulta que
-   * falhou não diz nada sobre a mensagem. Marcar a linha aqui era transformar
-   * uma avaria nossa numa acusação ao destinatário.
+   * The rule that stops the confirmation from making the diagnosis worse: a
+   * lookup that failed says nothing about the message. Marking the row here
+   * would be turning a fault of ours into an accusation against the recipient.
    */
   it("não toca na linha quando a consulta ao fornecedor falha", async () => {
     espiarFetch(async () => new Response("indisponível", { status: 500 }));
@@ -722,7 +726,7 @@ describe("confirmarEntrega", () => {
 
     expect(atualizacoes).toHaveLength(0);
     expect(consolaAviso).toHaveBeenCalledWith(
-      expect.stringContaining("não se conseguiu confirmar a entrega"),
+      expect.stringContaining("could not confirm delivery"),
     );
   });
 
@@ -736,7 +740,7 @@ describe("confirmarEntrega", () => {
     expect(espia).toHaveBeenCalledTimes(3);
     expect(atualizacoes).toHaveLength(0);
     expect(consolaAviso).toHaveBeenCalledWith(
-      expect.stringContaining("entrega por confirmar"),
+      expect.stringContaining("delivery unconfirmed"),
     );
   });
 
@@ -751,9 +755,9 @@ describe("confirmarEntrega", () => {
   });
 
   /**
-   * Mesma regra do `registar`: o email já saiu, e o diário não o pode desfazer.
-   * Uma exceção aqui subia por uma promessa solta — que num Node moderno
-   * derruba o processo inteiro.
+   * Same rule as `registar`: the email has already gone out, and the log cannot
+   * undo it. An exception here surfaced through a detached promise — which in a
+   * modern Node brings the whole process down.
    */
   it("não propaga quando a atualização do diário rebenta", async () => {
     espiarFetch(async () => new Response('{"last_event":"delivered"}', { status: 200 }));
@@ -762,7 +766,7 @@ describe("confirmarEntrega", () => {
     await expect(confirmarEntrega(alvo)).resolves.toBe("entregue");
 
     expect(consolaErro).toHaveBeenCalledWith(
-      expect.stringContaining("FALHOU a atualização de email_log"),
+      expect.stringContaining("FAILED to update email_log"),
       expect.anything(),
     );
   });

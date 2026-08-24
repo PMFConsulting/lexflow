@@ -5,81 +5,82 @@ import { organizacao } from "./organizacao";
 import { processoOnboarding } from "./processo";
 
 /**
- * Registo de todos os emails que o sistema tentou enviar.
+ * A record of every email the system attempted to send.
  *
- * Uma linha por tentativa, escrita por `enviarEmail` — o que quer dizer que
- * nenhum caminho de envio a pode esquecer, incluindo os que ainda não existem.
- * O sucesso e o erro entram os dois: "não chegou nada ao cliente" é a pergunta
- * que se faz, e ela só tem resposta se as falhas ficarem gravadas com o motivo.
+ * One row per attempt, written by `enviarEmail` — which means no sending path
+ * can forget it, including the ones that do not yet exist. Success and error
+ * both go in: "nothing reached the client" is the question being asked, and it
+ * only has an answer if failures are recorded with the reason.
  *
- * Não é auditoria e não a substitui. `evento_auditoria` é append-only, com
- * cadeia de hashes, e continua a registar o que o envio de um link significa
- * para o processo (`link.enviado` / `link.envio_falhou`); isto é o diário
- * técnico do canal de email, que se limpa e se recria sem consequência legal.
+ * This is not the audit trail and does not replace it. `evento_auditoria` is
+ * append-only, with a hash chain, and still records what sending a link means
+ * for the matter (`link.enviado` / `link.envio_falhou`); this is the email
+ * channel's technical log, which can be truncated and rebuilt with no legal
+ * consequence.
  *
- * Não guarda o corpo da mensagem. Um email de boas-vindas leva o resumo do
- * processo em anexo, e duplicar dados pessoais numa tabela de diagnóstico é
- * multiplicar a superfície de um sistema sujeito ao RGPD sem nada ganhar.
+ * It does not store the message body. A welcome email carries the matter's
+ * summary as an attachment, and duplicating personal data into a diagnostic
+ * table multiplies the surface of a GDPR-subject system for nothing.
  */
 export const emailLog = pgTable(
   "email_log",
   {
     id: id(),
     /**
-     * Nulo quando o envio acontece fora do contexto de uma organização. Hoje
-     * não acontece; a coluna aceita-o para que um envio nunca fique por
-     * registar só porque não se soube a quem atribuí-lo.
+     * Null when the send happens outside the context of an organisation. That
+     * does not happen today; the column accepts it so a send is never left
+     * unrecorded just because there was nobody to attribute it to.
      */
     organizacaoId: uuid("organizacao_id").references(() => organizacao.id, {
       onDelete: "set null",
     }),
     /**
-     * `set null` e não `cascade`: apagar um processo não pode apagar a prova de
-     * que se escreveu ao cliente. A linha fica, sem processo.
+     * `set null` and not `cascade`: deleting a matter cannot delete the
+     * evidence that the client was written to. The row stays, without a matter.
      */
     processoId: uuid("processo_id").references(() => processoOnboarding.id, {
       onDelete: "set null",
     }),
-    /** Destinatário, tal como foi passado ao fornecedor. */
+    /** Recipient, exactly as it was passed to the provider. */
     para: text("para").notNull(),
     assunto: text("assunto").notNull(),
     template: templateEmail("template").notNull(),
     /**
-     * SHA-256 do token do link mágico, quando o email leva um — e nunca o token
-     * em claro. Guardá-lo aqui desfazia a D4: bastava ler esta tabela para
-     * entrar em qualquer dossier. O hash chega para cruzar a linha com
-     * `processo_onboarding.token_acesso_hash` e responder a "que link é que foi
-     * enviado nesta mensagem".
+     * SHA-256 of the magic link token, when the email carries one — and never
+     * the plaintext token. Storing it here would undo D4: reading this table
+     * would be enough to enter any case file. The hash is enough to cross the
+     * row with `processo_onboarding.token_acesso_hash` and answer "which link
+     * was sent in this message".
      */
     tokenHash: text("token_hash"),
     estado: estadoEmail("estado").notNull(),
     /**
-     * Preenchido quando há motivo: o erro do fornecedor a recusar o envio, ou a
-     * razão de um `devolvido`. Um `entregue` não o apaga — a razão de uma
-     * tentativa anterior ter falhado continua a valer.
+     * Filled in when there is a reason: the provider's error refusing the send,
+     * or the reason for a `devolvido`. An `entregue` does not erase it — the
+     * reason an earlier attempt failed still stands.
      */
     erro: text("erro"),
     /**
-     * Qual dos dois canais aceitou a mensagem. Nulo quando nenhum aceitou.
+     * Which of the two channels accepted the message. Null when neither did.
      *
-     * É o que decide a quem se pergunta pelo desfecho: o `mensagem_id` de um
-     * fornecedor não quer dizer nada no outro.
+     * It is what decides who gets asked for the outcome: one provider's
+     * `mensagem_id` means nothing to the other.
      */
     canal: canalEmail("canal"),
     /**
-     * O identificador que o fornecedor deu à mensagem — o `id` do Resend, o
-     * `messageId` do Brevo. Não é segredo (não abre nada, ao contrário do
-     * token) e é a única forma de voltar a perguntar-lhe o que fez com ela.
+     * The identifier the provider gave the message — Resend's `id`, Brevo's
+     * `messageId`. It is not a secret (it opens nothing, unlike the token) and
+     * it is the only way to go back and ask what was done with the message.
      *
-     * Nulo quando o fornecedor aceitou sem devolver id reconhecível: nesse
-     * caso a entrega não é confirmável, e a linha fica em `enviado` para
-     * sempre.
+     * Null when the provider accepted without returning a recognisable id: in
+     * that case delivery is not confirmable, and the row stays at `enviado`
+     * forever.
      */
     mensagemId: text("mensagem_id"),
     /**
-     * Quando é que o desfecho foi confirmado junto do fornecedor. Nulo enquanto
-     * ninguém tiver perguntado — que é o que distingue "ainda não se sabe" de
-     * "perguntou-se e ele disse que entregou".
+     * When the outcome was confirmed with the provider. Null while nobody has
+     * asked — which is what distinguishes "it is not yet known" from "it was
+     * asked and the provider said it delivered".
      */
     verificadoEm: timestamp("verificado_em", { withTimezone: true }),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
@@ -88,8 +89,8 @@ export const emailLog = pgTable(
     index("email_log_criado").on(t.criadoEm),
     index("email_log_processo").on(t.processoId),
     index("email_log_estado").on(t.estado),
-    // Para chegar à linha a partir de um id do painel do fornecedor — e, um
-    // dia, a partir do corpo de um webhook.
+    // To reach the row from an id in the provider's dashboard — and, one day,
+    // from a webhook's body.
     index("email_log_mensagem").on(t.mensagemId),
   ],
 );

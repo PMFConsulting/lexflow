@@ -34,7 +34,7 @@ describe("validarNif", () => {
   });
 
   it("diz qual teria de ser o último dígito", () => {
-    // 2·9+1·8+3·7+4·6+5·5+6·4+7·3+8·2 = 157; 157 % 11 = 3, logo o controlo é 8.
+    // 2·9+1·8+3·7+4·6+5·5+6·4+7·3+8·2 = 157; 157 % 11 = 3, so the check digit is 8.
     const r = validarNif("213456789");
     if (!r.valido) expect(r.mensagem).toContain("teria de ser 8 e não 9");
   });
@@ -122,16 +122,17 @@ describe("formatarIban", () => {
 });
 
 /**
- * O NIPC, que é o NIF visto do sítio onde se abre o dossier de uma entidade.
+ * The NIPC, which is the tax number seen from the place where an entity's case
+ * file is opened.
  *
- * O `validarNif` responde a "isto é um NIF português válido?" e a resposta certa
- * para o NIF de uma pessoa singular é "sim". Na caixa do NIPC essa resposta está
- * errada em substância — e era um erro que passava por bom, ficava gravado, e só
- * se descobria meses depois com o processo já a correr.
+ * `validarNif` answers "is this a valid Portuguese tax number?" and the right
+ * answer for an individual's tax number is "yes". In the NIPC box that answer
+ * is wrong in substance — and it was a mistake that passed as good, got stored,
+ * and was only discovered months later with the matter already running.
  */
 describe("validarNipc", () => {
   it("aceita os quatro primeiros dígitos de pessoa coletiva", () => {
-    // 5 sociedades · 6 organismos públicos · 8 ENI · 9 condomínios e irregulares.
+    // 5 companies · 6 public bodies · 8 sole traders · 9 condominiums and irregular entities.
     expect(validarNipc("500000000").valido).toBe(true);
     expect(validarNipc("600000001").valido).toBe(true);
     expect(validarNipc("800000005").valido).toBe(true);
@@ -153,10 +154,10 @@ describe("validarNipc", () => {
   });
 
   /**
-   * A ordem das duas verificações não é indiferente. Dizer "com estes oito
-   * dígitos o último teria de ser X" sobre um número que nem sequer é de pessoa
-   * coletiva manda corrigir a coisa errada — e o cliente acaba a inventar um
-   * dígito de controlo para um número que nunca podia servir.
+   * The order of the two checks is not indifferent. Saying "with these eight
+   * digits the last one would have to be X" about a number that is not even a
+   * corporate one sends the user to fix the wrong thing — and the client ends
+   * up inventing a check digit for a number that could never have served.
    */
   it("o primeiro dígito é dito antes do dígito de controlo", () => {
     const r = validarNipc("213456789"); // primeiro dígito errado *e* checksum errado
@@ -175,13 +176,13 @@ describe("validarNipc", () => {
 });
 
 /**
- * O telefone, com nove dígitos e não com "seis a quinze".
+ * The phone number, with nine digits and not with "six to fifteen".
  *
- * A folga que aqui estava aceitava `123` e aceitava `9123456789`. O primeiro não
- * é número nenhum; o segundo é o defeito caro, porque um dígito a mais num
- * telemóvel português tem exatamente o aspeto de um número certo e só se
- * descobre quando alguém tenta ligar — semanas depois, a um cliente que já não
- * está a olhar para o formulário.
+ * The slack that was here accepted `123` and accepted `9123456789`. The first
+ * is no number at all; the second is the expensive defect, because one digit
+ * too many on a Portuguese mobile looks exactly like a correct number and is
+ * only discovered when somebody tries to call — weeks later, a client who is no
+ * longer looking at the form.
  */
 describe("validarTelefone", () => {
   it("aceita com e sem indicativo, e com a formatação de quem copia do cartão", () => {
@@ -192,7 +193,7 @@ describe("validarTelefone", () => {
     expect(validarTelefone("351912345678").valido).toBe(true);
     expect(validarTelefone("912-345-678").valido).toBe(true);
     expect(validarTelefone("(351) 912.345.678").valido).toBe(true);
-    // Fixo, que começa por 2 e tem os mesmos nove dígitos.
+    // A landline, which starts with 2 and has the same nine digits.
     expect(validarTelefone("213456789").valido).toBe(true);
   });
 
@@ -212,7 +213,7 @@ describe("validarTelefone", () => {
   });
 
   it("o indicativo não conta para os nove", () => {
-    // 9 dígitos depois do +351 passam; 10 não passam por levarem indicativo.
+    // 9 digits after the +351 pass; 10 do not pass just for carrying a dialling code.
     expect(validarTelefone("+351 912 345 678").valido).toBe(true);
     expect(validarTelefone("+351 912 345 6789").valido).toBe(false);
   });
@@ -220,8 +221,8 @@ describe("validarTelefone", () => {
   it("um indicativo de outro país é recusado por ser de outro país", () => {
     const r = validarTelefone("+44 20 7946 0958");
     expect(r.valido).toBe(false);
-    // A razão tem de ser a certa: lido como erro de contagem, o cliente ficava a
-    // tentar acrescentar e tirar dígitos a um número que está bem escrito.
+    // The reason has to be the right one: read as a counting error, the client
+    // would be left adding and removing digits from a correctly written number.
     if (!r.valido) expect(r.mensagem).toContain("números portugueses");
   });
 

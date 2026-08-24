@@ -13,15 +13,15 @@ import { mensagemSegura, nomeDaPasta } from "./sanitizacao";
 import { nomeSeguro, nomeSeguroDeFicheiro, type Ficheiro } from "./tipos";
 
 /**
- * Depois de um processo submetido: uma pasta por cliente, no destino da
- * sociedade, com o resumo e os anexos que o cliente carregou.
+ * After a matter is submitted: one folder per client, at the firm's
+ * destination, with the summary and the attachments the client uploaded.
  *
- * A regra que manda em tudo o resto neste ficheiro: **isto nunca bloqueia uma
- * submissão**. O cliente já preencheu os ecrãs todos e carregou o cartão de
- * cidadão; uma palavra-passe mudada do lado da sociedade não pode ser o que
- * lhe aparece no fim. Falha o que falhar, fica em `evento_auditoria` com a
- * ação `armazenamento.erro` e na coluna `ultimo_erro` da configuração, que é
- * o que o back-office mostra.
+ * The rule that governs everything else in this file: **this never blocks a
+ * submission**. The client has already filled in every screen and uploaded
+ * their ID card; a password changed on the firm's side cannot be what shows up
+ * at the end. Whatever fails is recorded in `evento_auditoria` with the
+ * `armazenamento.erro` action and in the configuration's `ultimo_erro` column,
+ * which is what the back-office shows.
  */
 
 export type ResultadoSincronizacao =
@@ -32,17 +32,18 @@ export type ResultadoSincronizacao =
 const SUMARIO = "summary.pdf";
 
 /**
- * A capa da pasta. O nome não é escolha nossa: é o que o auxiliar em Python
- * já deixava em cada pasta de cliente, e é por ele que se procura o dossier.
+ * The folder's cover page. The name is not our choice: it is what the Python
+ * helper already left in each client folder, and it is what the case file is
+ * searched by.
  */
 const CAPA = "dados_cliente.pdf";
 
 /**
- * Os dados do resumo, lidos do processo.
+ * The summary's data, read from the matter.
  *
- * Separado da sincronização porque o mesmo resumo vai por dois caminhos — a
- * pasta no arquivo e o anexo do email de boas-vindas — e o cliente e a
- * sociedade não podem ficar com versões diferentes do mesmo documento.
+ * Separate from the sync because the same summary goes out by two paths — the
+ * folder in the archive and the welcome email's attachment — and the client and
+ * the firm cannot end up with different versions of the same document.
  */
 async function dadosDoResumo(
   processo: typeof processoOnboarding.$inferSelect,
@@ -74,7 +75,7 @@ async function dadosDoResumo(
   };
 }
 
-/** O `summary.pdf` de um processo, para quem o quiser fora da sincronização. */
+/** A matter's `summary.pdf`, for whoever wants it outside the sync. */
 export async function resumoDoProcesso(
   processo: typeof processoOnboarding.$inferSelect,
 ): Promise<Buffer> {
@@ -86,8 +87,8 @@ export async function sincronizarCliente(
 ): Promise<ResultadoSincronizacao> {
   const ligacao = await destinoDaOrganizacao(processo.organizacaoId);
   if (!ligacao) {
-    // Sem credenciais configuradas não há nada a fazer, e não é um erro: é o
-    // estado de origem de uma instalação nova.
+    // With no credentials configured there is nothing to do, and it is not an
+    // error: it is the starting state of a new installation.
     return { ok: true, ignorado: true, motivo: "Armazenamento por configurar." };
   }
 
@@ -111,8 +112,8 @@ export async function sincronizarCliente(
       },
     ];
 
-    // Os anexos só se leem agora — são megabytes por processo e não têm de
-    // atravessar o servidor para desenhar o resumo.
+    // The attachments are only read now — they are megabytes per matter and do
+    // not have to cross the server just to draw the summary.
     const anexos = await base
       .select({
         nome: documento.nomeOriginal,
@@ -126,7 +127,8 @@ export async function sincronizarCliente(
     for (const anexo of anexos) {
       if (!anexo.dados) continue;
 
-      // Dois anexos com o mesmo nome não podem esmagar-se dentro da pasta.
+      // Two attachments with the same name cannot overwrite each other inside
+      // the folder.
       let nome = nomeSeguroDeFicheiro(anexo.nome);
       let n = 2;
       while (usados.has(nome.toLowerCase())) {
@@ -145,9 +147,9 @@ export async function sincronizarCliente(
       });
     }
 
-    // A capa é o último a gerar-se e o primeiro a entrar na pasta: só aqui se
-    // sabe que ficheiros ela tem de indexar. Não se indexa a si própria — o
-    // tamanho dela ainda não existe quando o conteúdo é desenhado.
+    // The cover is the last to be generated and the first to enter the folder:
+    // only here is it known which files it has to index. It does not index
+    // itself — its size does not yet exist when the content is drawn.
     ficheiros.unshift({
       nome: CAPA,
       mime: "application/pdf",
@@ -161,8 +163,8 @@ export async function sincronizarCliente(
       }),
     });
 
-    // Em série e não em paralelo: são poucos ficheiros, e cada um abre a sua
-    // sessão SSH — em paralelo, o servidor corta ligações a meio do envio.
+    // In series and not in parallel: there are few files, and each opens its
+    // own SSH session — in parallel, the server cuts connections mid-upload.
     for (const ficheiro of ficheiros) {
       await destino.enviar(segmentos, ficheiro);
     }
@@ -187,9 +189,9 @@ export async function sincronizarCliente(
     return { ok: true, ignorado: false, pasta: segmentos.join("/"), ficheiros: ficheiros.length };
   } catch (e) {
     const erro = mensagemSegura(e);
-    console.error(`[armazenamento] falha a sincronizar ${processo.referencia}: ${erro}`);
+    console.error(`[storage] failed to sync ${processo.referencia}: ${erro}`);
 
-    // O registo da falha também não pode rebentar por cima da submissão.
+    // Recording the failure cannot blow up over the submission either.
     try {
       await base
         .update(armazenamentoSociedade)
@@ -205,7 +207,7 @@ export async function sincronizarCliente(
         valorNovo: { erro },
       });
     } catch (interno) {
-      console.error("[armazenamento] falha a registar o erro", mensagemSegura(interno));
+      console.error("[storage] failed to record the error", mensagemSegura(interno));
     }
 
     return { ok: false, erro };

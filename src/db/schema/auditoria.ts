@@ -2,14 +2,15 @@ import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-cor
 import { id } from "./_comum";
 
 /**
- * A peça sagrada. Append-only: nem UPDATE, nem DELETE, nem soft delete.
+ * The sacred piece. Append-only: no UPDATE, no DELETE, no soft delete.
  *
- * A imutabilidade não é convenção de código — está garantida no Postgres por
- * REVOKE e por RULE ... DO INSTEAD NOTHING, na migração manual 0002.
+ * Immutability is not a code convention — it is guaranteed in Postgres by
+ * REVOKE and by RULE ... DO INSTEAD NOTHING, in the manual migration 0002.
  *
- * Cada linha inclui o hash da anterior, formando uma cadeia verificável por
- * `pnpm auditoria:verificar`. A cadeia é por organização: uma cadeia global
- * serializaria todas as escritas do sistema num único ponto de contenção.
+ * Each row includes the previous one's hash, forming a chain verifiable by
+ * `pnpm auditoria:verificar`. The chain is per organisation: a global chain
+ * would serialise every write in the system through a single point of
+ * contention.
  */
 export const eventoAuditoria = pgTable(
   "evento_auditoria",
@@ -17,7 +18,7 @@ export const eventoAuditoria = pgTable(
     id: id(),
     organizacaoId: uuid("organizacao_id").notNull(),
     processoId: uuid("processo_id"),
-    /** Nulo = o cliente, através do link mágico. */
+    /** Null = the client, through the magic link. */
     atorId: uuid("ator_id"),
     /** 'processo.aprovado', 'documento.descarregado', 'ppe.consultado'… */
     acao: text("acao").notNull(),

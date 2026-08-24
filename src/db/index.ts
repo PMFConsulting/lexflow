@@ -5,9 +5,9 @@ import { env } from "@/env";
 import * as schema from "./schema";
 
 /**
- * Ligação preguiçosa e reutilizada entre hot reloads. Sem isto, cada
- * recompilação em desenvolvimento abre um pool novo e esgota as ligações do
- * plano gratuito do Supabase em minutos.
+ * Lazy connection, reused across hot reloads. Without this, every recompile in
+ * development opens a new pool and exhausts Supabase's free-plan connections in
+ * minutes.
  */
 const global_ = globalThis as unknown as {
   __ligacaoPostgres?: ReturnType<typeof postgres>;

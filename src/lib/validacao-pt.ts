@@ -1,8 +1,8 @@
 /**
- * Validações portuguesas. Implementadas aqui de propósito: as bibliotecas que
- * existem para isto são de uma estrela e o algoritmo são quinze linhas.
+ * Portuguese validations. Implemented here on purpose: the libraries that exist
+ * for this are one-star affairs and the algorithm is fifteen lines.
  *
- * As mensagens dizem o que falhou e como corrigir — nunca "Valor inválido".
+ * The messages say what failed and how to fix it — never "Invalid value".
  */
 
 export type Resultado = { valido: true } | { valido: false; mensagem: string };
@@ -13,10 +13,11 @@ const erro = (mensagem: string): Resultado => ({ valido: false, mensagem });
 /* -------------------------------------------------------------- NIF / NIPC */
 
 /**
- * Primeiros dígitos válidos de um NIF/NIPC português.
- * 1–3 singulares · 5 coletivas · 6 organismos públicos · 8 ENI · 9 condomínios
- * e irregulares. Os prefixos de dois dígitos cobrem não residentes (45),
- * heranças indivisas (70, 74, 75, 77, 78, 79) e entidades equiparadas (90–99).
+ * Valid leading digits of a Portuguese tax number (NIF/NIPC).
+ * 1–3 individuals · 5 companies · 6 public bodies · 8 sole traders · 9
+ * condominiums and irregular entities. The two-digit prefixes cover
+ * non-residents (45), undivided estates (70, 74, 75, 77, 78, 79) and equivalent
+ * entities (90–99).
  */
 const PREFIXOS_UM_DIGITO = ["1", "2", "3", "5", "6", "8", "9"];
 const PREFIXOS_DOIS_DIGITOS = [
@@ -28,19 +29,19 @@ export function normalizarNif(valor: string): string {
 }
 
 /**
- * A forma com que um número fiscal fica **gravado**.
+ * The shape a tax number is **stored** in.
  *
- * As validações já toleram `123 456 789` — e bem, porque é assim que o número
- * está impresso no cartão. O que não estava certo era guardá-lo assim: a
- * pesquisa do back-office compara texto (`ilike`), a deduplicação de clientes
- * agrupa por NIF (`/clientes`), e o mesmo contribuinte escrito com espaços num
- * processo e sem espaços noutro passava a ser duas pessoas diferentes.
+ * The validations already tolerate `123 456 789` — rightly so, because that is
+ * how the number is printed on the card. What was not right was storing it that
+ * way: back-office search compares text (`ilike`), client deduplication groups
+ * by tax number (`/clientes`), and the same taxpayer written with spaces on one
+ * matter and without spaces on another became two different people.
  *
- * Os pontos e os hífenes só caem quando o que sobra são exatamente nove
- * dígitos, isto é, quando o número é português. Um TIN estrangeiro — que o
- * passo 2 aceita de propósito, com `nifPortugues = false` — pode ter o
- * separador como parte do número, e limpá-lo seria estragar um identificador
- * legítimo por zelo.
+ * Dots and hyphens are only stripped when what remains is exactly nine digits,
+ * that is, when the number is Portuguese. A foreign TIN — which step 2 accepts
+ * on purpose, with `nifPortugues = false` — may carry the separator as part of
+ * the number, and cleaning it would be ruining a legitimate identifier out of
+ * zeal.
  */
 export function normalizarNumeroFiscal(valor: string): string {
   const semEspacos = valor.replace(/\s/g, "");
@@ -64,7 +65,7 @@ export function validarNif(valor: string): Resultado {
     return erro("O NIF tem de começar por 1, 2, 3, 5, 6, 8 ou 9. Confirme o primeiro dígito.");
   }
 
-  // Checksum mod-11: os oito primeiros dígitos com pesos de 9 a 2.
+  // mod-11 checksum: the first eight digits with weights from 9 down to 2.
   let soma = 0;
   for (let i = 0; i < 8; i += 1) {
     soma += Number(nif[i]) * (9 - i);
@@ -73,10 +74,11 @@ export function validarNif(valor: string): Resultado {
   const controlo = resto < 2 ? 0 : 11 - resto;
 
   if (controlo !== Number(nif[8])) {
-    // Dizer qual teria de ser o último dígito não enfraquece nada — o mod-11 é
-    // aritmética pública, e a validação existe para apanhar o dígito trocado,
-    // não para autenticar ninguém. O que muda é o cliente ficar a saber onde
-    // olhar: "não é válido" sozinho manda-o reler os nove dígitos às cegas.
+    // Saying what the last digit would have to be weakens nothing — mod-11 is
+    // public arithmetic, and the validation exists to catch a transposed digit,
+    // not to authenticate anyone. What changes is that the client learns where
+    // to look: "it is not valid" on its own sends them to reread all nine
+    // digits blind.
     return erro(
       `O NIF não é válido — com estes oito primeiros dígitos, o último teria de ser ${controlo} e não ${nif[8]}. Verifique se trocou algum dígito.`,
     );
@@ -86,32 +88,33 @@ export function validarNif(valor: string): Resultado {
 }
 
 /**
- * Primeiro dígito de um número de pessoa coletiva.
+ * Leading digit of a corporate tax number.
  *
- * 5 sociedades comerciais · 6 organismos públicos · 8 empresário em nome
- * individual · 9 condomínios, heranças indivisas e pessoas coletivas
- * irregulares. Ficam de fora o 1, 2 e 3 (pessoas singulares) e os prefixos de
- * dois dígitos que começam por 4 e 7 — não residentes e heranças —, que o
- * `validarNif` continua a aceitar onde a pergunta é "isto é um NIF válido?".
+ * 5 commercial companies · 6 public bodies · 8 sole traders · 9 condominiums,
+ * undivided estates and irregular legal persons. Left out are 1, 2 and 3
+ * (individuals) and the two-digit prefixes starting with 4 and 7 —
+ * non-residents and estates — which `validarNif` still accepts where the
+ * question is "is this a valid tax number?".
  */
 const PRIMEIRO_DIGITO_COLETIVA = ["5", "6", "8", "9"];
 
 /**
- * NIPC — o NIF de uma pessoa coletiva.
+ * NIPC — the tax number of a legal person.
  *
- * O `validarNif` responde a "isto é um NIF português válido?", e a resposta
- * certa para o NIF de uma pessoa singular é "sim". Só que, no sítio onde se
- * está a abrir o dossier de uma **entidade**, essa resposta está errada em
- * substância: um 2 ou um 3 no primeiro dígito é o número pessoal de alguém
- * escrito na caixa da empresa, e é um erro que passava por bom até alguém
- * reparar — quando repara — meses depois, com o processo já a correr.
+ * `validarNif` answers "is this a valid Portuguese tax number?", and the right
+ * answer for an individual's tax number is "yes". Except that, in the place
+ * where an **entity's** case file is being opened, that answer is wrong in
+ * substance: a 2 or a 3 in the leading digit is somebody's personal number
+ * written in the company box, and it is a mistake that passed as good until
+ * somebody noticed — when they notice — months later, with the matter already
+ * running.
  *
- * A ordem das duas verificações não é indiferente. O prefixo vem primeiro
- * porque é o defeito mais grosso: dizer "com estes oito dígitos o último teria
- * de ser 4" sobre um número que nem sequer é de pessoa coletiva manda corrigir
- * a coisa errada, e o cliente acaba a inventar um dígito de controlo para um
- * número que nunca podia servir. O comprimento fica para o `validarNif`, que
- * já o conta e já o diz.
+ * The order of the two checks is not indifferent. The prefix comes first
+ * because it is the grosser defect: saying "with these eight digits the last
+ * one would have to be 4" about a number that is not even a corporate one sends
+ * the user to fix the wrong thing, and the client ends up inventing a check
+ * digit for a number that could never have served. Length is left to
+ * `validarNif`, which already counts it and already says so.
  */
 export function validarNipc(valor: string): Resultado {
   const nipc = normalizarNif(valor);
@@ -128,7 +131,7 @@ export function validarNipc(valor: string): Resultado {
   return validarNif(nipc);
 }
 
-/* ---------------------------------------------------------------- Código postal */
+/* ------------------------------------------------------------------ Postcode */
 
 export function validarCodigoPostal(valor: string): Resultado {
   const cp = valor.trim();
@@ -149,7 +152,7 @@ export function formatarCodigoPostal(valor: string): string {
 
 /* ------------------------------------------------------------------------ IBAN */
 
-/** Comprimento total do IBAN por país. Cobre o EEE e os casos que aparecem cá. */
+/** Total IBAN length by country. Covers the EEA and the cases that turn up here. */
 const COMPRIMENTO_IBAN: Record<string, number> = {
   AD: 24, AT: 20, BE: 16, BG: 22, CH: 21, CY: 28, CZ: 24, DE: 22, DK: 18,
   EE: 20, ES: 24, FI: 18, FR: 27, GB: 22, GR: 27, HR: 21, HU: 28, IE: 22,
@@ -181,12 +184,12 @@ export function validarIban(valor: string): Resultado {
     );
   }
 
-  // mod-97: os quatro primeiros caracteres passam para o fim e as letras viram
-  // números (A=10 … Z=35). O resto tem de ser 1.
+  // mod-97: the first four characters move to the end and the letters become
+  // numbers (A=10 … Z=35). The remainder has to be 1.
   const rearranjado = iban.slice(4) + iban.slice(0, 4);
   const numerico = rearranjado.replace(/[A-Z]/g, (c) => String(c.charCodeAt(0) - 55));
 
-  // O número não cabe num Number, por isso o módulo faz-se por blocos.
+  // The number does not fit in a Number, so the modulo is done in blocks.
   let resto = 0;
   for (const digito of numerico) {
     resto = (resto * 10 + Number(digito)) % 97;
@@ -199,23 +202,24 @@ export function validarIban(valor: string): Resultado {
   return ok;
 }
 
-/** Apresentação em grupos de 4, como manda o §3 do brief. */
+/** Displayed in groups of 4, as §3 of the brief requires. */
 export function formatarIban(valor: string): string {
   return normalizarIban(valor).replace(/(.{4})/g, "$1 ").trim();
 }
 
-/* ------------------------------------------------------------------ Telefone */
+/* --------------------------------------------------------------------- Phone */
 
 /**
- * Tira ao número o indicativo português, se ele lá estiver.
+ * Strips the Portuguese dialling code from the number, if it is there.
  *
- * Devolve `null` quando o indicativo é de outro país — que é informação
- * diferente de "o número tem o tamanho errado" e merece outra mensagem.
+ * Returns `null` when the dialling code belongs to another country — which is
+ * different information from "the number is the wrong length" and deserves a
+ * different message.
  *
- * O `351` sem `+` nem `00` só conta como indicativo quando sobram exatamente
- * nove dígitos depois dele. Não é generosidade: nenhum número nacional começa
- * por 3 (fixos começam por 2, móveis por 9), por isso não há número legítimo de
- * nove dígitos a ser mutilado por esta regra.
+ * A `351` with neither `+` nor `00` only counts as a dialling code when exactly
+ * nine digits remain after it. This is not generosity: no national number
+ * starts with 3 (landlines start with 2, mobiles with 9), so there is no
+ * legitimate nine-digit number being mutilated by this rule.
  */
 function semIndicativoPt(tel: string): string | null {
   if (tel.startsWith("+")) {
@@ -229,34 +233,35 @@ function semIndicativoPt(tel: string): string | null {
 }
 
 /**
- * Contacto telefónico — nove dígitos, com ou sem o indicativo de Portugal.
+ * Phone contact — nine digits, with or without the Portuguese dialling code.
  *
- * O que aqui estava era um `^\+?\d{6,15}$`, e a folga não era neutra: aceitava
- * `123` e aceitava `9123456789`. O primeiro não é número nenhum; o segundo é o
- * defeito caro, porque um dígito a mais num telemóvel português tem exatamente
- * o aspeto de um número certo e só se descobre quando alguém tenta ligar — e
- * quem tenta ligar é a sociedade, semanas depois, a um cliente que já não está
- * a olhar para o formulário.
+ * What was here was a `^\+?\d{6,15}$`, and the slack was not neutral: it
+ * accepted `123` and it accepted `9123456789`. The first is no number at all;
+ * the second is the expensive defect, because one digit too many on a
+ * Portuguese mobile looks exactly like a correct number and is only discovered
+ * when somebody tries to call — and the one trying to call is the firm, weeks
+ * later, ringing a client who is no longer looking at the form.
  *
- * Aceita-se `912 345 678`, `912345678`, `+351 912 345 678`, `00351912345678` e
- * as variantes com espaços, hífenes, pontos ou parênteses: são formas de
- * escrever o mesmo número, e recusar a formatação de quem copia do cartão de
- * visita é recusar o número certo pelo motivo errado.
+ * `912 345 678`, `912345678`, `+351 912 345 678`, `00351912345678` and the
+ * variants with spaces, hyphens, dots or parentheses are all accepted: they are
+ * ways of writing the same number, and refusing the formatting of someone
+ * copying off a business card is refusing the right number for the wrong
+ * reason.
  *
- * Só números portugueses, e é uma decisão de POC: o passo 2 aceita um NIF
- * estrangeiro de propósito, mas o telefone passa a exigir os nove dígitos
- * nacionais. Um indicativo de outro país é recusado com essa razão à frente,
- * para não se ler como erro de contagem.
+ * Portuguese numbers only, and this is a POC decision: step 2 accepts a foreign
+ * tax number on purpose, but the phone now requires the nine national digits. A
+ * foreign dialling code is refused with that reason stated, so it does not read
+ * as a counting error.
  */
 /**
- * A forma com que um telefone fica **gravado**: nove dígitos, sem mais nada.
+ * The shape a phone number is **stored** in: nine digits, nothing else.
  *
- * `+351 912 345 678`, `912-345-678` e `912345678` são o mesmo número escrito de
- * três maneiras, e guardá-los como três textos diferentes é o que faz um
- * `ilike` de pesquisa falhar sobre um número que está lá. A limpeza só se
- * aplica quando o resultado é reconhecidamente português; qualquer outra coisa
- * fica como veio, para não mutilar o que a validação vai recusar a seguir com
- * uma mensagem própria.
+ * `+351 912 345 678`, `912-345-678` and `912345678` are the same number written
+ * three ways, and storing them as three different strings is what makes a
+ * search `ilike` miss a number that is right there. The cleanup only applies
+ * when the result is recognisably Portuguese; anything else stays as it came,
+ * so as not to mutilate what the validation is about to refuse next with a
+ * message of its own.
  */
 export function normalizarTelefone(valor: string): string {
   const limpo = valor.replace(/[\s\-().]/g, "");

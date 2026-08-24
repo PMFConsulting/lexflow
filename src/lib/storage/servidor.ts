@@ -7,20 +7,20 @@ import type { Destino, Ficheiro, ParametrosServidor, Verificacao } from "./tipos
 import { caminho } from "./tipos";
 
 /**
- * O servidor dedicado da sociedade, por SFTP sobre SSH.
+ * The firm's dedicated server, over SFTP on SSH.
  *
- * Fala-se com ele através do `curl`, que suporta sftp:// quando vem compilado
- * com libssh2. O `curl` do Alpine não vem, e é por isso que a imagem assenta
- * em Debian: ver o comentário no Dockerfile.
+ * It is spoken to through `curl`, which supports sftp:// when compiled with
+ * libssh2. Alpine's `curl` is not, and that is why the image sits on Debian:
+ * see the comment in the Dockerfile.
  *
- * É o único destino, e isso não é configurável: FTP simples, HTTP e WebDAV em
- * claro ficaram de fora de propósito. O que atravessa isto são documentos de
- * identificação.
+ * It is the only destination, and that is not configurable: plain FTP, HTTP and
+ * cleartext WebDAV were left out on purpose. What crosses this are
+ * identification documents.
  */
 
 const executar = promisify(execFile);
 
-/** Um upload não pode ficar pendurado a segurar a submissão de um processo. */
+/** An upload cannot hang holding up a matter's submission. */
 const TEMPO_LIMITE_MS = 60_000;
 
 export class ErroServidor extends Error {
@@ -32,14 +32,14 @@ export class ErroServidor extends Error {
 
 /* -------------------------------------------------------------------- SFTP */
 
-/** Só exportado para os testes: o URL é a fronteira onde os nomes se partem. */
+/** Only exported for the tests: the URL is the boundary where names break. */
 export function urlSftp(p: ParametrosServidor, segmentos: string[]): string {
   const anfitriao = p.host.replace(/^sftp:\/\//i, "").replace(/\/.*$/, "");
   const porta = p.porta ? `:${p.porta}` : "";
 
-  // Cada segmento vai percent-encoded. Uma pasta de cliente chama-se
-  // "Maria Silva (249886344)" e o espaço não pode entrar num URL em cru: o
-  // curl trunca aí, e o upload ia parar a "/Clientes/Maria".
+  // Each segment goes percent-encoded. A client folder is called
+  // "Maria Silva (249886344)" and the space cannot enter a URL raw: curl
+  // truncates there, and the upload ended up at "/Clientes/Maria".
   const cauda = caminho([p.caminhoBase ?? "", ...segmentos])
     .split("/")
     .filter(Boolean)
@@ -50,23 +50,23 @@ export function urlSftp(p: ParametrosServidor, segmentos: string[]): string {
 }
 
 /**
- * Um caminho para dentro de um comando `-Q` do curl.
+ * A path going into a curl `-Q` command.
  *
- * O `-Q` não é um URL: o curl parte a linha em palavras e o caminho acaba no
- * primeiro espaço. Entre aspas, o caminho chega inteiro — e dentro das aspas o
- * curl reconhece `\"` e `\\` como escapes. O `nomeSeguro` já tira as aspas de
- * um nome de cliente; isto é a segunda linha, para o caminho base, que vem da
- * configuração da sociedade e não passa por lá.
+ * `-Q` is not a URL: curl splits the line into words and the path ends at the
+ * first space. In quotes, the path arrives whole — and inside the quotes curl
+ * recognises `\"` and `\\` as escapes. `nomeSeguro` already strips quotes from
+ * a client name; this is the second line of defence, for the base path, which
+ * comes from the firm's configuration and does not go through there.
  */
 export function citarSftp(caminhoServidor: string): string {
   return `"${caminhoServidor.replace(/[\\"]/g, "\\$&")}"`;
 }
 
 /**
- * O `curl` recebe o segredo num ficheiro `.netrc` temporário com permissões
- * 0600, nunca em `argv`: a linha de comandos de um processo é legível por
- * qualquer utilizador da máquina, e um `ps aux` não pode revelar a
- * palavra-passe do arquivo de clientes.
+ * `curl` receives the secret in a temporary `.netrc` file with 0600
+ * permissions, never in `argv`: a process's command line is readable by any
+ * user of the machine, and a `ps aux` cannot reveal the password to the client
+ * archive.
  */
 async function comNetrc<T>(
   p: ParametrosServidor,
@@ -94,9 +94,9 @@ async function comNetrc<T>(
       String(Math.floor(TEMPO_LIMITE_MS / 1000)),
     ];
 
-    // Verificação da chave do host. Sem impressão digital configurada, o curl
-    // usa o `known_hosts` do sistema — e falha contra um host desconhecido,
-    // que é o comportamento certo.
+    // Host key verification. With no fingerprint configured, curl uses the
+    // system's `known_hosts` — and fails against an unknown host, which is the
+    // right behaviour.
     if (p.impressaoDigitalHost) {
       argumentos.push("--hostpubsha256", p.impressaoDigitalHost);
     }
@@ -110,7 +110,7 @@ async function comNetrc<T>(
   }
 }
 
-/** A saída do curl pode citar o URL, que leva o utilizador. Fica só o essencial. */
+/** curl's output can quote the URL, which carries the user. Only the essential remains. */
 function erroDoCurl(e: unknown, contexto: string): never {
   const codigo =
     typeof e === "object" && e !== null && "code" in e ? String((e as { code: unknown }).code) : "?";
@@ -121,8 +121,8 @@ export function criarDestinoServidor(p: ParametrosServidor): Destino {
   return {
     async garantirPasta(segmentos) {
       await comNetrc(p, async (argumentos) => {
-        // O `-Q mkdir` do curl não falha o comando quando a pasta já existe no
-        // servidor; o caminho é criado nível a nível.
+        // curl's `-Q mkdir` does not fail the command when the folder already
+        // exists on the server; the path is created level by level.
         const percorridos: string[] = [];
         for (const segmento of segmentos) {
           percorridos.push(segmento);
@@ -138,8 +138,8 @@ export function criarDestinoServidor(p: ParametrosServidor): Destino {
               { timeout: TEMPO_LIMITE_MS },
             );
           } catch {
-            // Uma pasta já existente devolve erro; só o upload seguinte é que
-            // decide se o caminho está mesmo lá.
+            // An already-existing folder returns an error; only the next upload
+            // decides whether the path is really there.
           }
         }
       });
@@ -153,8 +153,8 @@ export function criarDestinoServidor(p: ParametrosServidor): Destino {
             [...argumentos, "--upload-file", "-", urlSftp(p, [...segmentos, ficheiro.nome])],
             { timeout: TEMPO_LIMITE_MS },
           );
-          // O conteúdo entra por stdin: um ficheiro temporário em disco deixava
-          // rasto de documentos de identificação na máquina.
+          // The content goes in through stdin: a temporary file on disk left a
+          // trail of identification documents on the machine.
           filho.child.stdin?.end(ficheiro.conteudo);
           await filho;
         } catch (e) {

@@ -2,11 +2,11 @@ import { customType, jsonb, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
 
 /**
- * Colunas partilhadas. São funções, não constantes: cada tabela precisa da sua
- * própria instância do construtor de coluna.
+ * Shared columns. They are functions, not constants: each table needs its own
+ * instance of the column builder.
  */
 
-/** UUID v7 — ordenável por tempo, o que dá localidade de índice e cursores estáveis. */
+/** UUID v7 — time-orderable, which gives index locality and stable cursors. */
 export const id = () =>
   uuid("id")
     .primaryKey()
@@ -21,28 +21,28 @@ export const timestamps = () => ({
 });
 
 /**
- * Soft delete. Só nas tabelas com retenção legal: esconder da aplicação não é
- * apagar, e a Lei 83/2017 obriga a conservar 7 anos.
+ * Soft delete. Only on tables with legal retention: hiding from the application
+ * is not deleting, and Lei 83/2017 requires 7 years of retention.
  */
 export const softDelete = () => ({
   apagadoEm: timestamp("apagado_em", { withTimezone: true }),
 });
 
 /**
- * Escape hatch para o que é genuinamente variável. Não é sítio para o que se
- * pesquisa, filtra ou indexa — isso é coluna.
+ * Escape hatch for what is genuinely variable. Not the place for what gets
+ * searched, filtered or indexed — that is a column.
  */
 export const extra = () => jsonb("extra").$type<Record<string, unknown>>().default({});
 
-/** Postgres tsvector. Mantida por trigger — ver a migração manual 0001. */
+/** Postgres tsvector. Maintained by trigger — see the manual migration 0001. */
 export const tsvector = customType<{ data: string; driverData: string }>({
   dataType: () => "tsvector",
 });
 
 /**
- * Bloco de morada: sete campos, exatamente como o formulário real
- * (docs/CAMPOS.md). Repete-se em cliente, representante e faturação; é sempre
- * 1:1 e nunca se pesquisa por ela isoladamente, por isso não é tabela.
+ * Address block: seven fields, exactly as in the real form (docs/CAMPOS.md). It
+ * repeats in client, representative and billing; it is always 1:1 and is never
+ * searched on its own, so it is not a table.
  */
 export const morada = () => ({
   morada: text("morada").notNull(),

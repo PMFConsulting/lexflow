@@ -1,36 +1,38 @@
 /**
- * Termos e Condições da prestação de serviços jurídicos.
+ * Terms and Conditions for the provision of legal services.
  *
- * Uma só fonte para os três sítios onde o documento aparece: o leitor do passo
- * 7 (que só liberta a aceitação depois de percorrido até ao fim), a página
- * `/termos-condicoes` que abre em separador próprio, e o PDF anexado ao email
- * de boas-vindas. Duplicar o texto era garantir que um dos três divergia — e
- * num consentimento, o texto *é* a prova.
+ * A single source for the three places the document appears: the step 7 reader
+ * (which only unlocks acceptance once scrolled to the end), the
+ * `/termos-condicoes` page that opens in its own tab, and the PDF attached to
+ * the welcome email. Duplicating the text would guarantee that one of the three
+ * diverged — and in a consent, the text *is* the evidence.
  *
- * **Texto de demonstração.** Foi escrito para a POC a partir do que a lei
- * obriga a constar; o articulado definitivo é da sociedade e substitui-se aqui,
- * neste ficheiro, sem tocar em mais nada. A versão é que não pode ficar para
- * trás: é ela que fica gravada em `versao_texto_legal` junto do consentimento,
- * e mudar o texto sem mudar a versão apaga a diferença entre o que o cliente
- * aceitou e o que passou a estar escrito.
+ * **Demonstration text.** It was written for the POC from what the law requires
+ * to be stated; the definitive wording belongs to the firm and is replaced
+ * here, in this file, without touching anything else. What cannot be left
+ * behind is the version: it is what gets recorded in `versao_texto_legal`
+ * alongside the consent, and changing the text without changing the version
+ * erases the difference between what the client accepted and what is now
+ * written.
  *
  * ---------------------------------------------------------------------------
- * TODO(T&C da sociedade) — revisão de produto de 23/08/2026. **Por acionar.**
+ * TODO(firm T&C) — product review of 23/08/2026. **Not yet activated.**
  *
- * O que está escrito em baixo é texto da *plataforma*, e isso é uma inversão de
- * papéis que não se pode manter: quem contrata com o cliente é a sociedade, e o
- * articulado que o vincula tem de ser o dela. A plataforma é o canal.
+ * What is written below is *platform* text, and that is a reversal of roles
+ * that cannot stand: the one contracting with the client is the firm, and the
+ * wording binding them has to be the firm's. The platform is the channel.
  *
- * O espaço já existe e está vazio de propósito — três colunas anuláveis em
+ * The space already exists and is empty on purpose — three nullable columns in
  * `organizacao` (`termos_documento_ref`, `termos_versao`, `termos_atualizado_em`,
- * migração `0015`) e o valor `termos_sociedade` no enum `tipo_documento`.
- * **Nada as lê ainda**, e é essa a intenção: enquanto forem `null`, o passo 7
- * comporta-se exatamente como antes e o cliente não tem de fazer nada de novo.
+ * migration `0015`) and the value `termos_sociedade` in the `tipo_documento`
+ * enum. **Nothing reads them yet**, and that is the intention: while they are
+ * `null`, step 7 behaves exactly as before and the client does not have to do
+ * anything new.
  *
- * O que falta, e a ordem por que se faz, está em `docs/TERMOS_SOCIEDADE.md`.
- * O ponto que não se pode esquecer é o da D3/D38: os consentimentos apontam para
- * uma **versão**, e substituir o articulado sem subir a versão apaga a diferença
- * entre o que o cliente aceitou e o que passou a estar escrito.
+ * What is missing, and the order it is done in, is in `docs/TERMOS_SOCIEDADE.md`.
+ * The point that cannot be forgotten is D3/D38's: consents point at a
+ * **version**, and replacing the wording without bumping the version erases the
+ * difference between what the client accepted and what is now written.
  * ---------------------------------------------------------------------------
  */
 
@@ -116,7 +118,7 @@ export const TERMOS_CONDICOES: SeccaoTermos[] = [
   },
 ];
 
-/** Versão resumida para incluir no corpo dos emails. */
+/** Abridged version for inclusion in the body of the emails. */
 export const TERMOS_CONDICOES_EMAIL = `
 <h2 style="font-size:15px;margin:24px 0 8px;color:#101a24;">Termos e Condições</h2>
 <p style="font-size:13px;line-height:1.6;color:#333;margin:0 0 8px;">

@@ -1,9 +1,9 @@
 import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
- * Tabelas do Better Auth. A forma é ditada pela biblioteca — não lhe acrescentar
- * colunas de negócio. O que é nosso vive em `utilizador`, ligado por
- * `auth_user_id` (decisão D2 em CLAUDE.md).
+ * Better Auth tables. Their shape is dictated by the library — do not add
+ * business columns to them. What is ours lives in `utilizador`, linked by
+ * `auth_user_id` (decision D2 in CLAUDE.md).
  */
 
 export const user = pgTable("user", {

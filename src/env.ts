@@ -2,40 +2,40 @@ import "server-only";
 import { z } from "zod";
 
 /**
- * Variáveis de ambiente validadas. A leitura é preguiçosa de propósito: o
- * `next build` não precisa de base de dados, e falhar o build por falta de um
- * segredo que só é usado em runtime é mau negócio.
+ * Validated environment variables. The read is lazy on purpose: `next build`
+ * does not need a database, and failing the build for want of a secret only
+ * used at runtime is a bad deal.
  */
 const esquema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL tem de ser um URL de ligação Postgres"),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET precisa de pelo menos 32 caracteres"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
   RESEND_API_KEY: z.string().optional(),
-  /** Alternativa ao Resend (Brevo, 300 emails/dia no plano gratuito). Se estiver presente, tem prioridade. */
+  /** Alternative to Resend (Brevo, 300 emails/day on the free plan). If present, it takes priority. */
   BREVO_API_KEY: z.string().optional(),
   /**
-   * Alternativa ao Resend (Mailjet, 200 emails/dia no plano gratuito). Só é
-   * usado com a chave E o segredo.
+   * Alternative to Resend (Mailjet, 200 emails/day on the free plan). Only used
+   * with the key AND the secret.
    */
   MAILJET_API_KEY: z.string().optional(),
   MAILJET_SECRET_KEY: z.string().optional(),
   /**
-   * Último recurso: SMTP próprio (postfix no servidor do cliente). Sem quota
-   * de terceiros, mas a entrega é menos vigiada — por isso fica no fim da
-   * cadeia. `SMTP_PORT` é opcional (25 por omissão).
+   * Last resort: our own SMTP (postfix on the client's server). No third-party
+   * quota, but delivery is less closely watched — so it sits at the end of the
+   * chain. `SMTP_PORT` is optional (25 by default).
    */
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().max(65535).optional(),
   /**
-   * Remetente dos emails ao cliente. O valor por omissão é o da sociedade e não
-   * o `onboarding@resend.dev` do arranque: uma instalação a que falte a variável
-   * mandava os três emails da JMASSANO com o remetente da Resend, e um cliente
-   * que recebe um pedido de dados pessoais de um domínio que não conhece faz
-   * bem em não responder. Continua a poder ser trocado por `.env`.
+   * Sender of the emails to the client. The default is the firm's and not the
+   * `onboarding@resend.dev` of the early days: an installation missing this
+   * variable sent the three JMASSANO emails with Resend's sender, and a client
+   * receiving a request for personal data from a domain they do not know is
+   * right not to answer. It can still be swapped via `.env`.
    */
   EMAIL_REMETENTE: z.string().email().default("POC@jmassano.pt"),
   EMAIL_NOTIFICACOES: z.string().email().optional(),
-  /** Chave AES-256 (64 carateres hex) para cifrar credenciais de armazenamento. Gera com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. */
+  /** AES-256 key (64 hex characters) for encrypting storage credentials. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. */
   ARMAZENAMENTO_CHAVE: z
     .string()
     .regex(/^[0-9a-fA-F]{64}$/, "ARMAZENAMENTO_CHAVE tem de ser 64 carateres hex (32 bytes)")

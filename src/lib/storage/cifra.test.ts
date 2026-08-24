@@ -23,7 +23,7 @@ describe("cifra dos parâmetros de armazenamento", () => {
 
     expect(serializado).not.toContain(CREDENCIAIS.tokenRefresh);
     expect(serializado).not.toContain("refresh-token");
-    // Nem em base64, que seria codificar e não cifrar.
+    // Not in base64 either, which would be encoding and not encrypting.
     expect(serializado).not.toContain(
       Buffer.from(CREDENCIAIS.tokenRefresh, "utf8").toString("base64"),
     );

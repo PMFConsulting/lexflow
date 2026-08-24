@@ -7,10 +7,11 @@ import { utilizador } from "@/db/schema/organizacao";
 import { auth } from "./auth";
 
 /**
- * Sessão do back-office.
+ * Back-office session.
  *
- * Devolve o utilizador de domínio — o que tem papel e organização — e não o
- * registo do Better Auth. É esse que interessa para decidir o que se pode ver.
+ * Returns the domain user — the one with a role and an organisation — and not
+ * the Better Auth record. That is the one that matters for deciding what can be
+ * seen.
  */
 export async function sessaoAtual() {
   const sessao = await auth().api.getSession({ headers: await headers() });
@@ -27,11 +28,10 @@ export async function sessaoAtual() {
 }
 
 /**
- * Exige sessão. Sem ela, vai para o ecrã de entrada.
+ * Requires a session. Without one, it goes to the login screen.
  *
- * Chamada em todas as páginas do back-office: um sistema que guarda declarações
- * de PPE e documentos de identificação não pode ter uma única página aberta por
- * esquecimento.
+ * Called on every back-office page: a system holding PEP declarations and
+ * identification documents cannot have a single page left open by oversight.
  */
 export async function exigirSessao() {
   const s = await sessaoAtual();
@@ -39,40 +39,42 @@ export async function exigirSessao() {
   return s;
 }
 
-/** O papel `assistente` não vê PPE nem origem de fundos — §6 do brief. */
+/** The `assistente` role sees neither PEP nor source of funds — §6 of the brief. */
 export function podeVerPpe(papel: string) {
   return papel !== "assistente";
 }
 
 /**
- * Quem pode aprovar ou rejeitar um processo.
+ * Who can approve or reject a matter.
  *
- * Mesma fronteira do PPE: um `assistente` recolhe e organiza, mas a decisão
- * sobre um cliente — que dispara o email de boas-vindas ou uma rejeição — é de
- * quem tem responsabilidade sobre o processo (`admin`, `socio`, `advogado`).
+ * Same boundary as the PEP one: an `assistente` collects and organises, but the
+ * decision about a client — which fires the welcome email or a rejection —
+ * belongs to whoever has responsibility for the matter (`admin`, `socio`,
+ * `advogado`).
  */
 export function podeAprovarProcesso(papel: string) {
   return papel !== "assistente";
 }
 
 /**
- * O diário de emails é de administração.
+ * The email log is for administration.
  *
- * A lista mostra para quem é que a sociedade escreveu e quando — endereços de
- * clientes, lado a lado, numa página só. É de diagnóstico, não de trabalho
- * diário, e não há razão para estar ao alcance de quem preenche processos.
+ * The list shows who the firm wrote to and when — client addresses, side by
+ * side, on a single page. It is for diagnosis, not for daily work, and there is
+ * no reason for it to be within reach of whoever fills in matters.
  */
 export function podeVerEmails(papel: string) {
   return papel === "admin";
 }
 
 /**
- * Exige sessão *e* o papel de administrador.
+ * Requires a session *and* the administrator role.
  *
- * Um não-administrador vai para o painel, e não para o ecrã de entrada: já tem
- * sessão válida, e mandá-lo autenticar-se outra vez sugeria que o problema era
- * a sessão. O guard tem de ficar na página e não só na navegação — esconder a
- * entrada da barra lateral não fecha o endereço a quem o escreva à mão.
+ * A non-administrator goes to the dashboard, and not to the login screen: they
+ * already have a valid session, and sending them to authenticate again would
+ * suggest the problem was the session. The guard has to sit on the page and not
+ * only in the navigation — hiding the sidebar entry does not close the address
+ * to anyone typing it by hand.
  */
 export async function exigirAdmin() {
   const s = await exigirSessao();

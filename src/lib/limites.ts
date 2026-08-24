@@ -1,35 +1,35 @@
 /**
- * Limitador de ritmo por janela deslizante, em memória.
+ * In-memory sliding-window rate limiter.
  *
- * Sem `server-only` e sem nada de Node de propósito: isto corre no `middleware`
- * (runtime Edge) e nas Server Actions (runtime Node), e a mesma régua escrita
- * duas vezes divergiria à primeira alteração.
+ * No `server-only` and nothing from Node on purpose: this runs in the
+ * `middleware` (Edge runtime) and in Server Actions (Node runtime), and the
+ * same rule written twice would diverge at the first change.
  *
- * **O que isto é, e o que não é.** Um `Map` no processo não é um limitador
- * distribuído: reiniciar o contentor zera as contagens, e dois contentores
- * contam cada um por si. A POC corre num contentor só no Coolify, e a
- * alternativa — uma tabela e uma escrita por tentativa — punha o Postgres no
- * caminho crítico do login para resolver um problema que ainda não existe.
- * Quando houver mais do que uma instância, é este ficheiro que muda de
- * implementação e mais nada.
+ * **What this is, and what it is not.** A `Map` in the process is not a
+ * distributed limiter: restarting the container zeroes the counts, and two
+ * containers each count on their own. The POC runs in a single container on
+ * Coolify, and the alternative — a table and a write per attempt — put Postgres
+ * on the critical path of login to solve a problem that does not yet exist.
+ * When there is more than one instance, this file changes implementation and
+ * nothing else.
  *
- * O que ele **resolve** é o que interessa aqui: um dicionário de palavras-passe
- * ou um milhão de códigos de seis dígitos atirados de um IP só deixam de caber
- * numa tarde. Um atacante que reinicie o contentor entre tentativas tem
- * problemas maiores para nos dar.
+ * What it **does** solve is what matters here: a password dictionary or a
+ * million six-digit codes thrown from a single IP stop fitting in an afternoon.
+ * An attacker who restarts the container between attempts has bigger problems
+ * to hand us.
  */
 
 type Janela = { marcas: number[] };
 
-/** Um balde por chave. A limpeza é preguiçosa — ver `podar`. */
+/** One bucket per key. Cleanup is lazy — see `podar`. */
 const baldes = new Map<string, Janela>();
 
 /**
- * Quantas chaves se aceitam em memória antes de a mais antiga ser deitada fora.
+ * How many keys are accepted in memory before the oldest is thrown away.
  *
- * Sem teto, uma chave por IP é uma fuga de memória com um gerador de IPs
- * falsos à frente. Dez mil chaves são alguns megabytes e mais IPs distintos do
- * que esta POC vai ver num mês.
+ * With no ceiling, one key per IP is a memory leak with a fake-IP generator in
+ * front of it. Ten thousand keys are a few megabytes and more distinct IPs than
+ * this POC will see in a month.
  */
 const MAX_CHAVES = 10_000;
 
@@ -41,9 +41,9 @@ function podar(agora: number, janelaMs: number) {
     else janela.marcas = vivas;
     if (baldes.size <= MAX_CHAVES) break;
   }
-  // Ainda cheio depois da poda (tudo dentro da janela): esvazia-se por
-  // inteiro. Perder contagens é preferível a crescer sem limite — a política
-  // de "falhar aberto" é deliberada num limitador que não é o único guarda.
+  // Still full after pruning (everything inside the window): it is emptied
+  // entirely. Losing counts is preferable to growing without limit — the
+  // "fail open" policy is deliberate in a limiter that is not the only guard.
   if (baldes.size > MAX_CHAVES) baldes.clear();
 }
 
@@ -52,12 +52,11 @@ export type Veredicto =
   | { permitido: false; esperarSegundos: number };
 
 /**
- * Regista uma tentativa e diz se ela cabe no limite.
+ * Records an attempt and says whether it fits within the limit.
  *
- * A marca só é gravada quando a tentativa é permitida: assim uma rajada
- * recusada não empurra a janela para a frente indefinidamente, e o cliente
- * bloqueado volta a ser aceite quando as marcas antigas expirarem — e não
- * quando parar de tentar.
+ * The mark is only stored when the attempt is allowed: that way a refused burst
+ * does not push the window forward indefinitely, and the blocked client is
+ * accepted again when the old marks expire — and not when they stop trying.
  */
 export function consumir(chave: string, maximo: number, janelaMs: number, agora = Date.now()): Veredicto {
   const janela = baldes.get(chave) ?? { marcas: [] };
@@ -81,12 +80,12 @@ export function consumir(chave: string, maximo: number, janelaMs: number, agora 
   return { permitido: true, restantes: maximo - vivas.length };
 }
 
-/** Esquece uma chave — o que se faz a seguir a um login ou a um código certo. */
+/** Forgets a key — what is done after a successful login or a correct code. */
 export function esquecer(chave: string) {
   baldes.delete(chave);
 }
 
-/** Só para os testes: repõe o estado entre casos. */
+/** Tests only: resets the state between cases. */
 export function limparLimites() {
   baldes.clear();
 }

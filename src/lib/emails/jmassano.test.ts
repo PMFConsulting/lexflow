@@ -12,7 +12,7 @@ import {
 
 const LINK = "https://poc.terlicalabs.com/onboarding/abc123";
 
-/** O HTML sem etiquetas, para comparar frases sem depender da moldura. */
+/** The HTML without tags, so sentences can be compared without depending on the frame. */
 const texto = (html: string) =>
   html
     .replace(/<[^>]*>/g, " ")
@@ -20,8 +20,9 @@ const texto = (html: string) =>
     .trim();
 
 /**
- * Os assuntos são os dos documentos do cliente, à letra — incluindo
- * "Registro", que é como lá está e não se corrigiu para "Registo" (D33).
+ * The subjects are those of the client's documents, verbatim — including
+ * "Registro", which is how it reads there and was not corrected to "Registo"
+ * (D33).
  */
 describe("assuntos", () => {
   it("são os quatro dos documentos do cliente", () => {
@@ -37,7 +38,7 @@ describe("1. JMASSANO | Registro", () => {
 
   it("leva o link no botão e em texto, para quando o botão não funciona", () => {
     expect(html).toContain(`href="${LINK}"`);
-    // Duas vezes: uma no href do botão, outra no endereço copiável.
+    // Twice: once in the button's href, once in the copyable address.
     expect(html.split(LINK)).toHaveLength(3);
     expect(texto(html)).toContain("Se o botão não funcionar");
   });
@@ -55,11 +56,11 @@ describe("1. JMASSANO | Registro", () => {
   });
 
   /**
-   * O anfitrião do link deixou de sair dos cabeçalhos do pedido — o
-   * `origemPublica` passou a aceitar só o que está em `BETTER_AUTH_URL`, e um
-   * `Host` de fora da lista já não monta link nenhum. O escape fica: é a
-   * segunda fechadura, e uma etiqueta que se fecha a meio por causa de aspas no
-   * endereço continua a ser um defeito, venha o endereço de onde vier.
+   * The link's host no longer comes from the request headers — `origemPublica`
+   * now accepts only what is in `BETTER_AUTH_URL`, and a `Host` outside the
+   * list builds no link at all. The escaping stays: it is the second lock, and
+   * a tag that closes halfway because of quotes in the address is still a
+   * defect, wherever the address comes from.
    */
   it("escapa um link hostil em vez de o deixar fechar a etiqueta", () => {
     const hostil = 'https://mau.pt/" onmouseover="alert(1)';
@@ -114,8 +115,9 @@ describe("3. Bem-vindo à JMASSANO Escritório de Advogado", () => {
   });
 
   /**
-   * Um anexo que falhe a gerar-se não pode continuar anunciado: vale mais
-   * chegar com dois anexos e uma lista honesta do que prometer três.
+   * An attachment that fails to generate cannot go on being announced: it is
+   * worth more to arrive with two attachments and an honest list than to
+   * promise three.
    */
   it("não anuncia um anexo que não foi gerado", () => {
     const t = texto(emailBoasVindas({ anexos: [ANEXOS[0]] }));
@@ -131,9 +133,10 @@ describe("3. Bem-vindo à JMASSANO Escritório de Advogado", () => {
 });
 
 /**
- * O quarto email — template do cliente entregue em 11/08/2026, à letra. Não
- * leva referência nem motivo: os dois continuam obrigatórios na UI e
- * gravados no processo e na auditoria, só deixaram de ir no corpo do email.
+ * The fourth email — the client's template delivered on 11/08/2026, verbatim.
+ * It carries neither reference nor reason: both are still mandatory in the UI
+ * and recorded in the matter and in the audit trail, they just stopped going in
+ * the body of the email.
  */
 describe("4. JMASSANO | Feedback Registro", () => {
   const html = emailRejeicao();
@@ -171,14 +174,15 @@ describe("4. JMASSANO | Feedback Registro", () => {
 });
 
 /**
- * O corpo continua a ser o texto do cliente à letra (D33) — o que mudou foi a
- * identificação à volta dele. O nome entra na saudação e a referência entra em
- * cima, porque são identificação e não redação: um email que trata por
- * "Caro(a) Sr.(a)," alguém cujo nome está no dossiê lê-se como circular, e sem
- * referência ninguém sabe de que processo se fala ao telefone.
+ * The body is still the client's text verbatim (D33) — what changed is the
+ * identification around it. The name goes into the greeting and the reference
+ * goes at the top, because they are identification and not wording: an email
+ * addressing someone whose name is in the case file as "Caro(a) Sr.(a)," reads
+ * as a circular, and without a reference nobody knows which matter is being
+ * discussed on the phone.
  *
- * O que **não** entra continua a não entrar: o motivo da rejeição, que fica no
- * processo e na auditoria.
+ * What does **not** go in still does not go in: the rejection reason, which
+ * stays in the matter and in the audit trail.
  */
 describe("identificação do destinatário e do processo", () => {
   const todos = [
@@ -201,7 +205,7 @@ describe("identificação do destinatário e do processo", () => {
     ];
     for (const html of semNome) {
       expect(texto(html)).toContain("Caro(a) Sr.(a),");
-      // Sem o nome não pode sobrar a vírgula solta de "Caro(a) Sr.(a) ,".
+      // Without the name, the hanging comma of "Caro(a) Sr.(a) ," must not remain.
       expect(texto(html)).not.toContain("Sr.(a) ,");
     }
   });
@@ -220,8 +224,9 @@ describe("identificação do destinatário e do processo", () => {
   });
 
   it("a referência do processo vai em todos os que a recebem", () => {
-    // O de registo é a exceção e continua a ser: nasce antes de haver
-    // identificação preenchida, e é o link que o identifica.
+    // The registration one is the exception and stays that way: it is born
+    // before any identification is filled in, and it is the link that
+    // identifies it.
     for (const html of todos.slice(1)) expect(html).toContain("PMF-2026-0042");
   });
 

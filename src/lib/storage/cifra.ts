@@ -2,30 +2,30 @@ import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "
 import type { EnvelopeCifrado } from "./tipos";
 
 /**
- * Cifra dos parâmetros de ligação ao armazenamento.
+ * Encryption of the storage connection parameters.
  *
- * AES-256-GCM: cifra e autentica ao mesmo tempo. Sem a etiqueta, quem tivesse
- * escrita na base de dados podia trocar bytes do criptograma e apontar o
- * upload para outro sítio sem que nada desse por isso — o modo autenticado
- * transforma isso num erro de decifra.
+ * AES-256-GCM: it encrypts and authenticates at the same time. Without the tag,
+ * anyone with write access to the database could swap bytes of the ciphertext
+ * and point the upload somewhere else with nothing noticing — the authenticated
+ * mode turns that into a decryption error.
  *
- * Nota deliberada: este módulo lê `process.env` em vez de `env()`. O `env()`
- * importa `server-only`, e a chave é precisa em dois sítios que não são o
- * servidor Next — o script de configuração e os testes.
+ * Deliberate note: this module reads `process.env` instead of `env()`. `env()`
+ * imports `server-only`, and the key is needed in two places that are not the
+ * Next server — the configuration script and the tests.
  */
 
 const ALGORITMO = "aes-256-gcm";
-/** 96 bits é o nonce recomendado para GCM. */
+/** 96 bits is the recommended nonce for GCM. */
 const BYTES_IV = 12;
 const BYTES_CHAVE = 32;
 
 export class ErroCifra extends Error {}
 
 /**
- * A chave, a partir de 64 hexadecimais em `ARMAZENAMENTO_CHAVE`.
+ * The key, from 64 hex characters in `ARMAZENAMENTO_CHAVE`.
  *
- * Devolve null quando não está definida: sem chave, a sincronização
- * desliga-se em silêncio em vez de rebentar a submissão de um processo.
+ * Returns null when it is not set: with no key, the sync switches itself off
+ * silently instead of blowing up a matter's submission.
  */
 export function chaveDeAmbiente(): Buffer | null {
   const bruta = process.env.ARMAZENAMENTO_CHAVE?.trim();
@@ -80,8 +80,8 @@ export function decifrar<T = unknown>(envelope: EnvelopeCifrado, chave: Buffer):
     ]);
     return JSON.parse(claro.toString("utf8")) as T;
   } catch {
-    // A causa real não sobe: distinguir "chave errada" de "envelope adulterado"
-    // é informação de graça para quem esteja a tentar.
+    // The real cause does not surface: distinguishing "wrong key" from
+    // "tampered envelope" is free information for whoever is trying.
     throw new ErroCifra(
       "Não foi possível decifrar os parâmetros de armazenamento. " +
         "A ARMAZENAMENTO_CHAVE mudou ou a linha foi alterada.",
@@ -90,9 +90,9 @@ export function decifrar<T = unknown>(envelope: EnvelopeCifrado, chave: Buffer):
 }
 
 /**
- * Comparação de segredos em tempo constante. Usada onde se compara um valor
- * vindo de fora com um guardado — comparar com `===` deixa escapar o tamanho
- * do prefixo comum pelo tempo de resposta.
+ * Constant-time secret comparison. Used where a value coming from outside is
+ * compared with a stored one — comparing with `===` leaks the length of the
+ * common prefix through the response time.
  */
 export function iguais(a: string, b: string): boolean {
   const ba = Buffer.from(a, "utf8");

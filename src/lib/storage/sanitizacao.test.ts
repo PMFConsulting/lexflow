@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { mensagemSegura, nomeDaPasta } from "./sanitizacao";
 
 /**
- * O que se grava em `evento_auditoria` e em `ultimo_erro` é lido no
- * back-office e fica sete anos na base de dados. Um token que escorregue para
- * aqui fica lá, e a auditoria não permite UPDATE para o tirar.
+ * What is written to `evento_auditoria` and to `ultimo_erro` is read in the
+ * back-office and stays seven years in the database. A token that slips in here
+ * stays there, and the audit trail allows no UPDATE to take it out.
  */
 describe("mensagemSegura", () => {
   it("remove um Bearer token", () => {

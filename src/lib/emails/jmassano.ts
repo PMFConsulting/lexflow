@@ -1,61 +1,60 @@
 /**
- * Os emails da JMASSANO, todos num sítio só.
+ * The JMASSANO emails, all in one place.
  *
- * 1. **JMASSANO | Registro** — vai com o link do formulário, quando a
- *    sociedade cria o processo.
- * 2. **JMASSANO | Confirmação de Receção dos seus Dados** — quando o cliente
- *    submete.
- * 3. **Bem-vindo à JMASSANO Escritório de Advogado** — quando o processo é
- *    aprovado no back-office, com o resumo das informações, os T&C e a
- *    proposta de honorários em anexo.
- * 4. **JMASSANO | Feedback Registro** — quando o processo é rejeitado no
- *    back-office. Segue, à letra, o template entregue pelo cliente em
- *    11/08/2026 — que substitui a redação própria usada até aqui.
- * 5. **JMASSANO | Código de verificação** — o código de seis dígitos que
- *    destranca a assinatura no passo 7. É o único dos cinco que **não** vem de
- *    um documento do cliente: é mensagem da plataforma, redigida aqui, porque
- *    não havia nada deste género para seguir à letra.
+ * 1. **JMASSANO | Registro** — goes out with the form link, when the firm
+ *    creates the matter.
+ * 2. **JMASSANO | Confirmação de Receção dos seus Dados** — when the client
+ *    submits.
+ * 3. **Bem-vindo à JMASSANO Escritório de Advogado** — when the matter is
+ *    approved in the back-office, with the summary of the information, the T&C
+ *    and the fee proposal attached.
+ * 4. **JMASSANO | Feedback Registro** — when the matter is rejected in the
+ *    back-office. It follows, verbatim, the template delivered by the client on
+ *    11/08/2026 — which replaces the in-house wording used until now.
+ * 5. **JMASSANO | Código de verificação** — the six-digit code that unlocks the
+ *    signature at step 7. It is the only one of the five that does **not** come
+ *    from a client document: it is a platform message, written here, because
+ *    there was nothing of this kind to follow verbatim.
  *
- * Os quatro seguem os assuntos **e corpos** dos documentos do
- * cliente, à letra — incluindo "Registro", que é como lá está e não se
- * corrigiu para "Registo" nos assuntos 1 e 4, e incluindo a assinatura em
- * aberto ("Assinatura do Advogado gestor do Cliente"), que é o espaço
- * deixado ao advogado que gere cada cliente. O segundo teve duas frases
- * ajustadas depois do fluxo de aprovação (migração `0013`) ter sido
- * acrescentado: o documento original dava o processo como "em análise" sem
- * segundo momento de contacto; agora há um, e o email diz que o processo
- * aguarda aprovação e que a decisão chega por email — o resto do texto do
- * cliente mantém-se à letra. O quarto (template de 11/08/2026) não menciona
- * referência nem motivo — ao contrário da redação anterior, que citava os
- * dois. O motivo continua obrigatório na UI e gravado no processo e na
- * auditoria; só deixou de ir no corpo do email, porque o template do cliente
- * não o prevê.
+ * The four follow the subjects **and bodies** of the client's documents,
+ * verbatim — including "Registro", which is how it reads there and was not
+ * corrected to "Registo" in subjects 1 and 4, and including the open signature
+ * ("Assinatura do Advogado gestor do Cliente"), which is the space left for the
+ * lawyer managing each client. The second had two sentences adjusted after the
+ * approval flow (migration `0013`) was added: the original document gave the
+ * matter as "under review" with no second point of contact; now there is one,
+ * and the email says the matter awaits approval and that the decision arrives
+ * by email — the rest of the client's text stays verbatim. The fourth
+ * (template of 11/08/2026) mentions neither reference nor reason — unlike the
+ * previous wording, which cited both. The reason is still mandatory in the UI
+ * and recorded in the matter and in the audit trail; it just stopped going in
+ * the body of the email, because the client's template does not provide for it.
  *
- * O que a moldura acrescenta ao texto do cliente é só isto, e por razões
- * técnicas: o `(link)` do primeiro email vira botão mais endereço em texto
- * (um email não tem onde carregar num parêntesis), a lista de anexos do
- * terceiro é montada a partir dos ficheiros que foram mesmo gerados, e o
- * rodapé de confidencialidade fecha as quatro mensagens.
+ * What the frame adds to the client's text is only this, and for technical
+ * reasons: the first email's `(link)` becomes a button plus the address in
+ * text (an email has nowhere to click in a parenthesis), the third's attachment
+ * list is built from the files that were actually generated, and the
+ * confidentiality footer closes all four messages.
  *
- * Consequência de seguir o texto à letra: a saudação é genérica — o documento
- * diz "Caro(a) Sr.(a)," e não abre espaço para o nome — e a referência do
- * processo deixou de aparecer no corpo dos emails 2, 3 e 4. Nos três
- * primeiros, os parâmetros `nome` e `referencia` continuam nas assinaturas,
- * aceites e ignorados, para o dia em que a sociedade queira uma dessas coisas
- * de volta sem mexer em quem chama. O quarto (`emailRejeicao`) não tinha
- * mais nenhum parâmetro a não ser `motivo` e `referencia`, e nenhum dos dois
- * entra no template novo — por isso a função deixou de aceitar argumentos,
- * em vez de ficar com parâmetros que nunca teve outra utilidade.
+ * A consequence of following the text verbatim: the greeting is generic — the
+ * document says "Caro(a) Sr.(a)," and leaves no space for the name — and the
+ * matter reference stopped appearing in the body of emails 2, 3 and 4. In the
+ * first three, the `nome` and `referencia` parameters remain in the signatures,
+ * accepted and ignored, for the day the firm wants one of those things back
+ * without touching the callers. The fourth (`emailRejeicao`) had no parameter
+ * other than `motivo` and `referencia`, and neither enters the new template —
+ * so the function stopped accepting arguments, rather than keeping parameters
+ * that never had any other use.
  */
 
 /**
- * Paleta e tipografia exatas de `src/app/globals.css` (§3), em hex direto e com
- * fontes de recurso — um email não carrega variáveis CSS nem tipos de letra
- * pouco comuns, e a maioria dos clientes ignora `@font-face`. Cada mensagem
- * escolhe a cor da régua sob o cabeçalho pelo que representa: terracota
- * (`MARCA`) num convite a agir, latão (`LATAO`) numa mensagem de espera ou de
- * atenção, verde-arquivo (`ARQUIVO`) numa confirmação positiva, carmim
- * (`SELO`) só na única má notícia das quatro.
+ * The exact palette and typography of `src/app/globals.css` (§3), in direct hex
+ * and with fallback fonts — an email loads neither CSS variables nor uncommon
+ * typefaces, and most clients ignore `@font-face`. Each message picks the
+ * colour of the rule under the header by what it represents: terracotta
+ * (`MARCA`) on a call to act, brass (`LATAO`) on a waiting or attention
+ * message, archive green (`ARQUIVO`) on a positive confirmation, carmine
+ * (`SELO`) only on the one piece of bad news of the four.
  */
 const TINTA = "#101a24";
 const TINTA_SUAVE = "#5c6672";
@@ -105,7 +104,7 @@ const moldura = (conteudo: string, corAcento: string = MARCA) => `
 const p = (texto: string) =>
   `<p style="font-family:${FONTE_CORPO};font-size:14px;line-height:1.7;color:${TINTA_SUAVE};margin:0 0 14px;">${texto}</p>`;
 
-/** O botão de ação — verde-arquivo, a única cor de CTA das quatro mensagens. */
+/** The action button — archive green, the only CTA colour of the four messages. */
 const botao = (href: string, rotulo: string) => `
 <p style="margin:6px 0 18px;">
   <a href="${href}"
@@ -123,13 +122,13 @@ const linkCopiavel = (href: string) =>
   );
 
 /**
- * Escape do que vem de fora antes de entrar no HTML.
+ * Escapes what comes from outside before it enters the HTML.
  *
- * O corpo destes emails é texto nosso, à letra; o único valor interpolado é o
- * `link`, e o anfitrião dele sai dos cabeçalhos do pedido
- * (`origemPublica`, em `features/processos/acoes.ts`). Um `Host` com aspas
- * fechava o `href` e o resto da etiqueta passava a ser atributo — barato de
- * evitar, e não há razão para confiar num cabeçalho que o cliente controla.
+ * The body of these emails is our own text, verbatim; the only interpolated
+ * value is the `link`, and its host comes from the request headers
+ * (`origemPublica`, in `features/processos/acoes.ts`). A `Host` with quotes
+ * closed the `href` and the rest of the tag became attributes — cheap to
+ * prevent, and there is no reason to trust a header the client controls.
  */
 const escapar = (v: string) =>
   v
@@ -140,16 +139,16 @@ const escapar = (v: string) =>
     .replace(/'/g, "&#39;");
 
 /**
- * "Caro(a) Sr.(a)," é o que está no documento do cliente, e continua a ser o
- * que sai quando não se sabe o nome — um processo pode nascer só com o
- * endereço, e "Caro(a) Sr.(a) ," com a vírgula solta é pior do que a fórmula
- * neutra. Sabendo-se o nome, ele entra: o mesmo email a dizer "Caro(a) Sr.(a),"
- * a alguém cujo nome está no dossiê lê-se como circular, e esta é a primeira
- * mensagem que um cliente recebe da sociedade.
+ * "Caro(a) Sr.(a)," is what the client's document says, and it is still what
+ * goes out when the name is unknown — a matter can be born with only the
+ * address, and "Caro(a) Sr.(a) ," with the comma left hanging is worse than the
+ * neutral form. When the name is known, it goes in: the same email saying
+ * "Caro(a) Sr.(a)," to somebody whose name is in the case file reads as a
+ * circular, and this is the first message a client receives from the firm.
  *
- * Só o primeiro e o último nome, que é como se trata alguém por escrito —
- * "Caro(a) Sr.(a) Maria Antónia da Silva Ferreira," não é tratamento, é o
- * campo do formulário despejado na saudação.
+ * Only the first and last name, which is how one addresses somebody in writing
+ * — "Caro(a) Sr.(a) Maria Antónia da Silva Ferreira," is not a form of address,
+ * it is the form field dumped into the greeting.
  */
 const saudacao = (nome?: string | null) => {
   const partes = (nome ?? "").trim().split(/\s+/).filter(Boolean);
@@ -160,11 +159,13 @@ const saudacao = (nome?: string | null) => {
 };
 
 /**
- * A referência do processo, em cima e em mono, como o "Ref.:" de um ofício.
+ * The matter reference, at the top and in mono, like the "Ref.:" of an official
+ * letter.
  *
- * É o número por onde o cliente e a sociedade falam do mesmo dossiê ao
- * telefone. Sem ela, uma pessoa com dois assuntos abertos não sabe a qual dos
- * dois a mensagem diz respeito — e quem atende o telefone também não.
+ * It is the number by which the client and the firm talk about the same case
+ * file on the phone. Without it, a person with two open matters does not know
+ * which of the two the message concerns — and neither does whoever answers the
+ * phone.
  */
 const refProcesso = (referencia?: string | null) =>
   referencia
@@ -177,7 +178,7 @@ const refProcesso = (referencia?: string | null) =>
 const despedida = () =>
   p("Com os melhores cumprimentos,<br />Assinatura do Advogado gestor do Cliente");
 
-/* ---------------------------------------------------- 1. registo (o link) */
+/* ------------------------------------------------ 1. registration (the link) */
 
 export const ASSUNTO_REGISTO = "JMASSANO | Registro";
 
@@ -219,7 +220,7 @@ export function emailRegisto({
   );
 }
 
-/* ------------------------------------------- 2. confirmação de receção */
+/* ----------------------------------------------- 2. receipt confirmation */
 
 export const ASSUNTO_CONFIRMACAO = "JMASSANO | Confirmação de Receção dos seus Dados";
 
@@ -248,7 +249,7 @@ export function emailConfirmacaoRececao({
   );
 }
 
-/* ------------------------------------------------------ 3. boas-vindas */
+/* ---------------------------------------------------------- 3. welcome */
 
 export const ASSUNTO_BOAS_VINDAS = "Bem-vindo à JMASSANO Escritório de Advogado";
 
@@ -261,11 +262,11 @@ export function emailBoasVindas({
   referencia?: string;
   anexos: string[];
 }): string {
-  // A lista do documento do cliente termina em "[Outros documentos
-  // aplicáveis]", que é onde o advogado acrescenta o que junte à mão; fica no
-  // sítio dele. Os anexos que a vêm antes são os que foram mesmo gerados — um
-  // que falhe não pode continuar anunciado, e a pontuação (";" entre linhas,
-  // "." na última) acompanha o que sobrar.
+  // The list in the client's document ends in "[Outros documentos
+  // aplicáveis]", which is where the lawyer adds whatever they attach by hand;
+  // it stays in its place. The attachments before it are the ones actually
+  // generated — one that fails cannot go on being announced, and the
+  // punctuation (";" between lines, "." on the last) follows whatever remains.
   const itens = [...anexos, "[Outros documentos aplicáveis]"];
   const lista = itens
     .map(
@@ -298,21 +299,21 @@ export function emailBoasVindas({
   );
 }
 
-/* ------------------------------------------- 5. código de verificação (OTP) */
+/* ---------------------------------------------- 5. verification code (OTP) */
 
 export const ASSUNTO_OTP = "JMASSANO | Código de verificação";
 
 /**
- * O código que destranca a assinatura no fecho.
+ * The code that unlocks the signature at closing.
  *
- * Não vem de documento nenhum do cliente — é mensagem da plataforma, e a
- * redação é curta de propósito: um email cujo único conteúdo útil são seis
- * dígitos não deve obrigar a procurá-los no meio de dois parágrafos de
- * cortesia. Daí o código em bloco, em mono e grande, com o prazo por baixo.
+ * It comes from no client document — it is a platform message, and the wording
+ * is short on purpose: an email whose only useful content is six digits should
+ * not force anyone to hunt for them between two paragraphs of courtesy. Hence
+ * the code in a block, in mono and large, with the deadline underneath.
  *
- * A frase final não é boilerplate. Um código de verificação que chega sem ter
- * sido pedido é o primeiro sinal de que alguém tem o link de acesso — e a
- * pessoa que o recebe é a única em posição de dar o alarme.
+ * The closing sentence is not boilerplate. A verification code arriving without
+ * having been requested is the first sign that somebody holds the access link —
+ * and the person receiving it is the only one in a position to raise the alarm.
  */
 export function emailCodigoOtp({
   nome,
@@ -351,19 +352,19 @@ export function emailCodigoOtp({
   );
 }
 
-/* ------------------------------------------------------------ 4. rejeição */
+/* ----------------------------------------------------------- 4. rejection */
 
 export const ASSUNTO_REJEICAO = "JMASSANO | Feedback Registro";
 
 /**
- * Corpo do template do cliente (11/08/2026), à letra.
+ * The body of the client's template (11/08/2026), verbatim.
  *
- * Leva a referência e o nome, que são identificação e não redação: o texto
- * entregue pelo cliente é o que está entre a saudação e a despedida, e
- * continua palavra por palavra. **O motivo da rejeição não vai** — fica
- * gravado no processo e na auditoria (`motivoRejeicao`, `processo.rejeitado`),
- * que é onde tem de estar; a mensagem convida expressamente a contactar a
- * sociedade, e é aí que ele se explica a uma pessoa.
+ * It carries the reference and the name, which are identification and not
+ * wording: the text delivered by the client is what sits between the greeting
+ * and the sign-off, and it stays word for word. **The rejection reason does not
+ * go** — it is recorded in the matter and in the audit trail (`motivoRejeicao`,
+ * `processo.rejeitado`), which is where it has to be; the message expressly
+ * invites contacting the firm, and that is where it gets explained to a person.
  */
 export function emailRejeicao({
   nome,

@@ -8,8 +8,8 @@ import {
 } from "./tipos";
 
 /**
- * O nome do cliente vem de um formulário público e acaba num caminho de
- * ficheiro. É a fronteira com mais arestas de todo o módulo.
+ * The client's name comes from a public form and ends up in a file path. It is
+ * the boundary with the most edges in the whole module.
  */
 describe("nomeSeguro", () => {
   it("deixa passar um nome português normal", () => {
@@ -38,7 +38,7 @@ describe("nomeSeguro", () => {
     expect(nomeSeguro("CON")).toBe("Sem Nome");
     expect(nomeSeguro("nul.txt")).toBe("Sem Nome");
     expect(nomeSeguro("lpt1")).toBe("Sem Nome");
-    // "console" não é reservado — só o nome exato.
+    // "console" is not reserved — only the exact name is.
     expect(nomeSeguro("Console Lda")).toBe("Console Lda");
   });
 
@@ -115,10 +115,10 @@ describe("validação dos parâmetros", () => {
   });
 
   /**
-   * O SFTP é o único destino: um FTP simples ou um WebDAV em claro levava
-   * documentos de identificação pela rede sem cifra, e uma configuração
-   * antiga com esse protocolo tem de rebentar à entrada, não ser tratada
-   * como se fosse SFTP.
+   * SFTP is the only destination: a plain FTP or a cleartext WebDAV carried
+   * identification documents across the network unencrypted, and an old
+   * configuration on that protocol has to blow up at the boundary, not be
+   * treated as if it were SFTP.
    */
   it("recusa qualquer protocolo que não seja sftp", () => {
     expect(() =>

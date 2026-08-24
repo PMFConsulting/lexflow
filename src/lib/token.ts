@@ -2,16 +2,16 @@ import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 /**
- * Tokens do link mágico.
+ * Magic link tokens.
  *
- * O token em claro existe uma vez, no email. Na base de dados guarda-se só o
- * SHA-256 — quem tiver acesso de leitura à BD não fica com a chave de todos os
- * dossiers dos clientes.
+ * The plaintext token exists once, in the email. Only the SHA-256 is stored in
+ * the database — whoever has read access to the DB does not end up holding the
+ * key to every client case file.
  */
 
 export function gerarToken(): string {
-  // 32 bytes em base64url: curto o suficiente para caber num link e largo o
-  // suficiente para não se adivinhar.
+  // 32 bytes in base64url: short enough to fit in a link and wide enough not to
+  // be guessed.
   return randomBytes(32).toString("base64url");
 }
 
@@ -20,46 +20,47 @@ export function hashToken(token: string): string {
 }
 
 /**
- * O token em claro e o seu hash, gerados **de uma vez**.
+ * The plaintext token and its hash, generated **in one go**.
  *
- * Estavam separados, e quem criava o processo hashava à mão o que tinha
- * acabado de gerar. Funciona enquanto ninguém mexer nas duas linhas — e o dia
- * em que uma delas passar a hashar outra coisa (um token renovado, um valor
- * normalizado a meio) dá um processo gravado com um hash que não corresponde a
- * link nenhum: o cliente recebe o endereço, a consulta por hash não encontra
- * nada, e o que ele vê é um 404 sem explicação possível.
+ * They used to be separate, and whoever created the matter hashed by hand what
+ * they had just generated. That works as long as nobody touches the two lines —
+ * and the day one of them starts hashing something else (a renewed token, a
+ * value normalised halfway through) gives a stored matter with a hash matching
+ * no link at all: the client receives the address, the lookup by hash finds
+ * nothing, and what they see is a 404 with no possible explanation.
  *
- * Devolvendo o par, essa divergência deixa de ser escrevível. Quem grava não
- * escolhe o que hasha; recebe o hash daquele token e não tem outro à mão.
+ * By returning the pair, that divergence stops being writable. Whoever stores
+ * does not choose what gets hashed; they receive that token's hash and have no
+ * other at hand.
  */
 export function novoTokenAcesso(): { token: string; hash: string } {
   const token = gerarToken();
   return { token, hash: hashToken(token) };
 }
 
-/** O alfabeto do `base64url` — as únicas letras que um token nosso tem. */
+/** The `base64url` alphabet — the only letters one of our tokens has. */
 const ALFABETO = /[A-Za-z0-9_-]/;
 
 /**
- * Limpa um token vindo de fora antes de o procurar.
+ * Cleans a token arriving from outside before looking it up.
  *
- * Um token nosso são 43 caracteres de `base64url`, e o que chega ao servidor
- * passou por um cliente de email, por uma colagem e por um browser. Pelo
- * caminho apanha coisas que **não fazem parte dele**: o ponto final da frase em
- * que o link ia, os `<` e `>` com que o Outlook envolve endereços, um espaço
- * duro colado à direita, um `/` final que o browser acrescenta, um `​` que
- * o webmail meteu para poder quebrar a linha.
+ * One of our tokens is 43 characters of `base64url`, and what reaches the
+ * server has been through an email client, a paste and a browser. Along the way
+ * it picks up things that are **not part of it**: the full stop ending the
+ * sentence the link sat in, the `<` and `>` Outlook wraps addresses in, a hard
+ * space stuck on the right, a trailing `/` the browser adds, a `​` webmail
+ * inserted so it could break the line.
  *
- * Nenhum desses caracteres pode existir num token, e mesmo assim qualquer um
- * deles muda o SHA-256 por inteiro — o processo está lá, o link é o certo, e a
- * consulta não devolve nada. É a forma mais banal de um link mágico válido dar
- * 404, e a mais difícil de acreditar quando se olha para o URL e ele *parece*
- * bem.
+ * None of those characters can exist in a token, and even so any one of them
+ * changes the SHA-256 entirely — the matter is there, the link is the right
+ * one, and the lookup returns nothing. It is the most banal way for a valid
+ * magic link to give a 404, and the hardest to believe when you look at the URL
+ * and it *looks* fine.
  *
- * Só se corta **nas pontas**, e de propósito: limpar o meio faria de um token
- * corrompido um token possivelmente válido, que é esconder a avaria em vez de
- * a resolver. Nas pontas não há esse risco — um token tem comprimento fixo e
- * nenhum é prefixo de outro.
+ * Trimming happens **only at the ends**, and on purpose: cleaning the middle
+ * would turn a corrupted token into a possibly valid one, which is hiding the
+ * fault instead of fixing it. At the ends there is no such risk — a token has a
+ * fixed length and none is a prefix of another.
  */
 export function normalizarToken(bruto: string): string {
   let inicio = 0;
@@ -70,9 +71,9 @@ export function normalizarToken(bruto: string): string {
 }
 
 /**
- * Comparação em tempo constante. Numa comparação normal, o tempo de resposta
- * varia com quantos caracteres batem certo — o que deixa adivinhar o token byte
- * a byte. Aqui não.
+ * Constant-time comparison. In a normal comparison, response time varies with
+ * how many characters match — which lets the token be guessed byte by byte. Not
+ * here.
  */
 export function tokensIguais(a: string, b: string): boolean {
   const ba = Buffer.from(a, "hex");
@@ -81,7 +82,7 @@ export function tokensIguais(a: string, b: string): boolean {
   return timingSafeEqual(ba, bb);
 }
 
-/** 30 dias, renovável pelo responsável (ambiguidade A15). */
+/** 30 days, renewable by the person responsible (ambiguity A15). */
 export function expiraDaquiA(dias = 30): Date {
   return new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
 }

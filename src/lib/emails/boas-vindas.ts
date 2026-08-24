@@ -4,23 +4,24 @@ import { ASSUNTO_BOAS_VINDAS, emailBoasVindas } from "./jmassano";
 import type { processoOnboarding } from "@/db/schema/processo";
 
 /**
- * O email de boas-vindas, com os três anexos.
+ * The welcome email, with its three attachments.
  *
- * Partilhado entre a submissão e a aprovação: até à reposição do fluxo de
- * aprovação (D20 apagou-o; esta atualização repõe-no) ia na submissão, porque
- * não havia um segundo momento em que dar as boas-vindas. Com a aprovação de
- * volta, esse segundo momento existe — é ele quem passa a enviar isto — e a
- * função muda de sítio, não de conteúdo.
+ * Shared between submission and approval: until the approval flow was restored
+ * (D20 deleted it; this update brings it back) it went out on submission,
+ * because there was no second moment at which to welcome anyone. With approval
+ * back, that second moment exists — it is the one that now sends this — and the
+ * function changes place, not content.
  *
- * O resumo das informações é o mesmo `summary.pdf` que vai para a pasta do
- * cliente no arquivo — gerado do mesmo sítio, para o cliente e a sociedade não
- * ficarem com versões diferentes do mesmo documento. Os T&C são a cópia do
- * articulado que ele aceitou. A proposta de honorários é o PDF que está em
- * `public/`, e é o único dos três que não é gerado: enquanto não houver
- * proposta por cliente, é o mesmo documento para todos.
+ * The summary of the information is the same `summary.pdf` that goes to the
+ * client's folder in the archive — generated from the same place, so the client
+ * and the firm do not end up with different versions of the same document. The
+ * T&C are a copy of the wording they accepted. The fee proposal is the PDF in
+ * `public/`, and it is the only one of the three that is not generated: as long
+ * as there is no per-client proposal, it is the same document for everyone.
  *
- * Um anexo que falhe a gerar-se não trava o email — vale mais chegar com dois
- * anexos e uma lista honesta do que não chegar de todo.
+ * An attachment that fails to generate does not stop the email — it is worth
+ * more to arrive with two attachments and an honest list than not to arrive at
+ * all.
  */
 export async function enviarBoasVindas(
   processo: typeof processoOnboarding.$inferSelect,
@@ -39,12 +40,12 @@ export async function enviarBoasVindas(
       anexos.push({ nome: nomeFicheiro, conteudo: await produzir() });
       rotulos.push(rotulo);
     } catch (e) {
-      console.error(`[email] anexo "${nomeFicheiro}" não foi gerado`, e);
+      console.error(`[email] attachment "${nomeFicheiro}" was not generated`, e);
     }
   };
 
-  // Os rótulos são os do documento de análise do cliente: é esta a lista que
-  // ele escreveu no corpo do email de boas-vindas.
+  // The labels are those from the client's analysis document: this is the list
+  // they wrote in the body of the welcome email.
   await juntar(
     "Resumo das informações fornecidas durante o processo de registo",
     "resumo_do_processo.pdf",

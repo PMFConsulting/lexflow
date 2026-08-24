@@ -15,16 +15,16 @@ import {
 } from "./pdf";
 
 /**
- * O `dados_cliente.pdf` — a capa da pasta do cliente.
+ * The `dados_cliente.pdf` — the cover page of the client's folder.
  *
- * É o ficheiro que o auxiliar em Python já deixava em cada pasta de cliente, e
- * é o primeiro que se abre ao entrar num dossier: quem chega à pasta quer
- * saber de que processo é, de quem, de quando, e o que lá está dentro. O
- * `summary.pdf` continua ao lado com o detalhe todo.
+ * It is the file the Python helper already left in each client folder, and it
+ * is the first one opened on entering a case file: whoever reaches the folder
+ * wants to know which matter it is, whose, from when, and what is inside.
+ * `summary.pdf` stays alongside with all the detail.
  *
- * Uma folha, quatro linhas e o índice dos ficheiros. Nada de dados sensíveis,
- * pela mesma razão do resumo: uma pasta partilhada não tem o controlo de
- * acesso por papel que a plataforma tem.
+ * One sheet, four lines and the index of the files. No sensitive data, for the
+ * same reason as the summary: a shared folder does not have the per-role access
+ * control the platform has.
  */
 
 export type DadosCapa = {
@@ -32,9 +32,9 @@ export type DadosCapa = {
   nome: string;
   nif: string | null;
   submetidoEm: Date | null;
-  /** Data de geração. Entra por parâmetro para o PDF ser reproduzível nos testes. */
+  /** Generation date. Passed as a parameter so the PDF is reproducible in the tests. */
   geradoEm: Date;
-  /** Os ficheiros que acompanham a capa, na ordem em que vão para a pasta. */
+  /** The files accompanying the cover, in the order they go to the folder. */
   ficheiros: { nome: string; bytes: number }[];
 };
 
@@ -45,8 +45,9 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
   pdf.setCreationDate(d.geradoEm);
   pdf.setModificationDate(d.geradoEm);
 
-  // Pela mesma razão do `summary.pdf` (D24): a referência em texto simples no
-  // dicionário Info, para um `grep` sobre a pasta a encontrar sem abrir o PDF.
+  // For the same reason as `summary.pdf` (D24): the reference in plain text in
+  // the Info dictionary, so a `grep` over the folder finds it without opening
+  // the PDF.
   const info = pdf.context.lookup(pdf.context.trailerInfo.Info, PDFDict);
   info.set(PDFName.of("Referencia"), PDFString.of(d.referencia.replace(/[^A-Za-z0-9._-]/g, "")));
 
@@ -68,8 +69,8 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
   ) => {
     const limpo = paraWinAnsi(texto);
 
-    // O `drawText` do pdf-lib não tem tracking; as versaletes desenham-se
-    // carácter a carácter.
+    // pdf-lib's `drawText` has no tracking; the small caps are drawn character
+    // by character.
     if (espacamento > 0) {
       let cursor = x;
       for (const c of limpo) {
@@ -114,15 +115,15 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
     y -= 13;
   };
 
-  /** Uma entrada da lista de ficheiros: o nome à esquerda, o tamanho à direita. */
+  /** One entry of the file list: the name on the left, the size on the right. */
   const item = (nome: string, tamanho: string) => {
     espaco(26);
     const largura = A4.largura - MARGEM.x * 2;
     const direita = paraWinAnsi(tamanho);
     const larguraNome = largura - corpo.widthOfTextAtSize(direita, 10) - 12;
 
-    // Um nome de anexo pode ser mais comprido do que a linha; corta-se com
-    // reticências em vez de escrever por cima do tamanho.
+    // An attachment name can be longer than the line; it is truncated with an
+    // ellipsis instead of overwriting the size.
     let texto = paraWinAnsi(nome);
     if (corpo.widthOfTextAtSize(texto, 10) > larguraNome) {
       while (texto.length > 1 && corpo.widthOfTextAtSize(`${texto}...`, 10) > larguraNome) {
@@ -145,7 +146,7 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
     y -= 13;
   };
 
-  /* --------------------------------------------------------------- cabeça */
+  /* ---------------------------------------------------------------- header */
 
   escrever("JMASSANO · DADOS DO CLIENTE", MARGEM.x, y, corpo, 8, LATAO, 2.2);
   y -= 26;
@@ -153,7 +154,7 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
   escrever(d.nome, MARGEM.x, y, serifa, 22);
   y -= 30;
 
-  /* --------------------------------------------------------------- blocos */
+  /* ---------------------------------------------------------------- blocks */
 
   seccao("Processo");
   linha("Referência", d.referencia);
@@ -169,7 +170,7 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
     for (const f of d.ficheiros) item(f.nome, kb(f.bytes));
   }
 
-  /* --------------------------------------------------------------- rodapé */
+  /* ---------------------------------------------------------------- footer */
 
   espaco(34);
   y -= 12;
@@ -193,7 +194,7 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
     RODAPE,
   );
 
-  // Sem fluxos de objetos, como no resumo (D24): a capa tem de ser
-  // inspecionável sem uma biblioteca de PDF à mão.
+  // No object streams, as in the summary (D24): the cover has to be
+  // inspectable without a PDF library at hand.
   return Buffer.from(await pdf.save({ useObjectStreams: false }));
 }

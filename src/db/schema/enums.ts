@@ -3,12 +3,13 @@ import { pgEnum } from "drizzle-orm/pg-core";
 export const tipoCliente = pgEnum("tipo_cliente", ["particular", "empresa"]);
 
 /**
- * `aguardar_aprovacao` foi acrescentado depois dos outros (ver migração 0013) e
- * fica a seguir a `submetido`, que é onde entra no fluxo: um processo submetido
- * pelo cliente passa a aguardar a decisão de um sócio/advogado antes de
- * `aprovado` ou `rejeitado`. O `ALTER TYPE ... ADD VALUE ... AFTER 'submetido'`
- * da migração tem de pôr o valor exatamente aqui — divergir a ordem faz o
- * `db:generate` seguinte propor uma migração a corrigir o que não está errado.
+ * `aguardar_aprovacao` was added after the others (see migration 0013) and sits
+ * right after `submetido`, which is where it enters the flow: a matter
+ * submitted by the client goes on to await a partner's/lawyer's decision before
+ * `aprovado` or `rejeitado`. The migration's
+ * `ALTER TYPE ... ADD VALUE ... AFTER 'submetido'` has to put the value exactly
+ * here — diverging on order makes the next `db:generate` propose a migration
+ * fixing what is not broken.
  */
 export const estadoProcesso = pgEnum("estado_processo", [
   "rascunho",
@@ -30,7 +31,7 @@ export const papelUtilizador = pgEnum("papel_utilizador", [
   "assistente",
 ]);
 
-/** Tipos vistos no passo 2 do formulário real. */
+/** Types seen at step 2 of the real form. */
 export const tipoDocId = pgEnum("tipo_doc_id", [
   "cartao_cidadao",
   "passaporte",
@@ -39,8 +40,9 @@ export const tipoDocId = pgEnum("tipo_doc_id", [
 ]);
 
 /**
- * O formulário atual tem um dropzone genérico, sem categorizar. Categorizamos
- * na mesma: sem tipo não há alertas de validade no painel (docs/CAMPOS.md §2).
+ * The current form has a generic, uncategorised dropzone. We categorise anyway:
+ * without a type there are no expiry alerts on the dashboard (docs/CAMPOS.md
+ * §2).
  */
 export const tipoDocumento = pgEnum("tipo_documento", [
   "identificacao",
@@ -52,21 +54,22 @@ export const tipoDocumento = pgEnum("tipo_documento", [
   "dossier_assinado",
   "outro",
   /**
-   * A proposta comercial que a sociedade anexa ao convite, na janela "Novo
-   * processo". Ao contrário dos outros valores desta lista, não é um documento
-   * que o cliente carregue: é um documento que ele **recebe** — o passo 7
-   * mostra-o no lugar da proposta genérica, e é essa a proposta que ele aceita.
+   * The commercial proposal the firm attaches to the invitation, in the "Novo
+   * processo" dialog. Unlike the other values in this list, it is not a
+   * document the client uploads: it is a document they **receive** — step 7
+   * shows it in place of the generic proposal, and that is the proposal they
+   * accept.
    *
-   * No fim do array porque é onde o `ALTER TYPE ADD VALUE` o põe (migração
-   * `0015`); divergir a ordem faz o `db:generate` seguinte propor uma migração
-   * a corrigir o que não está errado. Mesma nota do `canal_email`.
+   * At the end of the array because that is where `ALTER TYPE ADD VALUE` puts
+   * it (migration `0015`); diverging on order makes the next `db:generate`
+   * propose a migration fixing what is not broken. Same note as `canal_email`.
    */
   "proposta_comercial",
   /**
-   * Os Termos e Condições da própria sociedade — o slot da revisão de produto
-   * (ver `docs/TERMOS_SOCIEDADE.md`). **Ainda não é escrito por nada**: fica
-   * reservado para o dia em que a sociedade submeter o seu articulado, para
-   * esse dia ser uma UI e não uma migração de enum com o sistema a correr.
+   * The firm's own Terms and Conditions — the product review's slot (see
+   * `docs/TERMOS_SOCIEDADE.md`). **Nothing writes it yet**: it is reserved for
+   * the day the firm submits its wording, so that day is a UI change and not an
+   * enum migration with the system running.
    */
   "termos_sociedade",
 ]);

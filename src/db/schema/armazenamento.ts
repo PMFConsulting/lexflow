@@ -4,15 +4,16 @@ import { id, timestamps } from "./_comum";
 import { organizacao } from "./organizacao";
 
 /**
- * Onde é que cada sociedade guarda os dossiers dos seus clientes.
+ * Where each firm keeps its clients' case files.
  *
- * Uma linha por organização: hoje a JMASSANO, amanhã outras sociedades, cada
- * uma com o seu servidor. A linha existe sempre — o que pode faltar são as
- * credenciais, e é isso que distingue "por configurar" de "ligado".
+ * One row per organisation: today JMASSANO, tomorrow other firms, each with
+ * their own server. The row always exists — what may be missing are the
+ * credentials, and that is what distinguishes "to be configured" from
+ * "connected".
  *
- * Não há coluna de tipo: o destino é sempre o servidor dedicado da sociedade,
- * por SFTP. A escolha entre destinos existiu enquanto o OneDrive esteve na
- * mesa, e saiu com ele.
+ * There is no type column: the destination is always the firm's dedicated
+ * server, over SFTP. The choice between destinations existed while OneDrive was
+ * on the table, and left with it.
  */
 export const armazenamentoSociedade = pgTable(
   "armazenamento_sociedade",
@@ -22,25 +23,25 @@ export const armazenamentoSociedade = pgTable(
       .notNull()
       .references(() => organizacao.id, { onDelete: "cascade" }),
     /**
-     * Credenciais de ligação. A coluna é JSONB, mas o segredo nunca lá está em
-     * claro: o que se grava é o criptograma AES-256-GCM, com o nonce e a
-     * etiqueta de autenticação ao lado. Quem tiver leitura da base de dados
-     * fica com bytes, não com a palavra-passe do servidor — a chave vive em
-     * `ARMAZENAMENTO_CHAVE`, fora da base de dados, e é isso que separa
-     * "cifrado" de "codificado".
+     * Connection credentials. The column is JSONB, but the secret is never
+     * there in the clear: what gets stored is the AES-256-GCM ciphertext, with
+     * the nonce and the authentication tag alongside. Whoever has read access
+     * to the database ends up with bytes, not with the server's password — the
+     * key lives in `ARMAZENAMENTO_CHAVE`, outside the database, and that is
+     * what separates "encrypted" from "encoded".
      *
-     * Nulo enquanto não houver credenciais.
+     * Null while there are no credentials.
      */
     parametros: jsonb("parametros").$type<EnvelopeCifrado | null>(),
-    /** Raiz das pastas de cliente, dentro do destino escolhido. */
+    /** Root of the client folders, inside the chosen destination. */
     pastaRaiz: text("pasta_raiz").notNull().default("/Clientes"),
     /**
-     * Interruptor da sociedade. Separado das credenciais de propósito: dá para
-     * desligar a sincronização sem apagar a configuração.
+     * The firm's switch. Kept separate from the credentials on purpose: it
+     * allows switching the sync off without deleting the configuration.
      */
     ativo: boolean("ativo").notNull().default(false),
     ultimaSincronizacaoEm: timestamp("ultima_sincronizacao_em", { withTimezone: true }),
-    /** Última falha, já sanitizada. Nunca contém credenciais — ver `sincronizar.ts`. */
+    /** Last failure, already sanitised. Never contains credentials — see `sincronizar.ts`. */
     ultimoErro: text("ultimo_erro"),
     ...timestamps(),
   },

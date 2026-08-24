@@ -24,7 +24,7 @@ const BASE: DadosResumo = {
   geradoEm: new Date("2026-08-06T11:00:00Z"),
 };
 
-/** O texto de um PDF fica em fluxos comprimidos; os títulos não. */
+/** A PDF's text sits in compressed streams; the titles do not. */
 const comoTexto = (pdf: Buffer) => pdf.toString("latin1");
 
 describe("summary.pdf", () => {
@@ -68,8 +68,8 @@ describe("summary.pdf", () => {
   });
 
   it("não rebenta com caracteres fora da tabela WinAnsi", async () => {
-    // As fontes padrão do PDF são Latin-1: um nome em cirílico ou um emoji
-    // colado num campo de texto livre fazia o pdf-lib lançar.
+    // The PDF standard fonts are Latin-1: a name in Cyrillic or an emoji pasted
+    // into a free-text field made pdf-lib throw.
     const pdf = await gerarResumoPdf({
       ...BASE,
       nome: "Ярослав Ткаченко 🙂",
@@ -90,7 +90,7 @@ describe("summary.pdf", () => {
       })),
     });
 
-    // Passou de uma página, e continua a ser um PDF válido.
+    // It went past one page, and it is still a valid PDF.
     expect(comoTexto(pdf).match(/\/Type \/Page[^s]/g)?.length ?? 0).toBeGreaterThan(1);
     expect(comoTexto(pdf)).toContain("%%EOF");
   });

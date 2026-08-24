@@ -1,14 +1,15 @@
 import { createConnection } from "node:net";
 
 /**
- * Cliente SMTP mínimo para o canal próprio (postfix no servidor do cliente).
+ * Minimal SMTP client for our own channel (postfix on the client's server).
  *
- * A escolha é deliberada: o projeto não usa nodemailer porque o registo de
- * dependências no Windows está partido, e o SMTP de saída do VPS aceita
- * ligações da rede do Docker sem autenticação (`mynetworks` no postfix), o que
- * torna o protocolo pequeno: EHLO → MAIL FROM → RCPT TO → DATA → QUIT.
+ * The choice is deliberate: the project does not use nodemailer because the
+ * dependency registry on Windows is broken, and the VPS's outbound SMTP accepts
+ * connections from the Docker network without authentication (`mynetworks` in
+ * postfix), which makes the protocol small: EHLO → MAIL FROM → RCPT TO → DATA →
+ * QUIT.
  *
- * Sem autenticação nem TLS — só para a rede interna do servidor.
+ * No authentication and no TLS — for the server's internal network only.
  */
 
 export interface MensagemSmtp {
@@ -54,7 +55,7 @@ function codificarMensagem(m: MensagemSmtp): string {
   return cabecalhos.join("\r\n") + "\r\n\r\n" + partes.join("\r\n");
 }
 
-/** Liga o socket, troca as linhas SMTP e resolve com o estado final. */
+/** Opens the socket, exchanges the SMTP lines and resolves with the final state. */
 export function enviarSmtp(anfitriao: string, porta: number, mensagem: MensagemSmtp): Promise<{ ok: boolean; erro?: string }> {
   return new Promise((resolver) => {
     const socket = createConnection({ host: anfitriao, port: porta });
@@ -89,11 +90,11 @@ export function enviarSmtp(anfitriao: string, porta: number, mensagem: MensagemS
         const resposta = linha.slice(0, linha.indexOf("\r\n"));
         linha = linha.slice(linha.indexOf("\r\n") + 2);
         const codigo = resposta.slice(0, 3);
-        // Respostas com hífen continuam (multilinha) — só agir no espaço final.
+        // Hyphenated replies continue (multiline) — only act on the final space.
         if (resposta[3] === "-") continue;
 
         if (indiceComando === 0) {
-          // 220 do banner → EHLO já foi enviado no connect; aguardar o 250.
+          // 220 from the banner → EHLO was already sent on connect; wait for the 250.
           if (codigo === "220") continue;
           if (codigo !== "250") return terminar(false, `SMTP: EHLO recusado (${codigo}) — ${resposta}`);
           indiceComando = 1;

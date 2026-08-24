@@ -13,15 +13,16 @@ import {
 } from "./pdf";
 
 /**
- * Os Termos e Condições em PDF, para anexar ao email de boas-vindas.
+ * The Terms and Conditions as a PDF, to attach to the welcome email.
  *
- * O texto vem de `src/lib/termos.ts`, o mesmo que o cliente leu no passo 7 e o
- * mesmo que está em `/termos-condicoes`. Se um dia divergirem, o cliente terá
- * aceitado uma coisa e recebido outra — e o anexo é a cópia que lhe fica.
+ * The text comes from `src/lib/termos.ts`, the same one the client read at step
+ * 7 and the same one at `/termos-condicoes`. If they ever diverge, the client
+ * will have accepted one thing and received another — and the attachment is the
+ * copy they keep.
  *
- * A versão vai impressa em todas as páginas: um PDF guardado numa pasta durante
- * sete anos tem de dizer, sem ajuda de mais nada, a que versão do articulado
- * corresponde.
+ * The version is printed on every page: a PDF kept in a folder for seven years
+ * has to say, with no other help, which version of the wording it corresponds
+ * to.
  */
 export async function gerarTermosPdf(geradoEm: Date): Promise<Buffer> {
   const pdf = await PDFDocument.create();
@@ -64,7 +65,7 @@ export async function gerarTermosPdf(geradoEm: Date): Promise<Buffer> {
     if (y - preciso < MARGEM.fundo) novaPagina();
   };
 
-  /* --------------------------------------------------------------- cabeça */
+  /* ---------------------------------------------------------------- header */
 
   escrever("Termos e Condições", y, forte, 20);
   y -= 18;
@@ -84,11 +85,12 @@ export async function gerarTermosPdf(geradoEm: Date): Promise<Buffer> {
   });
   y -= 24;
 
-  /* -------------------------------------------------------------- corpo */
+  /* ------------------------------------------------------------------ body */
 
   for (const seccao of TERMOS_CONDICOES) {
-    // Um título não fica sozinho no fundo da página com o parágrafo na
-    // seguinte: se não couber com pelo menos duas linhas atrás, salta já.
+    // A heading does not sit alone at the bottom of the page with its paragraph
+    // on the next one: if it does not fit with at least two lines behind it, it
+    // breaks now.
     espaco(52);
     escrever(seccao.titulo, y, forte, 11);
     y -= 16;

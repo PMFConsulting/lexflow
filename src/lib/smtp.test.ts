@@ -3,8 +3,8 @@ import { createServer, type Server } from "node:net";
 import { enviarSmtp } from "./smtp";
 
 /**
- * Servidor SMTP falso em TCP local: responde o que um postfix responderia e
- * guarda o corpo da mensagem para o teste inspecionar o MIME.
+ * Fake SMTP server over local TCP: it answers what a postfix would answer and
+ * keeps the message body so the test can inspect the MIME.
  */
 function servidorFalso(respostas: Record<string, string> = {}, recolher: { corpo?: string } = {}): Promise<{ servidor: Server; porta: number }> {
   return new Promise((resolver) => {
@@ -26,7 +26,7 @@ function servidorFalso(respostas: Record<string, string> = {}, recolher: { corpo
             responder("221 2.0.0 Bye");
             socket.end();
           } else if (comando.startsWith("Subject:") || comando.startsWith("Content-") || comando.startsWith("From:") || comando.startsWith("To:") || comando.startsWith("MIME-") || comando === "" || comando.startsWith("--") || comando.startsWith("PGh0bWw") || comando.startsWith("JVBER")) {
-            // corpo da mensagem — acumula
+            // message body — accumulate
             recolher.corpo = (recolher.corpo ?? "") + comando + "\n";
           }
         }

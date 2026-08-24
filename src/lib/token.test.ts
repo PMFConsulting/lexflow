@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { gerarToken, hashToken, normalizarToken, novoTokenAcesso } from "./token";
 
 /**
- * O token do link mágico, do lado em que um link válido dá 404.
+ * The magic link token, from the side where a valid link gives a 404.
  *
- * São duas as maneiras de isso acontecer, e as duas se leem da mesma forma no
- * ecrã do cliente — "esta página não existe" — sem nada que distinga uma da
- * outra: ou o hash gravado não é o daquele token, ou o token que chega ao
- * servidor não é o que saiu daqui.
+ * There are two ways for that to happen, and both read the same way on the
+ * client's screen — "this page does not exist" — with nothing to tell one from
+ * the other: either the stored hash is not that token's, or the token reaching
+ * the server is not the one that left here.
  */
 
 describe("novoTokenAcesso — o par não pode divergir", () => {
@@ -29,18 +29,18 @@ describe("novoTokenAcesso — o par não pode divergir", () => {
 });
 
 /**
- * O que um token apanha entre o email e o servidor.
+ * What a token picks up between the email and the server.
  *
- * Nenhum destes caracteres pode fazer parte de um token, e qualquer um deles
- * muda o SHA-256 por inteiro: o processo está lá, o link é o certo, e a
- * consulta por hash não devolve nada. É a forma mais banal de um link mágico
- * válido dar 404, e a mais difícil de acreditar — o URL, a olho, parece bem.
+ * None of these characters can be part of a token, and any one of them changes
+ * the SHA-256 entirely: the matter is there, the link is the right one, and the
+ * lookup by hash returns nothing. It is the most banal way for a valid magic
+ * link to give a 404, and the hardest to believe — the URL, by eye, looks fine.
  *
- * Os invisíveis entram por código (`String.fromCharCode`) e não à letra: um
- * espaço duro e um espaço normal são a mesma coisa a olho e não são a mesma
- * coisa para o SHA-256, que é precisamente o defeito em teste. Escritos em cru
- * no ficheiro, o primeiro editor que "arrume os espaços" apagava o caso sem
- * ninguém dar por isso.
+ * The invisible ones go in by code (`String.fromCharCode`) and not literally: a
+ * hard space and a normal space are the same thing by eye and are not the same
+ * thing to SHA-256, which is precisely the defect under test. Written raw in
+ * the file, the first editor that "tidies up the whitespace" would erase the
+ * case with nobody noticing.
  */
 describe("normalizarToken — a sujidade das pontas", () => {
   const t = "abcDEF123_-abcDEF123_-abcDEF123_-abcDEF123x";
@@ -61,13 +61,13 @@ describe("normalizarToken — a sujidade das pontas", () => {
     ["uma vírgula de enumeração", `${t},`],
   ])("limpa %s", (_caso, sujo) => {
     expect(normalizarToken(sujo)).toBe(t);
-    // E — o que interessa de facto — passa a encontrar a mesma linha.
+    // And — what actually matters — it now finds the same row.
     expect(hashToken(sujo)).toBe(hashToken(t));
   });
 
   it("não mexe no meio: um token corrompido continua corrompido", () => {
-    // Limpar o interior faria de um token partido um token possivelmente
-    // válido, que é esconder a avaria em vez de a resolver.
+    // Cleaning the middle would turn a broken token into a possibly valid one,
+    // which is hiding the fault instead of fixing it.
     const partido = "abcDEF123_-abc DEF123_-abcDEF123_-abcDEF123x";
     expect(normalizarToken(partido)).toBe(partido);
     expect(hashToken(partido)).not.toBe(hashToken(t));

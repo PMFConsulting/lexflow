@@ -4,13 +4,13 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db, schema } from "@/db";
 
 /**
- * Email + password com sessões em base de dados.
+ * Email + password with database-backed sessions.
  *
- * O MFA por TOTP ficou fora do corte da POC (ver CLAUDE.md). Quando entrar, é o
- * plugin `twoFactor` do Better Auth mais uma tabela — não é refactor.
+ * TOTP MFA fell outside the POC cut (see CLAUDE.md). When it comes in, it is
+ * Better Auth's `twoFactor` plugin plus a table — not a refactor.
  *
- * A instância é criada à primeira utilização para o `next build` não precisar de
- * ligação à base de dados nem de segredos.
+ * The instance is created on first use so `next build` needs neither a database
+ * connection nor secrets.
  */
 let cache: ReturnType<typeof criar> | null = null;
 
@@ -29,18 +29,18 @@ function criar() {
     baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
     emailAndPassword: {
       enabled: true,
-      // Sem registo público: as contas são criadas pela sociedade, com o
-      // `scripts/criar_utilizador.mjs` a correr no servidor. O ecrã de registo
-      // deixou de existir, e este interruptor fecha também o endpoint — a rota
-      // da API continuava aberta a quem a chamasse à mão.
+      // No public sign-up: accounts are created by the firm, with
+      // `scripts/criar_utilizador.mjs` running on the server. The sign-up
+      // screen no longer exists, and this switch also closes the endpoint — the
+      // API route kept accepting anyone calling it by hand.
       disableSignUp: true,
       minPasswordLength: 12,
     },
     session: {
-      // Sessão longa (30 dias) com renovação: quem usa a POC diariamente
-      // não volta a fazer login a cada visita. A renovação (updateAge) mantém
-      // a sessão viva enquanto houver atividade.
-      expiresIn: 60 * 60 * 24 * 30, // 30 dias
+      // Long session (30 days) with renewal: whoever uses the POC daily does
+      // not log in again on every visit. The renewal (updateAge) keeps the
+      // session alive as long as there is activity.
+      expiresIn: 60 * 60 * 24 * 30, // 30 days
       updateAge: 60 * 60 * 24,
     },
   });

@@ -14,9 +14,9 @@ import { processoOnboarding } from "./processo";
 import { utilizador } from "./organizacao";
 
 /**
- * Ficheiros carregados. A chave de storage aponta sempre para bucket privado —
- * nenhum documento de identificação é acessível por URL público, e todo o
- * download passa por URL assinado de curta duração e fica em auditoria.
+ * Uploaded files. The storage key always points at a private bucket — no
+ * identification document is reachable by a public URL, and every download goes
+ * through a short-lived signed URL and is recorded in the audit trail.
  */
 export const documento = pgTable(
   "documento",
@@ -32,16 +32,17 @@ export const documento = pgTable(
     hashSha256: text("hash_sha256").notNull(),
     chaveStorage: text("chave_storage").notNull(),
     /**
-     * O ficheiro em base64, enquanto não há object storage.
+     * The file in base64, while there is no object storage.
      *
-     * Mesmo compromisso da rubrica, e pela mesma razão: o certo é um bucket
-     * privado com a chave aqui. Base64 acrescenta 33% ao tamanho, por isso há
-     * um limite de 4 MB por ficheiro. Aguenta uma POC; não aguenta um arquivo.
+     * The same compromise as the signature, and for the same reason: the right
+     * answer is a private bucket with the key here. Base64 adds 33% to the
+     * size, hence the 4 MB per-file limit. It holds up for a POC; it does not
+     * hold up for an archive.
      */
     dados: text("dados"),
-    /** Alimenta os alertas de validade do painel. */
+    /** Feeds the dashboard's expiry alerts. */
     validade: date("validade"),
-    /** Nulo = carregado pelo cliente através do link mágico. */
+    /** Null = uploaded by the client through the magic link. */
     carregadoPor: uuid("carregado_por").references(() => utilizador.id, {
       onDelete: "set null",
     }),
@@ -56,9 +57,9 @@ export const documento = pgTable(
 );
 
 /**
- * Assinatura do passo 7. Fora do âmbito da POC (o formulário atual não tem
- * assinatura nenhuma), mas o modelo segue o vocabulário do Documenso para que
- * trocar por DocuSeal, Documenso ou um QTSP seja adaptador e não migração.
+ * The step 7 signature. Outside the POC's scope (the current form has no
+ * signature at all), but the model follows Documenso's vocabulary so that
+ * swapping in DocuSeal, Documenso or a QTSP is an adapter and not a migration.
  */
 export const assinatura = pgTable("assinatura", {
   id: id(),
@@ -67,24 +68,25 @@ export const assinatura = pgTable("assinatura", {
     .unique()
     .references(() => processoOnboarding.id, { onDelete: "restrict" }),
   tipo: text("tipo").notNull().default("simples"),
-  /** Rubrica em storage privado, quando houver storage configurado. */
+  /** Signature in private storage, once storage is configured. */
   imagemChave: text("imagem_chave"),
   /**
-   * A rubrica em PNG base64, enquanto não há object storage.
+   * The signature as base64 PNG, while there is no object storage.
    *
-   * Compromisso assumido da POC: o certo é a imagem viver num bucket privado e
-   * aqui ficar só a chave. Fica registado para não passar despercebido — são
-   * alguns kilobytes por processo, o que aguenta uma POC e não aguenta escala.
+   * A POC compromise taken knowingly: the right answer is for the image to live
+   * in a private bucket and only the key to stay here. It is recorded so it
+   * does not slip by unnoticed — it is a few kilobytes per matter, which holds
+   * up for a POC and does not hold up at scale.
    */
   imagemDados: text("imagem_dados"),
-  /** SHA-256 do PDF final do dossier. */
+  /** SHA-256 of the case file's final PDF. */
   hashDocumento: text("hash_documento").notNull(),
   documentoId: uuid("documento_id").references(() => documento.id, {
     onDelete: "restrict",
   }),
   ip: text("ip").notNull(),
   userAgent: text("user_agent").notNull(),
-  /** Relógio do servidor, nunca o do cliente. */
+  /** The server's clock, never the client's. */
   assinadoEm: timestamp("assinado_em", { withTimezone: true }).notNull(),
   metadados: jsonb("metadados").$type<Record<string, unknown>>().default({}),
   ...timestamps(),

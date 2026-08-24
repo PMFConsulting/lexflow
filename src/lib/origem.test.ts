@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * `origemPublica` — o anfitrião com que se montam os links que saem por email.
+ * `origemPublica` — the host used to build the links that go out by email.
  *
- * O que aqui estava lia `x-forwarded-host ?? host` e devolvia-o tal e qual. Os
- * dois cabeçalhos são escritos por quem faz o pedido, e a consequência não era
- * um link feio: o email de registo leva o **token em claro** no caminho
- * (`/onboarding/<token>`), esse token é o único fator de autenticação do
- * dossier e vale 30 dias (D4). Um `POST` à Server Action com
- * `X-Forwarded-Host: atacante.pt` fazia a plataforma escrever, ela própria, o
- * segredo do dossier num endereço à escolha de terceiros — e enviá-lo ao
- * cliente com o remetente da sociedade, para ele carregar.
+ * What was here read `x-forwarded-host ?? host` and returned it as-is. Both
+ * headers are written by whoever makes the request, and the consequence was not
+ * an ugly link: the registration email carries the **plaintext token** in the
+ * path (`/onboarding/<token>`), that token is the case file's only
+ * authentication factor and is valid for 30 days (D4). A `POST` to the Server
+ * Action with `X-Forwarded-Host: attacker.pt` made the platform write, itself,
+ * the case file's secret to an address of a third party's choosing — and send
+ * it to the client with the firm as sender, for them to click.
  *
- * A régua passa a ser uma allowlist de um valor só: o anfitrião configurado em
- * `BETTER_AUTH_URL`. Falha fechada — um pedido com outro anfitrião não produz
- * link nenhum, porque um link com ar de bom que leva o segredo é pior do que um
- * link em falta.
+ * The rule becomes a one-value allowlist: the host configured in
+ * `BETTER_AUTH_URL`. It fails closed — a request with any other host produces
+ * no link at all, because a good-looking link carrying the secret is worse than
+ * a missing link.
  */
 
 let cabecalhos = new Headers();
@@ -44,8 +44,8 @@ describe("origemPublica", () => {
       "x-forwarded-proto": "http",
     });
 
-    // Nem o anfitrião nem o protocolo saem do pedido: os dois vêm do mesmo
-    // sítio e nenhum é de confiança.
+    // Neither the host nor the protocol comes from the request: both come from
+    // the same place and neither is trustworthy.
     expect(await origemPublica()).toBe("https://poc.terlicalabs.com");
   });
 
@@ -75,9 +75,9 @@ describe("origemPublica", () => {
   });
 
   /**
-   * Fora de um pedido HTTP não há nada a comparar — é o caso de um script ou de
-   * uma tarefa a montar um link. O valor configurado é a única resposta
-   * possível, e é a certa.
+   * Outside an HTTP request there is nothing to compare — that is the case of a
+   * script or a task building a link. The configured value is the only possible
+   * answer, and it is the right one.
    */
   it("sem cabeçalho de anfitrião, usa o configurado sem se queixar", async () => {
     expect(await origemPublica()).toBe("https://poc.terlicalabs.com");

@@ -1,10 +1,10 @@
 /**
- * Substituto do pacote `server-only` durante os testes.
+ * Stand-in for the `server-only` package during the tests.
  *
- * O pacote real resolve para um módulo que lança — é essa a forma de ele
- * impedir que um módulo de servidor entre no pacote do cliente. Fora do Next
- * não há condição `react-server` para o desviar, por isso qualquer teste que
- * toque num ficheiro com `import "server-only"` rebentava na importação, antes
- * de chegar a correr. O alias está em `vitest.config.ts`.
+ * The real package resolves to a module that throws — that is how it stops a
+ * server module from entering the client bundle. Outside Next there is no
+ * `react-server` condition to divert it, so any test touching a file with
+ * `import "server-only"` blew up on import, before it even ran. The alias is in
+ * `vitest.config.ts`.
  */
 export {};

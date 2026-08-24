@@ -9,9 +9,10 @@ import { parametrosServidor, type Destino } from "./tipos";
 export type ConfiguracaoArmazenamento = typeof armazenamentoSociedade.$inferSelect;
 
 /**
- * Estado da ligação, para o back-office. Quatro respostas possíveis, e a
- * diferença entre elas é o que o ecrã de configuração precisa de dizer:
- * falta a linha, faltam as credenciais, falta a chave, ou está tudo pronto.
+ * Connection status, for the back-office. Four possible answers, and the
+ * difference between them is what the configuration screen needs to say: the
+ * row is missing, the credentials are missing, the key is missing, or
+ * everything is ready.
  */
 export type EstadoLigacao =
   | "sem_configuracao"
@@ -43,11 +44,11 @@ export function estadoDaConfiguracao(
 }
 
 /**
- * O destino de uma sociedade, pronto a usar — ou null.
+ * A firm's destination, ready to use — or null.
  *
- * Devolver null em vez de lançar é deliberado: a ausência de configuração é o
- * estado normal de uma POC acabada de instalar, e não pode parecer uma avaria
- * a quem submete um processo.
+ * Returning null instead of throwing is deliberate: the absence of
+ * configuration is the normal state of a freshly installed POC, and it cannot
+ * look like a fault to whoever submits a matter.
  */
 export async function destinoDaOrganizacao(organizacaoId: string): Promise<{
   destino: Destino;
@@ -59,7 +60,7 @@ export async function destinoDaOrganizacao(organizacaoId: string): Promise<{
   const chave = chaveDeAmbiente();
   if (!chave) {
     console.warn(
-      "[armazenamento] há configuração gravada mas falta ARMAZENAMENTO_CHAVE; sincronização ignorada.",
+      "[storage] configuration is stored but ARMAZENAMENTO_CHAVE is missing; sync skipped.",
     );
     return null;
   }
@@ -68,7 +69,7 @@ export async function destinoDaOrganizacao(organizacaoId: string): Promise<{
   return { destino: criarDestino(claros), config };
 }
 
-/** A fábrica. Os parâmetros revalidam-se aqui: vieram de fora do código. */
+/** The factory. The parameters are revalidated here: they came from outside the code. */
 export function criarDestino(parametros: unknown): Destino {
   return criarDestinoServidor(parametrosServidor.parse(parametros));
 }

@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { consumir, esquecer, limparLimites } from "./limites";
 
 /**
- * O limitador de ritmo, que serve dois sítios: o início de sessão do
- * back-office (`middleware.ts`) e a verificação do código do fecho
+ * The rate limiter, which serves two places: the back-office login
+ * (`middleware.ts`) and the closing code verification
  * (`features/onboarding/acoes.ts`).
  *
- * O relógio entra por parâmetro de propósito — sem isso, um teste de janela
- * deslizante ou espera de verdade ou não testa a janela.
+ * The clock is passed as a parameter on purpose — without that, a sliding
+ * window test either really waits or does not test the window.
  */
 
 beforeEach(() => {
@@ -34,8 +34,8 @@ describe("consumir", () => {
   });
 
   /**
-   * A janela desliza: as marcas antigas caem sozinhas. É isto que faz um
-   * bloqueio de quinze minutos passar sem ninguém ter de desbloquear nada.
+   * The window slides: old marks fall away on their own. This is what makes a
+   * fifteen-minute block pass with nobody having to unblock anything.
    */
   it("liberta assim que as marcas saem da janela", () => {
     consumir("ip", 1, 60_000, 1_000);
@@ -44,10 +44,11 @@ describe("consumir", () => {
   });
 
   /**
-   * Uma tentativa recusada **não** grava marca. Sem isto, quem martelasse sem
-   * parar empurrava a janela para a frente a cada golpe e ficava bloqueado para
-   * sempre — o que castiga o engano honesto ao lado (mesmo IP num escritório) e
-   * não castiga mais o ataque, que não está à espera de entrar por repetição.
+   * A refused attempt does **not** record a mark. Without this, whoever
+   * hammered away without stopping pushed the window forward with every blow
+   * and stayed blocked forever — which punishes the honest mistake next door
+   * (same IP in an office) and does not punish the attack any further, since it
+   * is not expecting to get in by repetition.
    */
   it("uma recusa não prolonga o bloqueio", () => {
     consumir("ip", 1, 60_000, 1_000);

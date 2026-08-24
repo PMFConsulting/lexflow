@@ -3,9 +3,9 @@ import { citarSftp, criarDestinoServidor, urlSftp } from "./servidor";
 import type { ParametrosServidor } from "./tipos";
 
 /**
- * Os dois sítios onde o nome de uma pasta de cliente sai daqui para fora: o URL
- * que o curl recebe e o comando `-Q mkdir`. Ambos partiam num espaço, e uma
- * pasta chama-se "Maria Silva (249886344)".
+ * The two places where a client folder's name leaves here for the outside: the
+ * URL curl receives and the `-Q mkdir` command. Both broke on a space, and a
+ * folder is called "Maria Silva (249886344)".
  */
 
 const BASE: ParametrosServidor = {

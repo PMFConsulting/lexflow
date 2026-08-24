@@ -1,20 +1,20 @@
 import { nomeSeguro } from "./tipos";
 
 /**
- * O que se grava a partir de uma falha de sincronização.
+ * What gets recorded from a sync failure.
  *
- * Separado de `sincronizar.ts` para poder ser testado: o outro puxa a base de
- * dados e o `server-only` atrás dele.
+ * Separate from `sincronizar.ts` so it can be tested: the other pulls in the
+ * database and `server-only` behind it.
  */
 
 /**
- * Sanitiza uma mensagem de erro antes de a gravar.
+ * Sanitises an error message before recording it.
  *
- * Os erros do adaptador já são escritos para não citar credenciais, mas um
- * erro de rede do runtime pode trazer o URL completo, e um URL pode levar o
- * utilizador colado. Isto é a última linha, e vale a pena tê-la:
- * o que entra em `evento_auditoria` fica lá sete anos, e a auditoria não
- * permite UPDATE para corrigir o engano.
+ * The adapter's errors are already written so as not to quote credentials, but
+ * a network error from the runtime can bring the full URL, and a URL can carry
+ * the user stuck to it. This is the last line of defence, and it is worth
+ * having: what goes into `evento_auditoria` stays there for seven years, and
+ * the audit trail allows no UPDATE to correct the mistake.
  */
 export function mensagemSegura(e: unknown): string {
   const bruta = e instanceof Error ? e.message : String(e);
@@ -25,14 +25,14 @@ export function mensagemSegura(e: unknown): string {
       /([?&](?:access_token|refresh_token|client_secret|code|password|segredo)=)[^&\s]+/gi,
       "$1[removido]",
     )
-    // Credenciais embebidas em URL: https://utilizador:segredo@host
+    // Credentials embedded in a URL: https://user:secret@host
     .replace(/([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+(?::[^/\s@]*)?@/gi, "$1[removido]@")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 300);
 }
 
-/** Uma pasta por cliente. O NIF desempata homónimos; sem ele, fica só o nome. */
+/** One folder per client. The tax number breaks ties between namesakes; without it, only the name remains. */
 export function nomeDaPasta(nome: string | null | undefined, nif: string | null): string {
   const base = nomeSeguro(nome, "Sem Nome");
   return nif ? `${base} (${nomeSeguro(nif, "sem NIF")})` : base;
