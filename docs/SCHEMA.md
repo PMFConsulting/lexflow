@@ -1,29 +1,30 @@
-# Proposta de schema Drizzle
+# Proposed Drizzle schema
 
-> **Estado: proposta, à espera de aprovação.** Nada disto está em `src/db/` — a Fase 0 não
-> escreve código.
+> **Status: proposal, awaiting approval.** None of this is in `src/db/` — Phase 0 writes no
+> code.
 >
-> **Revisto depois de ler os 7 screenshots.** As secções abaixo já refletem o formulário real
-> (nacionalidades multi-valor, morada com freguesia/concelho/distrito, documento de identificação
-> no passo 2, preferências de contacto no passo 5). As divergências entre o brief e o formulário
-> estão em `docs/CAMPOS.md` §D — vale a pena lê-las antes desta página.
+> **Revised after reading the 7 screenshots.** The sections below already reflect the real form
+> (multi-value nationalities, address with freguesia/concelho/distrito, identification document
+> at step 2, contact preferences at step 5). The divergences between the brief and the form are
+> in `docs/CAMPOS.md` §D — worth reading before this page.
 
-Ficheiros previstos: `src/db/schema/` com um módulo por domínio (`organizacao.ts`,
-`processo.ts`, `seccoes.ts`, `documentos.ts`, `auditoria.ts`, `legal.ts`) reexportados por
+Planned files: `src/db/schema/` with one module per domain (`organizacao.ts`, `processo.ts`,
+`seccoes.ts`, `documentos.ts`, `auditoria.ts`, `legal.ts`) re-exported by
 `src/db/schema/index.ts`.
 
 ---
 
-## Convenções
+## Conventions
 
-- **ids UUID v7** — ordenáveis por tempo, o que dá índices B-tree com boa localidade e
-  paginação por cursor estável. Ver "Dependências a aprovar" no fim.
-- **`criado_em` / `atualizado_em`** em todas as tabelas, `timestamptz`, default no servidor.
-- **Soft delete** (`apagado_em timestamptz`) nas tabelas com retenção legal. `evento_auditoria`
-  não tem nem soft delete — não se apaga de forma nenhuma.
-- **`extra jsonb`** em cada tabela de secção, para o que for genuinamente variável. Não é
-  desculpa para lá meter o que devia ser coluna: se se pesquisa, filtra ou indexa, é coluna.
-- Nomes em português, `snake_case`, como o resto do brief.
+- **UUID v7 ids** — time-sortable, which gives B-tree indexes good locality and stable cursor
+  pagination. See "Dependencies to approve" at the end.
+- **`criado_em` / `atualizado_em`** on every table, `timestamptz`, server-side default.
+- **Soft delete** (`apagado_em timestamptz`) on the tables under legal retention.
+  `evento_auditoria` does not even have soft delete — it is not deleted in any way.
+- **`extra jsonb`** on each section table, for whatever is genuinely variable. It is not an
+  excuse to dump in there what should be a column: if it is searched, filtered or indexed, it
+  is a column.
+- Names in Portuguese, `snake_case`, like the rest of the brief.
 
 ```ts
 // src/db/schema/_comum.ts
@@ -59,18 +60,18 @@ export const estadoProcesso  = pgEnum('estado_processo', [
 export const nivelRisco      = pgEnum('nivel_risco', ['baixo', 'medio', 'elevado'])
 export const papelUtilizador = pgEnum('papel_utilizador', ['admin', 'socio', 'advogado', 'assistente'])
 export const tipoDocId       = pgEnum('tipo_doc_id', ['cc', 'passaporte', 'titulo_residencia'])
-// estado_civil eliminado: não existe no formulário real (divergência D6)
+// estado_civil dropped: it does not exist in the real form (divergence D6)
 export const regimeIva       = pgEnum('regime_iva', [
   'normal', 'isento_art53', 'isento_art9', 'misto',
-]) // ← ambiguidade A8
+]) // ← ambiguity A8
 export const tipoDocumento   = pgEnum('tipo_documento', [
   'id_frente', 'id_verso', 'comprovativo_nif', 'certidao_permanente',
   'procuracao', 'ata_designacao', 'comprovativo_rcbe', 'outro',
 ])
 export const finalidade      = pgEnum('finalidade_consentimento', [
-  'newsletter', 'convites_iniciativas',   // os únicos consentimentos reais (D2/A11)
-  'declaracao_veracidade',                // passo 7 atual
-  'termos_condicoes', 'proposta',         // novos, se o passo 7 do brief avançar
+  'newsletter', 'convites_iniciativas',   // the only real consents (D2/A11)
+  'declaracao_veracidade',                // current step 7
+  'termos_condicoes', 'proposta',         // new, if the brief's step 7 goes ahead
 ])
 export const origemContacto  = pgEnum('origem_contacto', [
   'recomendacao', 'pesquisa_online', 'evento_conferencia', 'outro',
@@ -81,7 +82,7 @@ export const tipoAssinatura  = pgEnum('tipo_assinatura', ['simples', 'avancada',
 
 ---
 
-## Núcleo
+## Core
 
 ```ts
 export const organizacao = pgTable('organizacao', {
@@ -104,11 +105,11 @@ export const utilizador = pgTable('utilizador', {
 }, (t) => [uniqueIndex('utilizador_email_org').on(t.organizacaoId, t.email)])
 ```
 
-> **Nota:** o Better Auth gera as suas próprias tabelas (`user`, `session`, `account`,
-> `verification`, `twoFactor`). `utilizador` é a tabela de **domínio** — papel, organização,
-> atribuições — ligada 1:1 ao `user` do Better Auth por `auth_user_id`. Misturar as duas
-> transforma qualquer atualização da biblioteca numa migração de dados. Decisão de design
-> não coberta pelo §3, registada aqui como manda a regra 8.
+> **Note:** Better Auth generates its own tables (`user`, `session`, `account`,
+> `verification`, `twoFactor`). `utilizador` is the **domain** table — role, organisation,
+> assignments — linked 1:1 to Better Auth's `user` via `auth_user_id`. Mixing the two turns any
+> library update into a data migration. A design decision not covered by §3, recorded here as
+> rule 8 requires.
 
 ```ts
 export const processoOnboarding = pgTable('processo_onboarding', {
@@ -121,13 +122,13 @@ export const processoOnboarding = pgTable('processo_onboarding', {
   responsavelId: uuid('responsavel_id').references(() => utilizador.id),
   nivelRisco: nivelRisco('nivel_risco').notNull().default('baixo'),
   fatoresRisco: jsonb('fatores_risco').$type<FatorRisco[]>().notNull().default([]),
-  tokenAcessoHash: text('token_acesso_hash').notNull(),       // ver nota abaixo
+  tokenAcessoHash: text('token_acesso_hash').notNull(),       // see note below
   expiraEm: timestamp('expira_em', { withTimezone: true }),
   submetidoEm: timestamp('submetido_em', { withTimezone: true }),
   aprovadoEm: timestamp('aprovado_em', { withTimezone: true }),
   aprovadoPor: uuid('aprovado_por').references(() => utilizador.id),
   motivoRejeicao: text('motivo_rejeicao'),
-  pesquisa: tsvector('pesquisa'),                             // gerada, ver "Pesquisa"
+  pesquisa: tsvector('pesquisa'),                             // generated, see "Search"
   ...timestamps, ...softDelete,
 }, (t) => [
   uniqueIndex('processo_referencia_org').on(t.organizacaoId, t.referencia),
@@ -139,28 +140,29 @@ export const processoOnboarding = pgTable('processo_onboarding', {
 ])
 ```
 
-**Duas decisões a assinalar:**
+**Two decisions worth flagging:**
 
-1. **`token_acesso_hash`, não `token_acesso`.** O token do link mágico é guardado em SHA-256,
-   nunca em claro. Quem tiver acesso de leitura à BD não fica com a capacidade de abrir o
-   dossier de qualquer cliente. O token em claro existe uma vez, no email.
-2. **Geração da `referencia`.** Sequencial por organização e ano tem de ser à prova de
-   concorrência — sequence do Postgres por `(organizacao, ano)` ou `INSERT ... RETURNING`
-   com `advisory lock`. Um `SELECT max()+1` dá referências duplicadas no primeiro dia com
-   dois utilizadores. Proponho uma tabela `contador_referencia` com `UPDATE ... RETURNING`.
+1. **`token_acesso_hash`, not `token_acesso`.** The magic link token is stored as SHA-256,
+   never in the clear. Anyone with read access to the DB does not gain the ability to open any
+   client's case file. The plaintext token exists once, in the email.
+2. **Generating `referencia`.** A per-organisation, per-year sequence has to be
+   concurrency-safe — a Postgres sequence keyed on `(organizacao, ano)` or `INSERT ...
+   RETURNING` with an `advisory lock`. A `SELECT max()+1` produces duplicate references on the
+   first day with two users. I propose a `contador_referencia` table with
+   `UPDATE ... RETURNING`.
 
 ---
 
-## Secções (1:1 com o processo)
+## Sections (1:1 with the matter)
 
-Todas seguem o mesmo padrão — `processoId` único, `extra jsonb`, timestamps:
+They all follow the same pattern — unique `processoId`, `extra jsonb`, timestamps:
 
-A morada repete-se em quatro sítios (cliente, representante, faturação e, mais tarde, sede da
-empresa). Fica como conjunto de colunas reutilizável, não como tabela — é sempre 1:1 e nunca se
-pesquisa por ela isoladamente:
+The address repeats in four places (client, representative, billing and, later, the company's
+registered office). It stays as a reusable set of columns, not as a table — it is always 1:1
+and is never searched on its own:
 
 ```ts
-// src/db/schema/_morada.ts — os 7 campos que o formulário real usa
+// src/db/schema/_morada.ts — the 7 fields the real form uses
 export const morada = {
   morada: text('morada').notNull(),
   pais: char('pais', { length: 2 }).notNull(),
@@ -178,7 +180,7 @@ export const dadosIdentificacao = pgTable('dados_identificacao', {
   processoId: uuid('processo_id').notNull().unique().references(() => processoOnboarding.id),
   nome: text('nome').notNull(),
   profissao: text('profissao').notNull(),
-  entidadePatronal: text('entidade_patronal').notNull(),   // "N/A" se não se aplicar
+  entidadePatronal: text('entidade_patronal').notNull(),   // "N/A" if not applicable
   dataNascimento: date('data_nascimento').notNull(),
   telefone: text('telefone').notNull(),
   email: text('email').notNull(),
@@ -186,7 +188,7 @@ export const dadosIdentificacao = pgTable('dados_identificacao', {
   extra, ...timestamps,
 }, (t) => [index('identificacao_nome').on(t.nome)])
 
-// Nacionalidade é multi-valor no formulário (chips). Tabela própria, polimórfica pelo titular.
+// Nationality is multi-value in the form (chips). Own table, polymorphic by holder.
 export const nacionalidade = pgTable('nacionalidade', {
   id: id(),
   processoId: uuid('processo_id').notNull().references(() => processoOnboarding.id),
@@ -200,35 +202,35 @@ export const dadosFiscais = pgTable('dados_fiscais', {
   processoId: uuid('processo_id').notNull().unique().references(() => processoOnboarding.id),
   nifPortugues: boolean('nif_portugues').notNull(),
   resideEmPortugal: boolean('reside_em_portugal').notNull(),
-  nif: text('nif').notNull(),                    // mod-11 só se nifPortugues
-  docTipo: tipoDocId('doc_tipo').notNull(),      // o doc de ID vive aqui, não no passo 1 (D3)
+  nif: text('nif').notNull(),                    // mod-11 only if nifPortugues
+  docTipo: tipoDocId('doc_tipo').notNull(),      // the ID doc lives here, not at step 1 (D3)
   docNumero: text('doc_numero').notNull(),
   docValidade: date('doc_validade').notNull(),
   extra, ...timestamps,
 }, (t) => [index('fiscais_nif').on(t.nif), index('fiscais_doc_validade').on(t.docValidade)])
 ```
 
-`dados_fiscais.nif` leva índice próprio: é um dos três campos da pesquisa global.
-`doc_validade` também: alimenta o alerta dos 60 dias no painel.
+`dados_fiscais.nif` gets its own index: it is one of the three global search fields.
+`doc_validade` too: it feeds the 60-day alert on the dashboard.
 
-**As restantes com a mesma forma**, conforme `docs/CAMPOS.md`:
+**The remaining ones with the same shape**, per `docs/CAMPOS.md`:
 
-| Tabela | Passo | Notas |
+| Table | Step | Notes |
 |---|---|---|
-| `representante_legal` | 3 | `e_representante` como interruptor, `relacao`, dados pessoais, `...morada`, bloco fiscal próprio |
-| `declaracao_ppe` | 4 | `e_ppe`, `e_relacionado_ppe` + campos de detalhe (A16) |
-| `relacao_negocio` | 4 | `servicos` e `origem_fundos`, ambos obrigatórios |
+| `representante_legal` | 3 | `e_representante` as a toggle, `relacao`, personal details, `...morada`, its own tax block |
+| `declaracao_ppe` | 4 | `e_ppe`, `e_relacionado_ppe` + detail fields (A16) |
+| `relacao_negocio` | 4 | `servicos` and `origem_fundos`, both mandatory |
 | `preferencias_contacto` | 5 | `origem_contacto`, `origem_detalhe`, `newsletter`, `convites_iniciativas`, `convites_nome`, `convites_email` |
-| `dados_faturacao` | 6 | `igual_ao_cliente`, nome, NIF, `...morada`, email + bloco "Ao cuidado de" (`ac_*`) |
-| `fecho_proposta` | 7 | hoje só `declaracao_veracidade`; cresce se D1 avançar |
+| `dados_faturacao` | 6 | `igual_ao_cliente`, name, tax number, `...morada`, email + "Ao cuidado de" block (`ac_*`) |
+| `fecho_proposta` | 7 | today only `declaracao_veracidade`; grows if D1 goes ahead |
 
-**Filhas 1:N:** `nacionalidade`, `email_newsletter` e `area_interesse` (passo 5, ambas chips).
-`residencia_fiscal_adicional` e `beneficiario_efetivo` ficam no schema mas sem UI até haver
-screenshots do percurso Empresa (A18/A19).
+**1:N children:** `nacionalidade`, `email_newsletter` and `area_interesse` (step 5, both
+chips). `residencia_fiscal_adicional` and `beneficiario_efetivo` stay in the schema but with no
+UI until there are screenshots of the Company path (A18/A19).
 
 ---
 
-## Documentos, assinatura, consentimentos
+## Documents, signature, consents
 
 ```ts
 export const documento = pgTable('documento', {
@@ -239,9 +241,9 @@ export const documento = pgTable('documento', {
   mime: text('mime').notNull(),
   tamanhoBytes: integer('tamanho_bytes').notNull(),
   hashSha256: char('hash_sha256', { length: 64 }).notNull(),
-  chaveStorage: text('chave_storage').notNull(),   // bucket privado, sempre
-  validade: date('validade'),                      // alertas dos 60 dias
-  carregadoPor: uuid('carregado_por').references(() => utilizador.id), // null = cliente
+  chaveStorage: text('chave_storage').notNull(),   // private bucket, always
+  validade: date('validade'),                      // 60-day alerts
+  carregadoPor: uuid('carregado_por').references(() => utilizador.id), // null = client
   extra, ...timestamps, ...softDelete,
 }, (t) => [index('documento_processo').on(t.processoId), index('documento_validade').on(t.validade)])
 
@@ -249,13 +251,13 @@ export const assinatura = pgTable('assinatura', {
   id: id(),
   processoId: uuid('processo_id').notNull().unique().references(() => processoOnboarding.id),
   tipo: tipoAssinatura('tipo').notNull().default('simples'),
-  imagemChave: text('imagem_chave'),               // rubrica em storage privado
-  hashDocumento: char('hash_documento', { length: 64 }).notNull(),  // SHA-256 do PDF
-  documentoId: uuid('documento_id').references(() => documento.id), // o dossier gerado
+  imagemChave: text('imagem_chave'),               // squiggle in private storage
+  hashDocumento: char('hash_documento', { length: 64 }).notNull(),  // SHA-256 of the PDF
+  documentoId: uuid('documento_id').references(() => documento.id), // the generated case file
   ip: inet('ip').notNull(),
   userAgent: text('user_agent').notNull(),
-  assinadoEm: timestamp('assinado_em', { withTimezone: true }).notNull(), // relógio do SERVIDOR
-  metadados: jsonb('metadados').default({}),       // espaço para um QTSP futuro
+  assinadoEm: timestamp('assinado_em', { withTimezone: true }).notNull(), // SERVER clock
+  metadados: jsonb('metadados').default({}),       // room for a future QTSP
   ...timestamps,
 })
 
@@ -276,32 +278,32 @@ export const versaoTextoLegal = pgTable('versao_texto_legal', {
   id: id(),
   chave: text('chave').notNull(),        // 'rgpd.marketing', 'termos_condicoes'
   versao: text('versao').notNull(),      // '2026-07-31.1'
-  conteudo: text('conteudo').notNull(),  // o texto exato apresentado
+  conteudo: text('conteudo').notNull(),  // the exact text presented
   hash: char('hash', { length: 64 }).notNull(),
   vigenteDesde: timestamp('vigente_desde', { withTimezone: true }).notNull(),
   ...timestamps,
 }, (t) => [uniqueIndex('texto_chave_versao').on(t.chave, t.versao)])
 ```
 
-**`versao_texto_legal` é um acrescento meu ao §4.** O brief diz "cada consentimento grava a
-versão exata do texto apresentado […] porque daqui a 4 anos temos de conseguir provar o que
-a pessoa viu". Guardar uma string de versão só prova o rótulo; guardar o texto inteiro em cada
-linha de consentimento duplica megabytes. Uma tabela de versões imutável, referenciada por FK,
-prova o conteúdo e não duplica nada. Registado aqui como manda a regra 8.
+**`versao_texto_legal` is my addition to §4.** The brief says "each consent records the exact
+version of the text presented […] because in 4 years' time we have to be able to prove what the
+person saw". Storing a version string only proves the label; storing the whole text on every
+consent row duplicates megabytes. An immutable versions table, referenced by FK, proves the
+content and duplicates nothing. Recorded here as rule 8 requires.
 
-`nota` é trivial: `processo_id`, `autor_id`, `conteudo`, timestamps. Nunca visível ao cliente
-— e isso garante-se na query, não no componente.
+`nota` is trivial: `processo_id`, `autor_id`, `conteudo`, timestamps. Never visible to the
+client — and that is guaranteed in the query, not in the component.
 
 ---
 
-## `evento_auditoria` — a peça sagrada
+## `evento_auditoria` — the sacred piece
 
 ```ts
 export const eventoAuditoria = pgTable('evento_auditoria', {
   id: id(),
   organizacaoId: uuid('organizacao_id').notNull(),
   processoId: uuid('processo_id'),
-  atorId: uuid('ator_id'),                  // null = cliente pelo link mágico
+  atorId: uuid('ator_id'),                  // null = client via the magic link
   acao: text('acao').notNull(),             // 'processo.aprovado', 'documento.descarregado'
   entidade: text('entidade').notNull(),
   entidadeId: uuid('entidade_id'),
@@ -318,12 +320,12 @@ export const eventoAuditoria = pgTable('evento_auditoria', {
 ])
 ```
 
-**Encadeamento:** `hash = sha256(hash_anterior || id || acao || entidade || entidade_id ||
-valor_anterior || valor_novo || ator_id || criado_em)`, com serialização canónica (JSON com
-chaves ordenadas). A cadeia é **por organização** — uma cadeia global serializaria todas as
-escritas do sistema num único ponto de contenção.
+**Chaining:** `hash = sha256(hash_anterior || id || acao || entidade || entidade_id ||
+valor_anterior || valor_novo || ator_id || criado_em)`, with canonical serialisation (JSON with
+sorted keys). The chain is **per organisation** — a global chain would serialise every write in
+the system through a single point of contention.
 
-**Imutabilidade real, em SQL, não em código de aplicação** — migração dedicada:
+**Real immutability, in SQL, not in application code** — dedicated migration:
 
 ```sql
 REVOKE UPDATE, DELETE, TRUNCATE ON evento_auditoria FROM app_user;
@@ -332,22 +334,23 @@ CREATE RULE evento_auditoria_sem_update AS ON UPDATE TO evento_auditoria DO INST
 CREATE RULE evento_auditoria_sem_delete AS ON DELETE TO evento_auditoria DO INSTEAD NOTHING;
 ```
 
-O `REVOKE` é a defesa a sério; as `RULE` apanham o caso de alguém correr com um papel
-privilegiado por engano. O script de verificação da cadeia (`pnpm auditoria:verificar`)
-relê tudo por ordem e recalcula — é um critério de aceitação do §9.
+The `REVOKE` is the real defence; the `RULE`s catch the case of someone running with a
+privileged role by mistake. The chain verification script (`pnpm auditoria:verificar`) re-reads
+everything in order and recomputes — it is a §9 acceptance criterion.
 
-**Retenção vs. apagamento (§0).** O direito ao apagamento não pode apagar o que a Lei 83/2017
-manda conservar 7 anos. O desenho: `apagado_em` nas tabelas de secção esconde da aplicação;
-uma rotina de expurgo só remove de facto passados 7 anos da conclusão da relação de negócio;
-`evento_auditoria` nunca é tocado — regista quem pediu o apagamento, não os dados apagados.
-**Isto precisa de validação jurídica tua antes da Fase 1**, não é uma decisão técnica.
+**Retention vs. erasure (§0).** The right to erasure cannot delete what Lei 83/2017 requires to
+be kept for 7 years. The design: `apagado_em` on the section tables hides it from the
+application; a purge routine only actually removes it 7 years after the end of the business
+relationship; `evento_auditoria` is never touched — it records who requested the erasure, not
+the erased data. **This needs your legal validation before Phase 1**, it is not a technical
+decision.
 
 ---
 
-## Pesquisa e RLS
+## Search and RLS
 
-**Full-text português com `unaccent`** — `unaccent` não é imutável, por isso não entra
-diretamente numa coluna gerada. O caminho é uma configuração de texto própria:
+**Portuguese full-text with `unaccent`** — `unaccent` is not immutable, so it cannot go
+directly into a generated column. The route is a dedicated text configuration:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS unaccent;
@@ -356,26 +359,26 @@ ALTER TEXT SEARCH CONFIGURATION pt_unaccent
   ALTER MAPPING FOR hword, hword_part, word WITH unaccent, portuguese_stem;
 ```
 
-E `processo_onboarding.pesquisa` mantida por trigger sobre nome + NIF + referência (coluna
-gerada não serve porque as fontes estão noutras tabelas).
+And `processo_onboarding.pesquisa` maintained by a trigger over name + tax number + reference
+(a generated column will not do because the sources are in other tables).
 
-**RLS** — ativa em todas as tabelas com dados de cliente, com `current_setting('app.utilizador_id')`
-definido por transação. As políticas seguem os papéis do §6, com a de `assistente` a negar
-explicitamente `declaracao_ppe` e as colunas de origem de fundos. Guards na aplicação **também**,
-como o brief exige: duas camadas.
+**RLS** — enabled on every table with client data, with `current_setting('app.utilizador_id')`
+set per transaction. The policies follow the §6 roles, with the `assistente` one explicitly
+denying `declaracao_ppe` and the source-of-funds columns. Guards in the application **as
+well**, as the brief requires: two layers.
 
-> Nota de bloqueio possível: **Neon vs. Supabase.** RLS por `SET LOCAL` funciona nos dois, mas o
-> Supabase traz auth+storage integrados que colidem em parte com Better Auth + UploadThing. Se
-> o storage for Supabase, vale a pena discutir; se for R2/S3, tanto faz e o Neon é mais simples.
-> Precisa de decisão antes da Fase 1.
+> Possible blocker note: **Neon vs. Supabase.** RLS via `SET LOCAL` works on both, but Supabase
+> brings integrated auth+storage that partly collides with Better Auth + UploadThing. If
+> storage is Supabase, it is worth discussing; if it is R2/S3, it makes no difference and Neon
+> is simpler. Needs a decision before Phase 1.
 
 ---
 
-## Dependências a aprovar (regra 7)
+## Dependencies to approve (rule 7)
 
-| Pacote | Porquê | Alternativa se recusares |
+| Package | Why | Alternative if you decline |
 |---|---|---|
-| `uuidv7` (~2 kB) | O §4 exige UUID v7. O Postgres só tem `uuidv7()` nativo na v18; Neon e Supabase estão em versões anteriores. | `gen_random_uuid()` (v4) — perde-se a ordenação temporal e a localidade de índice |
-| `signature_pad` | Canvas de rubrica do passo 7. Está no §2 como referência mas não no §1 como stack. | — |
+| `uuidv7` (~2 kB) | §4 requires UUID v7. Postgres only has native `uuidv7()` in v18; Neon and Supabase are on earlier versions. | `gen_random_uuid()` (v4) — loses time ordering and index locality |
+| `signature_pad` | Signature canvas for step 7. It is in §2 as a reference but not in §1 as part of the stack. | — |
 
-Mais nenhuma fora do §1.
+Nothing else outside §1.

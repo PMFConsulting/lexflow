@@ -1,701 +1,765 @@
-# CLAUDE.md — Plataforma de Processos Jurídicos (PMF Consulting)
+# CLAUDE.md — Legal Matter Platform (PMF Consulting)
 
-Contexto completo em `docs/BRIEF.md`. Este ficheiro guarda decisões e comandos, e é
-atualizado à medida que as fases avançam.
+Full context in `docs/BRIEF.md`. This file records decisions and commands, and is
+updated as the phases progress.
 
-## Enquadramento: isto é uma POC
+## Framing: this is a POC
 
-Decidido em 31/07/2026. **Objetivo é provar o conceito ao menor custo possível**, não entregar
-o sistema final. Consequências concretas em baixo. O brief continua a ser o destino; a POC é
-o primeiro troço.
+Decided on 31/07/2026. **The goal is to prove the concept at the lowest possible cost**, not to
+deliver the final system. Concrete consequences below. The brief remains the destination; the POC
+is the first leg.
 
-## Estado
+## Status
 
-| Fase | Estado |
+| Phase | Status |
 |---|---|
-| 0 — Análise | **concluída** — 7 screenshots lidos, campos inventariados, 7 divergências registadas |
-| 1 — Fundações | **concluída** e em produção |
-| 2 — Fluxo de onboarding | **concluída** — percorrida de ponta a ponta em produção |
-| 3 — Back-office | por iniciar |
-| 4 — Fecho (PDF, assinatura, emails) | fora do âmbito da POC |
+| 0 — Analysis | **complete** — 7 screenshots read, fields inventoried, 7 divergences recorded |
+| 1 — Foundations | **complete** and in production |
+| 2 — Onboarding flow | **complete** — walked end to end in production |
+| 3 — Back-office | not started |
+| 4 — Closing (PDF, signature, emails) | outside POC scope |
 
-### O que ficou feito na Fase 1
+### What was done in Phase 1
 
-Next.js 16 + TypeScript strict + Tailwind 4 + shadcn/ui · tokens do §3 aplicados
-(`src/app/globals.css`) com as três famílias tipográficas · layout do back-office com sidebar
-em tinta · componentes do vocabulário visual (`Carimbo`, `Carimbos`, `Ref`, `EstadoBadge`,
-`RiscoBadge`) · schema Drizzle completo, 27 tabelas · três migrações, incluindo pesquisa
-full-text pt com `unaccent` e a imutabilidade da auditoria · Better Auth com email+password e
-sessões em BD · validações PT (NIF mod-11, IBAN mod-97, código postal, telefone) com 21 testes ·
-cadeia de hashes da auditoria com 8 testes e script de verificação · seeds com guard de ambiente.
+Next.js 16 + TypeScript strict + Tailwind 4 + shadcn/ui · §3 tokens applied
+(`src/app/globals.css`) with the three type families · back-office layout with an ink-coloured
+sidebar · visual vocabulary components (`Carimbo`, `Carimbos`, `Ref`, `EstadoBadge`,
+`RiscoBadge`) · complete Drizzle schema, 27 tables · three migrations, including PT full-text
+search with `unaccent` and audit immutability · Better Auth with email+password and DB
+sessions · PT validations (tax number mod-11, IBAN mod-97, postcode, phone) with 21 tests ·
+audit hash chain with 8 tests and a verification script · seeds with an environment guard.
 
-`pnpm build` limpo, `pnpm typecheck` limpo, 29 testes verdes, sem scroll horizontal a 360px.
+`pnpm build` clean, `pnpm typecheck` clean, 29 tests green, no horizontal scroll at 360px.
 
-### O que ficou feito na Fase 2
+### What was done in Phase 2
 
-Sete passos em rotas próprias (`/onboarding/[token]/passo/[n]`), com o estado na base de
-dados e não em memória · schemas Zod partilhados entre cliente e servidor · Server Action que
-revalida token e schema · lógica condicional (particular/empresa, representante, PPE) · PPE
-declarada força risco elevado e escreve na auditoria · criação de processos com referência
-sequencial atómica e link mágico mostrado uma única vez · lombada com carimbos.
+Seven steps on their own routes (`/onboarding/[token]/passo/[n]`), with state in the database
+and not in memory · Zod schemas shared between client and server · a Server Action that
+revalidates token and schema · conditional logic (individual/company, representative, PEP) · a
+declared PEP forces high risk and writes to the audit trail · matter creation with an atomic
+sequential reference and a magic link shown exactly once · spine with stamps.
 
-**Percorrido em produção**, do painel à submissão: validação a rejeitar 13 campos vazios,
-NIF com checksum errado recusado, documento expirado recusado, passo 3 saltado corretamente
-num particular sem procuração, risco elevado gravado, 9 eventos de auditoria com a cadeia
-íntegra, e o `UPDATE`/`DELETE` na auditoria a devolver zero linhas afetadas.
+**Walked in production**, from the dashboard to submission: validation rejecting 13 empty
+fields, a tax number with a wrong checksum refused, an expired document refused, step 3
+correctly skipped for an individual without a power of attorney, high risk recorded, 9 audit
+events with an intact chain, and `UPDATE`/`DELETE` on the audit trail returning zero rows
+affected.
 
-### Três defeitos que só apareceram a usar
+### Three defects that only appeared in use
 
-1. **O React 19 faz reset ao formulário** depois de uma Server Action passada em `action={}`.
-   Um dígito errado no NIF apagava os outros dezanove campos. Passou a `onSubmit` com
+1. **React 19 resets the form** after a Server Action passed via `action={}`.
+   One wrong digit in the tax number wiped the other nineteen fields. Moved to `onSubmit` with
    `preventDefault`.
-2. **O passo 7 não conseguia ser submetido**: chamava `submeter()` diretamente, mas essa
-   função lê a declaração da base de dados e a caixa nunca era gravada antes.
-3. **A pasta `public/` vazia** não ia no git, e o `COPY` do Dockerfile rebentava a partir de
-   um clone limpo — passava na máquina de quem a tinha localmente.
+2. **Step 7 could not be submitted**: it called `submeter()` directly, but that function reads
+   the declaration from the database and the checkbox was never saved beforehand.
+3. **The empty `public/` folder** was not tracked by git, and the Dockerfile's `COPY` blew up
+   from a clean clone — it passed on the machine of whoever had it locally.
 
-### Por fazer no fluxo
+### Outstanding in the flow
 
-- Uploads de documentos (o schema e a tabela `documento` já existem)
-- E2E Playwright dos dois percursos
-- Percurso Empresa por validar contra imagens (A18)
+- Document uploads (the schema and the `documento` table already exist)
+- Playwright E2E for both paths
+- Company path still to be validated against images (A18)
 
-### Atualização — passo Representante removido, fluxo a 5 passos
+### Update — Representative step removed, 5-step flow
 
-Pedido do cliente (05/08/2026): o passo Representante legal sai do onboarding — o formulário
-real não tinha essa figura, e o campo "Sou representado por procurador" ficava sem uso. O
-fluxo passa a **Identificação → Fiscal → PPE → Faturação → Fecho**, 5 passos. Schema da BD
-mantém-se intacto (`representante_legal` e `preferencias_contacto` ficam por usar, como já
-tinha acontecido com as preferências). Cada passo mostra agora uma descrição curta junto ao
-título, e o passo PPE explica em uma frase como o risco é calculado.
+Client request (05/08/2026): the Legal representative step leaves onboarding — the real form
+did not have that figure, and the "Sou representado por procurador" field went unused. The
+flow becomes **Identification → Tax → PEP → Billing → Closing**, 5 steps. The DB schema stays
+intact (`representante_legal` and `preferencias_contacto` go unused, as had already happened
+with the preferences). Each step now shows a short description next to the title, and the PEP
+step explains in one sentence how risk is calculated.
 
-Ficava por fazer desde a Fase 2 e passou a existir nesta atualização: **fluxo de aprovação**
-(`alterarEstadoProcesso`, botões no detalhe do processo). Removido na atualização seguinte —
-ver D20.
+Outstanding since Phase 2 and delivered in this update: the **approval flow**
+(`alterarEstadoProcesso`, buttons on the matter detail). Removed in the following update —
+see D20.
 
-### Atualização — aprovações e risco removidos da UI, página Clientes
+### Update — approvals and risk removed from the UI, Clients page
 
-Pedido do cliente (05/08/2026): simplificar a POC. Ver D20 e D21.
+Client request (05/08/2026): simplify the POC. See D20 and D21.
 
-- **Aprovações fora**: `alterarEstadoProcesso` e `AcoesProcesso` (botões Aprovar / Rejeitar /
-  Marcar em revisão) saíram por completo — apagados, não só escondidos. `podeAprovarRiscoElevado`
-  também saiu de `src/lib/sessao.ts` por ter ficado sem utilização. O email de decisão ao
-  cliente (`notificarDecisao`) foi com ele. Os estados `aprovado`/`rejeitado` continuam no enum
-  e no schema — só deixam de ser alcançáveis a partir da UI.
-- **Risco fora da UI**: `RiscoBadge`, a secção "Fatores de risco" e os filtros/facetas de risco
-  desapareceram do detalhe do processo, da lista de processos, do painel e — porque também lá
-  aparecia, ao próprio cliente — da revisão final do onboarding. O cálculo
-  (`nivelRisco`/`fatoresRisco`, PPE força risco elevado) mantém-se intacto na base de dados,
-  só não é mostrado a ninguém.
-- **`/clientes`**: nova página no back-office (`src/app/(backoffice)/clientes/page.tsx`),
-  entrada na sidebar entre Processos e — já sem "Risco elevado" a ocupar esse lugar. Um
-  cliente é uma pessoa/empresa deduplicada por NIF/NIPC (`src/features/clientes/consultas.ts`,
-  `listarClientes`): CTE com `row_number()` particionado por NIF para escolher o processo mais
-  recente e `count(*)` para o total, com pesquisa por nome/NIF/email via `ilike` + `unaccent`,
-  mesmo padrão do `/processos`. Um processo sem NIF (passo 2 por preencher) ainda não conta
-  como cliente. Sem migração — usa `dados_fiscais`, `dados_identificacao` e `nacionalidade`
-  já existentes.
+- **Approvals out**: `alterarEstadoProcesso` and `AcoesProcesso` (Approve / Reject / Mark under
+  review buttons) were removed entirely — deleted, not merely hidden. `podeAprovarRiscoElevado`
+  also left `src/lib/sessao.ts` for having become unused. The decision email to the client
+  (`notificarDecisao`) went with it. The `aprovado`/`rejeitado` states remain in the enum and
+  in the schema — they just stop being reachable from the UI.
+- **Risk out of the UI**: `RiscoBadge`, the "Fatores de risco" section and the risk
+  filters/facets disappeared from the matter detail, the matter list, the dashboard and —
+  because it appeared there too, to the client themselves — from the onboarding final review.
+  The calculation (`nivelRisco`/`fatoresRisco`, PEP forces high risk) stays intact in the
+  database, it is just shown to nobody.
+- **`/clientes`**: new back-office page (`src/app/(backoffice)/clientes/page.tsx`), sidebar
+  entry between Processos and — now without "Risco elevado" occupying that slot. A client is a
+  person/company deduplicated by tax number (`src/features/clientes/consultas.ts`,
+  `listarClientes`): a CTE with `row_number()` partitioned by tax number to pick the most recent
+  matter and `count(*)` for the total, with search by name/tax number/email via `ilike` +
+  `unaccent`, the same pattern as `/processos`. A matter without a tax number (step 2 unfilled)
+  does not yet count as a client. No migration — it uses the existing `dados_fiscais`,
+  `dados_identificacao` and `nacionalidade`.
 
-### Atualização — Representante Legal de volta, fluxo a 7 passos
+### Update — Legal Representative back, 7-step flow
 
-Pedido do cliente (06/08/2026): o passo Representante Legal volta ao fluxo, entre Fiscal e PPE.
-Reverte a D19. **Sem migração** — a tabela `representante_legal` e o enum
-`titular_nacionalidade` ('cliente' | 'representante') já existiam desde a Fase 1; o que faltava
-era o passo que os escrevia. Mesmo padrão da reativação do passo RGPD.
+Client request (06/08/2026): the Legal Representative step returns to the flow, between Tax and
+PEP. Reverses D19. **No migration** — the `representante_legal` table and the
+`titular_nacionalidade` enum ('cliente' | 'representante') had existed since Phase 1; what was
+missing was the step that wrote to them. Same pattern as the GDPR step reactivation.
 
-Ordem final: **1 Identificação · 2 Fiscal · 3 Representante Legal · 4 PPE · 5 Faturação ·
-6 RGPD · 7 Fecho**. Renumerados os schemas Zod, os `case` do `guardarPasso`, os blocos do
-formulário e da revisão final, os blocos do detalhe do processo, os rótulos de auditoria
-(`passo.N.gravado`) e o `total` dos `Carimbos`. A restrição `passo_valido` da base de dados já
-aceitava `between 1 and 7`.
+Final order: **1 Identification · 2 Tax · 3 Legal Representative · 4 PEP · 5 Billing ·
+6 GDPR · 7 Closing**. Renumbered: the Zod schemas, the `guardarPasso` `case` branches, the form
+and final-review blocks, the matter detail blocks, the audit labels (`passo.N.gravado`) and the
+`total` of the `Carimbos`. The database's `passo_valido` constraint already accepted
+`between 1 and 7`.
 
-O passo pende de um interruptor — "É representante?", com "Não" como resposta de partida. Com
-"Não", grava-se a linha com `e_representante = false` e mais nada é obrigatório; a linha em
-branco é a prova de que a pergunta foi feita, coisa que a ausência de linha não distingue de
-"ainda não chegou aqui". Com "Sim", exigem-se relação, nome, data de nascimento,
-nacionalidade(s), profissão, telefone, email e as sete colunas de morada, com as mesmas
-validações PT do passo 1.
+The step hangs off a toggle — "É representante?", with "Não" as the starting answer. With
+"Não", the row is written with `e_representante = false` and nothing else is mandatory; the
+blank row is the proof that the question was asked, something the absence of a row does not
+distinguish from "has not got here yet". With "Sim", it requires relationship, name, date of
+birth, nationality(ies), occupation, phone, email and the seven address columns, with the same
+PT validations as step 1.
 
-Corrigido a caminho: o passo 1 apagava **todas** as nacionalidades do processo antes de
-regravar as suas. Passou a apagar só as de `titular = 'cliente'` — sem isso, voltar atrás para
-corrigir uma vírgula no nome levava com ele as nacionalidades do representante.
+Fixed along the way: step 1 was deleting **all** the matter's nationalities before rewriting its
+own. It now deletes only those with `titular = 'cliente'` — without that, going back to fix a
+comma in the name took the representative's nationalities with it.
 
-### Atualização — sem registo público
+### Update — no public sign-up
 
-Pedido do cliente (06/08/2026). O ecrã `/registar` foi apagado e `disableSignUp` passou a
-`true`, o que fecha também o endpoint da API — a rota continuava a aceitar quem a chamasse à
-mão, mesmo sem página. As contas passam a criar-se no servidor com
-`scripts/criar_utilizador.mjs`, que escreve as três linhas necessárias: `user` e `account`
-(onde o Better Auth guarda a palavra-passe, com `provider_id = 'credential'`) e `utilizador`,
-já com `auth_user_id` ligado — sem esse último passo o login passa e a sessão não resolve.
+Client request (06/08/2026). The `/registar` screen was deleted and `disableSignUp` became
+`true`, which also closes the API endpoint — the route kept accepting anyone calling it by
+hand, even with no page. Accounts are now created on the server with
+`scripts/criar_utilizador.mjs`, which writes the three required rows: `user` and `account`
+(where Better Auth keeps the password, with `provider_id = 'credential'`) and `utilizador`,
+already with `auth_user_id` linked — without that last step the login passes and the session
+does not resolve.
 
-O hash vem do próprio pacote (`better-auth/crypto`), não de uma reimplementação: é a única
-forma de garantir que os parâmetros do scrypt não divergem numa atualização. O
-`scripts/verificar_hash.mjs` confirma-o sem base de dados, e o modo `--gerar-hash` prepara a
-palavra-passe numa máquina sem acesso ao Postgres.
+The hash comes from the package itself (`better-auth/crypto`), not from a reimplementation: it
+is the only way to guarantee that scrypt's parameters do not diverge on an update.
+`scripts/verificar_hash.mjs` confirms it without a database, and the `--gerar-hash` mode
+prepares the password on a machine with no access to Postgres.
 
-### Atualização — armazenamento por servidor (SFTP) a funcionar de ponta a ponta
+### Update — per-server storage (SFTP) working end to end
 
-Configurado e percorrido no contentor de produção (06/08/2026). Três coisas partiam, e nenhuma
-delas aparecia em desenvolvimento:
+Configured and walked in the production container (06/08/2026). Three things were broken, and
+none of them showed up in development:
 
-1. **O URL do SFTP ia com os nomes em cru.** Uma pasta de cliente chama-se
-   `Maria Silva (249886344)`, e o espaço não entra num URL: o curl truncava aí e o upload
-   ia parar a `/Clientes/Maria`. Os segmentos passam a percent-encoded, como já iam no WebDAV.
-2. **O `-Q mkdir` do curl parte a linha em palavras.** O caminho acabava no primeiro espaço,
-   e a pasta criada tinha o nome errado. Vai entre aspas, com `\"` e `\\` escapados.
-3. **O `curl` do Alpine não fala sftp://** — vem compilado sem libssh2, e a sincronização
-   falhava com "Protocol sftp not supported" na primeira submissão. Ver D26.
+1. **The SFTP URL carried names raw.** A client folder is called
+   `Maria Silva (249886344)`, and the space does not belong in a URL: curl truncated there and
+   the upload ended up at `/Clientes/Maria`. The segments are now percent-encoded, as they
+   already were in WebDAV.
+2. **curl's `-Q mkdir` splits the line into words.** The path ended at the first space, and the
+   created folder had the wrong name. It now goes in quotes, with `\"` and `\\` escaped.
+3. **Alpine's `curl` does not speak sftp://** — it is compiled without libssh2, and syncing
+   failed with "Protocol sftp not supported" on the first submission. See D26.
 
-Ao mesmo tempo, e por pedido do Diogo, cada pasta passa a ter também o `dados_cliente.pdf`
-(D27), que era o que o auxiliar em Python deixava no OneDrive.
+At the same time, and at Diogo's request, each folder now also carries `dados_cliente.pdf`
+(D27), which is what the Python helper used to leave on OneDrive.
 
-### Atualização — melhorias pedidas pela JMASSANO (análise de 07/08/2026)
+### Update — improvements requested by JMASSANO (analysis of 07/08/2026)
 
-Oito pontos, do documento de análise do cliente (João Massano Escritório de Advogado).
+Eight points, from the client's analysis document (João Massano Escritório de Advogado).
 
-- **Logo no cabeçalho.** `public/logo_jm.png` substitui o texto "POC" no cabeçalho do
-  onboarding — que vive no layout, por isso aparece nos sete passos de uma vez — e no
-  cabeçalho do ecrã de entrada.
-- **Passo 3 só para pessoas coletivas** (D28), com a semântica invertida (D29) e "Relação com
-  o cliente final" a passar a **Cargo**.
-- **Passo 4** com sugestões clicáveis por baixo de cada caixa, em vez da lista de exemplos
-  numa linha de ajuda que ninguém lia. Clicar acrescenta; clicar outra vez tira.
-- **RGPD**: "Outro" em *como chegou até nós* abre caixa de texto (a mesma coluna
-  `origem_detalhe` do "quem?" da recomendação, e obrigatória pela mesma razão); áreas de
-  interesse ganham "Outra área" com caixa livre, que entra na lista como mais um valor —
-  sem migração, a tabela já era de texto livre; e o "sim" aos convites traz o nome e o email
-  do passo 1 já preenchidos, editáveis.
-- **Passo 7**: leitura obrigatória dos T&C (D30).
-- **Três emails** com os assuntos **e os corpos** que o cliente escreveu (D31, D33).
-- **Só SFTP** (D32): o OneDrive e o WebDAV saíram do código, do schema e dos scripts.
-- **Página de entrada** sem o bloco "Como funciona".
+- **Logo in the header.** `public/logo_jm.png` replaces the "POC" text in the onboarding
+  header — which lives in the layout, so it appears across all seven steps at once — and in the
+  login screen header.
+- **Step 3 for legal entities only** (D28), with inverted semantics (D29) and "Relação com o
+  cliente final" becoming **Cargo**.
+- **Step 4** with clickable suggestions under each box, instead of the list of examples on a
+  help line that nobody read. Clicking adds; clicking again removes.
+- **GDPR**: "Outro" in *how they found us* opens a text box (the same `origem_detalhe` column as
+  the referral's "who?", and mandatory for the same reason); areas of interest gain "Outra área"
+  with a free-text box, which enters the list as one more value — no migration, the table was
+  already free text; and "yes" to invitations brings the name and email from step 1
+  pre-filled, editable.
+- **Step 7**: mandatory reading of the T&C (D30).
+- **Three emails** with the subjects **and the bodies** the client wrote (D31, D33).
+- **SFTP only** (D32): OneDrive and WebDAV left the code, the schema and the scripts.
+- **Login page** without the "Como funciona" block.
 
-Os **textos dos três emails** deixaram de estar por confirmar (07/08/2026): os corpos em
-`src/lib/emails/jmassano.ts` são agora os do documento de análise, à letra — ver D33.
+The **texts of the three emails** stopped being unconfirmed (07/08/2026): the bodies in
+`src/lib/emails/jmassano.ts` are now those from the analysis document, verbatim — see D33.
 
-Fica por confirmar o articulado dos **T&C** em `src/lib/termos.ts`: é texto de demonstração
-escrito a partir do que a lei obriga a constar. Ao substituí-lo, subir também `VERSAO_TERMOS` —
-é essa versão que fica gravada junto do consentimento, e mudar o texto sem mudar a versão
-apaga a diferença entre o que o cliente aceitou e o que passou a estar escrito.
+The wording of the **T&C** in `src/lib/termos.ts` is still unconfirmed: it is demonstration text
+written from what the law requires to be stated. When replacing it, also bump `VERSAO_TERMOS` —
+that version is what gets recorded alongside the consent, and changing the text without changing
+the version erases the difference between what the client accepted and what is now written.
 
-### Atualização — diário de emails, logo no back-office
+### Update — email log, logo in the back-office
 
 08/08/2026.
 
-- **`email_log`** (D34): uma linha por tentativa de envio, escrita pelo próprio `enviarEmail` e
-  não por quem o chama — é isso que garante que um caminho de envio novo não pode nascer sem
-  entrar no diário. Sucesso e erro entram os dois, incluindo o caso da `RESEND_API_KEY` que
-  falta: a pergunta que se faz é "o cliente recebeu alguma coisa?", e ela só tem resposta se as
-  falhas ficarem gravadas com o motivo. Migração `0008`. Vinte-oito tabelas.
-- **`/emails`** no back-office, entre Clientes e Configuração: data, destinatário, assunto,
-  tipo, processo e estado, com o motivo da falha por baixo do assunto. Pesquisa por
-  destinatário/assunto/referência e filtros facetados por estado e por tipo, com o estado no
-  URL — mesmo padrão do `/processos`. **Só administração** (D35).
-- **Logo no back-office**: `public/logo_jm.png` passa a estar também no cabeçalho da barra
-  lateral, onde dizia "POC". Com os quatro sítios onde já estava — os sete passos do
-  onboarding, a entrada, os T&C — o logo está agora em todo o lado onde há cabeçalho.
-- **Verificado sem alterações**: os três emails a bater com o documento do cliente à letra,
-  remetente `POC@jmassano.pt`; passo 3 só para pessoas coletivas; "Cargo" no lugar de
-  "Relação"; nenhum bloco "Como funciona" na entrada; OneDrive/WebDAV sem vestígios no código
-  (o que resta são comentários, a migração `0006`/`0007` que é história, e o teste que confirma
-  que um `protocolo: "webdav"` é recusado à entrada).
+- **`email_log`** (D34): one row per send attempt, written by `enviarEmail` itself and not by
+  its callers — that is what guarantees a new sending path cannot come into being without
+  entering the log. Success and error both go in, including the case of a missing
+  `RESEND_API_KEY`: the question being asked is "did the client receive anything?", and it only
+  has an answer if failures are recorded with the reason. Migration `0008`. Twenty-eight tables.
+- **`/emails`** in the back-office, between Clients and Configuration: date, recipient, subject,
+  type, matter and state, with the failure reason under the subject. Search by
+  recipient/subject/reference and faceted filters by state and by type, with the state in the
+  URL — same pattern as `/processos`. **Administration only** (D35).
+- **Logo in the back-office**: `public/logo_jm.png` is now also in the sidebar header, where it
+  said "POC". Together with the four places it was already in — the seven onboarding steps, the
+  login screen, the T&C — the logo is now everywhere there is a header.
+- **Verified with no changes**: the three emails matching the client's document verbatim, sender
+  `POC@jmassano.pt`; step 3 for legal entities only; "Cargo" in place of "Relação"; no "Como
+  funciona" block on the login page; OneDrive/WebDAV with no traces in the code (what remains is
+  comments, migration `0006`/`0007` which is history, and the test confirming that a
+  `protocolo: "webdav"` is refused at the boundary).
 
-### Atualização — auditoria completa da plataforma
+### Update — complete platform audit
 
-08/08/2026. Varrimento de todas as páginas — painel, processos, clientes, configuração, emails,
-os sete passos do onboarding nos dois percursos, entrada, T&C, 404 e erro.
+08/08/2026. Sweep of every page — dashboard, matters, clients, configuration, emails, the seven
+onboarding steps on both paths, login, T&C, 404 and error.
 
-**O modal "Novo processo" (D36).** Não era um modal: era um bloco que substituía o botão no
-sítio onde o botão estivesse. No painel abria encostado à direita dentro do cabeçalho e
-empurrava-o; no cartão vazio abria centrado e com outra largura. E, criado um processo, o
-painel do link ficava no lugar do botão até alguém recarregar a página — **não havia como criar
-um segundo processo**. Passou a janela a sério (`components/ui/dialog.tsx`, novo, sobre o
-`radix-ui` que o `sheet` já usava), com o mesmo par de fichas do passo 1 do onboarding para o
-tipo de cliente, `role="radiogroup"` em vez de dois `aria-pressed`, rodapé com os botões
-alinhados, e o email validado antes de haver processo criado.
+**The "Novo processo" modal (D36).** It was not a modal: it was a block that replaced the button
+wherever the button happened to be. On the dashboard it opened flush right inside the header and
+pushed it; on the empty card it opened centred and at a different width. And once a matter was
+created, the link panel stayed where the button was until somebody reloaded the page — **there
+was no way to create a second matter**. It became a real dialog (`components/ui/dialog.tsx`,
+new, on top of the `radix-ui` that `sheet` already used), with the same pair of cards as
+onboarding step 1 for the client type, `role="radiogroup"` instead of two `aria-pressed`, a
+footer with aligned buttons, and the email validated before any matter is created.
 
-**Cinco defeitos funcionais:**
+**Five functional defects:**
 
-1. **Risco só subia.** Declarar PPE punha o processo em risco elevado; voltar atrás e corrigir
-   para "Não" deixava-o elevado para sempre, com o fator "pessoa politicamente exposta
-   declarada" por baixo de uma declaração que dizia o contrário. Agora repõe-se, com
-   `risco.reposto` na auditoria.
-2. **Cliente estrangeiro bloqueado no passo 5.** O passo 2 aceita um número fiscal de outro país
-   (`nifPortugues = false`), mas a faturação impunha o mod-11 português a toda a gente: não
-   havia número que passasse, nem o dele. Passa a aplicar o checksum só a nove dígitos — que é
-   o que apanha o dígito trocado — e a aceitar qualquer outra forma. Testes em
-   `schemas.test.ts`.
-3. **Filtro de PPE aberto ao `assistente`.** O detalhe esconde-lhe o passo 4 e regista a
-   tentativa, mas `?ppe=sim` na listagem dava-lhe a mesma informação em bloco. O filtro é
-   ignorado no servidor e não aparece na barra.
-4. **Endereço pessoal escrito no código.** O aviso de submissão caía num Gmail pessoal quando
-   `EMAIL_NOTIFICACOES` faltava, com referência e link do dossier. Sem valor por omissão: não
-   havendo destino, o aviso não sai (D37).
-5. **Consentimento congelado.** `textoEmVigor` devolvia a linha mais recente da chave, por isso
-   mudar o texto aqui nunca chegava a uma instalação a correr — o cliente consentia o
-   articulado antigo. Passou a procurar por chave *e* versão (D38).
+1. **Risk only went up.** Declaring a PEP put the matter at high risk; going back and correcting
+   to "Não" left it high forever, with the factor "pessoa politicamente exposta declarada" sitting
+   under a declaration saying the opposite. It now resets, with `risco.reposto` in the audit
+   trail.
+2. **Foreign client blocked at step 5.** Step 2 accepts a foreign tax number
+   (`nifPortugues = false`), but billing imposed the Portuguese mod-11 on everyone: no number
+   could pass, not even theirs. The checksum is now applied only to nine digits — which is what
+   catches a transposed digit — and any other form is accepted. Tests in `schemas.test.ts`.
+3. **PEP filter open to the `assistente`.** The detail hides step 4 from them and records the
+   attempt, but `?ppe=sim` on the listing gave them the same information in bulk. The filter is
+   ignored on the server and does not appear in the bar.
+4. **Personal address hard-coded.** The submission notice landed in a personal Gmail when
+   `EMAIL_NOTIFICACOES` was missing, with a reference and a link to the case file. No default
+   value: with no destination, the notice does not go out (D37).
+5. **Frozen consent.** `textoEmVigor` returned the most recent row for the key, so changing the
+   text here never reached a running installation — the client consented to the old wording. It
+   now looks up by key *and* version (D38).
 
-**Textos.** "POC Consulting" no ecrã de submissão e "PMF Consulting" nos consentimentos RGPD e
-nos cabeçalhos dos dois PDFs passaram a JMASSANO. O passo 4 prometia "aprovação de um sócio ou
-administrador" (apagada na D20) e explicava o cálculo do risco ao cliente (escondido na D21) —
-passou a explicar o que é uma PPE e porque a pergunta é obrigatória. O 404 oferecia "Pedir novo
-link" para `/entrar`, que é a entrada da equipa.
+**Texts.** "POC Consulting" on the submission screen and "PMF Consulting" in the GDPR consents
+and in the headers of both PDFs became JMASSANO. Step 4 promised "aprovação de um sócio ou
+administrador" (deleted in D20) and explained the risk calculation to the client (hidden in
+D21) — it now explains what a PEP is and why the question is mandatory. The 404 offered "Pedir
+novo link" to `/entrar`, which is the team's entrance.
 
-**Visual e acessibilidade.** Logo JM no 404 e no ecrã de erro, os dois últimos sítios onde
-ainda dizia "POC" — com o título do separador, agora "· JMASSANO". Os `<select>` tinham `h-9`
-contra os `h-8` do `Input` e ficavam desalinhados na mesma linha da grelha, sem anel de foco:
-partilham agora a pele do input (`classeSelect`). Etiquetas de `CampoLista`, `Anexos` e
-`Assinatura` alinhadas em `text-tinta-suave` com as do `Campo`. Os três grupos de pastilhas do
-filtro de processos ganharam rótulo — liam-se como uma fila só. Um processo em rascunho abria
-com seis cartões vazios no detalhe; dizem "passo ainda por preencher". O fim do exercício de
-uma PPE era recolhido e nunca mostrado. O leitor de T&C, que liberta a aceitação de um
-contrato, não tinha armadilha de foco: o `Tab` saía para o formulário por baixo. Assenta agora
-no `Dialog`, com a medição da D30 intacta.
+**Visual and accessibility.** JM logo on the 404 and the error screen, the last two places still
+saying "POC" — along with the tab title, now "· JMASSANO". The `<select>` elements had `h-9`
+against `Input`'s `h-8` and sat misaligned on the same grid row, with no focus ring: they now
+share the input's skin (`classeSelect`). Labels on `CampoLista`, `Anexos` and `Assinatura`
+aligned in `text-tinta-suave` with those of `Campo`. The three pill groups in the matter filter
+gained a label — they read as a single row. A draft matter opened with six empty cards on the
+detail; they now say "passo ainda por preencher". The end of a PEP's term of office was
+collected and never shown. The T&C reader, which unlocks acceptance of a contract, had no focus
+trap: `Tab` escaped to the form underneath. It now sits on `Dialog`, with the D30 measurement
+intact.
 
-### Atualização — passo 2 no percurso Empresa: o anexo era uma pista falsa
+### Update — step 2 on the Company path: the attachment was a red herring
 
-08/08/2026. Relatado como "o campo de ficheiro do passo 2 é obrigatório e nunca fica preenchido —
-`set_input_files` e `DOM.setFileInputFiles` devolvem OK, mas `input.files.length` fica a 0".
+08/08/2026. Reported as "the step 2 file field is mandatory and never gets filled —
+`set_input_files` and `DOM.setFileInputFiles` return OK, but `input.files.length` stays at 0".
 
-**O anexo não é campo do formulário.** O `Anexos` não vive dentro da carga do passo: o input não
-tem `name`, não entra no `new FormData(form)`, e o `passo2` não pede documento nenhum. O upload é
-uma Server Action à parte (`carregarDocumento`), disparada no `onChange`, e o campo é **limpo de
-propósito** no `finally` — é isso que permite voltar a escolher o mesmo ficheiro depois de um erro.
-`files.length === 0` a seguir ao upload é o estado esperado, não a falha. Quem travava o passo era
-o único campo que o schema recusava, e o "Falta corrigir um campo" não dizia qual.
+**The attachment is not a form field.** `Anexos` does not live inside the step's payload: the
+input has no `name`, it does not enter `new FormData(form)`, and `passo2` does not ask for any
+document. The upload is a separate Server Action (`carregarDocumento`), fired on `onChange`, and
+the field is **cleared on purpose** in the `finally` — that is what allows re-picking the same
+file after an error. `files.length === 0` after the upload is the expected state, not the
+failure. What was blocking the step was the one field the schema refused, and "Falta corrigir um
+campo" did not say which.
 
-Corrigido à volta disto:
+Fixed around this:
 
-- **A mensagem do NIF diz agora qual teria de ser o dígito de controlo** e o resumo de erros passa
-  a nomear o campo (`alvoDoErro`/`rotuloVisivel`, tirados do DOM e não de um mapa de rótulos que
-  envelhecia à parte). Os sim/não, as listas e as caixas levam o `name` num input escondido, que
-  não tem caixa: o `scrollIntoView` e o `focus` do resumo não saíam do sítio precisamente nos
-  campos onde o vermelho é mais difícil de encontrar a olho.
-- **Formatos aceites num sítio só** (D39): o `accept` do campo anunciava `.heic` e o servidor
-  recusava por MIME, com o Chrome a declarar `""` para HEIC e a automação a declarar
-  `application/octet-stream`. Ficheiros da própria lista dos aceites eram recusados — e, com o
-  campo a limpar-se a seguir, ficava a parecer que anexar não fazia nada. Um upload recusado
-  passa também a dizer **o nome do ficheiro** que recusou.
-- **`naturezaJuridica` obrigatória para pessoa coletiva** (D40), com a data de constituição a
-  recusar o futuro. `docTipo` já estava certo — o `z.enum` recusa a opção vazia com mensagem
-  própria; ficou um teste a fixá-la.
+- **The tax number message now says what the check digit would have to be** and the error
+  summary now names the field (`alvoDoErro`/`rotuloVisivel`, taken from the DOM and not from a
+  label map that aged separately). The yes/nos, the lists and the boxes carry the `name` in a
+  hidden input, which has no box: the summary's `scrollIntoView` and `focus` were not moving
+  precisely on the fields where the red is hardest to spot by eye.
+- **Accepted formats in one single place** (D39): the field's `accept` announced `.heic` and the
+  server refused it by MIME, with Chrome declaring `""` for HEIC and automation declaring
+  `application/octet-stream`. Files from the accepted list itself were being refused — and, with
+  the field clearing afterwards, it looked as though attaching did nothing. A refused upload now
+  also states **the name of the file** it refused.
+- **`naturezaJuridica` mandatory for legal entities** (D40), with the incorporation date
+  refusing the future. `docTipo` was already right — the `z.enum` refuses the empty option with
+  its own message; a test was added to pin it down.
 
-### Atualização — o anexo do passo 2, segunda passagem
+### Update — the step 2 attachment, second pass
 
-08/08/2026. Relatado outra vez, agora com mais detalhe: `set_input_files` e
-`DOM.setFileInputFiles` devolvem OK sobre `#ficheiro-Documentação`, e a seguir `input.files.length`
-é 0 e `input.value` está vazio; o passo 2 não avança com "Falta corrigir um campo".
+08/08/2026. Reported again, now with more detail: `set_input_files` and
+`DOM.setFileInputFiles` return OK on `#ficheiro-Documentação`, and afterwards
+`input.files.length` is 0 and `input.value` is empty; step 2 does not advance, with "Falta
+corrigir um campo".
 
-**A conclusão da passagem anterior mantém-se, e agora está fixada em teste.** O anexo não é campo
-do passo: o input não tem `name`, não entra no `new FormData(form)` do `enviar`, o `carga(2, fd)`
-constrói nove campos e nenhum é ficheiro, e o `passo2` não pede documento nenhum. Nenhum anexo pode
-travar o passo 2 — em nenhum dos dois percursos.
+**The previous pass's conclusion holds, and is now pinned down in a test.** The attachment is
+not a field of the step: the input has no `name`, it does not enter `enviar`'s
+`new FormData(form)`, `carga(2, fd)` builds nine fields and none is a file, and `passo2` does
+not ask for any document. No attachment can block step 2 — on either path.
 
-**`files.length === 0` é o estado final desejado, não a falha.** O `finally` do `escolher` limpa o
-campo de propósito, e limpar `value` esvazia o `FileList`. É isso que permite voltar a escolher o
-*mesmo* ficheiro depois de um erro — sem isso o `change` não volta a disparar, porque o valor não
-muda. Ler `files.length` a seguir a um upload mede o campo depois de ele ter feito o seu trabalho:
-quem quiser saber se o anexo entrou olha para a lista, ou para o `data-anexos` novo.
+**`files.length === 0` is the intended final state, not the failure.** The `finally` in
+`escolher` clears the field on purpose, and clearing `value` empties the `FileList`. That is
+what allows re-picking the *same* file after an error — without it, `change` does not fire
+again, because the value does not change. Reading `files.length` right after an upload measures
+the field after it has done its job: anyone wanting to know whether the attachment went through
+looks at the list, or at the new `data-anexos`.
 
-Três coisas corrigidas à volta disto, nenhuma delas a causa do relato mas todas do mesmo tipo —
-o componente não dava sinal nenhum de si:
+Three things fixed around this, none of them the cause of the report but all of the same kind —
+the component gave no signal about itself:
 
-- **Ids a partir de `useId()`** (D41), no lugar de `ficheiro-${titulo}` / `tipo-${titulo}`.
-- **`data-anexos` (contagem) e `data-estado`** (`pronto` / `a-carregar` / `erro`) na secção: o
-  sinal que faltava para confirmar um upload sem interrogar um campo que se limpa sozinho.
-- **O campo deixa de ser `disabled` durante a subida.** Uma segunda escolha a meio da primeira
-  desaparecia sem dizer nada; passa a dizer que há um ficheiro a carregar. Um campo que ora
-  aceita ora não aceita, sem explicação, é o mesmo defeito de silêncio com outra roupa.
+- **Ids from `useId()`** (D41), in place of `ficheiro-${titulo}` / `tipo-${titulo}`.
+- **`data-anexos` (count) and `data-estado`** (`pronto` / `a-carregar` / `erro`) on the section:
+  the missing signal for confirming an upload without interrogating a field that clears itself.
+- **The field stops being `disabled` during the upload.** A second pick partway through the
+  first vanished without a word; it now says there is a file uploading. A field that sometimes
+  accepts and sometimes does not, with no explanation, is the same silence defect in different
+  clothes.
 
-Fica também fixado em teste que **um `regimeIva` em branco não é o mesmo que ausente**: é o
-`|| undefined` do `carga()` que segura isto, e sem ele o `z.enum().optional()` recebe `""` e trava
-o passo num campo opcional que o cliente nunca abriu — que é exatamente a forma de "Falta corrigir
-um campo" mais difícil de reconhecer.
+Also pinned down in a test: **a blank `regimeIva` is not the same as an absent one**. It is the
+`|| undefined` in `carga()` that holds this, and without it the `z.enum().optional()` receives
+`""` and blocks the step on an optional field the client never opened — which is exactly the
+hardest form of "Falta corrigir um campo" to recognise.
 
-**Por confirmar:** não foi possível correr `pnpm test` nem `pnpm typecheck` nesta sessão (as
-execuções ficaram bloqueadas por permissões). Correr antes de commit.
+**Unconfirmed:** it was not possible to run `pnpm test` or `pnpm typecheck` in this session (the
+runs were blocked by permissions). Run them before committing.
 
-**`pnpm test:e2e` não existe.** Está listado nos Comandos em baixo, mas não há script no
-`package.json` nem Playwright nas dependências — o percurso continua a ser conduzido por fora.
+**`pnpm test:e2e` does not exist.** It is listed under Commands below, but there is no script in
+`package.json` and no Playwright in the dependencies — the path is still driven externally.
 
-### Atualização — o email de registo que não sai, e o silêncio à volta dele
+### Update — the registration email that does not go out, and the silence around it
 
-09/08/2026. Relatado: cinco processos criados em produção com endereços temporários, link gerado
-em todos, `/emails` a dizer «0 mensagens» e nenhuma caixa a receber nada. `RESEND_API_KEY`
-confirmada no contentor.
+09/08/2026. Reported: five matters created in production with temporary addresses, a link
+generated on all of them, `/emails` saying «0 mensagens» and no inbox receiving anything.
+`RESEND_API_KEY` confirmed in the container.
 
-**A leitura do código não fecha o caso, e é isso que é o defeito.** O caminho — janela →
-`criarProcesso` → `enviarEmail` → `email_log` — está correto de ponta a ponta: a janela manda o
-email, a ação chama o envio quando ele existe, e o envio grava sempre a linha. Duas hipóteses
-sobram, e a plataforma **não deixava distingui-las**:
+**Reading the code does not close the case, and that is the defect.** The path — dialog →
+`criarProcesso` → `enviarEmail` → `email_log` — is correct end to end: the dialog sends the
+email, the action calls the send when it exists, and the send always writes the row. Two
+hypotheses remain, and the platform **did not allow them to be told apart**:
 
-1. o `enviarEmail` nunca foi chamado — o endereço não chegou ao servidor (o
-   `Failed to find Server Action` dos logs aponta para um separador aberto de antes de um deploy,
-   que manda um identificador de ação que o servidor já não conhece);
-2. foi chamado, falhou, e a gravação em `email_log` **também** falhou — o `catch` do `registar`
-   engolia-a com um `console.error` sem destinatário nem template.
+1. `enviarEmail` was never called — the address did not reach the server (the
+   `Failed to find Server Action` in the logs points to a tab left open from before a deploy,
+   sending an action identifier the server no longer knows);
+2. it was called, it failed, and writing to `email_log` **also** failed — the `catch` in
+   `registar` swallowed it with a `console.error` carrying neither recipient nor template.
 
-As duas dão exatamente o mesmo ecrã: «0 mensagens». Foi por isso que a investigação não
-convergiu, e é o que fica corrigido — o diagnóstico é o produto, não o remendo.
+Both produce exactly the same screen: «0 mensagens». That is why the investigation did not
+converge, and it is what gets fixed here — the diagnosis is the product, not the patch.
 
-- **`enviarEmail` deixa de poder rebentar** (D42). O `tentarEnviar` lê o ambiente *antes* do seu
-  próprio `try`, e o `env()` lança quando falta uma variável: essa exceção saltava por cima da
-  gravação **e** propagava-se, transformando um email falhado em criação de processo falhada.
-- **Tempo limite de 15s no `fetch` ao Resend** (D42). Sem ele, uma saída para a Internet fechada
-  no servidor não dava erro nenhum — o pedido ficava pendurado, e com ele a Server Action.
-- **Uma linha na consola por tentativa**, com template e destinatário, e a falha da gravação a
-  ser gritada com os mesmos campos. É o que separa "nem se tentou" de "tentou e não gravou" sem
-  base de dados à mão.
-- **O motivo viaja até à janela.** «Não foi possível enviar o email» sozinho manda quem o lê aos
-  logs do contentor; um 403 do Resend com o remetente à frente resolve-se no segundo em que se lê.
-  O 403 é a causa mais provável e a menos visível: `POC@jmassano.pt` é um valor **por omissão** que
-  ninguém escreveu, e o Resend recusa qualquer domínio que não esteja verificado na conta.
-- **`pnpm email:testar <destino>`** (D43), também dentro da imagem: envia a sério pela mesma API e
-  grava a linha em `email_log` com a mesma forma. Separa as três causas — chave que não chega ao
-  ambiente, domínio por verificar, saída fechada — em segundos, sem criar processos a sério.
-- **A janela apanha a rejeição da Server Action.** Sem `catch`, uma ação que rebenta deixava o
-  botão a sair de "A criar…" e mais nada — nem link, nem aviso. É este o silêncio que faz uma
-  falha de servidor parecer um clique perdido.
+- **`enviarEmail` can no longer blow up** (D42). `tentarEnviar` reads the environment *before*
+  its own `try`, and `env()` throws when a variable is missing: that exception jumped over the
+  write **and** propagated, turning a failed email into a failed matter creation.
+- **15s timeout on the `fetch` to Resend** (D42). Without it, a closed outbound path to the
+  internet produced no error at all — the request hung, and the Server Action with it.
+- **One console line per attempt**, with template and recipient, and the write failure shouted
+  with the same fields. That is what separates "it was never even attempted" from "it was
+  attempted and not recorded" without a database at hand.
+- **The reason travels to the dialog.** «Não foi possível enviar o email» on its own sends
+  whoever reads it to the container logs; a 403 from Resend with the sender in front is solved in
+  the second it is read. The 403 is the most likely cause and the least visible:
+  `POC@jmassano.pt` is a **default** value that nobody wrote, and Resend refuses any domain not
+  verified on the account.
+- **`pnpm email:testar <destination>`** (D43), also inside the image: it sends for real through
+  the same API and writes the row in `email_log` in the same shape. It separates the three
+  causes — key not reaching the environment, unverified domain, closed outbound — in seconds,
+  without creating real matters.
+- **The dialog catches the Server Action's rejection.** Without a `catch`, an action that blew up
+  left the button coming out of "A criar…" and nothing else — no link, no warning. This is the
+  silence that makes a server failure look like a lost click.
 
-**Fechado a caminho:** a janela "Novo processo" estava a meio da alteração dos dados de abertura —
-pedia NIPC no schema e no servidor e **não tinha campo nenhum para o escrever**, e ainda lia um
-`erroEmail` que já não existia. Ficaram o campo, os erros por baixo da caixa que os causou e o
-`trocarTipo` a limpar os erros do percurso anterior sem apagar os valores.
+**Closed along the way:** the "Novo processo" dialog was halfway through the change to the
+opening data — it asked for a corporate tax number in the schema and on the server and **had no
+field at all to write it in**, and it was still reading an `erroEmail` that no longer existed.
+What landed: the field, the errors under the box that caused them, and `trocarTipo` clearing the
+previous path's errors without wiping the values.
 
-**Por confirmar:** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por permissões nesta
-sessão. Correr antes de commit — há testes novos em `src/lib/email.test.ts` e
-`src/features/processos/schemas.test.ts`, e o `vitest.config.ts` passou a desviar o `server-only`
-para um módulo vazio (o verdadeiro lança de propósito, e sem o desvio nenhum módulo de servidor é
-testável).
+**Unconfirmed:** `pnpm test` and `pnpm typecheck` were again blocked by permissions in this
+session. Run them before committing — there are new tests in `src/lib/email.test.ts` and
+`src/features/processos/schemas.test.ts`, and `vitest.config.ts` now redirects `server-only` to
+an empty module (the real one throws on purpose, and without the redirect no server module is
+testable).
 
-### Atualização — o email de registo, terceira passagem: a hipótese que sobrou
+### Update — the registration email, third pass: the hypothesis that remained
 
-09/08/2026, mais tarde. Prova nova: o `scripts/testar_email.mjs` enviou de facto para
-`teste1@emalupe.com`, a mensagem chegou à caixa, e a linha entrou em `email_log`. **Isso mata a
-hipótese 2 inteira** — o Resend aceita o remetente, a chave chega ao ambiente, o servidor tem
-saída para a `api.resend.com`, e a gravação do diário funciona. Nada disto é o problema.
+09/08/2026, later. New evidence: `scripts/testar_email.mjs` did in fact send to
+`teste1@emalupe.com`, the message reached the inbox, and the row entered `email_log`. **That
+kills hypothesis 2 entirely** — Resend accepts the sender, the key reaches the environment, the
+server has outbound access to `api.resend.com`, and the log write works. None of that is the
+problem.
 
-**Sobra a hipótese 1, e o código diz que ela é a única possível.** Com o `emailCliente`
-preenchido, `criarProcesso` chama `enviarEmail`, e o `enviarEmail` grava em `email_log` em
-**todos** os caminhos de saída, incluindo o da exceção (D42). Não há caminho por onde um envio
-tentado deixe o `/emails` a zero. Logo: **o `if (emailCliente)` nunca abriu** — o endereço não
-estava no servidor no momento da decisão.
+**Hypothesis 1 remains, and the code says it is the only possible one.** With `emailCliente`
+filled in, `criarProcesso` calls `enviarEmail`, and `enviarEmail` writes to `email_log` on
+**every** exit path, including the exception one (D42). There is no path by which an attempted
+send leaves `/emails` at zero. Therefore: **the `if (emailCliente)` never opened** — the address
+was not on the server at the moment of the decision.
 
-O que estava por corrigir era isto: **esse ramo não deixava rasto nenhum.** Nem em `email_log`,
-que só regista tentativas de envio e não pode inventar uma que ninguém pediu, nem em
-`evento_auditoria`. E a janela, que só sabia do endereço que ela própria escreveu, mostrava
-«Não foi possível enviar o email para X» — a acusar o envio de uma falha que era do pedido, com
-o `erroEmail` vazio, porque não houve envio nenhum a produzir um motivo. Três avarias com um
-ecrã só, outra vez.
+What was left unfixed was this: **that branch left no trace at all.** Not in `email_log`, which
+only records send attempts and cannot invent one nobody asked for, nor in `evento_auditoria`.
+And the dialog, which only knew the address it had written itself, showed «Não foi possível
+enviar o email para X» — accusing the send of a failure that belonged to the request, with
+`erroEmail` empty, because there was no send at all to produce a reason. Three faults with a
+single screen, again.
 
-- **`link.sem_email`** em `evento_auditoria` (D44) quando um processo nasce sem endereço, com um
-  `console.warn` a acompanhar. O dossier passa a responder "foi dado endereço?" por escrito.
-- **`paraServidor` na resposta da Server Action** (D44): o endereço que o servidor recebeu, e não
-  o que a janela julga ter mandado. É a comparação entre os dois que separa "o envio falhou" de
-  "o endereço não chegou cá" — e a janela passa a dizer qual dos dois, com a saída certa para
-  cada um (recarregar a página num, ir ao Resend no outro).
-- **`console.info` à entrada da ação**, com o tipo e o endereço recebidos, antes de haver
-  processo. Um `grep` aos logs do contentor fecha a questão sem base de dados à mão.
-- **Testes com a carga exata que a janela constrói**, chave a chave — incluindo
-  `{ nome: undefined, email: "…" }`, que não é o mesmo objeto que `{ email: "…" }` para um
-  `z.preprocess`. É a única forma de o email se perder entre a caixa e o `if` sem ninguém dar
-  por ela, e agora está fixada em teste.
+- **`link.sem_email`** in `evento_auditoria` (D44) when a matter is born without an address, with
+  an accompanying `console.warn`. The case file now answers "was an address given?" in writing.
+- **`paraServidor` in the Server Action's response** (D44): the address the server received, not
+  the one the dialog thinks it sent. Comparing the two is what separates "the send failed" from
+  "the address never got here" — and the dialog now says which of the two, with the right exit
+  for each (reload the page in one, go to Resend in the other).
+- **`console.info` at the action's entry**, with the type and address received, before any matter
+  exists. A `grep` of the container logs closes the question without a database at hand.
+- **Tests with the exact payload the dialog builds**, key by key — including
+  `{ nome: undefined, email: "…" }`, which is not the same object as `{ email: "…" }` for a
+  `z.preprocess`. That is the only way for the email to get lost between the box and the `if`
+  without anyone noticing, and it is now pinned down in a test.
 
-**Nota de deploy, e é capaz de ser a resposta toda:** nada do trabalho de 09/08 — nem os arranjos
-da D42/D43, nem a migração `0009`, nem estes — está commitado, e por isso **nunca foi construído
-nem foi para produção**. O que lá corre é `7dc7dc7` ou anterior, onde o `enviarEmail` não tinha
-`try` à volta do `tentarEnviar`, o `criarProcesso` não tinha `try` à volta do bloco de email e a
-janela não tinha `catch` — a combinação que cria o processo, perde o link e não diz nada. Antes de
-voltar a testar em produção: correr `pnpm test` e `pnpm typecheck`, commitar, aplicar a `0009` e
-fazer deploy. Testar a POC contra uma imagem que não tem as correções mede o defeito antigo.
+**Deploy note, and it may well be the whole answer:** none of the 09/08 work — neither the
+D42/D43 fixes, nor migration `0009`, nor these — is committed, and therefore **it was never built
+and never went to production**. What is running there is `7dc7dc7` or earlier, where
+`enviarEmail` had no `try` around `tentarEnviar`, `criarProcesso` had no `try` around the email
+block and the dialog had no `catch` — the combination that creates the matter, loses the link
+and says nothing. Before testing in production again: run `pnpm test` and `pnpm typecheck`,
+commit, apply `0009` and deploy. Testing the POC against an image that does not have the fixes
+measures the old defect.
 
-**Por confirmar (outra vez):** `pnpm test` e `pnpm typecheck` continuaram bloqueados por
-permissões nesta sessão. Nenhuma das alterações acima foi executada.
+**Unconfirmed (again):** `pnpm test` and `pnpm typecheck` remained blocked by permissions in
+this session. None of the changes above were executed.
 
-### Atualização — quarta passagem: o envio não falhava, nunca era alcançado
+### Update — fourth pass: the send was not failing, it was never reached
 
-09/08/2026, mais tarde. Confirmado em produção com browser: cinco processos criados pelo modal
-com endereço preenchido, `/emails` a mostrar **uma** mensagem — a do `scripts/testar_email.mjs` —
-e nenhum email em caixa nenhuma.
+09/08/2026, later. Confirmed in production with a browser: five matters created through the modal
+with the address filled in, `/emails` showing **one** message — the one from
+`scripts/testar_email.mjs` — and no email in any inbox.
 
-**As três passagens anteriores leram sempre o mesmo troço de código, e o troço estava certo.**
-`enviarEmail` grava em `email_log` em todos os caminhos (D42), `criarProcesso` chama-o quando há
-endereço, o schema preserva o email com a carga exata que a janela constrói (D44, fixado em
-teste). Nada disso é o defeito, e é por isso que corrigi-lo não mudou nada.
+**The three previous passes always read the same stretch of code, and that stretch was correct.**
+`enviarEmail` writes to `email_log` on every path (D42), `criarProcesso` calls it when there is an
+address, the schema preserves the email with the exact payload the dialog builds (D44, pinned in a
+test). None of that is the defect, which is why fixing it changed nothing.
 
-**O defeito está antes.** O envio vive atrás de um `if`, e entre o `INSERT` do processo e esse
-`if` havia três `await` sem rede por baixo — `headers()`, o `registarEvento` do `processo.criado`
-e o `origemPublica()`. **Nenhum dos três tem nada a ver com email**, e qualquer um deles a lançar
-produzia, ponto por ponto, o ecrã relatado: o processo gravado e visível em `/processos`, o
-`/emails` a zero (porque quem escreve a linha é o `enviarEmail`, e ele nunca foi chamado), nem
-`link.enviado` nem `link.envio_falhou` nem `link.sem_email`, e a janela a dizer «o servidor não
-respondeu» — uma frase que se lê como falha de rede e não como *este email nunca vai sair*. Uma
-avaria em código de auditoria a apresentar-se como avaria de email, e a apagar o próprio rasto
-pelo caminho.
+**The defect is earlier.** The send lives behind an `if`, and between the matter's `INSERT` and
+that `if` there were three `await`s with no network underneath — `headers()`, the `registarEvento`
+for `processo.criado`, and `origemPublica()`. **None of the three has anything to do with email**,
+and any of them throwing produced, point for point, the reported screen: the matter saved and
+visible in `/processos`, `/emails` at zero (because the one writing the row is `enviarEmail`, and
+it was never called), no `link.enviado`, no `link.envio_falhou`, no `link.sem_email`, and the
+dialog saying «o servidor não respondeu» — a sentence that reads as a network failure and not as
+*this email is never going out*. A fault in audit code presenting itself as an email fault, and
+erasing its own trace on the way.
 
-- **Tudo o que corre depois do processo gravado passa a correr dentro do seu próprio `try`**
-  (D46): os cabeçalhos, cada evento de auditoria (`auditar`), o `origemPublica`, o envio e o
-  `revalidatePath`. A partir do INSERT, `criarProcesso` só tem uma saída, e leva sempre consigo
-  o token em claro — que só existe nessa chamada.
-- **O `console.info` de entrada passa a ser a primeira instrução da ação** e regista a **forma**
-  da carga, não só os valores. Estava depois do `safeParse`, e por isso uma carga recusada pelo
-  schema não deixava linha nenhuma. Se algum dia aparecer `carga=string:particular` em vez de
-  `carga={tipoCliente,nome,email}`, está respondida sem investigação a única hipótese que
-  sobrava: um separador aberto de antes de um deploy a chamar a assinatura antiga, de três
-  argumentos posicionais, contra um servidor que já espera um objeto.
-- **A mesma classe de defeito no `submeter`**: o `notificarSubmissao` promete no comentário não
-  lançar e lançava — o `env()` que lê o destino do aviso interno valida o ambiente inteiro e
-  rebentava **três linhas antes** de os dois emails ao cliente entrarem na fila. Guardado, e o
-  `origemPublica` do aviso interno com ele.
-- **`src/features/processos/acoes.test.ts`**, novo: mocka a base, a auditoria e o canal de email
-  e fixa a regra em seis casos — auditoria a rebentar, `headers()` a rebentar, `origemPublica` a
-  rebentar, `revalidatePath` a rebentar, `link.enviado` a rebentar, `enviarEmail` a rebentar. Em
-  todos, **o email foi tentado à mesma** e a ação devolveu o link.
+- **Everything that runs after the matter is saved now runs inside its own `try`** (D46): the
+  headers, each audit event (`auditar`), `origemPublica`, the send and `revalidatePath`. From the
+  INSERT onwards, `criarProcesso` has a single exit, and it always carries the plaintext token
+  with it — which only exists on that call.
+- **The entry `console.info` becomes the action's first statement** and records the **shape** of
+  the payload, not just the values. It used to be after the `safeParse`, so a payload refused by
+  the schema left no line at all. If `carga=string:particular` ever shows up instead of
+  `carga={tipoCliente,nome,email}`, the one remaining hypothesis is answered without
+  investigation: a tab left open from before a deploy calling the old signature, of three
+  positional arguments, against a server that now expects an object.
+- **The same class of defect in `submeter`**: `notificarSubmissao` promises in its comment not to
+  throw, and it threw — the `env()` reading the internal notice destination validates the whole
+  environment and blew up **three lines before** the two client emails entered the queue.
+  Guarded, and `origemPublica` for the internal notice with it.
+- **`src/features/processos/acoes.test.ts`**, new: it mocks the database, the audit trail and the
+  email channel and pins the rule in six cases — audit throwing, `headers()` throwing,
+  `origemPublica` throwing, `revalidatePath` throwing, `link.enviado` throwing, `enviarEmail`
+  throwing. In all of them, **the email was attempted anyway** and the action returned the link.
 
-**Como confirmar em produção, sem base de dados à mão:** abrir `/processos/<id>` de um dos cinco
-e olhar para a auditoria. Se **não** houver `processo.criado`, a ação morria no `registarEvento`
-e é isto. Se houver `processo.criado` e nenhum `link.*`, o `if (emailCliente)` não abriu e a
-imagem em execução é anterior à `6c12b47`. Nos logs do contentor, um `grep` a
-`[processo] pedido de criação recebido` dá a mesma resposta em uma linha.
+**How to confirm in production, without a database at hand:** open `/processos/<id>` for one of
+the five and look at the audit trail. If there is **no** `processo.criado`, the action was dying
+in `registarEvento` and this is it. If there is a `processo.criado` and no `link.*`, the
+`if (emailCliente)` did not open and the running image predates `6c12b47`. In the container logs,
+a `grep` for `[processo] pedido de criação recebido` gives the same answer in one line.
 
-**Por confirmar (terceira vez):** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por
-permissões. Correr antes de commit — há um ficheiro de testes novo.
+**Unconfirmed (third time):** `pnpm test` and `pnpm typecheck` were again blocked by permissions.
+Run them before committing — there is a new test file.
 
-### Atualização — o 404 no link de onboarding
+### Update — the 404 on the onboarding link
 
-10/08/2026. Relatado: um link de onboarding a dar 404. Varrimento do caminho inteiro do token,
-da geração à página do cliente. Cinco maneiras de um link **válido** não abrir, e as cinco a
-apresentarem-se com o mesmo ecrã — "esta página não existe" —, que é a razão de o relato não
-se conseguir reproduzir a olho: o URL, a olho, parece bem.
+10/08/2026. Reported: an onboarding link returning 404. Sweep of the token's entire path, from
+generation to the client page. Five ways for a **valid** link not to open, and all five presenting
+with the same screen — "this page does not exist" — which is the reason the report could not be
+reproduced by eye: the URL, by eye, looks fine.
 
-1. **O token apanha sujidade a caminho** (D47). Um token são 43 caracteres de `base64url`, e o
-   que chega ao servidor passou por um cliente de email e por uma colagem: traz o ponto final
-   da frase, os `<>` do Outlook, um espaço duro, um `​` do webmail, a barra que o browser
-   acrescenta. Nenhum pode existir num token, e qualquer um muda o SHA-256 por inteiro.
-2. **O token e o hash eram duas linhas** (D47). `gerarToken()` em cima, `hashToken(token)` lá em
-   baixo dentro do `values` — o dia em que uma delas hashe outra coisa dá um processo real com
-   um link que a consulta nunca encontra. Passam a sair do mesmo `novoTokenAcesso()`.
-3. **Uma colisão no `processo_token` deixava um processo órfão** (D48). O `catch` do 23505
-   tratava as duas restrições únicas como uma: repetia o INSERT com o **mesmo** token mais
-   quatro vezes e desistia — enquanto a linha existia do outro lado, e o único token que a abre
-   ia ser deitado fora com a chamada. Passa a distinguir a restrição e a recuperar a linha.
-4. **Ninguém experimentava o link antes de o entregar** (D48). Faz-se agora uma consulta, pela
-   mesma função que serve a página do cliente; a falhar, repõe-se o hash e a validade; a falhar
-   outra vez, a janela diz **no ecrã** que o link não abre e fica `link.nao_resolve` na
-   auditoria. Um link que não resolve deixa de ser descoberto pela reclamação.
-5. **Havia dois links** (D48). O do email saía do `origemPublica()` e o da janela era montado no
-   browser com `window.location.origin`. Coincidem quase sempre — até alguém abrir o
-   back-office por `localhost`, por um túnel, por um IP ou por um segundo domínio. O servidor
-   passa a devolver o link, e é esse que a janela mostra.
+1. **The token picks up dirt on the way** (D47). A token is 43 characters of `base64url`, and
+   what reaches the server has passed through an email client and a paste: it carries the full
+   stop from the end of the sentence, Outlook's `<>`, a hard space, a `​` from webmail, the
+   trailing slash the browser adds. None of those can exist in a token, and any of them changes
+   the SHA-256 entirely.
+2. **The token and the hash were two lines** (D47). `gerarToken()` at the top,
+   `hashToken(token)` further down inside the `values` — the day one of them hashes something
+   else gives a real matter with a link the query never finds. They now both come out of the same
+   `novoTokenAcesso()`.
+3. **A collision on `processo_token` left an orphaned matter** (D48). The 23505 `catch` treated
+   both unique constraints as one: it retried the INSERT with the **same** token four more times
+   and gave up — while the row existed on the other side, and the only token that opens it was
+   going to be thrown away with the call. It now distinguishes the constraint and recovers the
+   row.
+4. **Nobody tried the link before handing it over** (D48). A lookup is now performed, through the
+   same function that serves the client page; on failure, the hash and the validity are reset; on
+   failure again, the dialog says **on screen** that the link does not open and `link.nao_resolve`
+   goes into the audit trail. A link that does not resolve stops being discovered through a
+   complaint.
+5. **There were two links** (D48). The email's came from `origemPublica()` and the dialog's was
+   assembled in the browser with `window.location.origin`. They coincide almost always — until
+   somebody opens the back-office over `localhost`, over a tunnel, over an IP or over a second
+   domain. The server now returns the link, and that is the one the dialog shows.
 
-E o 404 em si (D49): `processoPorToken` devolvia `null` para tudo e as quatro rotas
-respondiam-lhe com `notFound()`. Passa a `acessoPorToken`, com quatro estados — `ok`,
-`expirado`, `arquivado`, `desconhecido` —, e o cliente vê o que aconteceu e o que fazer a
-seguir. As Server Actions dizem o mesmo texto, da mesma fonte.
+And the 404 itself (D49): `processoPorToken` returned `null` for everything and the four routes
+answered it with `notFound()`. It becomes `acessoPorToken`, with four states — `ok`, `expirado`,
+`arquivado`, `desconhecido` — and the client sees what happened and what to do next. The Server
+Actions say the same text, from the same source.
 
-**Por confirmar (quarta vez):** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por
-permissões. Nenhuma destas alterações foi executada. Há dois ficheiros de testes novos
-(`src/lib/token.test.ts`, `src/features/onboarding/dados.test.ts`) e
-`src/features/processos/acoes.test.ts` mudou de mocks.
+**Unconfirmed (fourth time):** `pnpm test` and `pnpm typecheck` were again blocked by permissions.
+None of these changes were executed. There are two new test files
+(`src/lib/token.test.ts`, `src/features/onboarding/dados.test.ts`) and
+`src/features/processos/acoes.test.ts` changed its mocks.
 
-### Atualização — «enviado» não queria dizer «entregue»
+### Update — «sent» did not mean «delivered»
 
-10/08/2026. Relatado: num teste de vinte empresas, **um** dos emails de registo ficou em
-`enviado` no `email_log` e nunca chegou à caixa do destinatário (mail.tm). Sem erro no
-servidor, sem nada na consola, e — o que interessa — **indistinguível na listagem das dezanove
-que chegaram**. O processo ficou sem link e ninguém tinha como saber qual dos vinte era.
+10/08/2026. Reported: in a test with twenty companies, **one** of the registration emails stayed
+at `enviado` in `email_log` and never reached the recipient's inbox (mail.tm). No server error,
+nothing in the console, and — what matters — **indistinguishable in the listing from the nineteen
+that arrived**. The matter was left without a link and nobody had any way of knowing which of the
+twenty it was.
 
-A linha do diário era escrita no momento em que o fornecedor respondia 200. Isso é uma
-afirmação sobre a **aceitação**, não sobre a entrega, e o rótulo "Enviado" dizia a segunda
-coisa. Entre o 200 e a caixa de correio há um servidor de destino que ainda pode recusar
-(caixa cheia, endereço que não existe, greylisting que expira, filtro que devolve) — e nada
-disso voltava a esta plataforma.
+The log row was written at the moment the provider answered 200. That is a statement about
+**acceptance**, not about delivery, and the "Enviado" label said the second thing. Between the 200
+and the mailbox there is a destination server that can still refuse (full mailbox, address that
+does not exist, greylisting that expires, filter that bounces) — and none of that came back to
+this platform.
 
-- **`estado_email` ganha três valores** — `entregue`, `devolvido`, `queixa` — e `enviado`
-  passa a querer dizer, à letra, "o fornecedor aceitou; a entrega está por confirmar". O
-  rótulo no `/emails` é agora **Aceite**, e não **Enviado** (ver D50).
-- **`canal` e `mensagem_id`** em `email_log`: quem aceitou, e com que identificador. Sem o
-  par não há a quem perguntar pelo desfecho — o id do Brevo não existe no Resend, e a consulta
-  de cada um tem endereço, header e formato próprios. `verificado_em` diz quando é que se
-  perguntou.
-- **Sondagem diferida, e não webhook** (D51): `confirmarEntrega` corre solta a seguir ao
-  envio, pergunta ao fornecedor aos 15s, 45s e 2m30, e fecha a linha ao primeiro desfecho.
-  Resend por `GET /emails/{id}` (`last_event`), Brevo por
-  `GET /v3/smtp/statistics/events?messageId=…` (lista de eventos, fica o mais grave).
-- **Um bounce escreve o motivo no campo `erro`** e grita-o na consola com o destinatário e o
-  template à frente. Um devolvido conta agora, no cabeçalho da página, para as mensagens que
-  "não chegaram" — a par do erro de envio, porque é o mesmo problema visto de dois sítios.
-- **`pnpm email:conferir`** (D51), também dentro da imagem: confere as linhas que ficaram em
-  `enviado` e fecha-as. É o que tapa os dois buracos da sondagem — um reinício do contentor a
-  meio, e o desfecho que chega horas depois da última tentativa.
+- **`estado_email` gains three values** — `entregue`, `devolvido`, `queixa` — and `enviado` comes
+  to mean, literally, "the provider accepted it; delivery is unconfirmed". The label in `/emails`
+  is now **Aceite**, not **Enviado** (see D50).
+- **`canal` and `mensagem_id`** in `email_log`: who accepted it, and with which identifier.
+  Without the pair there is nobody to ask about the outcome — Brevo's id does not exist in
+  Resend, and each one's lookup has its own address, header and format. `verificado_em` says when
+  the question was asked.
+- **Deferred polling, not a webhook** (D51): `confirmarEntrega` runs detached after the send,
+  asks the provider at 15s, 45s and 2m30, and closes the row on the first outcome. Resend via
+  `GET /emails/{id}` (`last_event`), Brevo via
+  `GET /v3/smtp/statistics/events?messageId=…` (event list, the most severe one wins).
+- **A bounce writes the reason into the `erro` field** and shouts it in the console with the
+  recipient and the template in front. A bounce now counts, in the page header, towards the
+  messages that "did not arrive" — alongside the send error, because it is the same problem seen
+  from two places.
+- **`pnpm email:conferir`** (D51), also inside the image: it checks the rows left at `enviado`
+  and closes them. It is what plugs the polling's two holes — a container restart partway
+  through, and an outcome that arrives hours after the last attempt.
 
-**Por confirmar:** `pnpm test` e `pnpm typecheck` voltaram a ficar bloqueados por permissões.
-Correr antes de commit — `src/lib/email.test.ts` cresceu com dois blocos novos, e há uma
-migração `0010` por aplicar.
+**Unconfirmed:** `pnpm test` and `pnpm typecheck` were again blocked by permissions.
+Run them before committing — `src/lib/email.test.ts` grew two new blocks, and there is a
+migration `0010` still to be applied.
 
-## Infraestrutura — ~65 €/ano para POCs ilimitadas
+### Update — Product Owner's product review (23/08/2026)
 
-Guia completo em [`docs/DEPLOY.md`](docs/DEPLOY.md).
+Seven points. Everything additive in the database: migration `0015`, no existing column altered,
+no earlier migration touched. Thirty tables.
 
-| Camada | Escolha | Custo |
+1. **Commercial proposal attached to the invitation** (D52). The "Novo processo" dialog now
+   accepts this client's proposal PDF, and so does the matter detail — the proposal is often
+   still not finalised when the case file is opened, and without the second place the only way
+   out was creating a new matter just to be able to attach a file. At step 7 that is what the
+   client reads and accepts; with no attachment, it falls back to the generic `/custos.html`, as
+   before.
+2. **Firm T&C — slot prepared, not yet activated** (D53). Three nullable columns in
+   `organizacao` and the value `termos_sociedade` in the enum, with nothing reading them. What is
+   missing is in `docs/TERMOS_SOCIEDADE.md`. The end client does not have to do anything new.
+3. **Corporate tax number starts with 5, 6, 8 or 9** (D54), in the back-office and at step 2 of
+   the Company path.
+4. **Phone with exactly 9 digits** (D55). It accepted `123` and it accepted `9123456789`.
+5. **Mandatory attachments at step 2** (D56): identification and tax number proof on both paths,
+   plus the permanent certificate for legal entities.
+6. **Email verification code at closing** (D57), between the final declaration and the signature.
+   Without it, the signature canvas does not mount and the submit button does not wake up.
+7. **Correcting without walking the whole flow again** (D58): the review's "Corrigir" links carry
+   `?regresso=fecho`, and that step's "Guardar" returns the client to the closing step.
+
+**Verified in this session:** `pnpm test` 385 green (19 files), `pnpm typecheck` clean,
+`pnpm build` clean, `pnpm db:validar` applying `0015` on an ephemeral PGlite. `pnpm lint`
+continues to fail with exactly the same 10 problems as before (6 errors, 4 warnings, all in
+`use-mobile.ts`, `smtp.ts`, `Lombada.tsx` and `email.test.ts`) — none introduced here.
+
+**Outstanding, and the only thing left half-done:** the reader for the attached proposal **does
+not measure reading to the end**, unlike what D30 requires for the T&C. See the second half of
+D52.
+
+## Infrastructure — ~€65/year for unlimited POCs
+
+Complete guide in [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+| Layer | Choice | Cost |
 |---|---|---|
-| Domínio | `terlicalabs.com` na Cloudflare Registrar | ~10 €/ano |
-| Servidor | Hostinger VPS KVM 1 (1 vCPU, 4 GB), Ubuntu 24.04 na UE | ~5–8 €/mês |
-| PaaS | Coolify, auto-alojado | grátis |
-| Postgres | no próprio servidor, via Coolify | grátis |
-| Email | Resend | grátis (3.000/mês) |
-| Assinatura | fora do âmbito da POC | ver `docs/DECISAO-ASSINATURA.md` |
+| Domain | `terlicalabs.com` at Cloudflare Registrar | ~€10/year |
+| Server | Hostinger VPS KVM 1 (1 vCPU, 4 GB), Ubuntu 24.04 in the EU | ~€5–8/month |
+| PaaS | Coolify, self-hosted | free |
+| Postgres | on the server itself, via Coolify | free |
+| Email | Resend | free (3,000/month) |
+| Signature | outside POC scope | see `docs/DECISAO-ASSINATURA.md` |
 
-**Endereço desta POC:** `poc.terlicalabs.com`. O apex `terlicalabs.com` é o site da Terlica
-Labs, onde se pedem projetos, e vive noutro repositório — mesmo servidor, outro projeto no
-Coolify.
+**Address of this POC:** `poc.terlicalabs.com`. The apex `terlicalabs.com` is the Terlica Labs
+website, where projects are requested, and it lives in another repository — same server,
+different project in Coolify.
 
-**Porquê não a Vercel:** o plano Hobby proíbe uso comercial, e estes são projetos para
-clientes. O Pro são 20 €/mês, por projeto de conta. O VPS é um custo fixo que não cresce com
-o número de clientes.
+**Why not Vercel:** the Hobby plan forbids commercial use, and these are client projects. Pro is
+€20/month, per project on the account. The VPS is a fixed cost that does not grow with the number
+of clients.
 
-**Porquê não o Supabase:** o plano gratuito suspende o projeto ao fim de 7 dias sem uso —
-exatamente o padrão de uma POC mostrada de duas em duas semanas. Com Postgres no próprio
-servidor, o problema desaparece e poupa-se uma conta.
+**Why not Supabase:** the free plan suspends the project after 7 days without use — exactly the
+pattern of a POC shown once a fortnight. With Postgres on the server itself the problem
+disappears and one account is saved.
 
-## Corte de âmbito da POC — a validar
+## POC scope cut — to be validated
 
-**Fica dentro:** os 5 passos com rascunho e link mágico · back-office com listagem filtrável e
-detalhe do processo · `evento_auditoria` append-only com cadeia de hashes · motor de risco ·
-papéis aplicados na aplicação · design tokens do §3.
+**In scope:** the 5 steps with drafts and a magic link · back-office with a filterable listing and
+matter detail · append-only `evento_auditoria` with a hash chain · risk engine · roles enforced in
+the application · §3 design tokens.
 
-**Fica de fora (com o schema já preparado):** RLS no Postgres — só guards na aplicação · MFA por
-TOTP · locale EN · geração do PDF do dossier · assinatura digital · exportações CSV/PDF · emails
-transacionais além do link mágico · o percurso Empresa, enquanto não houver screenshots.
+**Out of scope (with the schema already prepared):** RLS in Postgres — application guards only ·
+TOTP MFA · EN locale · case file PDF generation · digital signature · CSV/PDF exports ·
+transactional emails beyond the magic link · the Company path, for as long as there are no
+screenshots.
 
-**A auditoria fica dentro de propósito.** É o coração do valor num sistema de KYC e custa pouco
-a fazer bem de início; enxertá-la depois obriga a reescrever todas as escritas.
+**The audit trail stays in scope on purpose.** It is the heart of the value in a KYC system and
+costs little to do well from the start; grafting it on later forces rewriting every write.
 
-## Regra de ouro do domínio
+## Golden rule of the domain
 
-Isto é KYC/AML sujeito à Lei 83/2017, ao Regulamento 2/2020 da OA e ao RGPD. Auditoria
-imutável, retenção de 7 anos, consentimentos com prova, e apagamento que não pode apagar o
-que a lei obriga a conservar. Requisito funcional, não disclaimer. **Ser POC não altera isto** —
-altera o que se constrói à volta.
+This is KYC/AML subject to Lei 83/2017, Bar Association Regulation 2/2020 and the GDPR. Immutable
+audit trail, 7-year retention, consents with evidence, and erasure that cannot erase what the law
+requires to be kept. A functional requirement, not a disclaimer. **Being a POC does not change
+this** — it changes what is built around it.
 
-## Decisões tomadas
+## Decisions taken
 
-| # | Decisão | Onde |
+| # | Decision | Where |
 |---|---|---|
-| D1 | Assinatura in-house (`signature_pad` + `pdf-lib`) quando chegar a altura; fora da POC, porque o formulário atual não tem assinatura nenhuma | `docs/DECISAO-ASSINATURA.md` |
-| D2 | `utilizador` (domínio) separado das tabelas do Better Auth, ligadas por `auth_user_id` | `docs/SCHEMA.md` |
-| D3 | `versao_texto_legal` como tabela própria; consentimentos referenciam-na por FK | `docs/SCHEMA.md` |
-| D4 | Token do link mágico guardado só em SHA-256 | `docs/SCHEMA.md` |
-| D5 | Imutabilidade de `evento_auditoria` por `REVOKE` + `RULE ... DO INSTEAD NOTHING` no Postgres | `docs/SCHEMA.md` |
-| D6 | Cadeia de hashes da auditoria por organização, não global | `docs/SCHEMA.md` |
-| D7 | Listas dinâmicas em tabelas 1:N, não JSONB | `docs/SCHEMA.md` |
-| D8 | Morada como conjunto de colunas reutilizável (7 campos: morada, país, localidade, CP, freguesia, concelho, distrito), repetido em cliente/representante/faturação | `docs/SCHEMA.md` |
-| D9 | Nacionalidade em tabela 1:N — o formulário aceita várias por titular | `docs/SCHEMA.md` |
-| D10 | Supabase free como Postgres + Storage; Better Auth mantém-se como auth | este ficheiro |
-| D11 | `env()` e `db()` são preguiçosos, não constantes de módulo — o `next build` não precisa de base de dados, e falhar o build por falta de um segredo de runtime é mau negócio | `src/env.ts` |
-| D12 | `prepare: false` na ligação Postgres — o pooler do Supabase em modo transaction é pgBouncer e não suporta prepared statements | `src/db/index.ts` |
-| D13 | Pesquisa full-text por trigger e não por coluna gerada: `unaccent` não é immutable e as fontes (nome, NIF) estão noutras tabelas | migração `0001` |
-| D14 | Sessões de 8 horas — um dia de trabalho, não um mês | `src/lib/auth.ts` |
-| D15 | Os `id` são gerados na aplicação (`uuidv7`), não pela base de dados — o Postgres só tem `uuidv7()` nativo na v18. Consequência prática: qualquer INSERT em SQL cru tem de indicar o `id` | `src/db/schema/_comum.ts` |
-| D16 | Alojamento em VPS próprio com Coolify, em vez de Vercel — o plano Hobby proíbe uso comercial e o Pro são 20 €/mês. Custo fixo para POCs ilimitadas | `docs/DEPLOY.md` |
-| D16b | Fornecedor: Hostinger (a Hetzner exigia VAT ID). Empresa da UE com datacenter na UE — para um sistema que guarda documentos de identificação e declarações de PPE, um fornecedor americano traria exposição ao Cloud Act mesmo com datacenter europeu | `docs/DEPLOY.md` |
-| D17 | Postgres no próprio servidor em vez de Supabase — elimina a suspensão do plano gratuito ao fim de 7 dias sem uso, que é o padrão de uma POC mostrada de duas em duas semanas | `docs/DEPLOY.md` |
-| D18 | `output: "standalone"` e imagem Docker em três estágios; as migrações correm no arranque do contentor e, se falharem, ele não sobe | `Dockerfile` |
-| D19 | Passo Representante removido do onboarding (pedido do cliente); fluxo passa a 5 passos. Tabela `representante_legal` fica no schema, só deixa de ser escrita | este ficheiro |
-| D20 | Fluxo de aprovação apagado (não só escondido): `alterarEstadoProcesso`, `AcoesProcesso`, `podeAprovarRiscoElevado`, email de decisão. Os estados `aprovado`/`rejeitado` ficam no schema como estados finais possíveis, só sem caminho na UI para lá chegar | este ficheiro |
-| D21 | Risco (`nivelRisco`, `fatoresRisco`, PPE força risco elevado) deixa de aparecer em qualquer UI — backoffice ou onboarding do cliente — mas o cálculo e a gravação continuam; enxertar de volta um dia é mostrar campos que já existem, não reescrever lógica | este ficheiro |
-| D22 | Passo Representante Legal de volta ao fluxo, entre Fiscal e PPE (reverte a D19). Fluxo a 7 passos, sem migração — a tabela e o enum já existiam | este ficheiro |
-| D23 | Sem registo público: `disableSignUp: true` e `/registar` apagado. Contas criadas no servidor por `scripts/criar_utilizador.mjs`, com o hash vindo de `better-auth/crypto` e não de uma reimplementação | `scripts/criar_utilizador.mjs` |
-| D24 | O `summary.pdf` grava-se sem fluxos de objetos e leva a referência do processo como entrada em texto simples no dicionário Info. Um resumo de arquivo tem de ser identificável sem uma biblioteca de PDF à mão — e o `setTitle` do pdf-lib escreve em UTF-16BE hexadecimal | `src/lib/storage/resumo.ts` |
-| D25 | `nomeSeguro` preserva o ponto final de um nome de empresa ("Lda.", "S.A.") e só o corta quando o nome começa por ponto, que é a forma de um ficheiro oculto. Contraria a regra do SharePoint de propósito: uma pasta com a denominação errada é pior do que uma pasta com um nome que o SharePoint normaliza | `src/lib/storage/tipos.ts` |
-| D26 | Imagem de produção em `node:22-bookworm-slim` e não em Alpine: o `curl` do Alpine é compilado sem libssh2 e não tem `sftp://`. A alternativa — `openssh-client` e reescrever o adaptador à volta do binário `sftp` — custava o `.netrc` (a palavra-passe passava a depender do `sshpass`) e o `--hostpubsha256` (o pinning da chave do host). Trocar a base custa megabytes de imagem e zero linhas de lógica. O `curl --version \| grep -qw sftp` no Dockerfile é o que impede a regressão silenciosa: sem sftp, a imagem não se constrói | `Dockerfile` |
-| D27 | Cada pasta de cliente leva dois PDFs: o `summary.pdf` com o detalhe do processo e o `dados_cliente.pdf` — capa com data, referência, nome, NIF e o índice dos ficheiros. O nome do segundo não é escolha nossa, é o que o auxiliar em Python já deixava em cada pasta de cliente e por onde se procura o dossier. A capa gera-se em último, quando já se sabe o que indexar, e não se indexa a si própria | `src/lib/storage/capa.ts` |
-| D28 | Passo 3 (Representante Legal) só aparece a pessoas coletivas. Uma pessoa singular representa-se a si própria — a pergunta não tem resposta possível. A **numeração não se mexe**: o passo continua a ser o 3 e o Fecho o 7, porque renumerar partia os rótulos de auditoria (`passo.N.gravado`), a restrição `passo_valido` e os links de "Corrigir" já gravados. O que muda é o percurso: `passosDoProcesso`, `proximoPasso` e `passoAnterior` saltam-no, e a contagem do cabeçalho passa a "de 06" | `src/features/onboarding/passos.ts` |
-| D29 | A pergunta do passo 3 inverte-se: "É o representante legal desta entidade?" — **Sim** avança (quem preenche já se identificou no passo 1), **Não** abre os campos do representante. Sem resposta de partida, ao contrário do que estava: pré-responder a uma declaração sobre quem age em nome de quem é dá-la por feita. Trocar para pessoa singular no passo 1 apaga a linha do representante — deixada lá, aparecia no PDF do arquivo a descrever um processo que já não é aquele | `src/features/onboarding/schemas.ts` |
-| D30 | A caixa de aceitação dos T&C só se destranca depois de o documento ser aberto e percorrido até ao fim, estilo banca. O texto é renderizado dentro do leitor e não num `iframe`: assim o fim do documento é uma medição do próprio elemento, sem depender de o browser deixar ler o `scrollTop` de outro documento. Um documento que caiba todo no ecrã conta como lido — senão a caixa ficava trancada para sempre num monitor grande. O mesmo texto está em `/termos-condicoes` e vai em PDF no email de boas-vindas, os três da mesma fonte | `src/lib/termos.ts` |
-| D31 | Três emails ao cliente, todos em `src/lib/emails/jmassano.ts`: **JMASSANO \| Registro** (com o link, no momento em que a sociedade cria o processo), **JMASSANO \| Confirmação de Receção dos seus Dados** e **Bem-vindo à JMASSANO Escritório de Advogado** (com resumo, T&C e proposta de honorários em anexo). Os dois últimos saem os dois na submissão porque a POC não tem passo de aprovação (D20) — não há um segundo momento em que dar as boas-vindas. O resumo anexado é o mesmo `summary.pdf` que vai para o arquivo, gerado do mesmo sítio, para o cliente e a sociedade não ficarem com versões diferentes do mesmo documento | `src/lib/emails/jmassano.ts` |
-| D32 | Um só destino de armazenamento: o servidor da sociedade, por SFTP. O OneDrive e o WebDAV saíram do código, do schema (a coluna `tipo` e o enum `tipo_armazenamento` foram removidos na migração `0007`) e dos scripts (`gera_pasta_cliente.py` apagado). O `protocolo` fica no schema Zod fixo em `z.literal("sftp")`, e não desaparece: é o que faz uma configuração antiga noutro protocolo rebentar à entrada em vez de ser tratada como SFTP. A migração apaga as credenciais das linhas que estavam em `onedrive` — um segredo do Graph sem finalidade não fica gravado | `src/db/migrations/0007_armazenamento_so_sftp.sql` |
-| D34 | `email_log` é escrita dentro de `enviarEmail` e não nos sítios que enviam, e o `template` é parâmetro obrigatório: um caminho de envio novo não compila sem responder "que email é este", o que fecha a porta a envios por registar. Não é auditoria e não a substitui — `evento_auditoria` continua append-only com cadeia de hashes e é o que a lei obriga a conservar; isto é o diário técnico do canal, que se trunca sem consequência. Guarda o **hash** do token e nunca o token em claro (senão bastava ler a tabela para entrar em qualquer dossier, contra a D4), e não guarda o corpo das mensagens — duplicar dados pessoais numa tabela de diagnóstico é multiplicar superfície RGPD sem nada ganhar. A gravação nunca lança: um email que não sai *porque* o registo falhou é pior do que um email por registar | `src/lib/email.ts` |
-| D35 | `/emails` é só para o papel `admin`, com o guard na página (`exigirAdmin`) e não só na barra lateral — esconder a entrada da navegação não fecha o endereço a quem o escreva à mão. A lista mostra endereços de clientes lado a lado, é de diagnóstico e não de trabalho diário. Os valores de `?estado=` e `?template=` são filtrados contra o enum antes de chegarem ao `inArray`: sem isso, um parâmetro escrito à mão era um 500 a partir do URL | `src/app/(backoffice)/emails/page.tsx` |
-| D36 | "Novo processo" é uma janela (`components/ui/dialog.tsx`, sobre o `radix-ui` que o `sheet` já usava) e não um bloco em linha. Aberto em linha, o formulário tinha a largura e o alinhamento do sítio onde calhasse estar, e o painel do link que se lhe seguia ficava no lugar do botão até alguém recarregar a página — o que impedia criar um segundo processo. O conteúdo só monta com a janela aberta: é isso que garante que ela reabre limpa | `src/features/processos/componentes/BotaoNovoProcesso.tsx` |
-| D37 | `EMAIL_NOTIFICACOES` sem valor por omissão. O que lá estava era um endereço pessoal escrito no código, e numa instalação a que faltasse a variável eram referências e links de dossiers de clientes a sair para a caixa de correio de quem escreveu o código. Sem destino configurado, o aviso ao back-office não sai e fica um `console.warn` — os dois emails ao cliente e o arquivo em SFTP não dependem dele. O endereço do link também deixou de estar escrito à mão: sai dos cabeçalhos do pedido, como já saía o do email de registo (`lib/origem.ts`, agora partilhado) | `src/features/onboarding/acoes.ts` |
-| D38 | `textoEmVigor` procura por **chave e versão**, e não pela linha mais recente da chave. Assim não estava: bastava existir uma linha para ela ser devolvida para sempre, e mudar o articulado no código não tinha efeito nenhum numa instalação a correr — o cliente consentia o texto antigo enquanto o ecrã lhe mostrava o novo. Com a procura pela versão exata, subir a `versao` cria uma linha nova e os consentimentos anteriores continuam a apontar para o texto que quem os deu viu de facto, que é o que a D3 pede | `src/features/onboarding/consentimentos.ts` |
-| D39 | Extensões e MIME dos anexos numa fonte só (`formatos.ts`), com o `accept` do campo derivado dela. O MIME declarado manda quando é conhecido; só quando o browser não se compromete (`""`, `application/octet-stream`) é que a extensão decide — um ficheiro que se diz `text/html` e se chama `x.pdf` continua recusado. Estavam escritos em dois sítios e divergiram: o campo anunciava `.heic`, o servidor não o deixava entrar | `src/features/onboarding/formatos.ts` |
-| D40 | `naturezaJuridica` obrigatória para pessoa coletiva, no mesmo `superRefine` onde a pessoa singular já dá profissão, entidade patronal e data de nascimento. É forma jurídica, não campo acessório — decide quem pode obrigar a entidade, que é o que o passo 3 pergunta a seguir. Sem migração: a coluna existe e continua nullable, porque os rascunhos anteriores não podem ficar inválidos na base de dados; a exigência é do schema Zod, à entrada | `src/features/onboarding/schemas.ts` |
-| D41 | Os ids do `Anexos` saem do `useId()`, como já saíam os de todos os outros campos (`Campo.tsx`), e não de `ficheiro-${titulo}`. De um título português saía `id="ficheiro-Documentação"` — válido, mas frágil de endereçar: o `ç` e o `ã` têm duas representações Unicode (NFC e NFD) que se lêem iguais e não são a mesma sequência de code points, e o `querySelector` compara code points e não formas canónicas. Um seletor que passe por uma ferramenta que normalize para NFD não encontra um campo que está lá. O que dá ao campo um nome estável passa a ser o `data-campo`, que é ASCII e não muda com o texto do ecrã | `src/features/onboarding/componentes/Anexos.tsx` |
-| D42 | `enviarEmail` não propaga nunca e não espera para sempre: o `tentarEnviar` corre dentro de um `try` (o `env()` lança *antes* do `try` interno, e essa exceção saltava por cima da gravação e rebentava a criação do processo) e o `fetch` leva `AbortSignal.timeout(15s)` (sem ele, uma saída para a Internet fechada pendurava a Server Action sem erro nenhum). Cada tentativa deixa uma linha na consola com template e destinatário, e a falha da gravação é gritada com os mesmos campos — sem isso, «0 mensagens» no `/emails` significa ao mesmo tempo "nem se tentou" e "tentou e não gravou", que é a diferença que uma investigação precisa de ver | `src/lib/email.ts` |
-| D43 | O motivo da falha sai do servidor e chega à janela, e há um `pnpm email:testar <destino>` dentro da imagem de produção. As três causas de "o cliente não recebeu nada" — chave que não chega ao ambiente do contentor, domínio do `EMAIL_REMETENTE` por verificar no Resend (403, e `POC@jmassano.pt` é um valor por omissão de que ninguém desconfia), saída para a Internet fechada — dizem-se todas «não foi possível enviar» e resolvem-se de três maneiras diferentes. O script grava em `email_log` com a mesma forma de linha: se ele aparece no `/emails` e um processo criado não aparece, o problema está a montante do envio | `scripts/testar_email.mjs` |
-| D44 | Um processo criado **sem** endereço escreve `link.sem_email` em `evento_auditoria`, e a Server Action devolve `paraServidor` — o endereço que o servidor recebeu, ao lado do que a janela mandou. Os dois fecham o último sítio onde a plataforma podia ficar calada: `email_log` regista tentativas de envio e não pode registar um envio que nunca foi pedido, por isso «0 mensagens» no `/emails` dizia ao mesmo tempo "não havia endereço" e "havia endereço e perdeu-se a caminho" — que se resolvem em sítios diferentes (recarregar a página contra ir ao painel do Resend). A janela deixa de acusar o envio de uma falha do pedido | `src/features/processos/acoes.ts` |
-| D33 | Os corpos dos três emails passam a ser os do documento de análise do cliente, à letra — assinatura em aberto ("Assinatura do Advogado gestor do Cliente") incluída, que é o espaço do advogado que gere cada cliente. Duas coisas caem por não constarem desse texto: a saudação deixa de levar o nome ("Caro(a) Sr.(a)," é o que lá está) e a referência do processo sai do corpo dos emails 2 e 3 — continua no assunto do aviso ao back-office e no resumo em anexo. O bloco-resumo dos T&C sai do email 2 pela mesma razão; os T&C completos vão em PDF no email 3. Os parâmetros `nome` e `referencia` ficam nas assinaturas, aceites e ignorados, para repor qualquer um sem mexer em quem chama | `src/lib/emails/jmassano.ts` |
-| D46 | A partir do `INSERT` do processo, **cada passo de `criarProcesso` corre dentro do seu próprio `try`** e a ação tem uma saída só. O envio do email está atrás de um `if`, e chegar lá dependia de três `await` sem rede — `headers()`, o `registarEvento` do `processo.criado` e o `origemPublica()`. Nenhum tem que ver com email, e qualquer um a lançar dava o mesmo ecrã: processo em `/processos`, `/emails` a zero (quem grava a linha é o `enviarEmail`, e ele não era chamado), nenhum `link.*` em auditoria, e «o servidor não respondeu» na janela. Foi por isso que três passagens a ler o caminho do envio não fecharam o caso — o caminho do envio estava certo e não era percorrido. A auditoria continua a ser escrita pelo mesmo `registarEvento`, com a mesma cadeia; o que deixa de poder é interromper o resto. Mesmo arranjo no `submeter`, onde o `env()` do aviso interno rebentava antes de os dois emails ao cliente entrarem na fila | `src/features/processos/acoes.ts` |
-| D47 | O token em claro e o hash saem do mesmo `novoTokenAcesso()`, e todo o token vindo de fora passa por `normalizarToken` antes de ser procurado. As duas metades do mesmo defeito: um hash que não é o daquele token, e um token que não é o que saiu daqui. A limpeza é **só nas pontas** — cortar o meio faria de um token corrompido um token possivelmente válido, que é esconder a avaria; nas pontas não há esse risco, porque o comprimento é fixo e nenhum token é prefixo de outro. O `hashToken` normaliza antes de calcular, o que torna a procura idempotente: o link com o ponto final colado da frase do email encontra a mesma linha que o link limpo | `src/lib/token.ts` |
-| D48 | `criarProcesso` **experimenta o link antes de o entregar**, pela mesma `acessoPorToken` que serve a página do cliente — não por uma segunda consulta escrita à parte, que divergiria e divergiria justamente do lado que não está no caminho do cliente. Falhando, repõe o hash e a validade uma vez; falhando outra vez, devolve `linkVerificado: false`, a janela avisa em vermelho e fica `link.nao_resolve` na auditoria. Na mesma passagem: o 23505 passa a distinguir `processo_referencia_org` (repetir com outro número) de `processo_token` (a linha já existe — recuperá-la, porque repetir com o mesmo token nunca podia funcionar e desistir deixava um processo a que ninguém voltava a chegar), e o link passa a ser montado **uma vez só, no servidor**, e devolvido à janela em vez de reconstruído no browser | `src/features/processos/acoes.ts` |
-| D49 | `acessoPorToken` devolve quatro estados — `ok`, `expirado`, `arquivado`, `desconhecido` — no lugar do `Processo \| null`, e as quatro rotas do onboarding mostram o `LinkIndisponivel` em vez de `notFound()`. Um `null` obriga quem o recebe a inventar a razão, e o que cada rota inventava era um 404: a mesma frase para "o link expirou", "o dossier foi arquivado" e "escreveu mal o domínio", que se resolvem em três sítios diferentes. Os filtros de apagado e de validade saíram do `where` — lá dentro, um processo arquivado e um token inventado devolviam os dois zero linhas e nenhum ecrã os conseguia distinguir. **Não se revela nada de novo:** quem anda a adivinhar tokens continua a receber `desconhecido`; os outros três só são alcançáveis por quem já traz um token que bate certo | `src/features/onboarding/dados.ts` |
-| D50 | `estado_email` deixa de ter dois valores e passa a ter cinco: `enviado` e `erro` são sobre a **aceitação** pelo fornecedor, `entregue`/`devolvido`/`queixa` são o desfecho. O rótulo de `enviado` passa a **Aceite** — o que a coluna sempre disse foi "o fornecedor ficou com a mensagem", mas o rótulo dizia "chegou", e foi assim que uma mensagem que nunca chegou apareceu no `/emails` indistinguível de dezanove que chegaram. Os valores novos vão para o fim do enum, que é onde o `ALTER TYPE ADD VALUE` os põe: o array em `enums.ts` tem de ficar pela mesma ordem, senão o `db:generate` seguinte propõe uma migração a corrigir o que não está errado | `src/db/schema/enums.ts` |
-| D51 | A entrega confirma-se por **sondagem diferida no próprio processo** e não por webhook. O webhook é a via oficial e seria a certa num sistema a sério, mas custa um endereço público fora do `middleware` de autenticação, a verificação da assinatura (`svix`) — sem a qual é um botão para qualquer um marcar emails como entregues — e configuração no painel de *cada* um dos dois fornecedores, que fica por fazer no dia em que se muda de conta e ninguém percebe porque é que os estados pararam. A sondagem não precisa de nada disso: corre no contentor de vida longa do Coolify (não numa função serverless que morre com a resposta), usa a chave que já existe e funciona igual nos dois canais, ao preço de três pedidos HTTP por email. O que não cobre — um reinício a meio, um desfecho que chega tarde — fica para o `pnpm email:conferir`, e a linha entretanto fica em `enviado`, que não é mentira nenhuma: é o que se sabe | `src/lib/email.ts` |
-| D45 | `--marca` (terracota `#d9694b`, `#e07a5f` em modo escuro) é a única cor da paleta que **não** codifica estado — marca escolha do utilizador, e por agora só na janela "Novo processo": a ficha selecionada e o emblema do cabeçalho. O que lá estava era `border-tinta`, a cor do texto à volta, e um contorno da cor do texto lê-se como moldura e não como "escolhido". Fica em token e não escrita à mão nos componentes por duas razões: o modo escuro precisa de um valor diferente (o mesmo hex sobre tinta cai para 4,8:1 e o ícone dentro da ficha deixa de se ler), e o logo JMASSANO é **verde-arquivo e latão** — trocar isto por `var(--latao)`, que é literalmente o dourado do logo, é uma linha. A terracota fica em contorno, emblema e visto, nunca em texto corrido: 3,46:1 sobre branco chega para elemento de interface, não para corpo de texto | `src/app/globals.css` |
+| D1 | In-house signature (`signature_pad` + `pdf-lib`) when the time comes; outside the POC, because the current form has no signature at all | `docs/DECISAO-ASSINATURA.md` |
+| D2 | `utilizador` (domain) kept separate from the Better Auth tables, linked by `auth_user_id` | `docs/SCHEMA.md` |
+| D3 | `versao_texto_legal` as its own table; consents reference it by FK | `docs/SCHEMA.md` |
+| D4 | Magic link token stored only as SHA-256 | `docs/SCHEMA.md` |
+| D5 | `evento_auditoria` immutability via `REVOKE` + `RULE ... DO INSTEAD NOTHING` in Postgres | `docs/SCHEMA.md` |
+| D6 | Audit hash chain per organisation, not global | `docs/SCHEMA.md` |
+| D7 | Dynamic lists in 1:N tables, not JSONB | `docs/SCHEMA.md` |
+| D8 | Address as a reusable set of columns (7 fields: morada, país, localidade, CP, freguesia, concelho, distrito), repeated in client/representative/billing | `docs/SCHEMA.md` |
+| D9 | Nationality in a 1:N table — the form accepts several per holder | `docs/SCHEMA.md` |
+| D10 | Supabase free as Postgres + Storage; Better Auth stays as auth | this file |
+| D11 | `env()` and `db()` are lazy, not module constants — `next build` does not need a database, and failing the build for want of a runtime secret is a bad deal | `src/env.ts` |
+| D12 | `prepare: false` on the Postgres connection — Supabase's pooler in transaction mode is pgBouncer and does not support prepared statements | `src/db/index.ts` |
+| D13 | Full-text search by trigger and not by generated column: `unaccent` is not immutable and the sources (name, tax number) are in other tables | migration `0001` |
+| D14 | 8-hour sessions — a working day, not a month | `src/lib/auth.ts` |
+| D15 | The `id`s are generated in the application (`uuidv7`), not by the database — Postgres only has native `uuidv7()` in v18. Practical consequence: any raw SQL INSERT has to supply the `id` | `src/db/schema/_comum.ts` |
+| D16 | Hosting on our own VPS with Coolify, instead of Vercel — the Hobby plan forbids commercial use and Pro is €20/month. A fixed cost for unlimited POCs | `docs/DEPLOY.md` |
+| D16b | Provider: Hostinger (Hetzner required a VAT ID). An EU company with an EU datacenter — for a system holding identification documents and PEP declarations, a US provider would bring Cloud Act exposure even with a European datacenter | `docs/DEPLOY.md` |
+| D17 | Postgres on the server itself instead of Supabase — it eliminates the free plan's suspension after 7 days without use, which is the pattern of a POC shown once a fortnight | `docs/DEPLOY.md` |
+| D18 | `output: "standalone"` and a three-stage Docker image; the migrations run at container startup and, if they fail, it does not come up | `Dockerfile` |
+| D19 | Representative step removed from onboarding (client request); the flow becomes 5 steps. The `representante_legal` table stays in the schema, it just stops being written | this file |
+| D20 | Approval flow deleted (not merely hidden): `alterarEstadoProcesso`, `AcoesProcesso`, `podeAprovarRiscoElevado`, decision email. The `aprovado`/`rejeitado` states stay in the schema as possible final states, only with no path in the UI to reach them | this file |
+| D21 | Risk (`nivelRisco`, `fatoresRisco`, PEP forces high risk) stops appearing in any UI — back-office or client onboarding — but the calculation and the writes continue; grafting it back one day means showing fields that already exist, not rewriting logic | this file |
+| D22 | Legal Representative step back in the flow, between Tax and PEP (reverses D19). 7-step flow, no migration — the table and the enum already existed | this file |
+| D23 | No public sign-up: `disableSignUp: true` and `/registar` deleted. Accounts created on the server by `scripts/criar_utilizador.mjs`, with the hash coming from `better-auth/crypto` and not from a reimplementation | `scripts/criar_utilizador.mjs` |
+| D24 | `summary.pdf` is written without object streams and carries the matter reference as a plain-text entry in the Info dictionary. An archive summary has to be identifiable without a PDF library at hand — and pdf-lib's `setTitle` writes in hexadecimal UTF-16BE | `src/lib/storage/resumo.ts` |
+| D25 | `nomeSeguro` preserves the trailing dot of a company name ("Lda.", "S.A.") and only strips it when the name starts with a dot, which is the shape of a hidden file. It contradicts the SharePoint rule on purpose: a folder with the wrong legal name is worse than a folder with a name SharePoint normalises | `src/lib/storage/tipos.ts` |
+| D26 | Production image on `node:22-bookworm-slim` and not on Alpine: Alpine's `curl` is compiled without libssh2 and has no `sftp://`. The alternative — `openssh-client` and rewriting the adapter around the `sftp` binary — cost the `.netrc` (the password would start depending on `sshpass`) and `--hostpubsha256` (host key pinning). Swapping the base costs megabytes of image and zero lines of logic. The `curl --version \| grep -qw sftp` in the Dockerfile is what prevents the silent regression: without sftp, the image does not build | `Dockerfile` |
+| D27 | Each client folder carries two PDFs: `summary.pdf` with the matter detail and `dados_cliente.pdf` — a cover page with date, reference, name, tax number and the index of the files. The second name is not our choice, it is what the Python helper already left in each client folder and what the case file is searched by. The cover is generated last, once there is something to index, and it does not index itself | `src/lib/storage/capa.ts` |
+| D28 | Step 3 (Legal Representative) only appears for legal entities. An individual represents themselves — the question has no possible answer. The **numbering does not move**: the step is still 3 and Closing still 7, because renumbering would break the audit labels (`passo.N.gravado`), the `passo_valido` constraint and the already-saved "Corrigir" links. What changes is the path: `passosDoProcesso`, `proximoPasso` and `passoAnterior` skip it, and the header count becomes "de 06" | `src/features/onboarding/passos.ts` |
+| D29 | The step 3 question is inverted: "É o representante legal desta entidade?" — **Sim** proceeds (whoever is filling in already identified themselves at step 1), **Não** opens the representative's fields. With no starting answer, unlike before: pre-answering a declaration about who acts on whose behalf is treating it as done. Switching to individual at step 1 deletes the representative row — left there, it appeared in the archive PDF describing a matter that is no longer that one | `src/features/onboarding/schemas.ts` |
+| D30 | The T&C acceptance checkbox only unlocks after the document has been opened and scrolled to the end, banking-style. The text is rendered inside the reader and not in an `iframe`: that way the end of the document is a measurement of the element itself, without depending on the browser allowing another document's `scrollTop` to be read. A document that fits entirely on screen counts as read — otherwise the checkbox would stay locked forever on a large monitor. The same text is at `/termos-condicoes` and goes as a PDF in the welcome email, all three from the same source | `src/lib/termos.ts` |
+| D31 | Three emails to the client, all in `src/lib/emails/jmassano.ts`: **JMASSANO \| Registro** (with the link, at the moment the firm creates the matter), **JMASSANO \| Confirmação de Receção dos seus Dados** and **Bem-vindo à JMASSANO Escritório de Advogado** (with a summary, T&C and fee proposal attached). The last two both go out on submission because the POC has no approval step (D20) — there is no second moment at which to welcome. The attached summary is the same `summary.pdf` that goes to the archive, generated from the same place, so the client and the firm do not end up with different versions of the same document | `src/lib/emails/jmassano.ts` |
+| D32 | A single storage destination: the firm's server, over SFTP. OneDrive and WebDAV left the code, the schema (the `tipo` column and the `tipo_armazenamento` enum were removed in migration `0007`) and the scripts (`gera_pasta_cliente.py` deleted). `protocolo` stays in the Zod schema fixed at `z.literal("sftp")`, and it does not disappear: it is what makes an old configuration on another protocol blow up at the boundary instead of being treated as SFTP. The migration deletes the credentials of rows that were on `onedrive` — a Graph secret with no purpose does not stay recorded | `src/db/migrations/0007_armazenamento_so_sftp.sql` |
+| D34 | `email_log` is written inside `enviarEmail` and not at the places that send, and `template` is a mandatory parameter: a new sending path does not compile without answering "which email is this", which closes the door on unlogged sends. It is not an audit trail and does not replace one — `evento_auditoria` remains append-only with a hash chain and is what the law requires to be kept; this is the channel's technical log, which can be truncated with no consequence. It stores the token's **hash** and never the plaintext token (otherwise reading the table would be enough to enter any case file, against D4), and it does not store message bodies — duplicating personal data into a diagnostic table multiplies GDPR surface for nothing. The write never throws: an email that does not go out *because* the logging failed is worse than an unlogged email | `src/lib/email.ts` |
+| D35 | `/emails` is for the `admin` role only, with the guard on the page (`exigirAdmin`) and not only in the sidebar — hiding the navigation entry does not close the address to anyone typing it by hand. The list shows client addresses side by side, it is for diagnosis and not for daily work. The values of `?estado=` and `?template=` are filtered against the enum before reaching `inArray`: without that, a hand-written parameter was a 500 straight from the URL | `src/app/(backoffice)/emails/page.tsx` |
+| D36 | "Novo processo" is a dialog (`components/ui/dialog.tsx`, on top of the `radix-ui` that `sheet` already used) and not an inline block. Opened inline, the form took the width and alignment of wherever it happened to be, and the link panel that followed it stayed where the button was until somebody reloaded the page — which made creating a second matter impossible. The content only mounts with the dialog open: that is what guarantees it reopens clean | `src/features/processos/componentes/BotaoNovoProcesso.tsx` |
+| D37 | `EMAIL_NOTIFICACOES` with no default value. What was there was a personal address hard-coded, and in an installation missing the variable it meant client case file references and links going out to the inbox of whoever wrote the code. With no destination configured, the back-office notice does not go out and a `console.warn` remains — the two client emails and the SFTP archiving do not depend on it. The link's address also stopped being hard-coded: it comes from the request headers, as the registration email's already did (`lib/origem.ts`, now shared) | `src/features/onboarding/acoes.ts` |
+| D38 | `textoEmVigor` looks up by **key and version**, and not by the most recent row for the key. It was not like that: the mere existence of a row meant it was returned forever, and changing the wording in the code had no effect at all on a running installation — the client consented to the old text while the screen showed them the new one. With lookup by exact version, bumping `versao` creates a new row and earlier consents keep pointing at the text the people who gave them actually saw, which is what D3 requires | `src/features/onboarding/consentimentos.ts` |
+| D39 | Attachment extensions and MIME types in a single source (`formatos.ts`), with the field's `accept` derived from it. The declared MIME wins when it is known; only when the browser does not commit (`""`, `application/octet-stream`) does the extension decide — a file claiming to be `text/html` and named `x.pdf` is still refused. They were written in two places and diverged: the field announced `.heic`, the server would not let it in | `src/features/onboarding/formatos.ts` |
+| D40 | `naturezaJuridica` mandatory for legal entities, in the same `superRefine` where an individual already gives occupation, employer and date of birth. It is legal form, not an incidental field — it decides who can bind the entity, which is what step 3 asks next. No migration: the column exists and stays nullable, because earlier drafts cannot become invalid in the database; the requirement is in the Zod schema, at the boundary | `src/features/onboarding/schemas.ts` |
+| D41 | The `Anexos` ids come from `useId()`, as every other field's already did (`Campo.tsx`), and not from `ficheiro-${titulo}`. A Portuguese title produced `id="ficheiro-Documentação"` — valid, but fragile to address: `ç` and `ã` have two Unicode representations (NFC and NFD) that read the same and are not the same sequence of code points, and `querySelector` compares code points and not canonical forms. A selector that passes through a tool normalising to NFD does not find a field that is there. What gives the field a stable name becomes `data-campo`, which is ASCII and does not change with the on-screen text | `src/features/onboarding/componentes/Anexos.tsx` |
+| D42 | `enviarEmail` never propagates and never waits forever: `tentarEnviar` runs inside a `try` (`env()` throws *before* the inner `try`, and that exception jumped over the write and blew up the matter creation) and the `fetch` carries `AbortSignal.timeout(15s)` (without it, a closed outbound path to the internet hung the Server Action with no error at all). Each attempt leaves a console line with template and recipient, and the write failure is shouted with the same fields — without that, «0 mensagens» in `/emails` means both "it was never even attempted" and "it was attempted and not recorded", which is the difference an investigation needs to see | `src/lib/email.ts` |
+| D43 | The failure reason comes out of the server and reaches the dialog, and there is a `pnpm email:testar <destination>` inside the production image. The three causes of "the client received nothing" — key not reaching the container's environment, `EMAIL_REMETENTE`'s domain unverified at Resend (403, and `POC@jmassano.pt` is a default value nobody suspects), closed outbound internet access — all say «não foi possível enviar» and are solved in three different ways. The script writes to `email_log` in the same row shape: if it appears in `/emails` and a created matter does not, the problem is upstream of the send | `scripts/testar_email.mjs` |
+| D44 | A matter created **without** an address writes `link.sem_email` in `evento_auditoria`, and the Server Action returns `paraServidor` — the address the server received, next to the one the dialog sent. The two close the last place where the platform could stay silent: `email_log` records send attempts and cannot record a send that was never requested, so «0 mensagens» in `/emails` said both "there was no address" and "there was an address and it got lost on the way" — which are fixed in different places (reload the page versus go to the Resend dashboard). The dialog stops accusing the send of a failure that belonged to the request | `src/features/processos/acoes.ts` |
+| D33 | The bodies of the three emails become those of the client's analysis document, verbatim — including the open signature ("Assinatura do Advogado gestor do Cliente"), which is the space for the lawyer managing each client. Two things fall away for not being in that text: the greeting stops carrying the name ("Caro(a) Sr.(a)," is what is there) and the matter reference leaves the body of emails 2 and 3 — it stays in the subject of the back-office notice and in the attached summary. The T&C summary block leaves email 2 for the same reason; the full T&C go as a PDF in email 3. The `nome` and `referencia` parameters stay in the signatures, accepted and ignored, so either can be restored without touching the callers | `src/lib/emails/jmassano.ts` |
+| D46 | From the matter's `INSERT` onwards, **each step of `criarProcesso` runs inside its own `try`** and the action has a single exit. The email send sits behind an `if`, and getting there depended on three `await`s with no network underneath — `headers()`, the `registarEvento` for `processo.criado`, and `origemPublica()`. None has anything to do with email, and any of them throwing gave the same screen: matter in `/processos`, `/emails` at zero (the one writing the row is `enviarEmail`, and it was not called), no `link.*` in the audit trail, and «o servidor não respondeu» in the dialog. That is why three passes reading the send path did not close the case — the send path was correct and was not being reached. The audit trail is still written by the same `registarEvento`, with the same chain; what it can no longer do is interrupt the rest. Same arrangement in `submeter`, where the internal notice's `env()` blew up before the two client emails entered the queue | `src/features/processos/acoes.ts` |
+| D47 | The plaintext token and the hash come out of the same `novoTokenAcesso()`, and every token arriving from outside passes through `normalizarToken` before being looked up. The two halves of the same defect: a hash that is not that token's, and a token that is not the one that left here. The cleanup is **only at the ends** — trimming the middle would turn a corrupted token into a possibly valid one, which is hiding the fault; at the ends there is no such risk, because the length is fixed and no token is a prefix of another. `hashToken` normalises before computing, which makes the lookup idempotent: the link with the full stop stuck on from the email's sentence finds the same row as the clean link | `src/lib/token.ts` |
+| D48 | `criarProcesso` **tries the link before handing it over**, through the same `acessoPorToken` that serves the client page — not through a second query written separately, which would diverge, and diverge precisely on the side that is not on the client's path. On failure, it resets the hash and the validity once; on failure again, it returns `linkVerificado: false`, the dialog warns in red and `link.nao_resolve` goes into the audit trail. In the same pass: the 23505 now distinguishes `processo_referencia_org` (retry with another number) from `processo_token` (the row already exists — recover it, because retrying with the same token could never work and giving up left a matter nobody could reach again), and the link is now assembled **once only, on the server**, and returned to the dialog instead of being rebuilt in the browser | `src/features/processos/acoes.ts` |
+| D49 | `acessoPorToken` returns four states — `ok`, `expirado`, `arquivado`, `desconhecido` — in place of `Processo \| null`, and the four onboarding routes show `LinkIndisponivel` instead of `notFound()`. A `null` forces its recipient to invent the reason, and what each route invented was a 404: the same sentence for "the link expired", "the case file was archived" and "you mistyped the domain", which are fixed in three different places. The deleted and validity filters left the `where` — inside it, an archived matter and an invented token both returned zero rows and no screen could tell them apart. **Nothing new is revealed:** anyone guessing tokens still receives `desconhecido`; the other three are only reachable by someone already holding a token that matches | `src/features/onboarding/dados.ts` |
+| D50 | `estado_email` stops having two values and comes to have five: `enviado` and `erro` are about **acceptance** by the provider, `entregue`/`devolvido`/`queixa` are the outcome. The `enviado` label becomes **Aceite** — what the column always said was "the provider took the message", but the label said "it arrived", and that is how a message that never arrived appeared in `/emails` indistinguishable from nineteen that did. The new values go to the end of the enum, which is where `ALTER TYPE ADD VALUE` puts them: the array in `enums.ts` has to stay in the same order, otherwise the next `db:generate` proposes a migration fixing what is not broken | `src/db/schema/enums.ts` |
+| D51 | Delivery is confirmed by **deferred polling in the process itself** and not by webhook. The webhook is the official route and would be the right one in a serious system, but it costs a public endpoint outside the authentication `middleware`, signature verification (`svix`) — without which it is a button for anyone to mark emails as delivered — and configuration in the dashboard of *each* of the two providers, which goes undone the day the account changes and nobody works out why the states stopped. Polling needs none of that: it runs in Coolify's long-lived container (not in a serverless function that dies with the response), it uses the key that already exists and it works the same on both channels, at the price of three HTTP requests per email. What it does not cover — a restart partway through, an outcome that arrives late — is left to `pnpm email:conferir`, and meanwhile the row stays at `enviado`, which is no lie at all: it is what is known | `src/lib/email.ts` |
+| D52 | The commercial proposal is **one document per matter**, uploaded by the firm (`documento.tipo = 'proposta_comercial'`, PDF only, 4 MB) and served to the client via `/onboarding/[token]/proposta` — authorised by the same magic link that opens the steps. Uploading another soft-deletes the previous one: step 7 shows **the** proposal, singular, and two live rows would force picking one by ordering, which is how the client accepts the wrong one without anyone noticing. The upload runs **after** the matter's INSERT and its failure undoes nothing (same rule as D46) — the screen says the case file is open and the proposal did not go in, instead of making them repeat everything. **What is lost:** with an attachment, the checkbox unlocks on *opening* the document and not on reaching its end. `next.config.ts`'s `X-Frame-Options: DENY` refuses even the same domain, and an `<iframe>` would give a blank rectangle; measuring the scroll of a PDF that opens in another tab is not possible. Faking the D30 measurement was worse than saying it does not exist there | `src/features/processos/proposta.ts` |
+| D53 | Firm T&C: **space prepared, nothing wired.** `organizacao.termos_documento_ref` / `termos_versao` / `termos_atualizado_em`, nullable, plus `termos_sociedade` in `tipo_documento`. While they are `null`, step 7 serves `src/lib/termos.ts` and the client does nothing new. `termos_documento_ref` is `text` and not an FK on purpose: `documento.processo_id` is `not null` and the firm's T&C belong to no matter — choosing between a dedicated table and a nullable column is done with the wording in hand, not today. The plan and the trap (D3/D38: bump the version, otherwise the difference between what the client accepted and what is now written is erased) are in `docs/TERMOS_SOCIEDADE.md` | `docs/TERMOS_SOCIEDADE.md` |
+| D54 | `validarNipc` = `validarNif` plus the first digit being 5, 6, 8 or 9. `validarNif` answers "is this a valid tax number?" and the right answer for an individual's tax number is "yes" — in the corporate tax number box that answer is wrong in substance, and it was being recorded in `nif_cliente` saying the entity is that person. The prefix is checked **before** the checksum: saying "the last digit would have to be 4" about a number that is not even a corporate one sends the user to fix the wrong thing. At step 2 the rule is chosen by the **matter's** `tipo_cliente`, injected by `guardarPasso` — whatever the payload brought under that name was exactly what the rule exists to prevent being chosen | `src/lib/validacao-pt.ts` |
+| D55 | Phone with **exactly nine digits**, with or without `+351`/`00351`. The `^\+?\d{6,15}$` that was here accepted `123` and accepted `9123456789` — and it is the second that costs: one digit too many looks like a correct number and is only discovered when somebody tries to call, weeks later, a client who is no longer looking at the form. Spaces, hyphens, dots and parentheses pass (that is formatting from someone copying off a business card); a foreign dialling code is refused **with that reason stated**, otherwise it reads as a counting error and the client ends up adding and removing digits from a correctly written number | `src/lib/validacao-pt.ts` |
+| D56 | Step 2 does not close without the mandatory attachments — identification and tax number proof on both paths, plus the permanent certificate for legal entities (which for an individual would be a dead-end step, like step 3 in D28). The attachment list **does not come from the payload**: `Anexos` uploads via its own Server Action and the input does not even have a `name`, so the step's `FormData` never knew about files and never could. `guardarPasso` reads it from the `documento` table with the `apagado_em` filter (removal is a soft delete) and injects it before Zod. One error per missing document, and not a single "attachments missing": three documents to attach have to read as three things to do | `src/features/onboarding/schemas.ts` |
+| D57 | Email verification code before the signature, in the new `codigo_otp` table: six digits, ten minutes, five attempts, one request per minute, and the verification valid for one hour (the time to read the T&C, read the proposal and sign — forcing a repeat partway through would turn the measure into an obstacle worked around by requesting another code). The SHA-256 of `processoId:codigo` is stored, with the matter serving as salt, and **the code never enters `evento_auditoria`**: it is a ten-minute secret and the record lasts seven years. The question is asked in `guardarPasso` **before Zod** — asked afterwards, the answer to the client was «Assine no quadro antes de submeter» about a canvas the platform is hiding until they validate the code — and repeated in `submeter`, which is a separate Server Action and callable on its own | `src/features/onboarding/acoes.ts` |
+| D58 | The review's "Corrigir" links carry `?regresso=fecho`, and that step's "Guardar" returns the client to the closing step instead of sending them to the next one. The parameter is read on the **server** (`searchParams` as a prop, not `useSearchParams`) and confirmed against the matter: it is only valid when every earlier step is saved, otherwise hand-writing the parameter at step 1 threw the client into the review of an empty form. In the same pass, `passo_atual` stops going backwards (`Math.max`): saving a correction at step 2 set it to 3, and anyone closing the tab resumed at 3 on a matter that was already at 7 | `src/app/(cliente)/onboarding/[token]/passo/[n]/page.tsx` |
+| D45 | `--marca` (terracotta `#d9694b`, `#e07a5f` in dark mode) is the only colour in the palette that does **not** encode state — it marks a user choice, and for now only in the "Novo processo" dialog: the selected card and the header badge. What was there was `border-tinta`, the colour of the surrounding text, and an outline in the text colour reads as a frame and not as "chosen". It stays a token rather than being hard-coded in the components for two reasons: dark mode needs a different value (the same hex over ink falls to 4.8:1 and the icon inside the card stops being legible), and the JMASSANO logo is **archive green and brass** — swapping this for `var(--latao)`, which is literally the logo's gold, is one line. Terracotta stays in outlines, badges and ticks, never in running text: 3.46:1 on white is enough for an interface element, not for body copy | `src/app/globals.css` |
 
-## Decisões em aberto
+## Open decisions
 
-- **A16–A21 e A15** — em `docs/CAMPOS.md`. A mais bloqueante é **A18**: não há screenshots do
-  percurso Empresa, e metade do que o brief descreve (CAE, certidão permanente, regime de IVA,
-  RCBE, beneficiários efetivos) deve viver lá.
-- **D0/A17** — campos duplicados em todos os screenshots. Assumido como bug do formulário atual.
-- **A19** — beneficiários efetivos e RCBE não existem no formulário. É obrigação legal, não
-  funcionalidade opcional. Decisão jurídica antes de técnica.
-- **D4 do inventário** — sem IBAN nem condições de pagamento no passo 6. Confirmar se é para
-  acrescentar.
-- **Retenção e expurgo aos 7 anos** — desenho em `docs/SCHEMA.md`, precisa de validação jurídica.
-- **Dependências fora do §1**: `uuidv7` (o Postgres só tem `uuidv7()` nativo na v18), `dotenv`,
-  `tsx` e `server-only` (utilitários de build). `signature_pad` deixa de ser precisa na POC.
-- **`REVOKE` da auditoria não morde no Supabase por omissão**: o utilizador da aplicação é
-  também o owner da tabela, e o owner contorna o `REVOKE`. Só as `RULE` protegem. Criar um papel
-  `app_user` separado do owner é o passo que fecha isto na passagem a produção — a migração
-  `0002` já o aplica se o papel existir.
-- **Componente `form` do shadcn**: não existe no preset `radix-nova` instalado. Na Fase 2
-  escreve-se um wrapper fino sobre React Hook Form em vez de o importar.
+- **A16–A21 and A15** — in `docs/CAMPOS.md`. The most blocking is **A18**: there are no
+  screenshots of the Company path, and half of what the brief describes (CAE codes, permanent
+  certificate, VAT regime, RCBE, beneficial owners) should live there.
+- **D0/A17** — duplicated fields in every screenshot. Assumed to be a bug in the current form.
+- **A19** — beneficial owners and RCBE do not exist in the form. It is a legal obligation, not an
+  optional feature. A legal decision before a technical one.
+- **D4 of the inventory** — no IBAN and no payment terms at step 6. Confirm whether they are to be
+  added.
+- **7-year retention and purge** — design in `docs/SCHEMA.md`, needs legal validation.
+- **Dependencies outside §1**: `uuidv7` (Postgres only has native `uuidv7()` in v18), `dotenv`,
+  `tsx` and `server-only` (build utilities). `signature_pad` is no longer needed in the POC.
+- **The audit `REVOKE` does not bite on Supabase by default**: the application user is also the
+  table owner, and the owner bypasses the `REVOKE`. Only the `RULE`s protect. Creating an
+  `app_user` role separate from the owner is the step that closes this when moving to production —
+  migration `0002` already applies it if the role exists.
+- **shadcn's `form` component**: it does not exist in the installed `radix-nova` preset. In
+  Phase 2 a thin wrapper over React Hook Form is written instead of importing it.
 
-## Comandos
+## Commands
 
 ```bash
-pnpm dev                  # servidor de desenvolvimento
-pnpm build                # tem de passar limpo no fim de cada fase
+pnpm dev                  # development server
+pnpm build                # must pass clean at the end of each phase
 pnpm test                 # Vitest
 pnpm test:e2e             # Playwright
 pnpm db:generate          # drizzle-kit generate
-pnpm db:migrate           # aplica migrações
-pnpm db:seed              # só com NODE_ENV=development
-pnpm db:validar           # aplica as migrações a um Postgres em WASM e verifica-as
-pnpm auditoria:verificar  # revalida a cadeia de hashes de evento_auditoria
-pnpm email:testar <destino>  # envia um email de teste e grava-o em email_log
-pnpm email:conferir       # confirma a entrega das mensagens que ficaram em «Aceite»
+pnpm db:migrate           # apply migrations
+pnpm db:seed              # only with NODE_ENV=development
+pnpm db:validar           # apply the migrations to a Postgres in WASM and verify them
+pnpm auditoria:verificar  # revalidate the evento_auditoria hash chain
+pnpm email:testar <destination>  # send a test email and record it in email_log
+pnpm email:conferir       # confirm delivery of the messages left at «Aceite»
 ```
 
-`pnpm email:testar` corre também dentro do contentor (`node scripts/testar_email.mjs`), que é onde
-interessa: mostra se a `RESEND_API_KEY` chega ao ambiente do Node, se o Resend aceita o remetente
-e se o servidor tem saída para a `api.resend.com` — as três causas de "o cliente não recebeu nada",
-que de fora se dizem todas da mesma maneira. `--sem-bd` faz o teste sem tocar no Postgres.
+`pnpm email:testar` also runs inside the container (`node scripts/testar_email.mjs`), which is
+where it matters: it shows whether `RESEND_API_KEY` reaches Node's environment, whether Resend
+accepts the sender and whether the server has outbound access to `api.resend.com` — the three
+causes of "the client received nothing", which from outside all sound the same. `--sem-bd` runs
+the test without touching Postgres.
 
-`pnpm email:conferir` corre também dentro do contentor (`node scripts/conferir_entregas.mjs`).
-Pergunta ao fornecedor o desfecho das mensagens que ficaram em «Aceite» e fecha-lhes o estado.
-Existe para os dois casos que a sondagem automática (D51) não apanha: o contentor reiniciou a
-meio, e o desfecho chegou horas depois. `--dias N` alarga a janela (7 por omissão) e
-`--simular` mostra o que faria sem escrever nada.
+`pnpm email:conferir` also runs inside the container (`node scripts/conferir_entregas.mjs`).
+It asks the provider for the outcome of the messages left at «Aceite» and closes their state.
+It exists for the two cases the automatic polling (D51) does not catch: the container restarted
+partway through, and the outcome arrived hours later. `--dias N` widens the window (7 by default)
+and `--simular` shows what it would do without writing anything.
 
-`pnpm db:validar` não precisa de servidor nenhum: corre todas as migrações num PGlite efémero e
-conta as tabelas (28, desde a `0008`), confirma que a auditoria recusa mesmo UPDATE e DELETE, e
-que a pesquisa resolve acentos e maiúsculas. É o que garante que o primeiro `db:migrate` contra
-o Postgres de produção não rebenta.
+`pnpm db:validar` needs no server at all: it runs every migration on an ephemeral PGlite and
+counts the tables (28, since `0008`), confirms the audit trail really does refuse UPDATE and
+DELETE, and that search resolves accents and capitals. It is what guarantees the first
+`db:migrate` against the production Postgres does not blow up.
 
-## Convenções
+## Conventions
 
-- Código, comentários, commits e UI em **português europeu**. Identificadores de domínio em
-  português (`processo_onboarding`, `nivel_risco`), termos técnicos em inglês onde é idiomático.
-- TypeScript `strict: true`, zero `any`. `pnpm build` limpo é critério de aceitação.
-- Server Actions revalidam sempre com Zod no servidor. A validação do cliente é UX.
-- Organização por domínio em `src/features/`, não por tipo de ficheiro.
-- Qualquer identificador na UI (referência, NIF, IBAN, hash, timestamp de auditoria) é
-  renderizado em `IBM Plex Mono`. Regra, não sugestão.
-- Commits pequenos, um por unidade lógica.
-- Segredos só em `.env`; `.env.example` documentado e commitado.
+- **Client-facing UI in European Portuguese** — form labels, placeholders, buttons, section
+  titles, validation and error messages, confirmations, legal texts and the emails sent to the
+  client all stay in Portuguese. The system is integrated with a Portuguese-language customer
+  service bot; translating any of this would break that.
+- **Code comments, documentation and server-side logs in English.** Domain identifiers stay in
+  Portuguese (`processo_onboarding`, `nivel_risco`) because the database, the enums and the audit
+  labels depend on them; technical terms in English where idiomatic.
+- Commits in Portuguese, small, one per logical unit.
+- TypeScript `strict: true`, zero `any`. A clean `pnpm build` is an acceptance criterion.
+- Server Actions always revalidate with Zod on the server. Client-side validation is UX.
+- Organised by domain in `src/features/`, not by file type.
+- Any identifier in the UI (reference, tax number, IBAN, hash, audit timestamp) is rendered in
+  `IBM Plex Mono`. A rule, not a suggestion.
+- Secrets only in `.env`; `.env.example` documented and committed.

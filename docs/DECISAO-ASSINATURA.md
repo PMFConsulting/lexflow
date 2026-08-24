@@ -1,54 +1,53 @@
-# Decisão de arquitetura — assinatura digital (passo 7)
+# Architecture decision — digital signature (step 7)
 
-Pedido em `docs/BRIEF.md` §2. Estado: **recomendação confirmada; decisão de âmbito por tomar.**
+Requested in `docs/BRIEF.md` §2. Status: **recommendation confirmed; scope decision still to be made.**
 
-> **Contexto que os screenshots vieram acrescentar:** o passo 7 do formulário atual é só uma
-> "Declaração Final" com um checkbox e o botão Submeter — **não há assinatura nenhuma hoje**
-> (divergência D1 em `docs/CAMPOS.md`). Isto não é migrar uma funcionalidade, é construir uma.
-> Num contexto de POC, é a primeira candidata a ficar para depois: a declaração de veracidade,
-> gravada com data/hora de servidor e IP, cobre o mesmo terreno probatório a custo quase zero.
+> **Context the screenshots added:** step 7 of the current form is only a "Declaração Final"
+> with a checkbox and the Submit button — **there is no signature at all today**
+> (divergence D1 in `docs/CAMPOS.md`). This is not migrating a feature, it is building one.
+> In a POC context it is the first candidate to be deferred: the declaration of truthfulness,
+> recorded with a server date/time and IP, covers the same evidentiary ground at almost zero cost.
 
-## Recomendação: construir in-house na v1 (`signature_pad` + `pdf-lib`)
+## Recommendation: build in-house for v1 (`signature_pad` + `pdf-lib`)
 
-1. Nenhuma das duas opções produz assinatura **qualificada** (QES) por si só — DocuSeal e
-   in-house dão ambos assinatura eletrónica **simples**. Integrar não compra força legal.
-2. Para o que o passo 7 é (aceitação de proposta e T&C por uma única parte, no fim de um
-   fluxo que já controlamos de ponta a ponta), a SES com trilho de auditoria é o padrão
-   corrente no setor e é admissível como prova nos termos do art. 25.º do eIDAS.
-3. O trabalho marginal é pequeno: o brief já exige `pdf-lib` + `@react-pdf/renderer` para o
-   dossier, hash SHA-256, IP, user-agent e timestamp de servidor. A assinatura acrescenta
-   um canvas e a estampagem da imagem numa página. É trabalho de dias, não de semanas.
-4. DocuSeal traz um segundo serviço para operar: Docker, Postgres próprio, storage, backups,
-   atualizações — e um segundo sítio onde vivem dados pessoais de clientes, sujeito à mesma
-   retenção de 7 anos e aos mesmos pedidos de apagamento. Duplica a superfície de compliance,
-   que é a parte cara deste projeto, não o código.
-5. O valor real do DocuSeal é multi-parte, roteamento de destinatários e colocação visual de
-   campos no PDF. A v1 não precisa de nada disso.
-6. Licenciamento: DocuSeal e Documenso são **AGPL-3.0**. Usar como serviço separado via API é
-   o caso normal, mas AGPL num produto interno de uma sociedade de advogados é uma conversa
-   que vale a pena ter com quem decide, não uma nota de rodapé técnica.
-7. Contra o in-house: perdemos a UX de colocação de campos, os lembretes automáticos de
-   assinatura e o suporte multi-parte — tudo coisas que vamos querer quando chegar o módulo
-   de gestão processual (procurações, contratos de honorários com várias partes).
-8. Contra o in-house, parte 2: o trilho de auditoria de conformidade passa a ser código nosso,
-   e portanto responsabilidade nossa de o manter correto. É exatamente por isso que o brief
-   manda encadear os hashes de `evento_auditoria` — essa peça tem de estar bem feita.
-9. **Mitigação:** modelamos `assinatura` seguindo o vocabulário do Documenso
-   (`Document` / `Recipient` / `Field` / `AuditLog`), mesmo com um só destinatário e um só
-   campo na v1. Trocar por DocuSeal, Documenso ou um QTSP depois é adaptador, não migração.
-10. **Gatilho para reavaliar:** no dia em que aparecer assinatura multi-parte, ou em que o
-    negócio exigir assinatura qualificada (Chave Móvel Digital / Cartão de Cidadão via QTSP
-    português), a decisão inverte-se — e nessa altura o candidato é o Documenso, pelo PAdES,
-    não o DocuSeal.
+1. Neither option produces a **qualified** signature (QES) on its own — DocuSeal and in-house
+   both yield a **simple** electronic signature. Integrating buys no legal strength.
+2. For what step 7 actually is (acceptance of a proposal and T&C by a single party, at the end of
+   a flow we already control end to end), SES with an audit trail is the current standard in the
+   sector and is admissible as evidence under article 25 of eIDAS.
+3. The marginal work is small: the brief already requires `pdf-lib` + `@react-pdf/renderer` for
+   the case file, SHA-256 hash, IP, user-agent and server timestamp. The signature adds a canvas
+   and stamping the image onto a page. That is days of work, not weeks.
+4. DocuSeal brings a second service to operate: Docker, its own Postgres, storage, backups,
+   updates — and a second place where clients' personal data lives, subject to the same 7-year
+   retention and the same erasure requests. It doubles the compliance surface, which is the
+   expensive part of this project, not the code.
+5. DocuSeal's real value is multi-party, recipient routing and visual field placement on the PDF.
+   v1 needs none of that.
+6. Licensing: DocuSeal and Documenso are **AGPL-3.0**. Using them as a separate service via API is
+   the normal case, but AGPL inside an internal product of a law firm is a conversation worth
+   having with the decision-makers, not a technical footnote.
+7. Against in-house: we lose the field-placement UX, the automatic signature reminders and
+   multi-party support — all things we will want once the matter-management module arrives
+   (powers of attorney, fee agreements with several parties).
+8. Against in-house, part 2: the compliance audit trail becomes our code, and therefore our
+   responsibility to keep correct. That is exactly why the brief mandates chaining the
+   `evento_auditoria` hashes — that piece has to be done properly.
+9. **Mitigation:** we model `assinatura` following Documenso's vocabulary
+   (`Document` / `Recipient` / `Field` / `AuditLog`), even with a single recipient and a single
+   field in v1. Swapping to DocuSeal, Documenso or a QTSP later is an adapter, not a migration.
+10. **Trigger to reassess:** the day multi-party signing appears, or the business requires a
+    qualified signature (Chave Móvel Digital / Cartão de Cidadão via a Portuguese QTSP), the
+    decision flips — and at that point the candidate is Documenso, for PAdES, not DocuSeal.
 
-## O que isto implica no schema
+## What this implies for the schema
 
-`assinatura` guarda: `processo_id`, `tipo` (`simples` na v1, deixa espaço para `avancada`/
-`qualificada`), imagem da rubrica (chave de storage privado, nunca o dataURL na BD),
-`hash_documento` (SHA-256 do PDF final), `ip`, `user_agent`, `assinado_em` (timestamp do
-**servidor**), e `metadados` JSONB para o que um fornecedor externo vier a devolver.
+`assinatura` stores: `processo_id`, `tipo` (`simples` in v1, leaving room for `avancada`/
+`qualificada`), the signature image (private storage key, never the dataURL in the database),
+`hash_documento` (SHA-256 of the final PDF), `ip`, `user_agent`, `assinado_em` (**server**
+timestamp), and `metadados` JSONB for whatever an external provider ends up returning.
 
-## Dependência a acrescentar ao §1
+## Dependency to add to §1
 
-`signature_pad` — está listada em §2 como referência, mas não em §1 como stack. É a
-biblioteca do canvas de rubrica. ~12 kB, sem dependências. Confirma que aprovas.
+`signature_pad` — it is listed in §2 as a reference, but not in §1 as part of the stack. It is the
+signature canvas library. ~12 kB, no dependencies. Please confirm you approve.

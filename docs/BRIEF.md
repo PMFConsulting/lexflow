@@ -1,305 +1,308 @@
-# PROMPT — Plataforma de Processos Jurídicos · Módulo 1: Onboarding de Clientes
+# PROMPT — Legal Matter Platform · Module 1: Client Onboarding
 
-> Antes de começares, coloca os 7 screenshots em `docs/onboarding-screens/` — o Claude Code deve lê-los e validar cada campo contra a imagem correspondente.
+> Before you start, put the 7 screenshots in `docs/onboarding-screens/` — Claude Code must read them and validate each field against the corresponding image.
 
 ---
 
-## 0. Contexto
+## 0. Context
 
-Estou a construir uma plataforma interna para centralizar os processos de uma sociedade de advogados / consultoria jurídica (PMF Consulting). Hoje o onboarding de clientes vive num formulário disperso e a informação não fica acessível de forma estruturada.
+I am building an internal platform to centralise the matters of a law firm / legal consultancy (PMF Consulting). Today, client onboarding lives in a scattered form and the information does not end up accessible in a structured way.
 
-**Âmbito desta primeira entrega: só o módulo de Onboarding.** Nada de faturação, gestão processual, timesheets ou agenda. Mas a arquitetura tem de assumir que esses módulos vão chegar — é uma plataforma modular, não uma app de um formulário.
+**Scope of this first delivery: the Onboarding module only.** No billing, matter management, timesheets or calendar. But the architecture has to assume those modules are coming — this is a modular platform, not a single-form app.
 
-**Requisito não negociável:** tem de existir um back-office onde eu consulto, filtro, abro e giro todos os records submetidos. Um formulário que só envia um email não serve.
+**Non-negotiable requirement:** there has to be a back-office where I can view, filter, open and manage every submitted record. A form that only sends an email will not do.
 
-**Natureza do domínio:** isto é KYC/AML. Está sujeito à Lei 83/2017 (prevenção do branqueamento de capitais e financiamento do terrorismo), ao Regulamento 2/2020 da Ordem dos Advogados e ao RGPD. Implicações técnicas concretas: trilho de auditoria imutável, retenção mínima de 7 anos, dados especialmente sensíveis (PPE, origem de fundos), consentimentos com prova de data/hora, e direito ao apagamento que **não** pode apagar o que a lei obriga a conservar. Trata isto como requisito funcional, não como disclaimer no rodapé.
+**Nature of the domain:** this is KYC/AML. It is subject to Lei 83/2017 (prevention of money laundering and terrorist financing), Bar Association Regulation 2/2020 and the GDPR. Concrete technical implications: immutable audit trail, minimum 7-year retention, especially sensitive data (PEP, source of funds), consents with date/time evidence, and a right to erasure that **cannot** delete what the law requires to be kept. Treat this as a functional requirement, not as a footer disclaimer.
 
 ---
 
 ## 1. Stack
 
-Usa exatamente isto, salvo se encontrares um bloqueio real (nesse caso pergunta antes de trocar):
+Use exactly this, unless you hit a real blocker (in which case ask before swapping):
 
-| Camada | Escolha | Porquê |
+| Layer | Choice | Why |
 |---|---|---|
-| Framework | **Next.js 15+ (App Router) + TypeScript strict** | Server Actions evitam metade da camada de API; RSC dá-nos tabelas server-side sem esforço |
-| UI | **Tailwind CSS + shadcn/ui** | Componentes que possuímos no repo, não uma dependência que não conseguimos alterar |
-| Formulários | **React Hook Form + Zod** | Um único schema Zod por passo, partilhado entre cliente e servidor |
-| Base de dados | **PostgreSQL** (Neon ou Supabase) | Precisamos de JSONB, RLS e full-text search em português |
-| ORM | **Drizzle ORM** + drizzle-kit migrations | Migrações versionadas em SQL legível — importante para auditoria |
-| Auth | **Better Auth** (ou Auth.js se preferires) com email+password, MFA por TOTP e sessões em BD | Advogados com MFA obrigatório |
-| Tabelas | **TanStack Table v8** com paginação/ordenação/filtros server-side | Volume vai crescer; nunca carregar tudo no cliente |
-| Estado de URL | **nuqs** | Filtros do back-office partilháveis por link |
-| Ficheiros | **UploadThing** ou S3/R2 com URLs assinados de curta duração | Documentos de identificação nunca em bucket público |
-| PDF | **pdf-lib** (montagem) + **@react-pdf/renderer** (geração) | Dossier final assinado |
-| Email | **Resend** + React Email | Convites, lembretes, confirmações |
-| Validação PT | Implementa tu (NIF/NIPC mod-11, IBAN mod-97, código postal) | As libs que existem são de 1 estrela; o algoritmo são 15 linhas |
-| Testes | Vitest (unit) + Playwright (E2E do fluxo completo) | O fluxo de 7 passos tem de ter um E2E que o percorre de ponta a ponta |
-| i18n | `next-intl` — **pt-PT como default**, EN como segundo locale | Clientes internacionais aparecem sempre |
+| Framework | **Next.js 15+ (App Router) + TypeScript strict** | Server Actions avoid half the API layer; RSC gives us server-side tables effortlessly |
+| UI | **Tailwind CSS + shadcn/ui** | Components we own in the repo, not a dependency we cannot change |
+| Forms | **React Hook Form + Zod** | A single Zod schema per step, shared between client and server |
+| Database | **PostgreSQL** (Neon or Supabase) | We need JSONB, RLS and Portuguese full-text search |
+| ORM | **Drizzle ORM** + drizzle-kit migrations | Versioned migrations in readable SQL — important for auditing |
+| Auth | **Better Auth** (or Auth.js if you prefer) with email+password, TOTP MFA and DB sessions | Lawyers with mandatory MFA |
+| Tables | **TanStack Table v8** with server-side pagination/sorting/filtering | Volume will grow; never load everything on the client |
+| URL state | **nuqs** | Back-office filters shareable by link |
+| Files | **UploadThing** or S3/R2 with short-lived signed URLs | Identification documents never in a public bucket |
+| PDF | **pdf-lib** (assembly) + **@react-pdf/renderer** (generation) | Final signed case file |
+| Email | **Resend** + React Email | Invitations, reminders, confirmations |
+| PT validation | Implement it yourself (tax number mod-11, IBAN mod-97, postcode) | The existing libraries are one-star; the algorithm is 15 lines |
+| Tests | Vitest (unit) + Playwright (E2E of the complete flow) | The 7-step flow has to have an E2E that walks it end to end |
+| i18n | `next-intl` — **pt-PT as default**, EN as second locale | International clients always show up |
 
-Monorepo não é preciso. App única, `pnpm`.
-
----
-
-## 2. Repositórios GitHub de referência
-
-Não clones nenhum como base do projeto. Faz scaffold limpo e vai buscar padrões específicos a cada um:
-
-**Base do back-office**
-
-- `Kiranism/next-shadcn-dashboard-starter` (6.7k ⭐) — **a referência principal.** Next.js + shadcn + TanStack. Copia a estrutura de layout (sidebar, breadcrumbs, command palette) e o padrão de parallel routes.
-- `satnaing/shadcn-admin` (12.7k ⭐) — melhor sistema de navegação e organização de features por pasta. Rouba a arquitetura de `features/`.
-- `arhamkhnz/next-shadcn-admin-dashboard` (2.8k ⭐) — bom exemplo de theming multi-preset.
-
-**Tabelas de records (o requisito crítico)**
-
-- `sadmann7/tablecn` (6.2k ⭐) — **estuda este a sério.** Data table com filtros avançados, ordenação e paginação server-side com estado na URL. É exatamente o que preciso na listagem de processos.
-- `openstatusHQ/data-table-filters` (2.1k ⭐) — filtros facetados + infinite scroll. Rouba o padrão de filtros facetados com contagens.
-
-**Assinatura digital**
-
-- `documenso/documenso` (14.2k ⭐) — **a referência de conformidade.** PAdES, certificados, trilho de auditoria. Ou integramos via API self-hosted, ou copiamos o modelo de dados de `Document`/`Recipient`/`Field`/`AuditLog`.
-- `docusealco/docuseal` (18.1k ⭐) — melhor UX de colocação de campos no PDF. Tem API REST e imagem Docker — a via mais rápida se quisermos integrar em vez de construir.
-- `OpenSignLabs/OpenSign` (6.7k ⭐) — alternativa com foco explícito em legaltech.
-- `szimek/signature_pad` (12k ⭐) — canvas de assinatura manuscrita. Para a assinatura simples do passo 7 na v1.
-
-**Formulários multi-passo / recolha de dados**
-
-- `formbricks/formbricks` (12.7k ⭐) — estuda como modelam `Survey → Question → Response` com respostas em JSONB e lógica condicional. O nosso onboarding vai precisar de lógica condicional (particular vs. empresa, PPE sim/não).
-
-**Decisão de arquitetura que quero que tomes na Fase 0 e me apresentes:** construir a assinatura in-house com `signature_pad` + `pdf-lib`, ou integrar DocuSeal self-hosted via API. Dá-me prós/contras em 10 linhas antes de escreveres código.
+A monorepo is not needed. Single app, `pnpm`.
 
 ---
 
-## 3. Direção de design
+## 2. Reference GitHub repositories
 
-Não quero um dashboard genérico. Quero que pareça uma peça de software jurídico sério — sóbrio, denso, preciso, com a autoridade de um documento oficial.
+Do not clone any of them as the project base. Scaffold clean and take specific patterns from each:
 
-**Referência mental:** um dossier de processo. Lombada, capilhas numeradas, carimbos, referências tipografadas em mono. Não é decoração — cada elemento codifica estado real.
+**Back-office base**
+
+- `Kiranism/next-shadcn-dashboard-starter` (6.7k ⭐) — **the main reference.** Next.js + shadcn + TanStack. Copy the layout structure (sidebar, breadcrumbs, command palette) and the parallel routes pattern.
+- `satnaing/shadcn-admin` (12.7k ⭐) — better navigation system and per-folder feature organisation. Steal the `features/` architecture.
+- `arhamkhnz/next-shadcn-admin-dashboard` (2.8k ⭐) — good example of multi-preset theming.
+
+**Record tables (the critical requirement)**
+
+- `sadmann7/tablecn` (6.2k ⭐) — **study this one seriously.** Data table with advanced filters, server-side sorting and pagination with state in the URL. It is exactly what I need in the matter listing.
+- `openstatusHQ/data-table-filters` (2.1k ⭐) — faceted filters + infinite scroll. Steal the faceted-filters-with-counts pattern.
+
+**Digital signature**
+
+- `documenso/documenso` (14.2k ⭐) — **the compliance reference.** PAdES, certificates, audit trail. Either we integrate via a self-hosted API, or we copy the `Document`/`Recipient`/`Field`/`AuditLog` data model.
+- `docusealco/docuseal` (18.1k ⭐) — better UX for placing fields on the PDF. It has a REST API and a Docker image — the fastest route if we want to integrate rather than build.
+- `OpenSignLabs/OpenSign` (6.7k ⭐) — alternative with an explicit legaltech focus.
+- `szimek/signature_pad` (12k ⭐) — handwritten signature canvas. For the simple step 7 signature in v1.
+
+**Multi-step forms / data capture**
+
+- `formbricks/formbricks` (12.7k ⭐) — study how they model `Survey → Question → Response` with answers in JSONB and conditional logic. Our onboarding will need conditional logic (individual vs. company, PEP yes/no).
+
+**Architecture decision I want you to make in Phase 0 and present to me:** build the signature in-house with `signature_pad` + `pdf-lib`, or integrate self-hosted DocuSeal via API. Give me pros/cons in 10 lines before writing code.
+
+---
+
+## 3. Design direction
+
+I do not want a generic dashboard. I want it to look like a serious piece of legal software — sober, dense, precise, with the authority of an official document.
+
+**Mental reference:** a case file dossier. Spine, numbered tabs, stamps, references typeset in mono. It is not decoration — each element encodes real state.
 
 ### Tokens
 
 ```css
---tinta:        #101A24;  /* texto principal, sidebar */
---tinta-suave:  #5C6672;  /* secundário, labels */
---papel:        #EDEFEA;  /* fundo — papel de arquivo, não creme */
---papel-alto:   #FFFFFF;  /* superfícies elevadas, cards */
---selo:         #8C2F39;  /* carmim de carimbo — ações destrutivas, estado crítico */
---arquivo:      #2F5D50;  /* verde-arquivo — validado, aprovado */
---latao:        #A9884F;  /* latão — pendente, atenção, detalhes finos */
---linha:        #D6DAD2;  /* réguas e divisórias, 1px, sempre */
+--tinta:        #101A24;  /* primary text, sidebar */
+--tinta-suave:  #5C6672;  /* secondary, labels */
+--papel:        #EDEFEA;  /* background — archive paper, not cream */
+--papel-alto:   #FFFFFF;  /* elevated surfaces, cards */
+--selo:         #8C2F39;  /* stamp crimson — destructive actions, critical state */
+--arquivo:      #2F5D50;  /* archive green — validated, approved */
+--latao:        #A9884F;  /* brass — pending, attention, fine details */
+--linha:        #D6DAD2;  /* rules and dividers, 1px, always */
 ```
 
-Proibido: creme #F4F1EA com serifa alto-contraste e acento terracota. É o default de qualquer dashboard gerado por IA em 2026 e lê-se como tal.
+Forbidden: cream #F4F1EA with a high-contrast serif and a terracotta accent. It is the default of any AI-generated dashboard in 2026 and it reads as such.
 
-### Tipografia
+### Typography
 
-- **Display:** `Instrument Serif` ou `Newsreader` — títulos de secção e números de processo. Com contenção: só H1/H2.
-- **Corpo:** `Inter Tight` — formulários, tabelas, tudo o resto.
-- **Mono:** `IBM Plex Mono` — referências de processo, NIF, IBAN, hashes, timestamps de auditoria. Qualquer identificador é mono. Isto é uma regra, não uma sugestão.
+- **Display:** `Instrument Serif` or `Newsreader` — section titles and matter numbers. With restraint: H1/H2 only.
+- **Body:** `Inter Tight` — forms, tables, everything else.
+- **Mono:** `IBM Plex Mono` — matter references, tax numbers, IBANs, hashes, audit timestamps. Any identifier is mono. This is a rule, not a suggestion.
 
-Escala de tipo definida em `globals.css` com `clamp()`. Densidade de informação alta: `text-sm` como base nas tabelas, não `text-base`.
+Type scale defined in `globals.css` with `clamp()`. High information density: `text-sm` as the base in tables, not `text-base`.
 
-### Elemento-assinatura: a lombada do processo
+### Signature element: the matter spine
 
-Uma coluna vertical fixa à esquerda do formulário de onboarding que representa o dossier: os 7 passos numerados (aqui a numeração justifica-se — é uma sequência real e obrigatória), cada um com o seu estado. Quando um passo é validado e gravado, recebe um **carimbo** — um selo circular em `--selo` a 8% de opacidade, com a data/hora em mono lá dentro, aplicado com uma micro-animação de 180ms (rotação de 2–3°, como um carimbo real a bater no papel). É o único momento de animação com peso na aplicação. Tudo o resto é imediato e silencioso.
+A fixed vertical column to the left of the onboarding form representing the dossier: the 7 numbered steps (numbering is justified here — it is a real and mandatory sequence), each with its own state. When a step is validated and saved it receives a **stamp** — a circular seal in `--selo` at 8% opacity, with the date/time in mono inside it, applied with a 180ms micro-animation (2–3° rotation, like a real stamp hitting paper). It is the only animation moment with weight in the application. Everything else is immediate and silent.
 
-Na listagem de records, o mesmo vocabulário: cada processo mostra a referência em mono (`PMF-2026-0142`) e quantos dos 7 carimbos já tem.
+In the record listing, the same vocabulary: each matter shows the reference in mono (`PMF-2026-0142`) and how many of the 7 stamps it already has.
 
-### Piso de qualidade
+### Quality floor
 
-Responsivo até mobile (advogados abrem isto no telemóvel). Foco de teclado visível em todos os interativos. `prefers-reduced-motion` respeitado — sem o carimbo animado. Contraste AA mínimo. O formulário do cliente tem de funcionar em ecrãs de 360px.
+Responsive down to mobile (lawyers open this on their phones). Visible keyboard focus on every interactive element. `prefers-reduced-motion` respected — no animated stamp. AA contrast minimum. The client form has to work on 360px screens.
 
-### Escrita da interface
+### Interface writing
 
-Português europeu, registo profissional mas humano. Botões dizem o que fazem: "Guardar e continuar", não "Submeter". Erros explicam o que falhou e como corrigir: "O NIF tem de ter 9 dígitos e começar por 1, 2, 3, 5, 6, 8 ou 9", não "Valor inválido". Estados vazios convidam à ação.
+European Portuguese, professional but human register. Buttons say what they do: "Guardar e continuar", not "Submeter". Errors explain what failed and how to fix it: "O NIF tem de ter 9 dígitos e começar por 1, 2, 3, 5, 6, 8 ou 9", not "Valor inválido". Empty states invite action.
+
+(The UI copy examples above are quoted verbatim in Portuguese: all client-facing text stays in
+European Portuguese.)
 
 ---
 
-## 4. Modelo de dados
+## 4. Data model
 
-Desenha o schema Drizzle a partir disto. Tudo com `id` UUID v7, `created_at`, `updated_at`, e soft delete onde a lei obriga a reter.
+Design the Drizzle schema from this. Everything with a UUID v7 `id`, `created_at`, `updated_at`, and soft delete where the law requires retention.
 
 ```
-organizacao          — multi-tenant desde o dia 1 (a sociedade; mais tarde outras)
-utilizador           — advogados, assistentes, admin
-processo_onboarding  — a entidade central
-  ├─ referencia (PMF-{ano}-{sequencial}, único por organização)
+organizacao          — multi-tenant from day 1 (the firm; others later)
+utilizador           — lawyers, assistants, admin
+processo_onboarding  — the central entity
+  ├─ referencia (PMF-{year}-{sequence}, unique per organisation)
   ├─ tipo_cliente (particular | empresa)
   ├─ estado (rascunho | submetido | em_revisao | pendente_cliente | aprovado | rejeitado | arquivado)
   ├─ passo_atual (1..7)
   ├─ responsavel_id → utilizador
-  ├─ nivel_risco (baixo | medio | elevado)  ← calculado, ver §6
-  ├─ token_acesso_cliente (para link mágico de preenchimento)
+  ├─ nivel_risco (baixo | medio | elevado)  ← computed, see §6
+  ├─ token_acesso_cliente (for the magic fill-in link)
   ├─ expira_em
   └─ submetido_em, aprovado_em, aprovado_por
 
-dados_identificacao   } uma tabela por secção, 1:1 com processo.
-dados_fiscais         } Não metas tudo num JSONB gigante — precisamos de
-representante_legal   } pesquisar por NIF, filtrar por PPE, indexar nome.
-declaracao_ppe        } Campos verdadeiramente variáveis vão para uma
-consentimento_rgpd    } coluna `extra JSONB` dentro de cada tabela.
+dados_identificacao   } one table per section, 1:1 with the matter.
+dados_fiscais         } Do not put everything in one giant JSONB — we need to
+representante_legal   } search by tax number, filter by PEP, index the name.
+declaracao_ppe        } Genuinely variable fields go into an
+consentimento_rgpd    } `extra JSONB` column inside each table.
 dados_faturacao       }
 fecho_proposta        }
 
-documento             — ficheiros carregados (tipo, mime, tamanho, hash SHA-256, chave storage, validade)
-assinatura            — assinatura do passo 7 (imagem/certificado, IP, user-agent, hash do doc assinado)
-consentimento         — cada consentimento é uma linha própria (finalidade, versão do texto, data, IP, revogado_em)
-nota                  — notas internas por processo, com autor e timestamp
-evento_auditoria      — append-only, NUNCA update nem delete
+documento             — uploaded files (type, mime, size, SHA-256 hash, storage key, expiry)
+assinatura            — step 7 signature (image/certificate, IP, user-agent, hash of the signed doc)
+consentimento         — each consent is its own row (purpose, text version, date, IP, revoked_at)
+nota                  — internal notes per matter, with author and timestamp
+evento_auditoria      — append-only, NEVER update or delete
 ```
 
-**`evento_auditoria` é sagrado.** Toda a leitura de dados sensíveis, alteração de estado, download de documento e consentimento gera uma linha: `{processo_id, ator_id, acao, entidade, valor_anterior, valor_novo, ip, user_agent, criado_em}`. Sem update, sem delete — revoga essas permissões ao nível do Postgres se conseguires. Encadeia por hash (cada linha inclui o hash da anterior) para o registo ser verificavelmente íntegro.
+**`evento_auditoria` is sacred.** Every read of sensitive data, state change, document download and consent produces a row: `{processo_id, ator_id, acao, entidade, valor_anterior, valor_novo, ip, user_agent, criado_em}`. No update, no delete — revoke those permissions at the Postgres level if you can. Chain by hash (each row includes the previous row's hash) so the record is verifiably intact.
 
 ---
 
-## 5. O fluxo de onboarding — 7 passos
+## 5. The onboarding flow — 7 steps
 
-**Lê cada screenshot em `docs/onboarding-screens/` antes de implementar o passo correspondente e valida os campos contra a imagem.** O que se segue é o esqueleto e as regras; a imagem manda nos detalhes.
+**Read each screenshot in `docs/onboarding-screens/` before implementing the corresponding step and validate the fields against the image.** What follows is the skeleton and the rules; the image wins on the details.
 
-Regras transversais:
+Cross-cutting rules:
 
-- Guardar automaticamente como rascunho a cada passo concluído. O cliente tem de poder sair e voltar pelo link mágico.
-- Validação Zod por passo, no cliente e revalidada no servidor. Nunca confiar no cliente.
-- Cada passo é uma rota própria (`/onboarding/[token]/passo/[n]`), não um estado em memória. Refresh não pode perder dados.
-- Campos condicionais aparecem/desaparecem com base em respostas anteriores — sem saltos de layout bruscos.
+- Auto-save as a draft on each completed step. The client has to be able to leave and come back via the magic link.
+- Zod validation per step, on the client and revalidated on the server. Never trust the client.
+- Each step is its own route (`/onboarding/[token]/passo/[n]`), not in-memory state. A refresh must not lose data.
+- Conditional fields appear/disappear based on earlier answers — with no abrupt layout jumps.
 
-### Passo 1 — Identificação do cliente
+### Step 1 — Client identification
 
-Tipo de cliente (particular/empresa) — **esta escolha ramifica todo o resto do fluxo**. Nome completo ou denominação social, data de nascimento, nacionalidade, naturalidade, estado civil, profissão. Documento de identificação: tipo (CC / Passaporte / Título de residência), número, validade, país emissor. Morada completa com código postal validado no formato `NNNN-NNN`. Email e telemóvel com indicativo internacional.
+Client type (individual/company) — **this choice branches everything else in the flow**. Full name or legal name, date of birth, nationality, place of birth, marital status, occupation. Identification document: type (Citizen Card / Passport / Residence permit), number, expiry, issuing country. Full address with postcode validated in the `NNNN-NNN` format. Email and mobile with international dialling code.
 
-*Upload:* documento de identificação, frente e verso. Aviso automático se a validade for inferior a 3 meses.
+*Upload:* identification document, front and back. Automatic warning if the expiry is less than 3 months away.
 
-### Passo 2 — Identificação fiscal
+### Step 2 — Tax identification
 
-NIF/NIPC com validação de checksum mod-11. País de residência fiscal. Residências fiscais adicionais (CRS/FATCA) com TIN por jurisdição — array dinâmico. Para empresas: CAE, código de acesso à certidão permanente, regime de IVA.
+Tax number (individual/corporate) with mod-11 checksum validation. Country of tax residence. Additional tax residences (CRS/FATCA) with a TIN per jurisdiction — dynamic array. For companies: CAE code, permanent certificate access code, VAT regime.
 
-*Upload:* comprovativo de NIF / certidão permanente.
+*Upload:* tax number proof / permanent certificate.
 
-### Passo 3 — Representante legal
+### Step 3 — Legal representative
 
-Só relevante para empresas ou representação por procuração — **condicional ao passo 1**. Nome, qualidade/cargo, documento de identificação, NIF, contactos, âmbito dos poderes de representação. Código de acesso ao RCBE e identificação dos beneficiários efetivos (lista dinâmica: nome, NIF, % de participação, natureza do controlo).
+Only relevant for companies or representation under a power of attorney — **conditional on step 1**. Name, capacity/role, identification document, tax number, contacts, scope of the representation powers. RCBE access code and identification of beneficial owners (dynamic list: name, tax number, % holding, nature of control).
 
-*Upload:* procuração, ata de designação, comprovativo RCBE.
+*Upload:* power of attorney, appointment minutes, RCBE proof.
 
-### Passo 4 — PPE (Pessoa Politicamente Exposta)
+### Step 4 — PEP (Politically Exposed Person)
 
-O passo mais sensível. É PPE? Se sim: cargo, país, entidade, período de exercício. É familiar próximo ou pessoa com relações próximas de PPE? Se sim: relação e identificação da PPE. Origem dos fundos e origem do património (campos obrigatórios se PPE = sim). Declaração formal com aceitação explícita.
+The most sensitive step. Are they a PEP? If so: office, country, entity, period held. Are they a close family member or a person with close ties to a PEP? If so: relationship and identification of the PEP. Source of funds and source of wealth (mandatory fields if PEP = yes). Formal declaration with explicit acceptance.
 
-**Regra de negócio:** PPE = sim força `nivel_risco = elevado`, exige aprovação por utilizador com papel de sócio/admin, e bloqueia a aprovação automática. Isto não é opcional — é o que a lei exige.
+**Business rule:** PEP = yes forces `nivel_risco = elevado`, requires approval by a user with the partner/admin role, and blocks automatic approval. This is not optional — it is what the law requires.
 
-### Passo 5 — RGPD
+### Step 5 — GDPR
 
-Consentimentos **granulares e independentes**, um checkbox por finalidade — nunca um único "aceito tudo". Finalidades separadas: prestação do serviço jurídico, cumprimento de obrigações legais, faturação, comunicações de marketing (opt-in isolado, nunca pré-marcado). Informação sobre prazos de conservação, direitos do titular e contacto do EPD. Cada consentimento grava a versão exata do texto apresentado, data/hora, IP — porque daqui a 4 anos temos de conseguir provar o que a pessoa viu.
+**Granular and independent** consents, one checkbox per purpose — never a single "I accept everything". Separate purposes: provision of the legal service, compliance with legal obligations, billing, marketing communications (isolated opt-in, never pre-ticked). Information about retention periods, data subject rights and DPO contact. Each consent records the exact version of the text presented, date/time, IP — because in 4 years' time we have to be able to prove what the person saw.
 
-### Passo 6 — Dados para faturação
+### Step 6 — Billing details
 
-Denominação e NIF de faturação (com opção "igual aos dados fiscais" que copia), morada de faturação, email para envio de faturas, condições e periodicidade de pagamento, IBAN validado por mod-97 com apresentação em mono e espaçamento por grupos de 4, referência/PO interna do cliente.
+Billing legal name and tax number (with a "same as tax details" option that copies), billing address, email for sending invoices, payment terms and frequency, IBAN validated by mod-97 displayed in mono and spaced in groups of 4, client's internal reference/PO.
 
-### Passo 7 — Fecho, T&C e assinatura digital
+### Step 7 — Closing, T&C and digital signature
 
-Resumo da proposta (serviços contratados, modelo de honorários, valores). Aceitação dos Termos e Condições com scroll obrigatório até ao fim antes de o checkbox ativar. Aceitação da proposta. Assinatura digital.
+Proposal summary (contracted services, fee model, amounts). Acceptance of the Terms and Conditions with mandatory scrolling to the end before the checkbox activates. Acceptance of the proposal. Digital signature.
 
-Ao submeter: gerar o PDF do dossier completo (todos os passos + documentos anexados + página de assinatura), calcular SHA-256, gravar em `assinatura` com IP, user-agent e timestamp do servidor (nunca do cliente), enviar cópia por email ao cliente e notificar o responsável interno.
-
----
-
-## 6. Back-office — os records
-
-Esta é a metade da aplicação que não está nos screenshots e é a que mais me importa.
-
-**`/processos` — listagem**
-
-TanStack Table server-side. Colunas: referência (mono), cliente, tipo, estado (badge), nível de risco, responsável, progresso (7 carimbos), submetido em, última atividade. Filtros facetados com contagens: estado, tipo de cliente, nível de risco, responsável, intervalo de datas, PPE sim/não. Pesquisa global por nome, NIF e referência (full-text português com `unaccent`). Estado dos filtros na URL via nuqs. Ações em massa: atribuir responsável, exportar, arquivar. Exportação CSV e PDF — **cada exportação escreve no registo de auditoria**.
-
-**`/processos/[id]` — detalhe**
-
-Cabeçalho com referência, cliente, estado, nível de risco e ações. Tabs: Dados (as 7 secções, cada uma expansível e editável por quem tem permissão, com histórico de alterações campo a campo), Documentos (pré-visualização inline, download com URL assinado e registo de auditoria, alertas de validade), Auditoria (timeline completa, imutável, filtrável), Notas (internas, nunca visíveis ao cliente).
-
-Fluxo de revisão: aprovar, rejeitar com motivo obrigatório, devolver ao cliente com indicação dos campos a corrigir (gera novo link mágico e email automático).
-
-**`/` — painel**
-
-Contagens por estado, processos parados há mais de X dias, documentos de identificação a expirar nos próximos 60 dias, processos de risco elevado por aprovar, atividade recente. Sem gráficos decorativos — só o que me faz agir.
-
-**Motor de risco** (`lib/risco.ts`, função pura e testada): PPE, jurisdição de risco, estrutura societária opaca, documento próximo da validade, dados em falta. Devolve nível + fatores que o justificam. Mostra sempre o *porquê* ao lado do nível, nunca só o badge.
-
-**Papéis:** `admin` (tudo, incluindo gestão de utilizadores), `socio` (tudo nos processos, único que aprova risco elevado), `advogado` (processos atribuídos + criar), `assistente` (criar e editar, não aprova, não vê PPE nem origem de fundos). Aplica com Row Level Security no Postgres **e** guards na aplicação. Duas camadas.
+On submission: generate the PDF of the complete case file (all steps + attached documents + signature page), compute SHA-256, record it in `assinatura` with IP, user-agent and server timestamp (never the client's), email a copy to the client and notify the internal owner.
 
 ---
 
-## 7. Estrutura de pastas
+## 6. Back-office — the records
+
+This is the half of the application that is not in the screenshots and the one I care about most.
+
+**`/processos` — listing**
+
+Server-side TanStack Table. Columns: reference (mono), client, type, state (badge), risk level, owner, progress (7 stamps), submitted at, last activity. Faceted filters with counts: state, client type, risk level, owner, date range, PEP yes/no. Global search by name, tax number and reference (Portuguese full-text with `unaccent`). Filter state in the URL via nuqs. Bulk actions: assign owner, export, archive. CSV and PDF export — **every export writes to the audit log**.
+
+**`/processos/[id]` — detail**
+
+Header with reference, client, state, risk level and actions. Tabs: Data (the 7 sections, each expandable and editable by those with permission, with a field-by-field change history), Documents (inline preview, download with a signed URL and an audit record, expiry alerts), Audit (complete, immutable, filterable timeline), Notes (internal, never visible to the client).
+
+Review flow: approve, reject with a mandatory reason, return to the client indicating the fields to correct (generates a new magic link and an automatic email).
+
+**`/` — dashboard**
+
+Counts by state, matters stalled for more than X days, identification documents expiring in the next 60 days, high-risk matters awaiting approval, recent activity. No decorative charts — only what makes me act.
+
+**Risk engine** (`lib/risco.ts`, a pure and tested function): PEP, high-risk jurisdiction, opaque corporate structure, document close to expiry, missing data. Returns level + the factors that justify it. Always show the *why* next to the level, never just the badge.
+
+**Roles:** `admin` (everything, including user management), `socio` (everything on matters, the only one who approves high risk), `advogado` (assigned matters + create), `assistente` (create and edit, does not approve, does not see PEP or source of funds). Enforce with Row Level Security in Postgres **and** guards in the application. Two layers.
+
+---
+
+## 7. Folder structure
 
 ```
 src/
   app/
-    (auth)/                    login, mfa, recuperação
-    (backoffice)/              layout com sidebar
-      page.tsx                 painel
+    (auth)/                    login, mfa, recovery
+    (backoffice)/              layout with sidebar
+      page.tsx                 dashboard
       processos/
       processos/[id]/
       definicoes/
     (cliente)/
-      onboarding/[token]/      fluxo público autenticado por token
+      onboarding/[token]/      public flow authenticated by token
     api/
-  features/                    ← organiza por domínio, não por tipo de ficheiro
+  features/                    ← organise by domain, not by file type
     onboarding/                schemas/, componentes/, actions/, queries/
     processos/
     documentos/
     auditoria/
     risco/
   components/ui/               shadcn
-  components/                  partilhados da app (Carimbo, RefProcesso, EstadoBadge…)
+  components/                  app-wide shared (Carimbo, RefProcesso, EstadoBadge…)
   db/                          schema/, migrations/, index.ts
   lib/                         validacao-pt.ts, auth.ts, storage.ts, pdf.ts, email.ts
 docs/
-  onboarding-screens/          os 7 screenshots
-  BRIEF.md                     este ficheiro
+  onboarding-screens/          the 7 screenshots
+  BRIEF.md                     this file
 CLAUDE.md
 ```
 
 ---
 
-## 8. Plano de execução
+## 8. Execution plan
 
-Não escrevas código antes da Fase 0 estar validada comigo.
+Do not write code before Phase 0 is validated with me.
 
-**Fase 0 — Análise.** Lê os 7 screenshots. Produz `docs/CAMPOS.md` com o inventário completo campo a campo: nome, tipo, obrigatoriedade, validação, condicionalidade, e a que tabela pertence. Marca claramente o que é ambíguo na imagem. Propõe o schema Drizzle. Dá-me a recomendação sobre assinatura digital (§2). **Pára e espera aprovação.**
+**Phase 0 — Analysis.** Read the 7 screenshots. Produce `docs/CAMPOS.md` with the complete field-by-field inventory: name, type, mandatory status, validation, conditionality, and which table it belongs to. Clearly mark what is ambiguous in the image. Propose the Drizzle schema. Give me the recommendation on the digital signature (§2). **Stop and wait for approval.**
 
-**Fase 1 — Fundações.** Scaffold, Tailwind + shadcn, design tokens do §3, layout do back-office, auth com MFA, schema + migrações, seeds de desenvolvimento.
+**Phase 1 — Foundations.** Scaffold, Tailwind + shadcn, §3 design tokens, back-office layout, auth with MFA, schema + migrations, development seeds.
 
-**Fase 2 — Fluxo de onboarding.** Os 7 passos, schemas Zod, rascunho automático, lógica condicional, uploads, a lombada com carimbos. E2E Playwright do percurso completo particular e empresa.
+**Phase 2 — Onboarding flow.** The 7 steps, Zod schemas, automatic draft saving, conditional logic, uploads, the spine with stamps. Playwright E2E of the complete individual and company paths.
 
-**Fase 3 — Back-office.** Listagem com filtros, detalhe com tabs, fluxo de revisão, motor de risco, auditoria, permissões e RLS.
+**Phase 3 — Back-office.** Listing with filters, detail with tabs, review flow, risk engine, audit trail, permissions and RLS.
 
-**Fase 4 — Fecho.** Geração do PDF do dossier, assinatura, emails transacionais, exportações, painel.
+**Phase 4 — Closing.** Case file PDF generation, signature, transactional emails, exports, dashboard.
 
-Ao fim de cada fase: `pnpm build` limpo, `pnpm test` verde, e um resumo do que ficou feito e do que ficou por decidir.
-
----
-
-## 9. Critérios de aceitação
-
-- [ ] Um cliente completa os 7 passos num telemóvel de 360px, sai a meio, volta pelo link e não perde nada.
-- [ ] O caminho "empresa + PPE" pede representante legal, beneficiários efetivos e origem de fundos, e marca risco elevado.
-- [ ] O caminho "particular + não PPE" salta o passo 3 sem o deixar num limbo confuso.
-- [ ] NIF, IBAN e código postal inválidos são rejeitados com mensagem que diz como corrigir.
-- [ ] Nenhum documento é acessível por URL público. Todo o download fica registado.
-- [ ] `evento_auditoria` não aceita UPDATE nem DELETE, e a cadeia de hashes é verificável por um script.
-- [ ] Um `assistente` não consegue ver o passo 4 nem por URL direto nem por chamada à API.
-- [ ] Consigo filtrar a listagem por "risco elevado + por aprovar", partilhar esse URL, e o colega vê o mesmo.
-- [ ] O PDF final contém as 7 secções, os anexos e a página de assinatura com hash e timestamp.
-- [ ] `pnpm build` sem erros de TypeScript. `strict: true`, zero `any`.
+At the end of each phase: `pnpm build` clean, `pnpm test` green, and a summary of what was done and what is left to decide.
 
 ---
 
-## 10. Regras para ti, Claude Code
+## 9. Acceptance criteria
 
-1. **Pergunta antes de assumir.** Se um campo do screenshot é ambíguo, lista a ambiguidade em vez de inventar.
-2. **Nada de dados fictícios em produção.** Seeds só em `db/seed.dev.ts`, com guard de `NODE_ENV`.
-3. **Server Actions com validação Zod no servidor sempre.** A validação do cliente é UX; a do servidor é segurança.
-4. **Segredos só em `.env`,** `.env.example` documentado, nunca commitados.
-5. **Commits pequenos e descritivos em português,** um por unidade lógica.
-6. **Mantém `CLAUDE.md` atualizado** com decisões de arquitetura e comandos, à medida que avanças.
-7. **Não instales dependências que não estejam no §1** sem me explicares porquê.
-8. **Quando fizeres uma escolha de design não coberta pelo §3, diz qual foi e porquê** numa linha.
+- [ ] A client completes the 7 steps on a 360px phone, leaves halfway, comes back via the link and loses nothing.
+- [ ] The "company + PEP" path asks for a legal representative, beneficial owners and source of funds, and flags high risk.
+- [ ] The "individual + non-PEP" path skips step 3 without leaving it in a confusing limbo.
+- [ ] Invalid tax numbers, IBANs and postcodes are rejected with a message that says how to fix them.
+- [ ] No document is accessible via a public URL. Every download is recorded.
+- [ ] `evento_auditoria` accepts neither UPDATE nor DELETE, and the hash chain is verifiable by a script.
+- [ ] An `assistente` cannot see step 4, neither by direct URL nor by API call.
+- [ ] I can filter the listing by "high risk + awaiting approval", share that URL, and a colleague sees the same thing.
+- [ ] The final PDF contains the 7 sections, the attachments and the signature page with hash and timestamp.
+- [ ] `pnpm build` with no TypeScript errors. `strict: true`, zero `any`.
+
+---
+
+## 10. Rules for you, Claude Code
+
+1. **Ask before assuming.** If a field in the screenshot is ambiguous, list the ambiguity instead of inventing.
+2. **No fictional data in production.** Seeds only in `db/seed.dev.ts`, with a `NODE_ENV` guard.
+3. **Server Actions with Zod validation on the server, always.** Client validation is UX; server validation is security.
+4. **Secrets only in `.env`,** `.env.example` documented, never committed.
+5. **Small, descriptive commits in Portuguese,** one per logical unit.
+6. **Keep `CLAUDE.md` up to date** with architecture decisions and commands, as you go.
+7. **Do not install dependencies that are not in §1** without explaining why to me.
+8. **When you make a design choice not covered by §3, say what it was and why** in one line.

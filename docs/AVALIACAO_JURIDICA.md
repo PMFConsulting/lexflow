@@ -1,180 +1,180 @@
-# Avaliação de conformidade jurídica — POC JMASSANO
+# Legal compliance assessment — JMASSANO POC
 
-Análise do código feita pelo Opus 5 (leitura direta do repositório, 19/08/2026).
-Cada afirmação tem caminho de ficheiro. Fonte: `src/` (features, db/schema, lib, app).
-
----
-
-## 1. RGPD (Reg. 2016/679)
-
-**✅ Existe**
-- Consentimentos granulares e com prova: `consentimento` (FK para `versao_texto_legal`, `aceite`, `aceite_em`, `ip`, `user_agent`, `revogado_em`) — `src/db/schema/legal.ts:42`. Texto versionado e imutável com hash SHA-256 — `legal.ts:22`.
-- Newsletter e convites são consentimentos separados, com textos distintos e duas gravações independentes — `src/features/onboarding/consentimentos.ts:26-37` e `src/features/onboarding/acoes.ts:382,390`. Enum `finalidade_consentimento` exclui deliberadamente prestação do serviço e obrigação legal — `src/db/schema/enums.ts:73`.
-- Revogação modela-se sem apagar histórico — `consentimentos.ts:141-168`.
-- Procura do texto por chave e versão (D38) — `consentimentos.ts:58`.
-- Cabeçalhos de segurança (HSTS, nosniff, X-Frame-Options, Referrer-Policy) — `next.config.ts:23`.
-- Cookies: só os estritamente necessários (sessão Better Auth + `sidebar_state`, `src/components/ui/sidebar.tsx:27`). Não há tracking → banner não é exigível.
-
-**❌ Falta**
-- Aceitação dos T&C e da proposta não gera linha em `consentimento`. São booleanos em `fecho_proposta.tc_aceitacao` / `proposta_aceitacao` (`src/db/schema/seccoes.ts:264`). O enum tem `termos_condicoes` e `proposta`, mas o mapa `TEXTOS` em `consentimentos.ts:25` não os inclui → nunca são escritos, e `VERSAO_TERMOS` (`src/lib/termos.ts:18`) não é gravada em parte nenhuma da BD. Não se consegue provar que articulado o cliente aceitou. Módulo: `consentimentos.ts` + `acoes.ts` case 7.
-- Nenhuma política de privacidade / informação do art. 13.º apresentada antes da recolha. Não existe `/politica-privacidade`; o único texto é a cláusula 5 dos T&C (`termos.ts:59`), mostrada no passo 7, depois de todos os dados recolhidos.
-- Nenhuma via de exercício de direitos. Sem rota, acção ou script de acesso, retificação, apagamento, limitação, oposição ou portabilidade. O cliente também não tem forma de retirar o consentimento da newsletter depois de submeter (o link mágico expira aos 30 dias — `src/features/processos/acoes.ts:133`).
-- Retenção de 7 anos não implementada. `softDelete()` apenas esconde (`src/db/schema/_comum.ts:27`); não há coluna de "termo da relação de negócio", nem job/cron, nem script de expurgo ou anonimização. Os T&C prometem eliminação aos 7 anos (`termos.ts:64`) — promessa hoje sem execução.
-- Sem ROPA (art. 30.º) e sem AIPD/DPIA (art. 35.º). `docs/` não tem nenhum dos dois.
-- Sem encarregado de proteção de dados nem contacto de privacidade: `organizacao` tem só nome, NIF e prefixo (`src/db/schema/organizacao.ts:14`).
-- Subcontratantes sem contrato art. 28.º nem análise de transferência: canais `resend` / `brevo` / `mailjet` / `smtp` (`enums.ts:132`); o Resend é entidade norte-americana e recebe nome + email de clientes.
-- Minimização: `email_log` (migração `0008`) guarda destinatários sem prazo de purga definido.
-
-**Prioridade: Alta** (política de privacidade, direitos, consentimento dos T&C, retenção) · **Esforço: 8–11 dias**
+Code analysis performed by Opus 5 (direct reading of the repository, 19/08/2026).
+Every statement carries a file path. Source: `src/` (features, db/schema, lib, app).
 
 ---
 
-## 2. Lei 83/2017 (branqueamento de capitais)
+## 1. GDPR (Reg. 2016/679)
 
-**✅ Existe**
-- Declaração PPE completa, incluindo PPE relacionada e família próxima — `src/db/schema/seccoes.ts:164`; passo 4 obrigatório (`src/features/onboarding/passos.ts:36`).
-- Origem de fundos e serviços contratados, obrigatórios sempre — `seccoes.ts:186`.
-- Identificação com documento (tipo, número, validade), NIF com mod-11 — `seccoes.ts:68`, `src/lib/validacao-pt.ts`.
-- Motor de risco com PPE a forçar risco elevado, e reposição auditada (`risco.elevado` / `risco.reposto`, `acoes.ts:314,331`).
-- Representante legal obrigatório para pessoa coletiva — `passos.ts:83`.
-- Auditoria imutável como suporte do dever de conservação.
+**✅ Present**
+- Granular consents with evidence: `consentimento` (FK to `versao_texto_legal`, `aceite`, `aceite_em`, `ip`, `user_agent`, `revogado_em`) — `src/db/schema/legal.ts:42`. Versioned, immutable text with a SHA-256 hash — `legal.ts:22`.
+- Newsletter and invitations are separate consents, with distinct texts and two independent writes — `src/features/onboarding/consentimentos.ts:26-37` and `src/features/onboarding/acoes.ts:382,390`. The `finalidade_consentimento` enum deliberately excludes service provision and legal obligation — `src/db/schema/enums.ts:73`.
+- Revocation is modelled without deleting history — `consentimentos.ts:141-168`.
+- Text lookup by key and version (D38) — `consentimentos.ts:58`.
+- Security headers (HSTS, nosniff, X-Frame-Options, Referrer-Policy) — `next.config.ts:23`.
+- Cookies: only strictly necessary ones (Better Auth session + `sidebar_state`, `src/components/ui/sidebar.tsx:27`). There is no tracking → a banner is not required.
 
-**❌ Falta**
-- Beneficiário efetivo sem UI. A tabela existe (`seccoes.ts:147`) e o campo `codigoRcbe` também (`seccoes.ts:135`), mas nenhum componente os escreve — `beneficiario` só aparece em `db/schema`. Para pessoas coletivas é incumprimento direto do dever de identificação (art. 23.º e 30.º).
-- Sem verificação da identificação — o sistema recolhe o documento mas não valida contra fonte independente (certidão permanente, RCBE, listas de sanções/PPE). O dever é de identificação e comprovação (art. 24.º).
-- Sem registo de comunicação de operações suspeitas (art. 43.º-45.º): nenhuma tabela, acção ou ecrã. Também não há registo de recusa de relação de negócio.
-- Sem diligência contínua / atualização periódica (art. 27.º): há índice em `docValidade` e alerta previsto, mas nenhum mecanismo de revisão dos dados ao fim de N anos.
-- Conservação de 7 anos: prevista em comentário, não executada.
+**❌ Missing**
+- Accepting the T&C and the proposal does not produce a row in `consentimento`. They are booleans in `fecho_proposta.tc_aceitacao` / `proposta_aceitacao` (`src/db/schema/seccoes.ts:264`). The enum has `termos_condicoes` and `proposta`, but the `TEXTOS` map in `consentimentos.ts:25` does not include them → they are never written, and `VERSAO_TERMOS` (`src/lib/termos.ts:18`) is not recorded anywhere in the DB. There is no way to prove which wording the client accepted. Module: `consentimentos.ts` + `acoes.ts` case 7.
+- No privacy policy / article 13 notice presented before collection. There is no `/politica-privacidade`; the only text is clause 5 of the T&C (`termos.ts:59`), shown at step 7, after all the data has been collected.
+- No channel for exercising data subject rights. No route, action or script for access, rectification, erasure, restriction, objection or portability. The client also has no way to withdraw the newsletter consent after submitting (the magic link expires after 30 days — `src/features/processos/acoes.ts:133`).
+- 7-year retention not implemented. `softDelete()` only hides (`src/db/schema/_comum.ts:27`); there is no "end of business relationship" column, no job/cron, and no purge or anonymisation script. The T&C promise deletion at 7 years (`termos.ts:64`) — a promise with no execution today.
+- No ROPA (article 30) and no DPIA (article 35). `docs/` has neither.
+- No data protection officer and no privacy contact: `organizacao` only has name, tax number and prefix (`src/db/schema/organizacao.ts:14`).
+- Processors without an article 28 contract and without a transfer assessment: channels `resend` / `brevo` / `mailjet` / `smtp` (`enums.ts:132`); Resend is a US entity and receives clients' names + emails.
+- Minimisation: `email_log` (migration `0008`) stores recipients with no defined purge deadline.
 
-**Prioridade: Alta** (beneficiário efetivo, comunicação de suspeitas) · **Esforço: 6–9 dias**
-
----
-
-## 3. eIDAS (Reg. 910/2014) / assinatura
-
-**✅ Existe**
-- Assinatura eletrónica simples: rubrica PNG + SHA-256 do dossier em serialização canónica + IP + user-agent + relógio do servidor — `src/features/onboarding/acoes.ts:412-434`, tabela `assinatura` em `src/db/schema/documentos.ts:63`.
-- Leitura obrigatória dos T&C antes de destrancar a caixa — `src/features/onboarding/componentes/LeitorTermos.tsx`.
-- Cadeia de auditoria encadeada por hash, append-only por `REVOKE` + `RULE` (migração `0002`), verificável por `pnpm auditoria:verificar` (`scripts/verificar-auditoria.ts`).
-
-**Avaliação jurídica.** A assinatura simples é admissível (art. 25.º/1 eIDAS: não pode ser recusada como prova só por ser eletrónica) e adequada para aceitação de T&C e de proposta de honorários — não há aqui forma legal escrita exigida. O valor probatório é livremente apreciado: em impugnação, o ónus é da sociedade. A cadeia de auditoria + hash do conteúdo é uma base sólida.
-
-**❌ Falta**
-- O hash não é selado no tempo. Sem carimbo temporal qualificado (RFC 3161 / TSA), a data provada é a do próprio sistema — e quem controla o servidor controla o relógio. Módulo: `lib/assinatura/timestamp.ts` novo, chamado em `acoes.ts` case 7.
-- O `hashDocumento` não cobre o texto dos T&C nem a proposta — só as secções do dossier (`seccoes.ts` via `seccoesDoProcesso`). Alterar o articulado depois da assinatura não parte o hash.
-- Para assinatura avançada/qualificada (necessária se um dia se assinar procuração ou contrato de mandato com forma legal): falta integração com a Chave Móvel Digital (AMA) ou um QTSP. O schema já está preparado para adaptador (comentário em `documentos.ts:58`).
-- Não é entregue ao cliente um comprovativo autónomo da assinatura (o `summary.pdf` vai no email de boas-vindas, mas sem o hash nem os metadados da rubrica).
-
-**Prioridade: Média** (Alta se houver documentos com forma legal) · **Esforço: 3 dias (timestamp + hash alargado); 8–12 dias (CMD/QTSP)**
+**Priority: High** (privacy policy, rights, T&C consent, retention) · **Effort: 8–11 days**
 
 ---
 
-## 4. Regulamento 2/2020 da OA
+## 2. Lei 83/2017 (anti-money laundering)
 
-**✅ Existe**
-- Papéis diferenciados com PPE invisível ao `assistente` — `src/lib/sessao.ts:43`, aplicado em `processos/page.tsx:41` e `processos/[id]/page.tsx:117`.
-- Aprovação reservada a `admin`/`socio`/`advogado` — `sessao.ts:54`.
-- Registo de auditoria conservável.
+**✅ Present**
+- Complete PEP declaration, including related PEPs and close family — `src/db/schema/seccoes.ts:164`; step 4 mandatory (`src/features/onboarding/passos.ts:36`).
+- Source of funds and contracted services, always mandatory — `seccoes.ts:186`.
+- Identification with a document (type, number, expiry), tax number with mod-11 — `seccoes.ts:68`, `src/lib/validacao-pt.ts`.
+- Risk engine with PEP forcing high risk, and audited reset (`risco.elevado` / `risco.reposto`, `acoes.ts:314,331`).
+- Legal representative mandatory for legal entities — `passos.ts:83`.
+- Immutable audit trail supporting the record-keeping duty.
 
-**❌ Falta**
-- Sem responsável pelo cumprimento normativo designado no sistema (art. 12.º do Regulamento) — não há campo, papel nem ecrã.
-- Sem relatório anual de atividade nem exportação agregada para a OA.
-- Sem procedimentos escritos de aceitação de cliente materializados: o fluxo aprova/rejeita (`features/processos/acoes.ts:559,610`) mas não obriga a fundamentar a aceitação em risco elevado, nem exige aprovação de nível superior nesses casos (a `podeAprovarRiscoElevado` foi removida — D20).
-- `ppe.consultado` nunca é emitido. Está documentado como exemplo em `src/db/schema/auditoria.ts:22` mas não existe no código — o acesso a dados sensíveis por quem pode vê-los não deixa rasto.
+**❌ Missing**
+- Beneficial owner with no UI. The table exists (`seccoes.ts:147`) and so does the `codigoRcbe` field (`seccoes.ts:135`), but no component writes them — `beneficiario` only appears in `db/schema`. For legal entities this is direct non-compliance with the identification duty (articles 23 and 30).
+- No identity verification — the system collects the document but does not validate it against an independent source (permanent certificate, RCBE, sanctions/PEP lists). The duty is one of identification *and* verification (article 24).
+- No record of suspicious transaction reporting (articles 43–45): no table, action or screen. There is also no record of refusal to enter a business relationship.
+- No ongoing due diligence / periodic refresh (article 27): there is an index on `docValidade` and an alert planned, but no mechanism to review the data after N years.
+- 7-year record keeping: foreseen in a comment, not executed.
 
-**Prioridade: Média-Alta** · **Esforço: 4–5 dias**
-
----
-
-## 5. Estatuto da OA / deontologia
-
-**✅ Existe**
-- Cláusula de sigilo nos T&C — `src/lib/termos.ts:52`.
-- Isolamento multi-tenant verificado nas consultas (a rota de download compara `organizacaoId` e devolve 404 indistinto — `src/app/(backoffice)/processos/[id]/documentos/[documentoId]/route.ts:70`).
-- Download de documentos auditado (`documento.descarregado`, `route.ts:118`).
-- AES-256-GCM em `src/lib/storage/cifra.ts`.
-
-**❌ Falta — o ponto mais sério da secção**
-- A cifra AES-256-GCM protege apenas as credenciais de ligação ao armazenamento, não os dados dos clientes. Os únicos consumidores de `cifrar`/`decifrar` são `lib/storage/index.ts:67` e `features/configuracao`. NIF, número de documento, morada, declaração de PPE e os próprios documentos de identificação em base64 (`documento.dados`, `src/db/schema/documentos.ts:41`) estão em claro no Postgres. Quem tiver acesso de leitura à base tem o arquivo inteiro de uma sociedade de advogados.
-- Sem MFA. `src/lib/auth.ts` tem email+password apenas.
-- Sessão de 30 dias (`auth.ts:44`) — contraria a D14, que decidiu 8 horas, e é longa demais para um sistema com dados sujeitos a sigilo.
-- Sem RLS no Postgres (assumido no corte de âmbito) — os guards são só de aplicação.
-- Sem verificação de conflitos de interesses: grep a `conflito` não devolve nada fora dos T&C. É dever deontológico prévio à aceitação (art. 99.º EOA).
-- Publicidade: não avaliável no código — depende do conteúdo da newsletter, que o sistema não gere.
-
-**Prioridade: Alta** (cifra em repouso, MFA, sessão) · **Esforço: 5–7 dias**
+**Priority: High** (beneficial owner, suspicious transaction reporting) · **Effort: 6–9 days**
 
 ---
 
-## 6. Documentos legais
+## 3. eIDAS (Reg. 910/2014) / signature
 
-**✅ Existe**
-- T&C completos e versionados: objeto, honorários, AML, sigilo, RGPD, assinatura, comunicações, cessação, lei aplicável e foro — `src/lib/termos.ts:25-98`. Em três sítios da mesma fonte (leitor, `/termos-condicoes`, PDF anexo).
-- Proposta de honorários com aceitação separada dos T&C — `seccoes.ts:276`, `schemas.ts` passo 7.
-- Declaração de veracidade com prova de consentimento.
+**✅ Present**
+- Simple electronic signature: PNG squiggle + SHA-256 of the case file in canonical serialisation + IP + user-agent + server clock — `src/features/onboarding/acoes.ts:412-434`, table `assinatura` in `src/db/schema/documentos.ts:63`.
+- Mandatory reading of the T&C before the checkbox unlocks — `src/features/onboarding/componentes/LeitorTermos.tsx`.
+- Hash-chained audit trail, append-only via `REVOKE` + `RULE` (migration `0002`), verifiable with `pnpm auditoria:verificar` (`scripts/verificar-auditoria.ts`).
 
-**❌ Falta**
-- O articulado é texto de demonstração — declarado no próprio ficheiro (`termos.ts:10`). Nada disto entra em produção sem revisão e assunção pela sociedade.
-- Política de privacidade autónoma: inexistente.
-- Informações pré-contratuais e direito de livre resolução (DL 24/2014). O onboarding é celebrado à distância; se o cliente for consumidor, há dever de informação pré-contratual e 14 dias de livre resolução, com formulário próprio. Os T&C não mencionam nenhum dos dois — e a cláusula 9 impõe foro convencionado, que perante consumidor é nula (art. 74.º CPC / DL 446/85). Deve ser revisto por jurista.
-- Sem termos de uso da plataforma distintos do contrato de mandato.
-- O bloco resumido para email (`termos.ts:101`) afirma que o processo "fica sujeito a revisão pela equipa" — verdade hoje, mas descreve tratamento sem indicar base legal.
+**Legal assessment.** A simple signature is admissible (eIDAS article 25(1): it cannot be denied evidential effect solely because it is electronic) and adequate for accepting T&C and a fee proposal — no statutory written form is required here. Its evidential weight is freely assessed: in a challenge, the burden is on the firm. The audit chain + content hash is a solid base.
 
-**Prioridade: Alta** (livre resolução + foro + política de privacidade) · **Esforço: 2 dias de implementação + revisão jurídica externa**
+**❌ Missing**
+- The hash is not time-sealed. Without a qualified timestamp (RFC 3161 / TSA), the proven date is the system's own — and whoever controls the server controls the clock. Module: new `lib/assinatura/timestamp.ts`, called in `acoes.ts` case 7.
+- `hashDocumento` does not cover the T&C text or the proposal — only the case file sections (`seccoes.ts` via `seccoesDoProcesso`). Changing the wording after signature does not break the hash.
+- For an advanced/qualified signature (needed if a power of attorney or an engagement contract with statutory form is ever signed): integration with Chave Móvel Digital (AMA) or a QTSP is missing. The schema is already prepared for an adapter (comment in `documentos.ts:58`).
+- The client is not given a standalone signature receipt (the `summary.pdf` goes in the welcome email, but without the hash or the signature metadata).
 
----
-
-## 7. Categorias especiais (art. 9.º RGPD)
-
-**Verificação campo a campo em `src/db/schema/seccoes.ts`:** nome, profissão, entidade patronal, data de nascimento, nacionalidade(s), morada, telefone, email, NIF, documento, PPE, origem de fundos, faturação, áreas de interesse. Nenhum campo pede dados de saúde, biometria, convicções religiosas, filiação sindical ou vida sexual. Nacionalidade não é categoria especial.
-
-**❌ Riscos por confirmar**
-- A declaração de PPE identifica cargos públicos/políticos. A qualidade de PPE decorre da função, mas o conjunto (cargo + entidade + país + período) pode revelar opinião política na aceção do art. 9.º/1. Base legal: art. 9.º/2 alínea g) (interesse público relevante, Lei 83/2017) — defensável, mas tem de estar escrita na ROPA e na política de privacidade. Hoje não está em lado nenhum.
-- Upload livre. `tipo_documento` inclui `outro` (`enums.ts:45`) e o dropzone aceita qualquer PDF/imagem dentro dos formatos permitidos (`src/features/onboarding/formatos.ts`). Um cliente pode carregar um atestado médico ou um relatório clínico sem que nada o impeça ou sinalize. Falta um aviso no campo e uma regra de triagem.
-
-**Prioridade: Média** · **Esforço: 1–2 dias**
+**Priority: Medium** (High if there are documents with statutory form) · **Effort: 3 days (timestamp + extended hash); 8–12 days (CMD/QTSP)**
 
 ---
 
-## 8. Registos e arquivo
+## 4. Bar Association Regulation 2/2020
 
-**✅ Existe**
-- `evento_auditoria` append-only com cadeia de hashes por organização, imutável no Postgres (migração `0002`) e verificável (`scripts/verificar-auditoria.ts`).
-- Documentos com `hash_sha256`, MIME, tamanho e validade — `documentos.ts:21`.
-- Arquivo no servidor da sociedade por SFTP, com `summary.pdf` e `dados_cliente.pdf` por pasta (`src/lib/storage/`), com evento `armazenamento.sincronizado`.
-- `softDelete()` aplicado nas tabelas com retenção legal.
+**✅ Present**
+- Differentiated roles with PEP data invisible to `assistente` — `src/lib/sessao.ts:43`, applied in `processos/page.tsx:41` and `processos/[id]/page.tsx:117`.
+- Approval reserved to `admin`/`socio`/`advogado` — `sessao.ts:54`.
+- Retainable audit record.
 
-**❌ Falta**
-- Cópia do Cartão de Cidadão. `tipo_doc_id` inclui `cartao_cidadao` (`enums.ts:34`) e `tipo_documento` inclui `identificacao` — o sistema aceita e conserva a imagem do CC. O art. 5.º/2 da Lei 7/2007 proíbe a conservação e reprodução do Cartão de Cidadão salvo consentimento expresso do titular. Esse consentimento não existe no fluxo: não há finalidade no enum, não há caixa no passo 2, não há linha em `consentimento`. É a não-conformidade mais fácil de corrigir e a mais fácil de ser apanhada numa inspeção.
-- Retenção de 7 anos sem execução: nem contagem a partir do termo da relação, nem expurgo, nem anonimização.
-- Documentos em base64 na base de dados, com limite de 4 MB (`documentos.ts:41`) — assumido como compromisso de POC. Não aguenta um arquivo de 7 anos nem permite cifra por objeto.
-- Sem verificação periódica automática da integridade da cadeia (o script existe, mas nada o corre).
+**❌ Missing**
+- No compliance officer designated in the system (article 12 of the Regulation) — there is no field, role or screen.
+- No annual activity report and no aggregate export for the Bar Association.
+- No materialised written client acceptance procedures: the flow approves/rejects (`features/processos/acoes.ts:559,610`) but does not require justifying acceptance at high risk, nor does it require senior approval in those cases (`podeAprovarRiscoElevado` was removed — D20).
+- `ppe.consultado` is never emitted. It is documented as an example in `src/db/schema/auditoria.ts:22` but does not exist in the code — access to sensitive data by those permitted to see it leaves no trace.
 
-**Prioridade: Alta** (consentimento CC, retenção) · **Esforço: 4–6 dias**
+**Priority: Medium-High** · **Effort: 4–5 days**
 
 ---
 
-# TOP 10 ACÇÕES — por prioridade
+## 5. Bar Association Statute / professional conduct
 
-| # | Acção | Módulo | Prio. | Dias |
+**✅ Present**
+- Confidentiality clause in the T&C — `src/lib/termos.ts:52`.
+- Multi-tenant isolation verified in the queries (the download route compares `organizacaoId` and returns an indistinguishable 404 — `src/app/(backoffice)/processos/[id]/documentos/[documentoId]/route.ts:70`).
+- Document downloads audited (`documento.descarregado`, `route.ts:118`).
+- AES-256-GCM in `src/lib/storage/cifra.ts`.
+
+**❌ Missing — the most serious point in this section**
+- AES-256-GCM encryption protects only the storage connection credentials, not client data. The only consumers of `cifrar`/`decifrar` are `lib/storage/index.ts:67` and `features/configuracao`. Tax numbers, document numbers, addresses, PEP declarations and the identification documents themselves in base64 (`documento.dados`, `src/db/schema/documentos.ts:41`) sit in the clear in Postgres. Anyone with read access to the database has a law firm's entire archive.
+- No MFA. `src/lib/auth.ts` has email+password only.
+- 30-day session (`auth.ts:44`) — contradicts D14, which decided on 8 hours, and is far too long for a system holding privileged data.
+- No RLS in Postgres (assumed in the scope cut) — the guards are application-level only.
+- No conflict-of-interest check: grepping for `conflito` returns nothing outside the T&C. It is a professional duty that precedes acceptance (article 99 EOA).
+- Advertising: not assessable in code — it depends on the newsletter content, which the system does not manage.
+
+**Priority: High** (encryption at rest, MFA, session) · **Effort: 5–7 days**
+
+---
+
+## 6. Legal documents
+
+**✅ Present**
+- Complete, versioned T&C: subject matter, fees, AML, confidentiality, GDPR, signature, communications, termination, governing law and jurisdiction — `src/lib/termos.ts:25-98`. In three places from the same source (reader, `/termos-condicoes`, attached PDF).
+- Fee proposal with acceptance separate from the T&C — `seccoes.ts:276`, `schemas.ts` step 7.
+- Declaration of truthfulness with proof of consent.
+
+**❌ Missing**
+- The wording is demonstration text — declared in the file itself (`termos.ts:10`). None of this goes to production without review and adoption by the firm.
+- Standalone privacy policy: non-existent.
+- Pre-contractual information and right of withdrawal (DL 24/2014). Onboarding is concluded at a distance; if the client is a consumer, there is a pre-contractual information duty and a 14-day withdrawal right, with its own form. The T&C mention neither — and clause 9 imposes an agreed jurisdiction, which is void against a consumer (article 74 CPC / DL 446/85). Must be reviewed by a lawyer.
+- No platform terms of use distinct from the engagement contract.
+- The summary block for email (`termos.ts:101`) states that the matter "is subject to review by the team" — true today, but it describes processing without stating a legal basis.
+
+**Priority: High** (withdrawal right + jurisdiction + privacy policy) · **Effort: 2 days of implementation + external legal review**
+
+---
+
+## 7. Special categories (GDPR article 9)
+
+**Field-by-field check in `src/db/schema/seccoes.ts`:** name, occupation, employer, date of birth, nationality(ies), address, phone, email, tax number, document, PEP, source of funds, billing, areas of interest. No field asks for health data, biometrics, religious beliefs, trade union membership or sex life. Nationality is not a special category.
+
+**❌ Risks to confirm**
+- The PEP declaration identifies public/political offices. PEP status derives from the function, but the combination (office + entity + country + period) may reveal political opinion within the meaning of article 9(1). Legal basis: article 9(2)(g) (substantial public interest, Lei 83/2017) — defensible, but it must be written into the ROPA and the privacy policy. Today it is nowhere.
+- Free-form upload. `tipo_documento` includes `outro` (`enums.ts:45`) and the dropzone accepts any PDF/image within the permitted formats (`src/features/onboarding/formatos.ts`). A client can upload a medical certificate or a clinical report with nothing preventing or flagging it. A warning on the field and a triage rule are missing.
+
+**Priority: Medium** · **Effort: 1–2 days**
+
+---
+
+## 8. Records and archiving
+
+**✅ Present**
+- `evento_auditoria` append-only with a per-organisation hash chain, immutable in Postgres (migration `0002`) and verifiable (`scripts/verificar-auditoria.ts`).
+- Documents with `hash_sha256`, MIME, size and expiry — `documentos.ts:21`.
+- Archiving on the firm's server over SFTP, with `summary.pdf` and `dados_cliente.pdf` per folder (`src/lib/storage/`), with an `armazenamento.sincronizado` event.
+- `softDelete()` applied to the tables under legal retention.
+
+**❌ Missing**
+- Copy of the Citizen Card. `tipo_doc_id` includes `cartao_cidadao` (`enums.ts:34`) and `tipo_documento` includes `identificacao` — the system accepts and retains the Citizen Card image. Article 5(2) of Lei 7/2007 prohibits retaining and reproducing the Citizen Card except with the holder's express consent. That consent does not exist in the flow: there is no purpose in the enum, no checkbox at step 2, no row in `consentimento`. It is the easiest non-compliance to fix and the easiest to be caught in an inspection.
+- 7-year retention with no execution: no counting from the end of the relationship, no purge, no anonymisation.
+- Documents as base64 in the database, with a 4 MB limit (`documentos.ts:41`) — accepted as a POC compromise. It will not hold a 7-year archive and does not allow per-object encryption.
+- No automatic periodic verification of the chain's integrity (the script exists, but nothing runs it).
+
+**Priority: High** (Citizen Card consent, retention) · **Effort: 4–6 days**
+
+---
+
+# TOP 10 ACTIONS — by priority
+
+| # | Action | Module | Prio. | Days |
 |---|---|---|---|---|
-| 1 | Consentimento expresso para conservação de cópia do Cartão de Cidadão (art. 5.º/2 Lei 7/2007): nova finalidade no enum, caixa no passo 2, linha em `consentimento`; sem ela, não aceitar upload de CC | `db/schema/enums.ts`, `onboarding/consentimentos.ts`, `onboarding/schemas.ts` (passo 2), `Anexos.tsx` | Alta | 2 |
-| 2 | Gravar T&C e proposta como consentimentos a sério: acrescentar `termos_condicoes` e `proposta` ao mapa `TEXTOS`, semear `versao_texto_legal` com o articulado completo + `VERSAO_TERMOS`, e chamar `registarConsentimento` no case 7 | `onboarding/consentimentos.ts`, `onboarding/acoes.ts:400`, `lib/termos.ts` | Alta | 2 |
-| 3 | Política de privacidade + informação do art. 13.º no início do fluxo (rota `/politica-privacidade`, ligação no passo 1, identificação do responsável e do contacto de privacidade) | novo `app/politica-privacidade/`, `onboarding/componentes/Formulario.tsx`, `db/schema/organizacao.ts` | Alta | 2 |
-| 4 | Cifra em repouso dos dados pessoais e dos documentos — estender o `cifra.ts` que já existe a `documento.dados` e às colunas de identificação; a médio prazo, mover ficheiros para bucket privado com chave por objeto | `lib/storage/cifra.ts`, `db/schema/documentos.ts`, `onboarding/documentos.ts` | Alta | 4 |
-| 5 | Beneficiário efetivo e RCBE no percurso Empresa — a tabela já existe, falta o passo e o schema Zod (dever legal, art. 30.º Lei 83/2017) | `onboarding/schemas.ts`, `onboarding/passos.ts`, `onboarding/componentes/` | Alta | 4 |
-| 6 | Retenção de 7 anos executável: coluna de termo da relação de negócio, script `pnpm retencao:expurgar` (simulação + execução) e anonimização, com evento de auditoria por linha expurgada | `db/migrations/`, novo `scripts/expurgar.ts`, `features/auditoria/registar.ts` | Alta | 4 |
-| 7 | Via de exercício dos direitos do titular: exportação do dossier em JSON+PDF (acesso e portabilidade), pedido de retificação e retirada de consentimento a partir de um link permanente do cliente; cada pedido auditado | novo `features/titular/`, `app/(cliente)/` | Alta | 4 |
-| 8 | MFA (TOTP) + sessão de 8 horas — o plugin `twoFactor` do Better Auth mais uma tabela; corrigir `expiresIn` para bater com a D14 | `lib/auth.ts` | Alta | 2 |
-| 9 | Revisão jurídica dos T&C com articulado definitivo da sociedade, incluindo direito de livre resolução de 14 dias (DL 24/2014), informações pré-contratuais e revisão da cláusula de foro perante consumidor. Subir `VERSAO_TERMOS` | `lib/termos.ts` (+ externo) | Alta | 2 + externo |
-| 10 | ROPA e AIPD/DPIA documentadas, `ppe.consultado` emitido no acesso a dados sensíveis, e comunicação de operações suspeitas registada | `docs/RGPD-ROPA.md`, `docs/RGPD-DPIA.md`, `processos/[id]/page.tsx`, nova tabela `comunicacao_suspeita` | Média-Alta | 5 |
+| 1 | Express consent for retaining a copy of the Citizen Card (article 5(2) Lei 7/2007): new purpose in the enum, checkbox at step 2, row in `consentimento`; without it, do not accept a Citizen Card upload | `db/schema/enums.ts`, `onboarding/consentimentos.ts`, `onboarding/schemas.ts` (step 2), `Anexos.tsx` | High | 2 |
+| 2 | Record the T&C and the proposal as real consents: add `termos_condicoes` and `proposta` to the `TEXTOS` map, seed `versao_texto_legal` with the full wording + `VERSAO_TERMOS`, and call `registarConsentimento` in case 7 | `onboarding/consentimentos.ts`, `onboarding/acoes.ts:400`, `lib/termos.ts` | High | 2 |
+| 3 | Privacy policy + article 13 notice at the start of the flow (route `/politica-privacidade`, link at step 1, identification of the controller and the privacy contact) | new `app/politica-privacidade/`, `onboarding/componentes/Formulario.tsx`, `db/schema/organizacao.ts` | High | 2 |
+| 4 | Encryption at rest for personal data and documents — extend the existing `cifra.ts` to `documento.dados` and to the identification columns; medium term, move files to a private bucket with a per-object key | `lib/storage/cifra.ts`, `db/schema/documentos.ts`, `onboarding/documentos.ts` | High | 4 |
+| 5 | Beneficial owner and RCBE in the Company path — the table already exists, the step and the Zod schema are missing (legal duty, article 30 Lei 83/2017) | `onboarding/schemas.ts`, `onboarding/passos.ts`, `onboarding/componentes/` | High | 4 |
+| 6 | Executable 7-year retention: end-of-business-relationship column, `pnpm retencao:expurgar` script (dry run + execution) and anonymisation, with an audit event per purged row | `db/migrations/`, new `scripts/expurgar.ts`, `features/auditoria/registar.ts` | High | 4 |
+| 7 | Channel for exercising data subject rights: case file export in JSON+PDF (access and portability), rectification request and consent withdrawal from a permanent client link; every request audited | new `features/titular/`, `app/(cliente)/` | High | 4 |
+| 8 | MFA (TOTP) + 8-hour session — Better Auth's `twoFactor` plugin plus a table; fix `expiresIn` to match D14 | `lib/auth.ts` | High | 2 |
+| 9 | Legal review of the T&C with the firm's definitive wording, including the 14-day right of withdrawal (DL 24/2014), pre-contractual information and review of the jurisdiction clause against consumers. Bump `VERSAO_TERMOS` | `lib/termos.ts` (+ external) | High | 2 + external |
+| 10 | ROPA and DPIA documented, `ppe.consultado` emitted on access to sensitive data, and suspicious transaction reporting recorded | `docs/RGPD-ROPA.md`, `docs/RGPD-DPIA.md`, `processos/[id]/page.tsx`, new `comunicacao_suspeita` table | Medium-High | 5 |
 
-**Total estimado: ~31 dias de desenvolvimento**, mais revisão jurídica externa dos T&C, da política de privacidade e da AIPD.
+**Estimated total: ~31 development days**, plus external legal review of the T&C, the privacy policy and the DPIA.
 
 ---
 
-## Notas de leitura
+## Reading notes
 
-1. A arquitetura está bem posicionada — a auditoria imutável, o versionamento de textos legais e a separação de finalidades de consentimento são exatamente as peças caras de enxertar depois, e estão feitas. O que falta é sobretudo aplicação e superfície, não fundação.
-2. Os itens 1, 2 e 5 são incumprimentos legais concretos e verificáveis, não melhorias — bloqueiam uso real.
-3. O item 4 é o que mais preocupa numa sociedade de advogados: o risco não é regulatório mas de sigilo profissional — hoje, uma cópia da base de dados é o arquivo completo, em claro.
+1. The architecture is well positioned — the immutable audit trail, the versioning of legal texts and the separation of consent purposes are exactly the expensive pieces to graft on later, and they are done. What is missing is mostly enforcement and surface, not foundation.
+2. Items 1, 2 and 5 are concrete, verifiable legal breaches, not improvements — they block real use.
+3. Item 4 is the one that matters most in a law firm: the risk is not regulatory but one of professional privilege — today, a copy of the database is the complete archive, in the clear.

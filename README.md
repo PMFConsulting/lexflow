@@ -1,51 +1,51 @@
-# Plataforma de Processos Jurídicos — PMF Consulting
+# Legal Matter Platform — PMF Consulting
 
-Plataforma interna para centralizar os processos de uma sociedade de advogados.
-**Primeira entrega: módulo de Onboarding de clientes** (KYC/AML) com back-office de gestão.
+Internal platform to centralise the matters of a law firm.
+**First delivery: client Onboarding module** (KYC/AML) with a management back-office.
 
-## Estado
+## Status
 
-**Fase 1 — Fundações, concluída.** Scaffold, tokens de design, schema com 27 tabelas, migrações,
-autenticação e validações portuguesas testadas. Falta ligar a uma base de dados real.
+**Phase 1 — Foundations, complete.** Scaffold, design tokens, schema with 27 tables, migrations,
+authentication and Portuguese validations tested. Still to be wired to a real database.
 
-O projeto está enquadrado como **POC** — infraestrutura a €0/mês e âmbito cortado. Ver `CLAUDE.md`.
+The project is framed as a **POC** — infrastructure at €0/month and reduced scope. See `CLAUDE.md`.
 
-## Arrancar
+## Getting started
 
 ```bash
 pnpm install
-cp .env.example .env    # preenche com o teu projeto Supabase
+cp .env.example .env    # fill in with your Supabase project
 pnpm db:migrate
 pnpm db:seed
 pnpm dev
 ```
 
-Sem `.env` o `pnpm build`, o `pnpm test` e o `pnpm typecheck` correm à mesma — só as operações
-que tocam a base de dados é que precisam dele.
+Without `.env`, `pnpm build`, `pnpm test` and `pnpm typecheck` still run — only the operations
+that touch the database actually need it.
 
-## Documentação
+## Documentation
 
-| Ficheiro | O que é |
+| File | What it is |
 |---|---|
-| [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) | **Começa aqui.** A arquitetura de todas as fases, e o porquê de cada peça |
-| [`docs/BRIEF.md`](docs/BRIEF.md) | O brief completo — âmbito, stack, design, modelo de dados, plano |
-| [`docs/CAMPOS.md`](docs/CAMPOS.md) | Inventário campo a campo dos 7 passos + 15 ambiguidades por decidir |
-| [`docs/SCHEMA.md`](docs/SCHEMA.md) | Proposta de schema Drizzle, auditoria encadeada, RLS, pesquisa |
-| [`docs/DECISAO-ASSINATURA.md`](docs/DECISAO-ASSINATURA.md) | In-house vs. DocuSeal — recomendação e prós/contras |
-| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Do zero até `poc.terlicalabs.com` no ar — domínio, servidor, Coolify, DNS |
-| [`CLAUDE.md`](CLAUDE.md) | Decisões de arquitetura e comandos |
+| [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) | **Start here.** The architecture of every phase, and the reasoning behind each piece |
+| [`docs/BRIEF.md`](docs/BRIEF.md) | The full brief — scope, stack, design, data model, plan |
+| [`docs/CAMPOS.md`](docs/CAMPOS.md) | Field-by-field inventory of the 7 steps + 15 ambiguities to be decided |
+| [`docs/SCHEMA.md`](docs/SCHEMA.md) | Proposed Drizzle schema, chained audit trail, RLS, search |
+| [`docs/DECISAO-ASSINATURA.md`](docs/DECISAO-ASSINATURA.md) | In-house vs. DocuSeal — recommendation and pros/cons |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | From zero to `poc.terlicalabs.com` live — domain, server, Coolify, DNS |
+| [`CLAUDE.md`](CLAUDE.md) | Architecture decisions and commands |
 
-## Em falta
+## Missing
 
-Os 7 screenshots do formulário atual, em `docs/onboarding-screens/`. Sem eles o inventário de
-campos é uma derivação do texto do brief, não uma validação contra o formulário real.
+The 7 screenshots of the current form, in `docs/onboarding-screens/`. Without them the field
+inventory is a derivation from the brief text, not a validation against the real form.
 
-## Stack prevista
+## Planned stack
 
 Next.js 15 (App Router) · TypeScript strict · Tailwind + shadcn/ui · React Hook Form + Zod ·
-PostgreSQL · Drizzle ORM · Better Auth com MFA · TanStack Table · nuqs · pdf-lib · Resend ·
+PostgreSQL · Drizzle ORM · Better Auth with MFA · TanStack Table · nuqs · pdf-lib · Resend ·
 Vitest + Playwright · next-intl (pt-PT default).
 
-## Licença
+## Licence
 
-Privado, todos os direitos reservados.
+Private, all rights reserved.

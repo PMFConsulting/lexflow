@@ -1,100 +1,100 @@
-# Infraestrutura — runbook
+# Infrastructure — runbook
 
-Como chegar aos servidores, o que lá corre, e como publicar. Escrito para
-alguém — ou outro agente — que chegue sem contexto nenhum.
+How to reach the servers, what runs on them, and how to publish. Written for
+someone — or another agent — arriving with no context at all.
 
-Última revisão: 2 de agosto de 2026.
+Last revised: 2 August 2026.
 
 ---
 
-## 1. O mapa
+## 1. The map
 
 ```
 Cloudflare (DNS)  terlicalabs.com
-   │   A  @        →  2.24.141.179     proxy DESLIGADO
-   │   A  www      →  2.24.141.179     proxy DESLIGADO
-   │   A  *        →  2.24.141.179     proxy DESLIGADO   ← wildcard
+   │   A  @        →  2.24.141.179     proxy OFF
+   │   A  www      →  2.24.141.179     proxy OFF
+   │   A  *        →  2.24.141.179     proxy OFF          ← wildcard
    ▼
-VPS Hostinger KVM 1 · Ubuntu 24.04 · 1 vCPU · 4 GB · UE
+Hostinger VPS KVM 1 · Ubuntu 24.04 · 1 vCPU · 4 GB · EU
    │
-   ├─ Coolify 4.1.2      painel de deploy, porta 8000
-   ├─ Traefik            encaminha por domínio, TLS Let's Encrypt
+   ├─ Coolify 4.1.2      deploy panel, port 8000
+   ├─ Traefik            routes by domain, Let's Encrypt TLS
    ├─ law-project        poc.terlicalabs.com      Next.js
-   ├─ PostgreSQL         sem porta publicada
-   └─ terlicalabs        terlicalabs.com          Astro estático
+   ├─ PostgreSQL         no published port
+   └─ terlicalabs        terlicalabs.com          static Astro
 ```
 
-**O proxy da Cloudflare tem de ficar cinzento.** Com ele laranja, o Let's
-Encrypt não completa o desafio HTTP-01 e nenhum certificado é emitido.
+**The Cloudflare proxy has to stay grey.** With it orange, Let's Encrypt does not
+complete the HTTP-01 challenge and no certificate is issued.
 
-| Recurso | Onde | Notas |
+| Resource | Where | Notes |
 |---|---|---|
-| Domínio | Cloudflare Registrar | ~10 €/ano |
-| Servidor | Hostinger, `srv1870501.hstgr.cloud` | ~5–8 €/mês |
+| Domain | Cloudflare Registrar | ~€10/year |
+| Server | Hostinger, `srv1870501.hstgr.cloud` | ~€5–8/month |
 | IPv4 | `2.24.141.179` | |
-| Repositórios | `umnick-01/law-project`, `umnick-01/terlicalabs` | privados |
+| Repositories | `umnick-01/law-project`, `umnick-01/terlicalabs` | private |
 
 ---
 
-## 2. Ligar ao servidor
+## 2. Connecting to the server
 
-Acesso por chave. **Password está desligada** no SSH — se a chave se perder, a
-recuperação é o **Terminal** do painel da Hostinger, que usa consola e não SSH.
+Key-based access. **Password auth is disabled** in SSH — if the key is lost, recovery
+is the **Terminal** in the Hostinger panel, which uses a console and not SSH.
 
 ```bash
 ssh root@2.24.141.179
 ```
 
-A chave privada vive em `~/.ssh/id_ed25519` na máquina do Diogo. A pública
-autorizada no servidor tem o comentário `diogo@terlicalabs`.
+The private key lives at `~/.ssh/id_ed25519` on Diogo's machine. The public key
+authorised on the server carries the comment `diogo@terlicalabs`.
 
-### Autorizar outra máquina
+### Authorising another machine
 
-Na máquina nova:
+On the new machine:
 
 ```bash
-ssh-keygen -t ed25519 -C "descricao-da-maquina"
+ssh-keygen -t ed25519 -C "machine-description"
 cat ~/.ssh/id_ed25519.pub
 ```
 
-E no Terminal da Hostinger, colando a chave pública no lugar de `CHAVE`:
+And in the Hostinger Terminal, pasting the public key in place of `KEY`:
 
 ```bash
 mkdir -p ~/.ssh && chmod 700 ~/.ssh
-echo "CHAVE" >> ~/.ssh/authorized_keys
+echo "KEY" >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 ```
 
-### Correr scripts sem problemas de quoting
+### Running scripts without quoting problems
 
-Escapar aspas dentro de `ssh root@ip '...'` é fonte inesgotável de erros.
-Escreve o script num ficheiro e envia-o pelo stdin:
+Escaping quotes inside `ssh root@ip '...'` is an inexhaustible source of errors.
+Write the script to a file and send it over stdin:
 
 ```bash
 ssh -o BatchMode=yes root@2.24.141.179 'bash -s' < ./script.sh
 ```
 
-> Em PowerShell, **não** uses `Get-Content ... | ssh`: o pipe converte os fins
-> de linha para CRLF e o bash rebenta com `$'\r': command not found`.
+> In PowerShell, do **not** use `Get-Content ... | ssh`: the pipe converts line
+> endings to CRLF and bash blows up with `$'\r': command not found`.
 
 ---
 
-## 3. Estado da máquina
+## 3. Machine status
 
 ```bash
 ssh root@2.24.141.179 'docker ps --format "table {{.Names}}\t{{.Status}}"; free -m | head -2; df -h / | tail -1'
 ```
 
-Nomes dos contentores (mudam a cada deploy, o prefixo não):
+Container names (they change on every deploy, the prefix does not):
 
-| Prefixo | O que é |
+| Prefix | What it is |
 |---|---|
 | `c5bzal0y9k5mdu6agyhs2ywv-` | law-project |
-| `xovf0uygf4qjhohrwrk653hf-` | site terlicalabs |
+| `xovf0uygf4qjhohrwrk653hf-` | terlicalabs website |
 | `zt8qhu4noym88j011iiw3a39` | PostgreSQL |
-| `coolify`, `coolify-proxy`, `coolify-db`, … | o próprio Coolify |
+| `coolify`, `coolify-proxy`, `coolify-db`, … | Coolify itself |
 
-Apanhar o contentor certo sem decorar o sufixo:
+Grabbing the right container without memorising the suffix:
 
 ```bash
 docker ps --format '{{.Names}}' | grep '^c5bzal' | head -1
@@ -102,67 +102,67 @@ docker ps --format '{{.Names}}' | grep '^c5bzal' | head -1
 
 ---
 
-## 4. Base de dados
+## 4. Database
 
-Nunca teve porta publicada e não deve passar a ter. Chega-se por dentro:
+It has never had a published port and it should stay that way. You get in from the inside:
 
 ```bash
 DB=$(docker ps --format '{{.Names}}' | grep '^zt8qhu' | head -1)
 docker exec -it "$DB" psql -U lawproject -d lawproject
 ```
 
-Correr SQL de um ficheiro:
+Running SQL from a file:
 
 ```bash
-docker exec -i "$DB" psql -U lawproject -d lawproject < ficheiro.sql
+docker exec -i "$DB" psql -U lawproject -d lawproject < file.sql
 ```
 
-O `DATABASE_URL` está nas variáveis de ambiente da aplicação, no Coolify. É o
-URL **interno** — o que usa o nome do serviço. Um URL público aqui é sintoma de
-que alguém expôs a base de dados.
+`DATABASE_URL` is in the application's environment variables, in Coolify. It is the
+**internal** URL — the one using the service name. A public URL here is a symptom that
+someone has exposed the database.
 
-### Migrações
+### Migrations
 
-Correm sozinhas no arranque do contentor (`scripts/migrar.mjs`). Se falharem, o
-contentor não sobe — é deliberado: mais vale não publicar do que servir a
-aplicação contra um schema que não é o esperado.
+They run on their own at container start (`scripts/migrar.mjs`). If they fail, the
+container does not come up — deliberately: better not to publish than to serve the
+application against a schema that is not the expected one.
 
-Para validar migrações **sem servidor nenhum**, na máquina de desenvolvimento:
+To validate migrations **with no server at all**, on the development machine:
 
 ```bash
 pnpm db:validar
 ```
 
-Aplica tudo a um Postgres em WASM e verifica as 27 tabelas, as regras de
-imutabilidade da auditoria e a pesquisa sem acentos.
+It applies everything to a Postgres in WASM and verifies the 27 tables, the audit
+immutability rules and accent-insensitive search.
 
 ---
 
-## 5. Publicar
+## 5. Publishing
 
-**Não há passo manual.** Cada `git push` para `main` dispara um deploy pelo
-webhook da GitHub App.
+**There is no manual step.** Every `git push` to `main` triggers a deploy via the
+GitHub App webhook.
 
-Acompanhar:
+Following along:
 
 ```bash
-# esperar que a imagem em execução passe a ser a do commit novo
+# wait for the running image to become the one for the new commit
 ssh root@2.24.141.179 'docker inspect $(docker ps --format "{{.Names}}" | grep "^c5bzal" | head -1) --format "{{.Config.Image}}"'
 ```
 
-O sufixo da imagem é o SHA do commit. Enquanto for o antigo, o deploy ainda não
-acabou.
+The image suffix is the commit SHA. While it is still the old one, the deploy has not
+finished.
 
-Logs da aplicação:
+Application logs:
 
 ```bash
 ssh root@2.24.141.179 'docker logs --tail 40 $(docker ps --format "{{.Names}}" | grep "^c5bzal" | head -1)'
 ```
 
-### API do Coolify
+### Coolify API
 
-Existe um token em `/root/.coolify-token` (permissões 600). Serve para
-automatizar o que o painel faz:
+There is a token at `/root/.coolify-token` (permissions 600). It is for automating what
+the panel does:
 
 ```bash
 T=$(tr -d ' \r\n' < /root/.coolify-token)
@@ -170,75 +170,73 @@ curl -s -H "Authorization: Bearer $T" http://localhost:8000/api/v1/applications
 curl -s -H "Authorization: Bearer $T" "http://localhost:8000/api/v1/deploy?uuid=<uuid>&force=true"
 ```
 
-UUIDs úteis:
+Useful UUIDs:
 
-| O quê | UUID |
+| What | UUID |
 |---|---|
-| Projeto `poc` | `ojqr1mnnivie5btou1ts2u3l` |
-| Ambiente `production` | `hs6604rbwjky8ui7m9rbdqat` |
-| Servidor `localhost` | `il6dlk97ietsgu9g62lw16fs` |
+| Project `poc` | `ojqr1mnnivie5btou1ts2u3l` |
+| Environment `production` | `hs6604rbwjky8ui7m9rbdqat` |
+| Server `localhost` | `il6dlk97ietsgu9g62lw16fs` |
 | App `law-project` | `c5bzal0y9k5mdu6agyhs2ywv` |
 | App `terlicalabs` | `xovf0uygf4qjhohrwrk653hf` |
 | PostgreSQL | `zt8qhu4noym88j011iiw3a39` |
 
-**Armadilhas da API**, aprendidas à força:
+**API traps**, learned the hard way:
 
-- O campo chama-se `is_buildtime`, não `is_build_time`. O segundo devolve 422.
-- Criar variáveis de ambiente com `POST /applications/{uuid}/envs` aceita só
-  `key` e `value`. Campos a mais são rejeitados.
-- As definições da instância (o domínio do painel) **não** estão na API. Só pela
-  interface.
-
----
-
-## 6. Regras que não se quebram
-
-**O proxy da Cloudflare fica desligado** nos registos que precisam de
-certificado. Ligado, não há desafio HTTP-01 e não há TLS.
-
-**O Postgres não tem porta publicada.** E atenção: o Docker escreve regras
-diretamente no iptables e **passa ao lado do `ufw`**. Um contentor com porta
-publicada fica exposto mesmo com o `ufw` a dizer `deny`. O que protege a base de
-dados é não lhe publicar porta, não a firewall.
-
-**Segredos não passam por chat.** Vão do ecrã de quem os tem para o ficheiro no
-servidor. Se um segredo aparecer numa conversa, é para revogar, não para usar.
-
-**Nada de escrever na base de dados do Coolify por fora.** Se o Coolify deixar
-de saber a configuração real, reescreve-a por cima na próxima operação. Usar a
-API ou a interface.
+- The field is called `is_buildtime`, not `is_build_time`. The latter returns 422.
+- Creating environment variables with `POST /applications/{uuid}/envs` accepts only
+  `key` and `value`. Extra fields are rejected.
+- Instance settings (the panel's domain) are **not** in the API. Only through the UI.
 
 ---
 
-## 7. Buracos conhecidos
+## 6. Rules that do not get broken
 
-| # | O quê | Estado |
+**The Cloudflare proxy stays off** on the records that need a certificate. Turned on,
+there is no HTTP-01 challenge and there is no TLS.
+
+**Postgres has no published port.** And note: Docker writes rules straight into iptables
+and **bypasses `ufw`**. A container with a published port is exposed even with `ufw`
+saying `deny`. What protects the database is not publishing a port for it, not the
+firewall.
+
+**Secrets do not travel through chat.** They go from the screen of whoever holds them to
+the file on the server. If a secret shows up in a conversation, it is to be revoked, not
+used.
+
+**No writing to Coolify's database from outside.** If Coolify stops knowing the real
+configuration, it overwrites it on the next operation. Use the API or the UI.
+
+---
+
+## 7. Known holes
+
+| # | What | Status |
 |---|---|---|
-| 1 | O `REVOKE` da auditoria não morde: o utilizador da aplicação é também o owner das tabelas, e o owner contorna-o sempre. Só as `RULE` protegem | por resolver — criar papel `app_user` |
-| 2 | Porta 8000 aberta à internet, à espera de o painel ter domínio próprio | por resolver |
-| 3 | A rubrica das assinaturas é guardada em base64 na base de dados, à falta de object storage | compromisso assumido da POC |
-| 4 | Sem cópias de segurança da base de dados | por resolver |
-| 5 | O plano da Hostinger renova a preço mais alto | marcar no calendário |
+| 1 | The audit `REVOKE` does not bite: the application user is also the owner of the tables, and the owner always bypasses it. Only the `RULE`s protect | unresolved — create an `app_user` role |
+| 2 | Port 8000 open to the internet, waiting for the panel to get its own domain | unresolved |
+| 3 | The signature squiggle is stored as base64 in the database, for lack of object storage | accepted POC compromise |
+| 4 | No database backups | unresolved |
+| 5 | The Hostinger plan renews at a higher price | put it in the calendar |
 
 ---
 
-## 8. Para um agente que chegue agora
+## 8. For an agent arriving now
 
-Ordem de leitura:
+Reading order:
 
-1. Este ficheiro — onde as coisas estão
-2. [`ARQUITETURA.md`](ARQUITETURA.md) — o desenho e o porquê
-3. [`DEPLOY.md`](DEPLOY.md) — como tudo foi montado de raiz
-4. `CLAUDE.md` na raiz — decisões, comandos, estado das fases
+1. This file — where things are
+2. [`ARQUITETURA.md`](ARQUITETURA.md) — the design and the why
+3. [`DEPLOY.md`](DEPLOY.md) — how it was all set up from scratch
+4. `CLAUDE.md` at the root — decisions, commands, phase status
 
-Antes de mexer:
+Before touching anything:
 
 ```bash
-ssh -o BatchMode=yes root@2.24.141.179 'echo ok'          # há acesso?
+ssh -o BatchMode=yes root@2.24.141.179 'echo ok'          # is there access?
 curl -s -o /dev/null -w '%{http_code}\n' https://poc.terlicalabs.com/
 curl -s -o /dev/null -w '%{http_code}\n' https://terlicalabs.com/
 ```
 
-Se o primeiro falhar, a chave não está autorizada — ver §2. Os outros dois têm
-de dar `200`; qualquer outra coisa é problema a diagnosticar antes de publicar
-seja o que for.
+If the first fails, the key is not authorised — see §2. The other two have to return
+`200`; anything else is a problem to diagnose before publishing anything at all.

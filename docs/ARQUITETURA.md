@@ -1,130 +1,126 @@
-# Arquitetura — Plataforma de Processos Jurídicos
+# Architecture — Legal Matter Platform
 
-Documento de referência de todas as fases: o que existe, o que falta, e
-**porquê** cada peça é como é. As decisões pontuais estão em `CLAUDE.md`; aqui
-está o desenho completo.
+Reference document for every phase: what exists, what is missing, and **why** each
+piece is the way it is. The individual decisions live in `CLAUDE.md`; the complete
+design is here.
 
-Última revisão: 1 de agosto de 2026.
+Last revised: 1 August 2026.
 
 ---
 
-## 1. O que isto é
+## 1. What this is
 
-Plataforma interna da **PMF Consulting**, sociedade de advogados, para o
-onboarding de clientes segundo os deveres de identificação e diligência da
-**Lei 83/2017** (branqueamento de capitais e financiamento do terrorismo), do
-**Regulamento 2/2020 da Ordem dos Advogados** e do **RGPD**.
+Internal platform for **PMF Consulting**, a law firm, for client onboarding under
+the identification and due diligence duties of **Lei 83/2017** (money laundering
+and terrorist financing), **Bar Association Regulation 2/2020** and the **GDPR**.
 
-Duas metades, com públicos e regras opostas:
+Two halves, with opposite audiences and rules:
 
-| | Cliente | Escritório |
+| | Client | Firm |
 |---|---|---|
-| Quem entra | qualquer pessoa com o link | utilizador autenticado |
-| Como se autentica | token de uso único no URL | email + password, sessão em BD |
-| O que pode | preencher o seu processo | consultar, filtrar, rever, aprovar |
-| Onde vive | `src/app/(cliente)/` | `src/app/(backoffice)/` |
+| Who gets in | anyone with the link | authenticated user |
+| How they authenticate | single-use token in the URL | email + password, DB session |
+| What they can do | fill in their own matter | view, filter, review, approve |
+| Where it lives | `src/app/(cliente)/` | `src/app/(backoffice)/` |
 
-A separação em grupos de rotas não é organização de ficheiros: são superfícies
-de segurança diferentes, e misturá-las é como se fazem fugas de dados.
+Splitting into route groups is not file organisation: they are different security
+surfaces, and mixing them is how data leaks happen.
 
 ---
 
-## 2. Estado por fase
+## 2. Status by phase
 
-| Fase | Âmbito | Estado |
+| Phase | Scope | Status |
 |---|---|---|
-| 0 | Análise: inventário de campos, ambiguidades, modelo de dados | **concluída** |
-| 1 | Fundações: schema, migrações, auth, tokens de design, painel | **concluída, em produção** |
-| 2 | Fluxo de onboarding: 7 passos, condicionais, assinatura | **concluída, em produção** |
-| 3 | Back-office: listagem, detalhe, revisão, motor de risco, RLS | por iniciar |
-| 4 | Fecho: PDF do dossier, emails, exportações | fora do âmbito atual |
+| 0 | Analysis: field inventory, ambiguities, data model | **complete** |
+| 1 | Foundations: schema, migrations, auth, design tokens, dashboard | **complete, in production** |
+| 2 | Onboarding flow: 7 steps, conditionals, signature | **complete, in production** |
+| 3 | Back-office: listing, detail, review, risk engine, RLS | not started |
+| 4 | Closing: case file PDF, emails, exports | outside current scope |
 
-Endereço de produção: **https://poc.terlicalabs.com**
+Production address: **https://poc.terlicalabs.com**
 
 ---
 
-## 3. Como está montado
+## 3. How it is assembled
 
 ```
-┌─ Cloudflare ────────── DNS, wildcard *.terlicalabs.com, proxy desligado
+┌─ Cloudflare ────────── DNS, wildcard *.terlicalabs.com, proxy off
 │
-└─→ VPS Hostinger KVM 1 (Ubuntu 24.04, UE)
+└─→ Hostinger VPS KVM 1 (Ubuntu 24.04, EU)
     │
-    ├─ Coolify ─────────── deploy a cada git push, TLS automático
+    ├─ Coolify ─────────── deploy on every git push, automatic TLS
     │
-    ├─ Traefik ─────────── encaminha por domínio, Let's Encrypt
+    ├─ Traefik ─────────── routes by domain, Let's Encrypt
     │
-    ├─ law-project ─────── Next.js 16, imagem Docker de 3 fases
-    │                      migra no arranque; se falhar, não sobe
+    ├─ law-project ─────── Next.js 16, 3-stage Docker image
+    │                      migrates at startup; if it fails, it does not come up
     │
-    ├─ PostgreSQL ──────── sem porta publicada, só rede interna do Docker
+    ├─ PostgreSQL ──────── no published port, Docker internal network only
     │
-    └─ terlicalabs ─────── site de apresentação (repositório à parte)
+    └─ terlicalabs ─────── marketing site (separate repository)
 ```
 
-**Porquê VPS e não Vercel:** o plano Hobby proíbe uso comercial e o Pro são
-20 €/mês por projeto. Um custo fixo pequeno que não cresce com o número de
-clientes é melhor negócio para POCs.
+**Why a VPS and not Vercel:** the Hobby plan forbids commercial use and Pro is
+€20/month per project. A small fixed cost that does not grow with the number of
+clients is a better deal for POCs.
 
-**Porquê Postgres no próprio servidor e não Supabase:** o plano gratuito suspende
-ao fim de 7 dias sem uso, que é exatamente o padrão de uma POC mostrada de duas
-em duas semanas.
+**Why Postgres on the server itself and not Supabase:** the free plan suspends after
+7 days without use, which is exactly the pattern of a POC shown once a fortnight.
 
-**Porquê fornecedor da UE:** isto guarda documentos de identificação e
-declarações de PPE. Um fornecedor americano traz exposição ao Cloud Act mesmo
-com datacenter europeu.
+**Why an EU provider:** this stores identification documents and PEP declarations. A
+US provider brings Cloud Act exposure even with a European datacenter.
 
-Guia passo a passo em [`DEPLOY.md`](DEPLOY.md).
+Step-by-step guide in [`DEPLOY.md`](DEPLOY.md).
 
 ---
 
-## 4. Camadas da aplicação
+## 4. Application layers
 
 ```
 src/
   app/
-    (cliente)/onboarding/[token]/     fluxo público, autenticado por token
-    (backoffice)/                     painel, autenticado por sessão
+    (cliente)/onboarding/[token]/     public flow, authenticated by token
+    (backoffice)/                     dashboard, authenticated by session
     api/auth/[...all]/                Better Auth
-  features/                           organizado por domínio, não por tipo
+  features/                           organised by domain, not by type
     onboarding/  schemas · passos · dados · acoes · componentes
-    processos/   criação e link mágico
-    auditoria/   hash encadeado e escrita
-  components/    vocabulário visual partilhado
+    processos/   creation and magic link
+    auditoria/   chained hash and writes
+  components/    shared visual vocabulary
   db/            schema · migrations
   lib/           validacao-pt · token · auth
 ```
 
-**Porquê `features/` por domínio:** quando se mexe no onboarding, mexe-se num
-sítio. A alternativa — pastas por tipo de ficheiro — obriga a saltar entre
-quatro diretórios para uma mudança só.
+**Why `features/` by domain:** when you touch onboarding, you touch one place. The
+alternative — folders by file type — forces you to jump between four directories for
+a single change.
 
-### O caminho de um passo gravado
+### The path of a saved step
 
 ```
-Formulário (cliente)
-  └─ Zod valida ................. conforto: erros imediatos
+Form (client)
+  └─ Zod validates ............. convenience: immediate errors
        └─ Server Action
-            ├─ revalida o token .. é um endpoint público como outro qualquer
-            ├─ Zod outra vez ..... segurança: o cliente nunca é fonte de verdade
-            ├─ upsert da secção
-            ├─ regras de negócio . PPE → risco elevado
-            └─ evento de auditoria
+            ├─ revalidates the token .. it is a public endpoint like any other
+            ├─ Zod again ............. security: the client is never the source of truth
+            ├─ section upsert
+            ├─ business rules ........ PEP → high risk
+            └─ audit event
 ```
 
-A validação corre duas vezes de propósito, com **o mesmo ficheiro de schemas**
-nos dois lados. É o que impede o erro clássico de apertar o formulário e deixar
-a acção aberta.
+Validation runs twice on purpose, with **the same schema file** on both sides. That is
+what prevents the classic mistake of tightening the form and leaving the action open.
 
 ---
 
-## 5. Modelo de dados
+## 5. Data model
 
-27 tabelas. As de secção são 1:1 com o processo, uma por passo.
+27 tables. The section tables are 1:1 with the matter, one per step.
 
 ```
 organizacao ──┬── utilizador
-              ├── contador_referencia      sequencial atómico por ano
+              ├── contador_referencia      atomic per-year sequence
               └── processo_onboarding ─────┬── dados_identificacao ── nacionalidade (1:N)
                                            ├── dados_fiscais ─────── residencia_fiscal_adicional
                                            ├── representante_legal ─ beneficiario_efetivo
@@ -139,34 +135,33 @@ organizacao ──┬── utilizador
                                            ├── consentimento ──────── versao_texto_legal
                                            └── nota
 
-evento_auditoria    append-only, encadeado por hash, fora da árvore
+evento_auditoria    append-only, hash-chained, outside the tree
 ```
 
-**Porquê uma tabela por secção e não um JSONB gigante:** é preciso pesquisar por
-NIF, filtrar por PPE e indexar nome. O que se pesquisa é coluna; só o que é
-genuinamente variável vai para o `extra JSONB` de cada tabela.
+**Why one table per section and not one giant JSONB:** we need to search by tax number,
+filter by PEP and index the name. What gets searched is a column; only what is genuinely
+variable goes into each table's `extra JSONB`.
 
-**Porquê listas em tabelas 1:N:** a pesquisa global tem de encontrar pelo NIF de
-um beneficiário efetivo, e isso não se faz dentro de um array JSON.
+**Why lists in 1:N tables:** global search has to find by a beneficial owner's tax number,
+and that cannot be done inside a JSON array.
 
-**IDs UUID v7 gerados na aplicação:** ordenáveis por tempo, o que dá localidade
-de índice e paginação por cursor estável. Gerados em código porque o Postgres só
-tem `uuidv7()` nativo na versão 18. Consequência prática: qualquer `INSERT` em
-SQL cru tem de indicar o `id`.
+**UUID v7 ids generated in the application:** time-sortable, which gives index locality and
+stable cursor pagination. Generated in code because Postgres only has native `uuidv7()` in
+version 18. Practical consequence: any raw SQL `INSERT` has to supply the `id`.
 
 ---
 
-## 6. Segurança e conformidade
+## 6. Security and compliance
 
-Esta secção é a razão de ser do projeto, não um apêndice.
+This section is the reason the project exists, not an appendix.
 
-### Auditoria imutável
+### Immutable audit trail
 
-`evento_auditoria` é append-only e cada linha inclui o hash da anterior. A cadeia
-é **por organização** — uma cadeia global serializaria todas as escritas do
-sistema num único ponto de contenção.
+`evento_auditoria` is append-only and each row includes the previous row's hash. The chain
+is **per organisation** — a global chain would serialise every write in the system through a
+single point of contention.
 
-A imutabilidade está na base de dados, não numa convenção de código:
+Immutability lives in the database, not in a code convention:
 
 ```sql
 CREATE RULE evento_auditoria_sem_update AS ON UPDATE TO evento_auditoria DO INSTEAD NOTHING;
@@ -174,172 +169,168 @@ CREATE RULE evento_auditoria_sem_delete AS ON DELETE TO evento_auditoria DO INST
 REVOKE UPDATE, DELETE, TRUNCATE ON evento_auditoria FROM app_user;
 ```
 
-Verificado em produção: `UPDATE` e `DELETE` devolvem **zero linhas afetadas**.
+Verified in production: `UPDATE` and `DELETE` return **zero rows affected**.
 
-> **Buraco conhecido.** O `REVOKE` não morde enquanto o utilizador da aplicação
-> for também o owner da tabela — e o owner contorna sempre. Só as `RULE`
-> protegem. Criar um papel `app_user` distinto fecha isto. Registado como
-> pendente, não resolvido.
+> **Known hole.** The `REVOKE` does not bite while the application user is also the table
+> owner — and the owner always bypasses it. Only the `RULE`s protect. Creating a distinct
+> `app_user` role closes this. Recorded as pending, not resolved.
 
-A serialização é **canónica**: chaves ordenadas em qualquer profundidade. Sem
-isso, o mesmo objeto serializado por dois caminhos dá hashes diferentes e a
-cadeia parece adulterada sem estar.
+Serialisation is **canonical**: keys sorted at any depth. Without that, the same object
+serialised via two paths yields different hashes and the chain looks tampered with when it
+is not.
 
-### Token do link mágico
+### Magic link token
 
-Guardado só em SHA-256. O valor em claro existe uma vez, no ecrã de criação.
-Quem tiver leitura da base de dados não fica com a chave de todos os dossiers.
-A comparação é em tempo constante, para o tempo de resposta não deixar adivinhar
-o token byte a byte.
+Stored only as SHA-256. The plaintext value exists once, on the creation screen. Anyone with
+read access to the database does not end up with the key to every case file. Comparison is
+constant-time, so response timing cannot be used to guess the token byte by byte.
 
-Falhas — token errado, processo apagado, link expirado — devolvem sempre a mesma
-resposta. Distinguir "não existe" de "expirou" diria a quem tenta adivinhar que
-acertou num.
+Failures — wrong token, deleted matter, expired link — always return the same response.
+Distinguishing "does not exist" from "expired" would tell a guesser they had hit one.
 
-### Assinatura
+### Signature
 
-Assinatura eletrónica **simples**. O que vale como prova não é o desenho: é o
-conjunto de quem assinou, de que endereço, a que horas do **relógio do servidor**
-— nunca o do cliente — e sobre que conteúdo exato. O `hash_documento` é o SHA-256
-do dossier inteiro em serialização canónica no momento da assinatura. Alterar um
-campo depois disso faz o hash deixar de bater.
+**Simple** electronic signature. What counts as evidence is not the drawing: it is the
+combination of who signed, from which address, at what time on the **server clock** — never
+the client's — and over exactly which content. `hash_documento` is the SHA-256 of the entire
+case file in canonical serialisation at the moment of signing. Changing a field after that
+makes the hash stop matching.
 
-Nem esta abordagem nem integrar DocuSeal dariam assinatura **qualificada**: para
-isso é preciso um QTSP (Chave Móvel Digital, Cartão de Cidadão). O raciocínio
-completo está em [`DECISAO-ASSINATURA.md`](DECISAO-ASSINATURA.md).
+Neither this approach nor integrating DocuSeal would produce a **qualified** signature: that
+requires a QTSP (Chave Móvel Digital, Cartão de Cidadão). The full reasoning is in
+[`DECISAO-ASSINATURA.md`](DECISAO-ASSINATURA.md).
 
-> **Compromisso da POC.** A rubrica é guardada em base64 na coluna
-> `assinatura.imagem_dados`. O certo é um bucket privado com a chave na base de
-> dados. Aguenta uma POC, não aguenta escala.
+> **POC compromise.** The signature squiggle is stored as base64 in the
+> `assinatura.imagem_dados` column. The right answer is a private bucket with the key in the
+> database. It holds for a POC, it does not hold at scale.
 
-### Dados sensíveis
+### Sensitive data
 
-O passo 4 — PPE e origem de fundos — é a informação mais sensível do sistema.
-`assistente` não o pode ver, nem por URL direto nem por chamada à API. A regra
-existe no desenho; **os guards por papel entram na Fase 3**.
+Step 4 — PEP and source of funds — is the most sensitive information in the system.
+`assistente` cannot see it, neither by direct URL nor by API call. The rule exists in the
+design; **the per-role guards land in Phase 3**.
 
-PPE declarada força `nivel_risco = elevado` e bloqueia a aprovação automática.
-Não é configurável: é o que a lei exige.
+A declared PEP forces `nivel_risco = elevado` and blocks automatic approval. It is not
+configurable: it is what the law requires.
 
-### Retenção
+### Retention
 
-O direito ao apagamento não pode apagar o que a Lei 83/2017 obriga a conservar
-sete anos. O desenho: `apagado_em` esconde da aplicação, uma rotina de expurgo só
-remove de facto passados os sete anos, e `evento_auditoria` nunca é tocado —
-regista quem pediu o apagamento, não os dados apagados.
+The right to erasure cannot delete what Lei 83/2017 requires to be kept for seven years. The
+design: `apagado_em` hides it from the application, a purge routine only actually removes it
+after the seven years, and `evento_auditoria` is never touched — it records who requested the
+erasure, not the erased data.
 
-**Precisa de validação jurídica.** Não é decisão técnica.
+**Needs legal validation.** It is not a technical decision.
 
 ---
 
-## 7. O fluxo de onboarding
+## 7. The onboarding flow
 
-Sete passos, cada um numa rota própria (`/onboarding/[token]/passo/[n]`). O
-estado vive na base de dados, não em memória: um refresh não perde nada e o
-cliente volta ao passo onde ficou.
+Seven steps, each on its own route (`/onboarding/[token]/passo/[n]`). State lives in the
+database, not in memory: a refresh loses nothing and the client returns to the step where
+they left off.
 
-| # | Passo | Condicional |
+| # | Step | Conditional |
 |---|---|---|
-| 1 | Identificação | ramifica particular/empresa — decide tudo o resto |
-| 2 | Fiscal + documento de identificação | campos de empresa só para empresa |
-| 3 | Representante legal | **só empresa ou procuração** |
-| 4 | PPE + relação de negócio | detalhes de PPE só ao responder Sim |
-| 5 | Preferências de contacto | campos dependentes de newsletter e convites |
-| 6 | Faturação | — |
-| 7 | Declaração final + assinatura | revisão de tudo antes de submeter |
+| 1 | Identification | branches individual/company — decides everything else |
+| 2 | Tax + identification document | company fields only for companies |
+| 3 | Legal representative | **company or power of attorney only** |
+| 4 | PEP + business relationship | PEP details only when answering Yes |
+| 5 | Contact preferences | fields depending on newsletter and invitations |
+| 6 | Billing | — |
+| 7 | Final declaration + signature | review of everything before submitting |
 
-Um passo que não se aplica é **saltado**, não dá erro — quem escreve o URL à mão
-ou usa o botão de voltar segue em frente. Na lombada aparece riscado em vez de
-desaparecer, para se perceber que foi saltado e não perdido.
+A step that does not apply is **skipped**, it does not error — anyone typing the URL by hand
+or using the back button carries on. On the spine it appears struck through rather than
+disappearing, so it reads as skipped and not lost.
 
-### Divergências face ao formulário atual
+### Divergences from the current form
 
-O formulário existente da PMF diverge do brief em pontos de âmbito, todos
-registados em [`CAMPOS.md`](CAMPOS.md) §D. Os três que mais pesam:
+PMF's existing form diverges from the brief on scope-level points, all recorded in
+[`CAMPOS.md`](CAMPOS.md) §D. The three that weigh most:
 
-1. O passo 7 real **não tinha** T&C, aceitação de proposta nem assinatura.
-2. O passo 5 real **não é RGPD** — é captação de marketing. Os consentimentos
-   granulares com prova continuam por construir.
-3. O documento de identificação vive no **passo 2**, não no 1.
+1. The real step 7 **did not have** T&C, proposal acceptance or a signature.
+2. The real step 5 **is not GDPR** — it is marketing capture. Granular consents with evidence
+   remain to be built.
+3. The identification document lives at **step 2**, not step 1.
 
 ---
 
 ## 8. Interface
 
-Vocabulário do **dossier de processo**: lombada, capilhas numeradas, carimbos,
-identificadores em mono. Não é decoração — cada elemento codifica estado real.
+Vocabulary of the **case file dossier**: spine, numbered tabs, stamps, monospaced identifiers.
+It is not decoration — each element encodes real state.
 
-| Token | Uso |
+| Token | Use |
 |---|---|
-| `--tinta` `#101A24` | texto e sidebar |
-| `--papel` `#EDEFEA` | fundo, papel de arquivo |
-| `--selo` `#8C2F39` | carimbo, destrutivo, crítico |
-| `--arquivo` `#2F5D50` | validado, aprovado |
-| `--latao` `#A9884F` | pendente, atenção, foco |
+| `--tinta` `#101A24` | text and sidebar |
+| `--papel` `#EDEFEA` | background, archive paper |
+| `--selo` `#8C2F39` | stamp, destructive, critical |
+| `--arquivo` `#2F5D50` | validated, approved |
+| `--latao` `#A9884F` | pending, attention, focus |
 
-Três famílias: `Instrument Serif` só em H1/H2, `Inter Tight` no corpo,
-`IBM Plex Mono` em **qualquer identificador** — referência, NIF, IBAN, hash,
-timestamp. Regra, não sugestão.
+Three families: `Instrument Serif` only in H1/H2, `Inter Tight` for body text,
+`IBM Plex Mono` for **any identifier** — reference, tax number, IBAN, hash, timestamp. A rule,
+not a suggestion.
 
-O **carimbo** é o único momento de animação com peso: 180 ms, rotação de 2,5°,
-aplicado ao passo que acabou de ser gravado. Com `prefers-reduced-motion` não
-acontece.
+The **stamp** is the only animation moment with weight: 180 ms, 2.5° rotation, applied to the
+step that has just been saved. With `prefers-reduced-motion` it does not happen.
 
-### Telemóvel
+### Mobile
 
-Advogados abrem isto no telemóvel, e clientes preenchem-no lá.
+Lawyers open this on their phones, and clients fill it in there.
 
-- Lombada deita-se em fita horizontal com barra de progresso
-- Barra de ações colada ao fundo, com `env(safe-area-inset-bottom)`
-- Campos a **16px**: abaixo disso o Safari do iOS faz zoom sozinho e desalinha a
-  página — sozinho, isso estraga um formulário de sete passos
-- Assinatura a dedo, com o canvas redimensionado pelo rácio de píxeis do ecrã
-- Zero scroll horizontal a 360px
+- The spine lies down as a horizontal ribbon with a progress bar
+- Action bar pinned to the bottom, with `env(safe-area-inset-bottom)`
+- Fields at **16px**: below that, iOS Safari zooms on its own and knocks the page out of
+  alignment — that alone ruins a seven-step form
+- Finger signature, with the canvas resized by the screen's pixel ratio
+- Zero horizontal scroll at 360px
 
 ---
 
-## 9. Testes
+## 9. Tests
 
-| Camada | O quê |
+| Layer | What |
 |---|---|
-| Unitários | validações PT (NIF mod-11, IBAN mod-97, código postal, telefone) — 21 |
-| Unitários | cadeia de hashes: determinismo, ordenação canónica, deteção de adulteração — 8 |
-| Migrações | `pnpm db:validar` aplica tudo num Postgres em WASM e prova que a auditoria recusa `UPDATE`/`DELETE` e que a pesquisa resolve acentos |
-| Produção | percurso completo dos dois caminhos, feito à mão contra a base de dados real |
+| Unit | PT validations (tax number mod-11, IBAN mod-97, postcode, phone) — 21 |
+| Unit | hash chain: determinism, canonical ordering, tamper detection — 8 |
+| Migrations | `pnpm db:validar` applies everything to a Postgres in WASM and proves the audit trail refuses `UPDATE`/`DELETE` and that search resolves accents |
+| Production | complete run of both paths, done by hand against the real database |
 
-**Em falta:** E2E Playwright dos dois percursos. É o que falta para isto deixar
-de depender de alguém se lembrar de testar.
-
----
-
-## 10. O que falta, por ordem de importância
-
-1. **Fase 3 — back-office.** Listagem com filtros e o detalhe do processo. Sem
-   isto os processos entram e ninguém os gere.
-2. **Guards por papel + RLS.** A regra de o `assistente` não ver PPE existe no
-   desenho e não no código.
-3. **Papel `app_user`** separado do owner, para o `REVOKE` da auditoria morder.
-4. **Consentimentos RGPD com prova** — versão do texto, data/hora, IP.
-5. **Uploads de documentos.** A tabela existe, a interface não.
-6. **E2E Playwright.**
-7. **Beneficiários efetivos e RCBE.** Obrigação legal, schema pronto, sem UI.
-8. **Validação jurídica** da retenção aos 7 anos.
-9. **Object storage** para a rubrica e os documentos.
-10. **Screenshots do percurso Empresa** — foi construído a partir do texto do
-    brief, sem imagem para validar. Risco de retrabalho assumido.
+**Missing:** Playwright E2E for both paths. It is what is needed for this to stop depending on
+somebody remembering to test.
 
 ---
 
-## 11. Comandos
+## 10. What is missing, in order of importance
+
+1. **Phase 3 — back-office.** Listing with filters and the matter detail. Without it, matters
+   come in and nobody manages them.
+2. **Per-role guards + RLS.** The rule that `assistente` does not see PEP data exists in the
+   design and not in the code.
+3. **`app_user` role** separate from the owner, so the audit `REVOKE` bites.
+4. **GDPR consents with evidence** — text version, date/time, IP.
+5. **Document uploads.** The table exists, the interface does not.
+6. **Playwright E2E.**
+7. **Beneficial owners and RCBE.** Legal obligation, schema ready, no UI.
+8. **Legal validation** of the 7-year retention.
+9. **Object storage** for the signature squiggle and the documents.
+10. **Screenshots of the Company path** — it was built from the brief text, with no image to
+    validate against. Rework risk accepted.
+
+---
+
+## 11. Commands
 
 ```bash
-pnpm dev                  # desenvolvimento
-pnpm build                # tem de passar limpo
+pnpm dev                  # development
+pnpm build                # must pass clean
 pnpm typecheck            # strict, zero any
 pnpm test                 # Vitest
-pnpm db:generate          # nova migração a partir do schema
-pnpm db:migrate           # aplica
-pnpm db:validar           # aplica tudo num Postgres em WASM e verifica
-pnpm db:seed              # só em desenvolvimento
-pnpm auditoria:verificar  # revalida a cadeia de hashes
+pnpm db:generate          # new migration from the schema
+pnpm db:migrate           # apply
+pnpm db:validar           # apply everything to a Postgres in WASM and verify
+pnpm db:seed              # development only
+pnpm auditoria:verificar  # revalidate the hash chain
 ```

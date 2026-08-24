@@ -1,58 +1,59 @@
-# Deploy — do zero até a POC no ar
+# Deploy — from zero to the POC being live
 
-Guia completo da infraestrutura partilhada e da publicação deste projeto.
-Um servidor, vários projetos, custo fixo.
+Complete guide to the shared infrastructure and to publishing this project.
+One server, several projects, fixed cost.
 
-## O que fica no fim
+## What you end up with
 
-| Endereço | O que é | Repositório |
+| Address | What it is | Repository |
 |---|---|---|
-| `terlicalabs.com` | Site da Terlica Labs, onde se pedem projetos | outro repo |
-| `www.terlicalabs.com` | O mesmo, redirecionado | outro repo |
-| `poc.terlicalabs.com` | **Esta POC** — onboarding PMF Consulting | `umnick-01/law-project` |
-| `coolify.terlicalabs.com` | Painel de gestão do servidor | — |
-| `cliente2.terlicalabs.com` | POC seguinte, quando houver | outro repo |
+| `terlicalabs.com` | Terlica Labs website, where projects are requested | another repo |
+| `www.terlicalabs.com` | The same, redirected | another repo |
+| `poc.terlicalabs.com` | **This POC** — PMF Consulting onboarding | `umnick-01/law-project` |
+| `coolify.terlicalabs.com` | Server management panel | — |
+| `cliente2.terlicalabs.com` | Next POC, when there is one | another repo |
 
-Tudo na mesma máquina. Cada projeto novo é um subdomínio novo, sem voltar ao DNS.
+All on the same machine. Each new project is a new subdomain, with no need to return to DNS.
 
-**Custo total:** ~10 €/ano de domínio + o VPS. Na Hostinger KVM 1 fica entre **70 e 105 €/ano**
-conforme o compromisso — e não sobe com o número de POCs lá dentro.
+**Total cost:** ~€10/year for the domain + the VPS. On Hostinger KVM 1 that lands between
+**€70 and €105/year** depending on the commitment — and it does not rise with the number of
+POCs inside it.
 
-Duas ressalvas sobre a Hostinger: o preço baixo é com compromisso de 12 ou 24 meses, e a
-**renovação sobe bastante** depois disso. Marca no calendário a data da renovação, e nessa
-altura compara com a Hetzner (~4,5 €/mês por 2 vCPU e 4 GB, se entretanto resolveres o
-registo) ou a OVH (~6–7 €/mês).
+Two caveats about Hostinger: the low price requires a 12- or 24-month commitment, and the
+**renewal goes up considerably** after that. Put the renewal date in your calendar, and when it
+comes compare against Hetzner (~€4.5/month for 2 vCPU and 4 GB, if you have sorted out the
+registration by then) or OVH (~€6–7/month).
 
 ---
 
-## 1. Domínio
+## 1. Domain
 
-- [ ] Registar **`terlicalabs.com`** na [Cloudflare Registrar](https://dash.cloudflare.com)
-      (~10 €/ano, a preço de custo, sem subida na renovação)
-- [ ] Registar diretamente lá, para o DNS já ficar na Cloudflare e evitar transferência depois
+- [ ] Register **`terlicalabs.com`** at [Cloudflare Registrar](https://dash.cloudflare.com)
+      (~€10/year, at cost, with no increase on renewal)
+- [ ] Register directly there, so DNS is already at Cloudflare and a transfer later is avoided
 
-## 2. Servidor
+## 2. Server
 
 **Hostinger VPS KVM 1** — 1 vCPU, 4 GB RAM, 50 GB NVMe.
 
-- [ ] Plano **KVM 1**
-- [ ] Sistema: **Ubuntu 24.04**
-- [ ] Localização: **Países Baixos** ou **França**
-- [ ] Chave SSH adicionada no arranque, não palavra-passe
-- [ ] Anotar o IPv4
+- [ ] **KVM 1** plan
+- [ ] OS: **Ubuntu 24.04**
+- [ ] Location: **Netherlands** or **France**
+- [ ] SSH key added at provisioning time, not a password
+- [ ] Note down the IPv4
 
-Porquê a Hostinger: o registo não exige VAT ID, está em português e aceita pagamento
-local. E é empresa **lituana** — europeia, fora do alcance do Cloud Act, o que num sistema
-que guarda documentos de identificação e declarações de PPE não é detalhe. Por isso também
-o datacenter fica na UE.
+Why Hostinger: registration does not require a VAT ID, it is available in Portuguese and accepts
+local payment. And it is a **Lithuanian** company — European, outside the reach of the Cloud Act,
+which in a system holding identification documents and PEP declarations is not a detail. That is
+also why the datacenter stays in the EU.
 
-**O mínimo é 4 GB de RAM.** Não é folga, é o mínimo: o Coolify ocupa ~1–1,5 GB, o Postgres
-~200 MB, e um `next build` chega a picos de 1,5–2 GB. Com 1 vCPU as compilações demoram
-alguns minutos — irrelevante numa POC.
+**The minimum is 4 GB of RAM.** That is not headroom, it is the minimum: Coolify takes ~1–1.5 GB,
+Postgres ~200 MB, and a `next build` peaks at 1.5–2 GB. With 1 vCPU the builds take a few
+minutes — irrelevant for a POC.
 
-### Swap: 2 GB de seguro barato
+### Swap: 2 GB of cheap insurance
 
-Com 4 GB e builds a picar, vale sempre a pena:
+With 4 GB and builds spiking, it is always worth it:
 
 ```bash
 fallocate -l 2G /swapfile && chmod 600 /swapfile
@@ -60,15 +61,15 @@ mkswap /swapfile && swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ```
 
-Sem isto, uma compilação que estoire a memória é morta pelo kernel a meio, e o erro nos
-logs não diz "falta de RAM" — diz apenas que o processo terminou.
+Without this, a build that blows through memory is killed by the kernel halfway, and the error in
+the logs does not say "out of RAM" — it just says the process terminated.
 
-**Quando trocar de máquina:** se começares a servir tráfego real, ou se tiveres três ou
-mais projetos a compilar no mesmo dia. Aí é subir para 2 vCPU.
+**When to change machine:** if you start serving real traffic, or if you have three or more
+projects building on the same day. At that point, move up to 2 vCPU.
 
 ## 3. Firewall
 
-A Hostinger não tem firewall de rede como a Hetzner, por isso é no próprio servidor:
+Hostinger has no network firewall like Hetzner, so it goes on the server itself:
 
 ```bash
 ufw default deny incoming
@@ -76,143 +77,143 @@ ufw default allow outgoing
 ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
-ufw allow 8000/tcp   # painel do Coolify, remover no passo 6
+ufw allow 8000/tcp   # Coolify panel, remove in step 6
 ufw enable
 ```
 
-**Atenção a uma armadilha que engana muita gente:** o Docker escreve regras diretamente no
-iptables e **passa ao lado do ufw**. Um contentor com porta publicada fica acessível a
-partir da internet mesmo com o ufw a dizer `deny`.
+**Watch out for a trap that catches a lot of people:** Docker writes rules straight into iptables
+and **bypasses ufw**. A container with a published port is reachable from the internet even with
+ufw saying `deny`.
 
-Ou seja, o que protege o Postgres **não é a firewall** — é não lhe publicar porta nenhuma.
-O ufw aqui protege os serviços do próprio sistema; o Postgres protege-se ficando só na
-rede interna do Docker, como no passo 8.
+In other words, what protects Postgres **is not the firewall** — it is not publishing any port for
+it at all. ufw here protects the system's own services; Postgres protects itself by staying only
+on Docker's internal network, as in step 8.
 
-No passo 6, quando o painel tiver domínio: `ufw delete allow 8000/tcp`.
+In step 6, once the panel has a domain: `ufw delete allow 8000/tcp`.
 
 ## 4. Coolify
 
 ```bash
-ssh root@IP_DO_SERVIDOR
+ssh root@SERVER_IP
 curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
 ```
 
-Confirma o comando em [coolify.io](https://coolify.io) antes de o correres — é um script
-remoto executado como root, e isso merece dez segundos de atenção.
+Check the command at [coolify.io](https://coolify.io) before running it — it is a remote script
+executed as root, and that deserves ten seconds of attention.
 
-- [ ] Abrir `http://IP_DO_SERVIDOR:8000`
-- [ ] **Criar a conta de administrador imediatamente** — a primeira conta a ser criada fica
-      admin, e o IP é público
+- [ ] Open `http://SERVER_IP:8000`
+- [ ] **Create the administrator account immediately** — the first account created becomes admin,
+      and the IP is public
 
 ## 5. DNS
 
-Na Cloudflare, em `terlicalabs.com` → **DNS → Records**:
+At Cloudflare, under `terlicalabs.com` → **DNS → Records**:
 
-| Tipo | Nome | Conteúdo | Proxy |
+| Type | Name | Content | Proxy |
 |---|---|---|---|
-| A | `@` | IP do servidor | **desligado** |
-| A | `www` | IP do servidor | **desligado** |
-| A | `*` | IP do servidor | **desligado** |
+| A | `@` | server IP | **off** |
+| A | `www` | server IP | **off** |
+| A | `*` | server IP | **off** |
 
-O `*` é o que dá subdomínios ilimitados: cobre `poc`, `coolify`, `cliente2` e tudo o que
-vier, sem voltares aqui.
+The `*` is what gives unlimited subdomains: it covers `poc`, `coolify`, `cliente2` and whatever
+comes next, without you coming back here.
 
-**O proxy tem de ficar desligado** (nuvem cinzenta, não laranja). Com o proxy ligado, o
-Let's Encrypt não consegue completar o desafio HTTP-01 e nenhum certificado é emitido.
-Podes ligá-lo mais tarde, projeto a projeto, depois de os certificados existirem.
+**The proxy must stay off** (grey cloud, not orange). With the proxy on, Let's Encrypt cannot
+complete the HTTP-01 challenge and no certificate is issued. You can turn it on later, project by
+project, once the certificates exist.
 
-## 6. Painel com domínio próprio
+## 6. Panel on its own domain
 
 - [ ] Coolify → **Settings → Instance Domain** → `https://coolify.terlicalabs.com`
-- [ ] Confirmar que abre com HTTPS
-- [ ] Fechar a porta: `ufw delete allow 8000/tcp`
+- [ ] Confirm it opens over HTTPS
+- [ ] Close the port: `ufw delete allow 8000/tcp`
 
-## 7. Ligar o GitHub
+## 7. Connect GitHub
 
 Coolify → **Sources → Add → GitHub App**.
 
-O Coolify guia a criação de uma GitHub App na conta `umnick-01` e a sua instalação nos
-repositórios escolhidos. É esta peça que dá acesso de leitura **e** regista o webhook de
-push — sem chaves SSH para gerir, e funciona com repositórios privados.
+Coolify walks you through creating a GitHub App on the `umnick-01` account and installing it on the
+chosen repositories. This is the piece that grants read access **and** registers the push webhook —
+no SSH keys to manage, and it works with private repositories.
 
-- [ ] Instalar a App em `umnick-01/law-project`
-- [ ] Instalar também no repo do site, quando existir
+- [ ] Install the App on `umnick-01/law-project`
+- [ ] Also install it on the website repo, once it exists
 
-## 8. Base de dados
+## 8. Database
 
-Coolify → o teu projeto → **New Resource → PostgreSQL**.
+Coolify → your project → **New Resource → PostgreSQL**.
 
-- [ ] Criar a instância
-- [ ] Copiar o **URL de ligação interno** (o que usa o nome do serviço, não o IP público)
-- [ ] Confirmar que **não** tem porta publicada para o exterior
+- [ ] Create the instance
+- [ ] Copy the **internal connection URL** (the one using the service name, not the public IP)
+- [ ] Confirm it has **no** port published externally
 
-Este passo substitui o Supabase. Com base de dados no próprio servidor, desaparece a
-suspensão ao fim de 7 dias sem uso do plano gratuito — que era exatamente o que ia
-acontecer a uma POC mostrada de duas em duas semanas.
+This step replaces Supabase. With the database on the server itself, the free plan's suspension
+after 7 days without use disappears — which was exactly what was going to happen to a POC shown
+once a fortnight.
 
-## 9. A aplicação
+## 9. The application
 
 Coolify → **New Resource → Private Repository (with GitHub App)**.
 
-- [ ] Repositório `umnick-01/law-project`, branch `main`
-- [ ] Build pack: **Dockerfile** (está na raiz do repo)
-- [ ] Domínio: `https://poc.terlicalabs.com`
-- [ ] Porta exposta: `3000`
+- [ ] Repository `umnick-01/law-project`, branch `main`
+- [ ] Build pack: **Dockerfile** (it is at the repo root)
+- [ ] Domain: `https://poc.terlicalabs.com`
+- [ ] Exposed port: `3000`
 
-## 10. Variáveis de ambiente
+## 10. Environment variables
 
-Na aba **Environment Variables** do recurso. Nunca no repositório.
+In the resource's **Environment Variables** tab. Never in the repository.
 
-| Variável | Valor |
+| Variable | Value |
 |---|---|
-| `DATABASE_URL` | o URL interno do passo 8 |
-| `BETTER_AUTH_SECRET` | gerar, ver abaixo |
+| `DATABASE_URL` | the internal URL from step 8 |
+| `BETTER_AUTH_SECRET` | generate it, see below |
 | `BETTER_AUTH_URL` | `https://poc.terlicalabs.com` |
 | `EMAIL_REMETENTE` | `onboarding@resend.dev` |
-| `RESEND_API_KEY` | opcional — sem ela, os emails vão para os logs |
+| `RESEND_API_KEY` | optional — without it, emails go to the logs |
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## 11. Primeiro deploy
+## 11. First deploy
 
-- [ ] **Deploy** no Coolify
-- [ ] Acompanhar os logs: a imagem compila, o `scripts/migrar.mjs` aplica as três migrações
-      e só depois o servidor Next arranca
+- [ ] **Deploy** in Coolify
+- [ ] Follow the logs: the image builds, `scripts/migrar.mjs` applies the three migrations, and
+      only then does the Next server start
 
-Se a migração falhar, o contentor não sobe. É deliberado — mais vale não publicar do que
-servir a aplicação contra um schema que não é o esperado.
+If the migration fails, the container does not come up. That is deliberate — better not to publish
+than to serve the application against a schema that is not the expected one.
 
-## 12. Verificar
+## 12. Verify
 
-- [ ] `https://poc.terlicalabs.com` abre com certificado válido
-- [ ] O painel mostra os tiles e o vocabulário visual
-- [ ] Nos logs, `Migrações aplicadas a partir de ./migracoes`
-- [ ] `git push` para `main` dispara um deploy sozinho
+- [ ] `https://poc.terlicalabs.com` opens with a valid certificate
+- [ ] The dashboard shows the tiles and the visual vocabulary
+- [ ] In the logs, `Migrações aplicadas a partir de ./migracoes`
+- [ ] `git push` to `main` triggers a deploy on its own
 
-## 13. A partir daqui
+## 13. From here on
 
-Cada POC nova: **New Resource** no Coolify, o repositório dela, e o subdomínio que quiseres.
-O DNS já está feito.
+Each new POC: **New Resource** in Coolify, its repository, and whichever subdomain you want.
+DNS is already done.
 
 ---
 
-## Problemas comuns
+## Common problems
 
-**O certificado não é emitido.** O proxy da Cloudflare está ligado nesse registo. Desliga
-(nuvem cinzenta) e volta a tentar.
+**The certificate is not issued.** Cloudflare's proxy is on for that record. Turn it off (grey
+cloud) and try again.
 
-**A compilação fica sem memória.** Servidor com menos de 4 GB, ou duas compilações em
-simultâneo. Adiciona swap ou publica um projeto de cada vez.
+**The build runs out of memory.** Server with less than 4 GB, or two builds at once. Add swap or
+publish one project at a time.
 
-**A aplicação arranca e morre logo.** Quase sempre `DATABASE_URL` errado. O URL tem de ser
-o **interno** do Postgres do Coolify, não um endereço público.
+**The application starts and dies immediately.** Almost always a wrong `DATABASE_URL`. The URL has
+to be the **internal** one for Coolify's Postgres, not a public address.
 
-**`CREATE RULE ... already exists` ao migrar.** A tabela `__drizzle_migrations` foi
-apagada. As migrações `0001` e `0002` não são idempotentes de propósito — recriar o schema
-de raiz é mais seguro do que adivinhar o que já foi aplicado.
+**`CREATE RULE ... already exists` when migrating.** The `__drizzle_migrations` table was deleted.
+Migrations `0001` and `0002` are deliberately not idempotent — recreating the schema from scratch
+is safer than guessing what has already been applied.
 
-**Auditoria: o `REVOKE` não morde.** Só as `RULE` protegem enquanto o utilizador da
-aplicação for também o owner das tabelas. Criar um papel `app_user` separado do owner é o
-passo que fecha isto — a migração `0002` já o aplica assim que o papel existir.
+**Audit trail: the `REVOKE` does not bite.** Only the `RULE`s protect while the application user is
+also the owner of the tables. Creating an `app_user` role separate from the owner is the step that
+closes this — migration `0002` already applies it as soon as the role exists.
