@@ -81,3 +81,36 @@ export async function exigirAdmin() {
   if (!podeVerEmails(s.eu.papel)) redirect("/");
   return s;
 }
+
+/**
+ * Quem administra a sociedade.
+ *
+ * Não é o mesmo que `podeVerEmails`, apesar de hoje darem a mesma resposta, e a
+ * diferença não é de gosto: `/emails` é restrito por ser um ecrã de diagnóstico
+ * com endereços de clientes lado a lado; a administração é restrita por decidir
+ * quem entra na plataforma, com que perfil, e qual é o articulado que vincula os
+ * clientes da sociedade. São duas razões diferentes para a mesma resposta, e
+ * escrevê-las como uma só significa que o dia em que uma mudar leva a outra
+ * atrás sem ninguém reparar.
+ */
+export function podeAdministrar(papel: string) {
+  return papel === "admin";
+}
+
+/**
+ * Requer sessão **e** o papel de administrador.
+ *
+ * Chamada no início de cada página e de cada Server Action da administração, e
+ * não só na navegação: esconder a entrada da barra lateral é cortesia, não
+ * segurança — o endereço continua a responder a quem o escreva à mão, e uma
+ * Server Action é um endpoint público como qualquer outro (D35).
+ *
+ * Um não-administrador vai para o painel e não para a entrada: já tem sessão
+ * válida, e mandá-lo autenticar-se outra vez sugeria que o problema era a
+ * sessão.
+ */
+export async function exigirAdministracao() {
+  const s = await exigirSessao();
+  if (!podeAdministrar(s.eu.papel)) redirect("/");
+  return s;
+}

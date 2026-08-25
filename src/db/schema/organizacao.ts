@@ -19,26 +19,56 @@ export const organizacao = pgTable("organizacao", {
   /** Prefixo da referência de processo: 'PMF' → PMF-2026-0142. */
   prefixoReferencia: text("prefixo_referencia").notNull(),
 
+  /* ------------------------------------------------ Firm identity and contacts
+   *
+   * All nullable, and all filled in by the firm's own onboarding
+   * (`onboarding_sociedade`). Nullable is not laziness: the organisation row is
+   * born as a shell the moment the firm is invited, and it stays a shell until
+   * somebody on their side walks the steps. Making these `not null` would force
+   * inventing values at creation time — and an invented address is worse than
+   * an absent one, because it looks like an answer.
+   *
+   * The seeded organisation predates all of this and has none of them; it keeps
+   * working exactly as before, which is the test of whether the addition really
+   * was additive.
+   */
+  /** Legal form: 'Sociedade de Advogados, SP, RL', 'Advogado em prática individual'… */
+  naturezaJuridica: text("natureza_juridica"),
+  /** The firm's registration number with the Bar Association. */
+  numeroOrdem: text("numero_ordem"),
+  emailGeral: text("email_geral"),
+  telefone: text("telefone"),
+  website: text("website"),
+  morada: text("morada"),
+  pais: text("pais"),
+  localidade: text("localidade"),
+  codigoPostal: text("codigo_postal"),
+  freguesia: text("freguesia"),
+  concelho: text("concelho"),
+  distrito: text("distrito"),
+
   /* ------------------------------------------------- T&C da própria sociedade
    *
-   * TODO(T&C da sociedade) — slot preparado, **por acionar**.
+   * **Acionado.** O que aqui esteve escrito durante a revisão de 23/08 — «slot
+   * preparado, por acionar» — deixou de ser verdade: a sociedade entrega o
+   * articulado no seu próprio onboarding, cada pessoa que se junta à sociedade
+   * aceita-o no dela, e o passo 7 do cliente serve este documento em vez do
+   * texto da plataforma sempre que ele exista. O plano está em
+   * `docs/TERMOS_SOCIEDADE.md`, agora como registo do que foi feito.
    *
-   * Os Termos e Condições que o cliente aceita no passo 7 são, hoje, os de
-   * `src/lib/termos.ts`: texto da plataforma, escrito a partir do que a lei
-   * obriga a constar. Não é o que deve ficar. Quem contrata com o cliente é a
+   * O problema que resolvem continua o mesmo: quem contrata com o cliente é a
    * sociedade, e o articulado que o vincula é o dela — a plataforma é o canal,
-   * não a parte.
+   * não a parte. Enquanto forem `null`, o passo 7 serve `src/lib/termos.ts` e o
+   * cliente não tem de fazer nada de novo; a preparação foi feita com essa
+   * propriedade e é ela que permite que a instalação existente não note a
+   * diferença.
    *
-   * Estas três colunas são o espaço onde esse articulado vai viver, e existem
-   * já por uma razão prática: o dia em que a sociedade entregar o documento não
-   * pode ser um dia de migração com o sistema a correr. Ficam anuláveis e sem
-   * leitor nenhum a depender delas — enquanto forem `null`, tudo se comporta
-   * exatamente como antes.
-   *
-   * O que falta para acionar está escrito em `docs/TERMOS_SOCIEDADE.md`, e o
-   * ponto que não se pode esquecer é o da D3/D38: os consentimentos apontam
-   * para uma **versão**, e substituir o texto sem subir a versão apaga a
-   * diferença entre o que o cliente aceitou e o que passou a estar escrito.
+   * O ponto que não se pode esquecer é o da D3/D38: os consentimentos apontam
+   * para uma **versão**, e substituir o documento sem subir a versão apaga a
+   * diferença entre o que o cliente aceitou e o que passou a estar escrito. É
+   * por isso que a versão é pedida no ecrã de submissão e recusada quando é
+   * igual à que está em vigor — não é validação por gosto, é o que impede o
+   * apagamento silencioso da prova.
    */
 
   /**

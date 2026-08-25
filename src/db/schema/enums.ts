@@ -122,6 +122,18 @@ export const templateEmail = pgEnum("template_email", [
    * não o corpo (D34).
    */
   "otp",
+  /**
+   * Oitavo e nono: os dois convites que abrem os percursos internos — o da
+   * sociedade (o link que a leva ao seu próprio onboarding) e o de cada pessoa
+   * que se junta a ela. Vão para o mesmo `email_log` que os do cliente, e é o
+   * mesmo motivo: a pergunta "o convite chegou?" tem exatamente a mesma forma
+   * que "o registo chegou?", e um diário que respondesse a uma e não à outra
+   * obrigava a ir ao servidor para metade dos casos.
+   *
+   * No fim do array porque é aí que o `ALTER TYPE ADD VALUE` os põe.
+   */
+  "convite_sociedade",
+  "convite_utilizador",
 ]);
 
 /**
@@ -165,4 +177,56 @@ export const regimeIva = pgEnum("regime_iva", [
   "isento_art53",
   "isento_art9",
   "misto",
+]);
+
+/**
+ * Where a firm's own onboarding stands.
+ *
+ * `rascunho` is the firm filling in; `submetido` is the data delivered and the
+ * first administrator invited; `ativo` is the organisation working normally.
+ * The distinction between the last two exists because there is a gap between
+ * them that nobody controls — the firm submits, and the administrator only
+ * exists once *they* finish their own onboarding. An organisation sitting at
+ * `submetido` for a week is a first invitation nobody opened, and that is a
+ * thing worth being able to see.
+ */
+export const estadoOnboardingSociedade = pgEnum("estado_onboarding_sociedade", [
+  "rascunho",
+  "submetido",
+  "ativo",
+]);
+
+/**
+ * Where an invitation stands.
+ *
+ * `expirado` is deliberately **not** here. Expiry is a date, not a state, and
+ * the two disagree the moment nobody runs the job that would flip it — an
+ * invitation that expired on Sunday would still read `pendente` on Monday.
+ * `expira_em` against the clock is the single source of that answer.
+ */
+export const estadoConvite = pgEnum("estado_convite", [
+  "pendente",
+  "aceite",
+  "cancelado",
+]);
+
+/**
+ * The types of document that belong to the firm or to one of its people, as
+ * opposed to a client matter (`tipo_documento`).
+ *
+ * Two lists and not one because they answer different questions and are shown
+ * in different places: nobody attaches a permanent certificate to a lawyer, and
+ * nobody attaches a bar card to a matter. Merging them would give every dropdown
+ * on both sides a set of options that cannot apply.
+ */
+export const tipoDocumentoOrganizacao = pgEnum("tipo_documento_organizacao", [
+  /** The firm's own Terms and Conditions — the wording its clients accept. */
+  "termos_sociedade",
+  /** A person's identification document, from their onboarding. */
+  "identificacao",
+  /** The Bar Association card. */
+  "cedula_profissional",
+  /** The firm's permanent certificate. */
+  "certidao_sociedade",
+  "outro",
 ]);

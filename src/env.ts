@@ -40,6 +40,17 @@ const esquema = z.object({
     .string()
     .regex(/^[0-9a-fA-F]{64}$/, "ARMAZENAMENTO_CHAVE tem de ser 64 carateres hex (32 bytes)")
     .optional(),
+  /**
+   * A chave que autentica o bot na API dos onboardings.
+   *
+   * Opcional, e sem valor por omissão de propósito: **sem ela a API responde
+   * 503 e não fica aberta**. Um valor por defeito aqui seria a instalação que
+   * esqueceu a variável a servir dados de KYC a quem os peça — e uma chave
+   * partilhada num exemplo é uma chave pública.
+   *
+   * Gera-se com `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
+   */
+  API_CHAVE: z.string().min(32, "API_CHAVE precisa de pelo menos 32 caracteres").optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

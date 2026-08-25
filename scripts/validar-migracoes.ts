@@ -17,6 +17,28 @@ const PASTA = join(process.cwd(), "src", "db", "migrations");
 
 type Journal = { entries: { idx: number; tag: string }[] };
 
+/**
+ * O bloco é só comentários (e, portanto, não há nada para executar)?
+ *
+ * Isto era um `/^(--[^\n]*\n?)+$/`, e o grupo repetido sobre linhas com um
+ * `\n?` opcional é a receita de backtracking catastrófico: num bloco de
+ * comentários com uma dezena de linhas que *quase* casa — basta uma linha em
+ * branco no fim para o `$` falhar —, o motor tenta todas as maneiras de
+ * repartir o texto pelas repetições e o `pnpm db:validar` deixa de terminar. O
+ * sintoma não aponta para aqui: o script fica parado imediatamente **antes** de
+ * imprimir a primeira instrução da migração nova, e a leitura óbvia é que é a
+ * migração que está mal.
+ *
+ * Linha a linha é linear e diz exatamente o mesmo.
+ */
+function soComentarios(bloco: string): boolean {
+  return bloco
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .every((l) => l.startsWith("--"));
+}
+
 async function main() {
   const journal: Journal = JSON.parse(
     readFileSync(join(PASTA, "meta", "_journal.json"), "utf8"),
@@ -31,7 +53,7 @@ async function main() {
     const blocos = sql
       .split("--> statement-breakpoint")
       .map((b) => b.trim())
-      .filter((b) => b.length > 0 && !/^(--[^\n]*\n?)+$/.test(b));
+      .filter((b) => b.length > 0 && !soComentarios(b));
 
     for (const bloco of blocos) {
       try {

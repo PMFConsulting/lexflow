@@ -1,5 +1,14 @@
 import Link from "next/link";
-import { FileText, LayoutDashboard, Mail, Settings, Users, type LucideIcon } from "lucide-react";
+import {
+  Building2,
+  FileText,
+  LayoutDashboard,
+  Mail,
+  Settings,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -17,7 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { exigirSessao, podeVerEmails } from "@/lib/sessao";
+import { exigirSessao, podeAdministrar, podeVerEmails } from "@/lib/sessao";
 import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
 import { Logotipo } from "@/components/logotipo";
 
@@ -29,6 +38,7 @@ type Entrada = {
   soAdmin?: boolean;
 };
 
+/** O trabalho do dia: os dossiers dos clientes. */
 const NAVEGACAO: Entrada[] = [
   { titulo: "Painel", href: "/", icone: LayoutDashboard },
   { titulo: "Processos", href: "/processos", icone: FileText },
@@ -37,6 +47,24 @@ const NAVEGACAO: Entrada[] = [
   // esconder a entrada aqui é cortesia, não segurança.
   { titulo: "Emails", href: "/emails", icone: Mail, soAdmin: true },
   { titulo: "Configuração", href: "/configuracao", icone: Settings },
+];
+
+/**
+ * A sociedade e a pessoa — um grupo à parte, e não mais entradas na lista de
+ * cima.
+ *
+ * São coisas de natureza diferente: acima está o trabalho sobre clientes,
+ * aqui está quem trabalha. Misturá-las dava uma barra lateral em que
+ * «Utilizadores» aparecia a seguir a «Clientes», e essas duas palavras já são
+ * difíceis de distinguir sem as pôr lado a lado.
+ *
+ * «A minha conta» não tem `soAdmin`: é o portal de cada pessoa da equipa, e é
+ * onde um advogado sem funções de administração vai buscar o que lhe diz
+ * respeito.
+ */
+const NAVEGACAO_SOCIEDADE: Entrada[] = [
+  { titulo: "A minha conta", href: "/advogado", icone: UserRound },
+  { titulo: "Administração", href: "/admin", icone: Building2, soAdmin: true },
 ];
 
 /**
@@ -82,6 +110,26 @@ export default async function LayoutBackoffice({
                 <SidebarMenu>
                   {NAVEGACAO.filter(
                     (item) => !item.soAdmin || podeVerEmails(eu.papel),
+                  ).map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild tooltip={item.titulo}>
+                        <Link href={item.href}>
+                          <item.icone />
+                          <span>{item.titulo}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>Sociedade</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {NAVEGACAO_SOCIEDADE.filter(
+                    (item) => !item.soAdmin || podeAdministrar(eu.papel),
                   ).map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton asChild tooltip={item.titulo}>

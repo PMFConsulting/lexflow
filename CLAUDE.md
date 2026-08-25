@@ -16,7 +16,8 @@ is the first leg.
 | 0 — Analysis | **complete** — 7 screenshots read, fields inventoried, 7 divergences recorded |
 | 1 — Foundations | **complete** and in production |
 | 2 — Onboarding flow | **complete** — walked end to end in production |
-| 3 — Back-office | not started |
+| 3 — Back-office | **partial** — listing, matter detail, clients, emails, and the two firm portals |
+| 3b — Firm and user onboarding | **complete** — built 25/08, not yet walked in production |
 | 4 — Closing (PDF, signature, emails) | outside POC scope |
 
 ### What was done in Phase 1
@@ -584,6 +585,86 @@ continues to fail with exactly the same 10 problems as before (6 errors, 4 warni
 not measure reading to the end**, unlike what D30 requires for the T&C. See the second half of
 D52.
 
+### Update — firm and user onboarding, the two portals, and the API (25/08/2026)
+
+The client's message of 25/08 has two halves. The first is a re-check of the seven points of the
+23/08 product review: **six were already done** (D52, D54–D58 — commercial proposal, corporate
+tax number 5/6/8/9, nine-digit phone, mandatory attachments at step 2, OTP at closing, correction
+returning to the closing step). The seventh — the firm's T&C — was only a prepared slot (D53),
+and the client had asked for it to be held until user onboarding was defined. The second half is
+that definition: *"quero um portal admins, de admins da sociedade e um portal de advogados
+normais"* and *"tens q fazer o processo de onboarding tudo da sociedade e onboarding de users
+todo"*. Two more asks arrived while the work was in progress: **the app has to be ready for a
+legal review**, and **the onboardings need an API a bot can drive**.
+
+Everything additive in the database: migration `0016`, no existing column altered, no earlier
+migration touched. Thirty-five tables.
+
+**Firm onboarding** (`/sociedade/[token]`, six steps). The platform used to start at the point
+where a firm already existed — the organisation came from the seeds and accounts were written on
+the server (D23). That is fine for one firm and stops being fine at the second. A firm is now
+invited with `pnpm sociedade:convidar`, which creates the organisation shell plus the magic link,
+and walks: identification (NIPC with the D54 rule, legal form, Bar number, reference prefix),
+address and contacts, permanent certificate, **its T&C**, the first administrator, and a binding
+declaration. Submitting creates the administrator's own invitation and emails it.
+
+**User onboarding** (`/convite/[token]`, six steps). Personal data, professional data (bar card,
+mandatory only for `advogado`/`socio` — an assistant legitimately has none, and requiring it made
+the step impossible to close), documents, **GDPR and professional secrecy**, the firm's T&C, and
+the password. **The account does not exist until the last step**, which is what stops anyone
+logging in without having finished identifying themselves; the three writes (`user`, `account`,
+`utilizador`) are one transaction.
+
+**The two portals.** `/admin` for firm administrators — firm data, publishing a new T&C version,
+the team with each person's acceptance beside them, invitations (create, resend with a *new*
+token, cancel), roles and activation, and `/admin/conformidade`. `/advogado` for everybody else —
+own profile, professional data, own documents, own acceptance history, and the team. It is not a
+reduced administration: administration answers *who has access*, this answers *what does the firm
+hold about me and what do I have left to do* — and under GDPR a person has to be able to see
+their own data without going through whoever administers.
+
+**Firm T&C activated** (D59). `termosEmVigor` resolves what is in force per organisation, and it
+is the only function that knows: client step 7, user onboarding step 5 and the lawyer portal all
+call it, so there is no day on which the firm has two articles of terms in force without knowing.
+It falls back to the platform text in **three** cases and not just the obvious one — never
+delivered, delivered and since deleted, delivered with no version — which is what a check against
+`termos_documento_ref != null` alone let through.
+
+**Prepared for legal review** (D60, D61). `fecho_proposta.tc_versao` is new and it closes a real
+hole: the client's T&C acceptance was a boolean, so it said somebody accepted and did not say
+what — and the day the firm bumped a version, every earlier acceptance would read as an
+acceptance of the new text. Step 4 of user onboarding separates the three answers that are
+usually conflated: information (not consent, because the lawful basis is contract and legal
+obligation), a secrecy declaration, and one actual consent. `docs/CONFORMIDADE.md` maps each
+obligation to where it is met **and lists what is missing**, marked ⚠ rather than hidden — the
+beneficial owners (A19) and the seven-year purge are the two that matter most.
+
+**API for the bot** (D62). `/api/onboarding/{cliente,sociedade,convite}/…`, documented in
+`docs/API.md`. Every route calls the same function the screen calls; there is no second set of
+rules with the same name. Two auth layers — the magic-link token in the path, and `API_CHAVE` as
+a bearer token — and **without the key configured it answers 503 rather than opening**.
+
+**Found along the way, and unrelated to the ask:** `pnpm db:validar` had a
+catastrophic-backtracking regex (`/^(--[^\n]*\n?)+$/`) that hangs the script on any migration
+with a comment-only block. The symptom does not point at the script — it freezes immediately
+*before* printing the new migration's first statement, and the obvious reading is that the
+migration is at fault. Replaced with a linear line-by-line check.
+
+**Refactors that made the above possible, all behaviour-preserving:** `Anexos`, `Lombada`,
+`LeitorTermos`, the unavailable-link screen and the error-targeting DOM helpers moved to
+`src/components/`, with the client-flow files becoming thin wrappers; the shared Zod pieces moved
+to `src/lib/campos.ts`; the email frame to `src/lib/emails/moldura.ts`; the country list to
+`features/onboarding/componentes/paises.ts`. Each of these had cost real effort to get right
+(D41's `useId`, the field that clears itself in the `finally`, the D30 measurement), and a second
+copy would have lost half of those lessons in a month.
+
+**Verified in this session:** `pnpm test` 469 green (25 files), `pnpm typecheck` clean,
+`pnpm build` clean, `pnpm db:validar` applying `0016` on an ephemeral PGlite (35 tables, audit
+trail still refusing UPDATE and DELETE). `pnpm lint` fails with 9 problems (6 errors, 3
+warnings), all pre-existing — one fewer than before, because a refactor removed an unused
+variable. **Not verified:** none of the new flows has been walked in production, and no seed
+creates a firm onboarding — the first walkthrough needs `pnpm sociedade:convidar` on the server.
+
 ## Infrastructure — ~€65/year for unlimited POCs
 
 Complete guide in [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -693,6 +774,11 @@ this** — it changes what is built around it.
 | D57 | Email verification code before the signature, in the new `codigo_otp` table: six digits, ten minutes, five attempts, one request per minute, and the verification valid for one hour (the time to read the T&C, read the proposal and sign — forcing a repeat partway through would turn the measure into an obstacle worked around by requesting another code). The SHA-256 of `processoId:codigo` is stored, with the matter serving as salt, and **the code never enters `evento_auditoria`**: it is a ten-minute secret and the record lasts seven years. The question is asked in `guardarPasso` **before Zod** — asked afterwards, the answer to the client was «Assine no quadro antes de submeter» about a canvas the platform is hiding until they validate the code — and repeated in `submeter`, which is a separate Server Action and callable on its own | `src/features/onboarding/acoes.ts` |
 | D58 | The review's "Corrigir" links carry `?regresso=fecho`, and that step's "Guardar" returns the client to the closing step instead of sending them to the next one. The parameter is read on the **server** (`searchParams` as a prop, not `useSearchParams`) and confirmed against the matter: it is only valid when every earlier step is saved, otherwise hand-writing the parameter at step 1 threw the client into the review of an empty form. In the same pass, `passo_atual` stops going backwards (`Math.max`): saving a correction at step 2 set it to 3, and anyone closing the tab resumed at 3 on a matter that was already at 7 | `src/app/(cliente)/onboarding/[token]/passo/[n]/page.tsx` |
 | D45 | `--marca` (terracotta `#d9694b`, `#e07a5f` in dark mode) is the only colour in the palette that does **not** encode state — it marks a user choice, and for now only in the "Novo processo" dialog: the selected card and the header badge. What was there was `border-tinta`, the colour of the surrounding text, and an outline in the text colour reads as a frame and not as "chosen". It stays a token rather than being hard-coded in the components for two reasons: dark mode needs a different value (the same hex over ink falls to 4.8:1 and the icon inside the card stops being legible), and the JMASSANO logo is **archive green and brass** — swapping this for `var(--latao)`, which is literally the logo's gold, is one line. Terracotta stays in outlines, badges and ticks, never in running text: 3.46:1 on white is enough for an interface element, not for body copy | `src/app/globals.css` |
+| D59 | Os T&C da sociedade deixam de ser um slot (reverte a D53 na parte que dizia «por acionar»). `termosEmVigor` é a **única** função que sabe qual articulado está em vigor numa organização, e os três sítios que o mostram — passo 7 do cliente, passo 5 do registo de utilizador, portal do advogado — chamam-na a ela; duas funções com o mesmo propósito divergiriam, e o dia em que divergissem seria o dia em que a sociedade tinha dois articulados em vigor sem o saber. Recua para o texto da plataforma em **três** casos e não só no óbvio: nunca entregue, entregue e entretanto apagado, entregue sem versão — os dois últimos são o que uma verificação a `termos_documento_ref != null` deixava passar, dando um passo 7 a apontar para um ficheiro que não abre com a caixa trancada para sempre. Servido em PDF, **perde-se a medição de leitura até ao fim da D30** (o `X-Frame-Options: DENY` recusa o próprio domínio e um `<iframe>` daria um retângulo em branco): a caixa destranca ao *abrir*, e o ecrã diz que é isso que está a acontecer — a mesma escolha da D52, e fingir a medição era pior do que dizer que ali ela não existe | `src/lib/termos-sociedade.ts` |
+| D60 | `fecho_proposta.tc_versao`: a aceitação dos T&C pelo cliente deixa de ser um booleano. Dizia que ele aceitou e não dizia **o quê** — e no dia em que a sociedade subisse uma versão, cada `tc_aceitacao = true` gravado antes passava a parecer uma aceitação do texto novo, apagando sem rasto a diferença entre o que ele leu e o que passou a estar escrito. É a D3/D38 vista do lado do processo. A coluna é anulável de propósito: as linhas anteriores não podem ganhar retroativamente uma versão que ninguém gravou, e «aceitou, versão desconhecida» é o estado real dessas — e o que uma revisão jurídica tem de poder ver | `src/db/schema/seccoes.ts` |
+| D61 | As três respostas do passo de RGPD do registo de utilizador **não são do mesmo tipo**, e o esquema, o ecrã e o texto dizem-no: a informação sobre tratamento de dados é **tomada de conhecimento** (a base legal é o contrato e a obrigação legal — pedir consentimento onde ele não é a base produz um consentimento inválido e faz a pessoa acreditar que o pode retirar), o sigilo profissional é uma **declaração** obrigatória, e as comunicações internas são o único **consentimento** — e por isso o único que pode ficar por marcar sem travar o passo. Se as três fossem obrigatórias, a que é consentimento deixava de o ser: um consentimento que não se pode recusar não é livre | `src/features/convites/schemas.ts` |
+| D62 | A API dos onboardings **não tem lógica própria**: cada rota chama exatamente a função que o ecrã chama, e o que acrescenta é transporte. É a única disciplina que impede o que sempre acontece a uma segunda porta para a mesma casa — a validação apertar de um lado e não do outro. Autenticação em duas camadas: o token do link mágico diz *qual* registo, a `API_CHAVE` diz *quem* chama; não são redundantes, porque um token de link vive num email e um email reencaminha-se, e há diferença entre ele abrir um formulário e abrir uma porta programática percorrida em segundos sem olhos humanos pelo meio. **Sem `API_CHAVE` a API responde 503 e não fica aberta** — um recuo permissivo seria a instalação que esqueceu a variável a servir dados de KYC a quem os peça. Não cria registos, não valida códigos OTP e não devolve dados pessoais preenchidos | `docs/API.md` |
+| D63 | A conta de uma pessoa da equipa nasce **no último passo do registo dela**, e as três escritas (`user`, `account`, `utilizador`) são uma transação. Uma conta criada à cabeça é uma conta que entra na plataforma sem ninguém se ter identificado; e a meio das três escritas não há estado intermédio aceitável — um `user` sem `account` é uma conta sem palavra-passe a ocupar o email para sempre, um `account` sem `utilizador` é um login que passa e uma sessão que não resolve, e as duas dão a mesma coisa a quem lá está: um convite gasto e nenhuma maneira de entrar. As verificações dos cinco passos anteriores repetem-se dentro do `concluirConvite` e não só no ecrã, porque uma Server Action é chamável à mão | `src/features/convites/acoes.ts` |
 
 ## Open decisions
 
@@ -728,6 +814,8 @@ pnpm db:validar           # apply the migrations to a Postgres in WASM and verif
 pnpm auditoria:verificar  # revalidate the evento_auditoria hash chain
 pnpm email:testar <destination>  # send a test email and record it in email_log
 pnpm email:conferir       # confirm delivery of the messages left at «Aceite»
+pnpm sociedade:convidar --nome "…" [--email …]  # open a firm's registration and print the link
+pnpm utilizador:criar     # create a back-office account directly on the server (D23)
 ```
 
 `pnpm email:testar` also runs inside the container (`node scripts/testar_email.mjs`), which is
@@ -742,8 +830,15 @@ It exists for the two cases the automatic polling (D51) does not catch: the cont
 partway through, and the outcome arrived hours later. `--dias N` widens the window (7 by default)
 and `--simular` shows what it would do without writing anything.
 
+`pnpm sociedade:convidar` is how a firm enters the platform: it creates the `organizacao` row as
+a shell — provisional name, tax number to be confirmed, reference prefix to be defined — plus the
+`onboarding_sociedade` that gives it the magic link, and prints the link **once** (the database
+keeps only the SHA-256, D4). A script on the server and not a public form, for the same reason as
+D23: a system holding PEP declarations and identification documents does not have a door open to
+creating organisations.
+
 `pnpm db:validar` needs no server at all: it runs every migration on an ephemeral PGlite and
-counts the tables (28, since `0008`), confirms the audit trail really does refuse UPDATE and
+counts the tables (35, since `0016`), confirms the audit trail really does refuse UPDATE and
 DELETE, and that search resolves accents and capitals. It is what guarantees the first
 `db:migrate` against the production Postgres does not blow up.
 

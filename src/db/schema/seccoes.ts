@@ -269,6 +269,22 @@ export const fechoProposta = pgTable("fecho_proposta", {
   /** Aceitação explícita dos T&C — o cliente teve de os abrir e ler até ao fim. */
   tcAceitacao: boolean("tc_aceitacao").notNull().default(false),
   /**
+   * **Que** versão do articulado é que ele aceitou.
+   *
+   * Sem isto, a aceitação era um booleano: dizia que o cliente aceitou, e não
+   * dizia o quê. É a mesma armadilha da D3/D38 vista do lado do processo — o
+   * dia em que a sociedade sobe uma versão nova dos T&C, um `tc_aceitacao =
+   * true` gravado antes passa a parecer uma aceitação do texto novo, e a
+   * diferença entre o que a pessoa leu e o que passou a estar escrito
+   * desaparece sem deixar rasto.
+   *
+   * Anulável porque as linhas anteriores a esta coluna existem e não se pode
+   * inventar retroativamente a versão que ninguém gravou. Uma linha sem versão
+   * é honesta: diz que se aceitou e que não se sabe qual — o que é o estado
+   * real dessas aceitações e o que uma revisão jurídica tem de poder ver.
+   */
+  tcVersao: text("tc_versao"),
+  /**
    * Aceitação da proposta de honorários, separada da dos T&C: são dois
    * documentos distintos (`/termos-condicoes` e `/custos.pdf`) e o cliente tem
    * de ler os dois, não um só a valer pelos dois.

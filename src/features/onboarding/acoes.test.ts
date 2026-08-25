@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { limparLimites } from "@/lib/limites";
+import { VERSAO_TERMOS } from "@/lib/termos";
 import type { AcessoOnboarding } from "./dados";
 
 /**
@@ -656,7 +657,23 @@ describe("guardarPasso — o passo 7 assina o dossier, não a caixa", () => {
       declaracaoVeracidade: true,
       tcAceitacao: true,
       propostaAceitacao: true,
+      // A versão do articulado viaja **com** a aceitação. Sem ela, um
+      // `tcAceitacao: true` gravado hoje passa a parecer, no dia em que a
+      // sociedade subir uma versão nova, uma aceitação do texto novo — e a
+      // diferença entre o que o cliente leu e o que passou a estar escrito
+      // desaparece sem deixar rasto (D3/D38).
+      tcVersao: VERSAO_TERMOS,
     });
+  });
+
+  it("a versão do articulado só é gravada quando ele é de facto aceite", async () => {
+    // Um `tcAceitacao: false` nem chega ao INSERT — o passo 7 recusa antes
+    // disso. O que este teste fixa é o outro lado da regra: não há caminho por
+    // onde uma versão fique carimbada num documento que ninguém aceitou.
+    const r = await guardarPasso(TOKEN, 7, { ...PASSO_7, tcAceitacao: false });
+
+    expect(r.ok).toBe(false);
+    expect(valoresDe("insert", "fecho_proposta")).toBeUndefined();
   });
 
   it("a assinatura e a declaração deixam rasto próprio", async () => {

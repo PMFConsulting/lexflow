@@ -16,23 +16,19 @@
  * written.
  *
  * ---------------------------------------------------------------------------
- * TODO(firm T&C) — product review of 23/08/2026. **Not yet activated.**
+ * **This is the fallback, not the contract.**
  *
- * What is written below is *platform* text, and that is a reversal of roles
- * that cannot stand: the one contracting with the client is the firm, and the
- * wording binding them has to be the firm's. The platform is the channel.
+ * The firm delivers its own wording at step 4 of its registration, and from
+ * that moment `termosEmVigor` (D59) serves *that* document — to the client at
+ * step 7, to each person of the firm at step 5 of their own registration, and
+ * in the lawyer portal. What is written below is what is served while the firm
+ * has not delivered anything, and it is *platform* text: a reversal of roles
+ * that is acceptable as a fallback and not as a resting state, because the one
+ * contracting with the client is the firm.
  *
- * The space already exists and is empty on purpose — three nullable columns in
- * `organizacao` (`termos_documento_ref`, `termos_versao`, `termos_atualizado_em`,
- * migration `0015`) and the value `termos_sociedade` in the `tipo_documento`
- * enum. **Nothing reads them yet**, and that is the intention: while they are
- * `null`, step 7 behaves exactly as before and the client does not have to do
- * anything new.
- *
- * What is missing, and the order it is done in, is in `docs/TERMOS_SOCIEDADE.md`.
- * The point that cannot be forgotten is D3/D38's: consents point at a
- * **version**, and replacing the wording without bumping the version erases the
- * difference between what the client accepted and what is now written.
+ * `/admin` says so on screen, and not in a footnote: while there is no
+ * published wording, the firm is making its clients accept a contract it did
+ * not write. See `docs/TERMOS_SOCIEDADE.md`.
  * ---------------------------------------------------------------------------
  */
 

@@ -21,6 +21,7 @@
     "email:testar": "node scripts/testar_email.mjs",
     "email:conferir": "node scripts/conferir_entregas.mjs",
     "utilizador:criar": "node scripts/criar_utilizador.mjs",
+    "sociedade:convidar": "node scripts/convidar_sociedade.mjs",
     "utilizador:hash": "node scripts/verificar_hash.mjs"
   },
   "dependencies": {

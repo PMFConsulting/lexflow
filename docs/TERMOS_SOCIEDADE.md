@@ -1,8 +1,41 @@
-# Firm T&C — slot prepared, not yet activated
+# Firm T&C — activated (25/08/2026)
 
-Product review of 23/08/2026, point 2. **None of this is wired up**: what exists is the
-space, documented here so that the day the firm delivers the wording is not a
-migration day with the system running.
+Product review of 23/08/2026, point 2. **This document has changed status.** What it
+described was a prepared and unwired slot; the slot is now wired, and the reason it took
+until 25/08 is the one the client gave when they raised the point: it had to wait until
+we knew what would be asked of lawyers at *their* onboarding, because the same wording is
+what they have to send back accepted.
+
+What follows is kept as the record of the plan and, in the last section, of the trap that
+does not go away.
+
+## Where it lives now
+
+| What | Where |
+|---|---|
+| The firm delivers the wording | step 4 of firm onboarding, and `/admin/sociedade` afterwards |
+| Resolution of what is in force | `src/lib/termos-sociedade.ts` (`termosEmVigor`) — decision D59 |
+| The client accepts it | step 7, with the version recorded in `fecho_proposta.tc_versao` (D60) |
+| Each person of the firm accepts it | step 5 of user onboarding; evidence in `aceitacao_termos` |
+| Who has not accepted the current version | `/admin/conformidade` |
+| Accepting a new version with an account already created | `/advogado` |
+| The file | `documento_organizacao`, type `termos_sociedade` |
+
+**The question left open below — dedicated table or nullable `processo_id` — was decided
+in favour of the dedicated table.** Making `processo_id` nullable would weaken a
+constraint that is correct for every existing row, in order to accommodate documents with
+a different owner, a different lifetime and a different set of readers.
+
+**Point 1 of "what is missing" was decided the other way round from the recommendation
+below.** The wording is served as a PDF and not transcribed into `SeccaoTermos[]`, and
+the cost is exactly the one named there: the D30 read-to-the-end measurement is lost, and
+the checkbox unlocks on *opening* instead. Transcribing would have kept the measurement
+and required somebody to retype a legal document by hand at every version — with the
+retyped copy silently becoming the one people actually accept. The event
+`termos.abertos_pelo_cliente` is what remains as the platform's own evidence that the
+document was delivered, and with which version.
+
+---
 
 ## The problem
 

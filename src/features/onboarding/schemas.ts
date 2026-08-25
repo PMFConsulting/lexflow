@@ -9,6 +9,7 @@ import {
   validarNipc,
   validarTelefone,
 } from "@/lib/validacao-pt";
+import { email, morada, obrigatorio, pais, telefone } from "@/lib/campos";
 
 /**
  * Um schema por passo, partilhado entre cliente e servidor.
@@ -20,31 +21,12 @@ import {
 
 /* ── peças reutilizáveis ──────────────────────────────────────────────── */
 
-const obrigatorio = (campo: string) =>
-  z.string().trim().min(1, `${campo} é obrigatório.`);
-
-const email = z
-  .string()
-  .trim()
-  .min(1, "O email é obrigatório.")
-  .email("Falta o @ ou o domínio — por exemplo nome@empresa.pt.");
-
-/**
- * O `transform` no fim é o que separa "o que se aceita escrever" de "o que fica
- * gravado". O cliente escreve `+351 912 345 678` porque é assim que o número
- * está no cartão; a base de dados guarda `912345678`, porque é assim que ele se
- * compara com o do processo seguinte. Corre depois da validação — um número
- * recusado não chega a ser normalizado, e a mensagem de erro fala do que o
- * cliente escreveu.
+/*
+ * `obrigatorio`, `email`, `telefone`, `pais` e `morada` estavam aqui e passaram
+ * para `@/lib/campos`: o percurso do cliente deixou de ser o único a pedir
+ * moradas e contactos — a sociedade tem sede e cada pessoa que se junta a ela
+ * tem morada. Ficam aqui as peças cuja mensagem só faz sentido neste percurso.
  */
-const telefone = z
-  .string()
-  .trim()
-  .superRefine((v, ctx) => {
-    const r = validarTelefone(v);
-    if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
-  })
-  .transform(normalizarTelefone);
 
 /**
  * NIF de faturação — português *ou* estrangeiro.
@@ -70,26 +52,6 @@ const nifFaturacao = z
     if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
   })
   .transform(normalizarNumeroFiscal);
-
-const pais = z
-  .string()
-  .trim()
-  .length(2, "Escolha um país da lista.")
-  .transform((v) => v.toUpperCase());
-
-/** Morada: os sete campos do formulário real. */
-const morada = {
-  morada: obrigatorio("A morada"),
-  pais,
-  localidade: obrigatorio("A localidade"),
-  codigoPostal: z.string().trim().superRefine((v, ctx) => {
-    const r = validarCodigoPostal(v);
-    if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
-  }),
-  freguesia: obrigatorio("A freguesia"),
-  concelho: obrigatorio("O concelho"),
-  distrito: obrigatorio("O distrito"),
-};
 
 const documentoIdentificacao = {
   docTipo: z.enum(["cartao_cidadao", "passaporte", "titulo_residencia", "outro"], {

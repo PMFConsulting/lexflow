@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { guardarPasso, submeter, type EstadoOtp, type Resultado } from "../acoes";
 import { CHAVE_CARIMBO } from "./Lombada";
+import { alvoDoErro } from "@/components/formulario-erros";
+import { DOCUMENTOS_ID, PAISES } from "./paises";
+import type { TermosParaLer } from "@/components/leitor-termos";
 import {
   PASSOS,
   passoAnterior,
@@ -36,25 +39,10 @@ import {
 
 type Erros = Record<string, string[]>;
 
-const PAISES = [
-  { valor: "PT", texto: "Portugal" },
-  { valor: "ES", texto: "Espanha" },
-  { valor: "FR", texto: "França" },
-  { valor: "GB", texto: "Reino Unido" },
-  { valor: "DE", texto: "Alemanha" },
-  { valor: "BR", texto: "Brasil" },
-  { valor: "AO", texto: "Angola" },
-  { valor: "MZ", texto: "Moçambique" },
-  { valor: "CV", texto: "Cabo Verde" },
-  { valor: "US", texto: "Estados Unidos" },
-];
-
-const DOCUMENTOS = [
-  { valor: "cartao_cidadao", texto: "Cartão de Cidadão" },
-  { valor: "passaporte", texto: "Passaporte" },
-  { valor: "titulo_residencia", texto: "Título de residência" },
-  { valor: "outro", texto: "Outro" },
-];
+// `PAISES` e `DOCUMENTOS_ID` mudaram-se para `./paises`: o registo da sociedade
+// pede a morada da sede pelo mesmo campo, e duas listas de países é como se tem
+// um país escolhível num formulário e não no outro.
+const DOCUMENTOS = DOCUMENTOS_ID;
 
 const ORIGEM_CONTACTO = [
   { valor: "evento_conferencia", texto: "Evento / Conferência" },
@@ -221,87 +209,13 @@ function carga(n: number, fd: FormData): unknown {
   }
 }
 
-/**
- * Onde saltar quando um erro cai sobre um campo.
- *
- * `[name="x"]` não chega. Só as caixas de texto levam o `name` num campo que se
- * vê: os sim/não, a escolha única, as listas e as caixas de aceitação levam-no
- * num `input type="hidden"`, que o browser não desenha. `scrollIntoView` e
- * `focus` sobre um elemento sem caixa não fazem rigorosamente nada — o resumo
- * de erros tinha links mortos e o salto automático para o primeiro erro não
- * saía do sítio, precisamente nos campos onde o vermelho é mais difícil de
- * encontrar a olho ("Indique pelo menos uma nacionalidade", "Responda sim ou
- * não").
- *
- * Encontrado o escondido, sobe-se ao contentor do campo e leva-se o foco ao
- * primeiro controlo que se possa mesmo usar. Os campos de texto vêm à frente
- * dos botões porque numa lista já preenchida o primeiro botão é o "Remover" da
- * primeira etiqueta, e não é lá que se quer deixar quem vem corrigir.
- */
-function alvoDoErro(campo: string) {
-  const el = document.querySelector<HTMLElement>(`[name="${CSS.escape(campo)}"]`);
-  if (!el) return null;
-
-  const escondido = el instanceof HTMLInputElement && el.type === "hidden";
-  if (!escondido) return { rolar: el, focar: el, rotulo: rotuloVisivel(el) };
-
-  const caixa = el.closest<HTMLElement>("fieldset, div");
-  if (!caixa) return null;
-
-  const focar =
-    caixa.querySelector<HTMLElement>(
-      'select:not([disabled]), textarea:not([disabled]), input:not([type="hidden"]):not([disabled])',
-    ) ?? caixa.querySelector<HTMLElement>("button:not([disabled])");
-
-  return { rolar: caixa, focar, rotulo: rotuloVisivel(el) };
-}
-
-/**
- * A etiqueta que o cliente lê por cima do campo — "Número de contribuinte",
- * "Nacionalidade(s)", a pergunta do sim/não.
- *
- * O resumo de erros listava só as mensagens. A maior parte nomeia-se a si
- * própria ("O NIF não é válido…"), mas as que não o fazem — "Obrigatório.",
- * "Data inválida.", "Responda sim ou não." — deixavam o cabeçalho "Falta
- * corrigir um campo" a não dizer qual, que foi o que se relatou do passo 2.
- *
- * Vem do DOM e não de um mapa de nomes para rótulos: um mapa é uma segunda
- * cópia dos textos, que envelhece à parte daquilo que está no ecrã. Aqui, se
- * não houver etiqueta nenhuma, devolve-se `null` e a linha fica como estava —
- * a mensagem sozinha é sempre melhor do que uma etiqueta errada.
- */
-function rotuloVisivel(el: HTMLElement): string | null {
-  const escondido = el instanceof HTMLInputElement && el.type === "hidden";
-
-  // Campo que se vê: a etiqueta está ligada por `htmlFor`, como o `Campo` faz.
-  if (!escondido && el.id) {
-    const ligada = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
-    if (ligada?.textContent) return limparRotulo(ligada.textContent);
-  }
-
-  // Sim/não, escolha única, listas e caixas de aceitação: o `name` está num
-  // input escondido, e a etiqueta é a `legend` do fieldset ou o `label` que
-  // lhe faz companhia dentro do mesmo contentor.
-  const caixa = el.closest("fieldset, div");
-  const solta = caixa?.querySelector("legend, label");
-  return solta?.textContent ? limparRotulo(solta.textContent) : null;
-}
-
-/** Sem o asterisco de obrigatório nem as quebras de linha da marcação. */
-function limparRotulo(texto: string) {
-  const limpo = texto.replace(/\s+/g, " ").replace(/\s*\*$/, "").trim();
-  // Uma declaração inteira como etiqueta ("Declaro que as informações
-  // prestadas são verdadeiras e assumo…") empurra a mensagem para fora da
-  // vista. Corta-se, que para localizar o campo o início chega.
-  return limpo.length > 60 ? `${limpo.slice(0, 59).trimEnd()}…` : limpo;
-}
-
 export function Formulario({
   token,
   n,
   seccoes,
   tipoCliente,
   referencia,
+  termos,
   otp,
   voltarAoFecho = false,
 }: {
@@ -310,6 +224,15 @@ export function Formulario({
   seccoes: Seccoes;
   tipoCliente: "particular" | "empresa";
   referencia: string;
+  /**
+   * Os Termos e Condições em vigor para esta sociedade, resolvidos no servidor.
+   *
+   * É o ponto 2 da revisão do cliente, e chega aqui já decidido: `plataforma`
+   * enquanto a sociedade não tiver entregado o articulado dela, `documento`
+   * assim que tiver. O ecrã não escolhe — só sabe desenhar as duas formas, e
+   * sobretudo dizer qual das duas medições de leitura está a aplicar.
+   */
+  termos: TermosParaLer;
   /** O estado do código de verificação, lido no servidor ao montar o passo 7. */
   otp: EstadoOtp;
   /**
@@ -1057,7 +980,14 @@ export function Formulario({
               </p>
             </div>
 
-            <LeitorTermos lido={termosLidos} aoLer={() => setTermosLidos(true)} />
+            <LeitorTermos
+              termos={termos}
+              lido={termosLidos}
+              aoLer={() => setTermosLidos(true)}
+              hrefExterno={
+                termos.forma === "documento" ? termos.url : "/termos-condicoes"
+              }
+            />
 
             {/* Um processo já submetido uma vez traz a caixa marcada da base de
                 dados; nesse caso o documento já foi lido, e voltar a trancá-la
@@ -1068,7 +998,11 @@ export function Formulario({
               nome="tcAceitacao"
               erros={erros}
               desativado={!termosLidos}
-              ajudaDesativado="Abra o documento acima e percorra-o até ao fim para poder aceitar."
+              ajudaDesativado={
+                termos.forma === "documento"
+                  ? "Abra o documento acima para poder aceitar."
+                  : "Abra o documento acima e percorra-o até ao fim para poder aceitar."
+              }
               valorInicial={seccoes.fecho?.tcAceitacao ?? false}
             />
 

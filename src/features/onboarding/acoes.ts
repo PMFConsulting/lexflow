@@ -15,6 +15,7 @@ import {
   emailConfirmacaoRececao,
 } from "@/lib/emails/jmassano";
 import { origemPublica } from "@/lib/origem";
+import { termosEmVigor } from "@/lib/termos-sociedade";
 import { assinatura, documento } from "@/db/schema/documentos";
 import { codigoOtp } from "@/db/schema/otp";
 import { processoOnboarding } from "@/db/schema/processo";
@@ -473,6 +474,24 @@ export async function guardarPasso(
     case 7: {
       // A assinatura vive na sua tabela; o fecho fica só com a declaração.
       const { assinatura: rubrica, ...fecho } = v as { assinatura: string } & Linha;
+
+      /*
+       * A versão do articulado é gravada **junto** da aceitação.
+       *
+       * Vem de `termosEmVigor`, que é a mesma função que decidiu o que o ecrã
+       * lhe mostrou — não de uma constante nem do que o formulário mandasse.
+       * Sem isto a aceitação dizia que o cliente aceitou e não dizia o quê, e a
+       * D3/D38 avisa exatamente para o que acontece a seguir: uma versão nova
+       * do articulado faz as aceitações antigas parecerem aceitações do texto
+       * novo, e a diferença entre o que ele leu e o que passou a estar escrito
+       * desaparece sem deixar rasto.
+       *
+       * Só quando ele de facto aceitou: gravar a versão numa recusa era
+       * carimbar um documento que ninguém aceitou.
+       */
+      if (fecho.tcAceitacao) {
+        fecho.tcVersao = (await termosEmVigor(processo.organizacaoId)).versao;
+      }
 
       await base
         .insert(fechoProposta)

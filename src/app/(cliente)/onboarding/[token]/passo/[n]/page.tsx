@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { termosEmVigor } from "@/lib/termos-sociedade";
 import { estadoDoCodigo } from "@/features/onboarding/acoes";
 import {
   acessoPorToken,
@@ -89,6 +90,29 @@ export default async function PaginaPasso({
       ? await estadoDoCodigo(token)
       : { verificado: false, pedido: false, para: null };
 
+  /*
+   * Que Termos e Condições é que este cliente vai ler — o ponto 2 da revisão.
+   *
+   * A decisão é do servidor e não do ecrã: `termosEmVigor` devolve o articulado
+   * da sociedade quando ele existe e o texto da plataforma quando não existe,
+   * e recua também nos dois casos menos óbvios (documento apagado, versão em
+   * falta). Um formulário que resolvesse isto no browser podia mostrar um
+   * documento e gravar o consentimento noutra versão.
+   *
+   * A rota `/proposta` já serve documentos autorizados pelo mesmo link mágico;
+   * `/termos` é a irmã dela, para o articulado.
+   */
+  const emVigor = await termosEmVigor(processo.organizacaoId);
+  const termos =
+    emVigor.forma === "documento"
+      ? {
+          forma: "documento" as const,
+          versao: emVigor.versao,
+          nome: emVigor.nome,
+          url: `/onboarding/${token}/termos`,
+        }
+      : emVigor;
+
   return (
     <Formulario
       token={token}
@@ -96,6 +120,7 @@ export default async function PaginaPasso({
       seccoes={seccoes}
       tipoCliente={processo.tipoCliente}
       referencia={processo.referencia}
+      termos={termos}
       otp={otp}
       voltarAoFecho={voltarAoFecho}
     />
