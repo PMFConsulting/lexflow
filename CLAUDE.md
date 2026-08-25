@@ -665,6 +665,73 @@ warnings), all pre-existing — one fewer than before, because a refactor remove
 variable. **Not verified:** none of the new flows has been walked in production, and no seed
 creates a firm onboarding — the first walkthrough needs `pnpm sociedade:convidar` on the server.
 
+### Update — the new flows walked in a running environment (25/08/2026, later)
+
+The previous entry ended with *"none of the new flows has been walked in production"*. They have
+now been walked — not in production, which this session cannot reach (the egress policy blocks
+`poc.terlicalabs.com`), but against a **real Postgres 16 with the migrations applied, the
+production build, and Chromium**. Which is the point: `pnpm build` and `pnpm typecheck` were
+clean the whole time, and **four defects were sitting there**, three of which nothing but
+rendering a page could have found.
+
+1. **A function crossing the server/client boundary** — every new page was a 500. `Lombada` took
+   `href: (n) => string`, and the layouts that mount it are Server Components: *"Functions cannot
+   be passed directly to Client Components"*. Not a type error and not a build error — a runtime
+   serialisation rule. It is now `base: string` and the component appends the step; the three
+   flows have links of the same shape, so the function never had anything to express that the
+   prefix does not.
+
+2. **The layout swallowing its own success screen.** The spine layout refuses anything that is
+   not a registration in progress, and a **submitted** registration is one of those. Sitting a
+   level above `/submetido`, it replaced the success screen with "this registration has already
+   been submitted" — with the step spine around a registration that no longer has steps. Both
+   spine layouts moved down into `passo/`.
+
+3. **The first administrator's invitation dying inside a failed email.** This is the serious one.
+   `submeterSociedade` generated the token, emailed it, and discarded it. The email failed (no
+   provider configured), `email_log` recorded the failure correctly — and the person named as
+   administrator became permanently unreachable: the firm submitted, the invitation `pendente`,
+   and **no way to open it**. It is the only invitation on the platform that cannot be resent,
+   because it is born before any account exists to log in and press "Resend". The link is now
+   returned by the action and shown on screen when the email does not go out, with the provider's
+   reason underneath — D48, applied where it had been missed.
+
+   Removing `revalidatePath("/")` from that action was part of the same fix: revalidating the
+   root from a public action is far too broad, and what it actually did was make Next re-render
+   the route mid-call, letting the layout take over and erase the panel carrying the only
+   plaintext copy of the link.
+
+4. **Two nested `<main>` landmarks** in the back-office (pre-existing, not from this work):
+   `SidebarInset` already renders a `<main>`. Invalid HTML, and a screen reader jumping to "main
+   content" finds two. It surfaced only when a selector resolved to two elements.
+
+**What was verified, walked and not inferred:** firm registration end to end with every refusal
+firing (corporate tax number starting with 2, prefix with a space, ten-digit phone, missing
+certificate, T&C as a PNG, unticked declaration); user registration end to end, with the bar card
+correctly absent for a profile that does not practise law, both mandatory declarations at step 4,
+the T&C checkbox locked until the document is opened, and the account created only at the last
+step; login and both portals; publishing a new T&C version, the repeated version refused with the
+one in force named, the person immediately appearing under "acceptances missing" and leaving it
+after accepting — with **both** rows of evidence preserved; duplicate invitation refused; demoting
+the last administrator refused; the audit chain intact across 35 events and 3 organisations
+(`pnpm auditoria:verificar`).
+
+**The API was walked too, and it created a lawyer's account from end to end** — every step, both
+uploads, and `POST /concluir` — with 401 without a key, 400 on malformed JSON, 422 with the field
+named on a business-rule refusal, 415 on a non-multipart upload, 409 on `POST /passo/6` pointing
+at `/concluir`, a file claiming to be a PDF refused by magic bytes, and a document type outside
+the allowlist refused.
+
+**And point 2 was proven at the far end:** a matter opened from the back-office came out as
+`PA-2026-0002` — the prefix the firm chose in its own registration — and step 7 serves
+`TERMOS.PDF · VERSÃO 2026.09.1`, the firm's document, with the unlock text correctly saying
+"open the document" and not "read it to the end" (D59), and the OTP still holding the signature
+canvas back (D57).
+
+**Still not walked:** the closing of a client matter, because the verification code goes by email
+and no provider is configured here — the code is a ten-minute secret that is deliberately written
+to no log (D57), so there is no way to read it from this side.
+
 ## Infrastructure — ~€65/year for unlimited POCs
 
 Complete guide in [`docs/DEPLOY.md`](docs/DEPLOY.md).

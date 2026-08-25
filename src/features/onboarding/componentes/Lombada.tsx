@@ -31,7 +31,7 @@ export function Lombada({
       percurso={passosDoProcesso(tipoCliente)}
       atual={atual}
       gravados={gravados}
-      href={(n) => `/onboarding/${token}/passo/${n}`}
+      base={`/onboarding/${token}`}
     />
   );
 }

@@ -152,6 +152,20 @@ export function FormularioSociedade({
   const [erros, setErros] = useState<Erros>({});
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [aGuardar, transicao] = useTransition();
+  /**
+   * O convite do administrador, quando o email não saiu.
+   *
+   * É o único convite da plataforma que não se pode reenviar: nasce antes de
+   * existir conta nenhuma na sociedade, por isso não há ninguém que possa
+   * entrar no portal e carregar em «Reenviar». Deixar o link morrer dentro de
+   * um email que falhou punha o registo inteiro num beco — submetido, com o
+   * convite pendente e nenhuma forma de o abrir (D48).
+   */
+  const [convitePerdido, setConvitePerdido] = useState<{
+    email: string;
+    link: string;
+    erro?: string;
+  } | null>(null);
 
   const passo = PASSOS_SOCIEDADE.find((p) => p.n === n)!;
   const anterior = passoAnteriorSociedade(n);
@@ -198,7 +212,18 @@ export function FormularioSociedade({
             setMensagem(s.mensagem);
             return;
           }
-          router.push(`/sociedade/${token}/submetido`);
+          // Com o email entregue ao fornecedor, o link já está no destino certo
+          // e não tem de aparecer no ecrã de quem submeteu — que não é
+          // necessariamente a pessoa convidada.
+          if (s.emailEnviado) {
+            router.push(`/sociedade/${token}/submetido`);
+            return;
+          }
+          setConvitePerdido({
+            email: s.adminEmail,
+            link: s.linkConvite,
+            erro: s.erroEmail,
+          });
           return;
         }
 
@@ -215,6 +240,65 @@ export function FormularioSociedade({
   };
 
   const campos = Object.keys(erros).filter((c) => c !== "documentos");
+
+  /*
+   * Registo submetido e convite por entregar.
+   *
+   * Substitui o formulário inteiro em vez de aparecer por cima dele: o registo
+   * já foi submetido e os campos por baixo deixaram de poder ser gravados —
+   * mantê-los à vista convidava a carregar outra vez em Submeter e a receber
+   * um erro sobre um registo que está correto.
+   */
+  if (convitePerdido) {
+    return (
+      <div className="flex flex-col gap-4">
+        <header>
+          <h1 className="text-2xl">Registo submetido.</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Faltou uma coisa: não foi possível enviar o convite por email.
+          </p>
+        </header>
+
+        <div className="border-latao/40 bg-latao/5 flex flex-col gap-3 rounded-sm border p-4">
+          <p className="text-sm">
+            O convite para <strong>{convitePerdido.email}</strong> foi criado, mas o email não
+            saiu. <strong>Copie o link abaixo e faça-o chegar a essa pessoa por outra via</strong> —
+            é a única vez que ele aparece, e sem conta na plataforma ainda não há forma de o
+            reenviar.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="border-linha bg-papel-alto min-w-0 flex-1 truncate rounded-sm border px-2 py-1.5 font-mono text-xs">
+              {convitePerdido.link}
+            </code>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard?.writeText(convitePerdido.link)}
+            >
+              Copiar
+            </Button>
+          </div>
+
+          {convitePerdido.erro && (
+            <p className="text-xs text-muted-foreground">
+              Razão do fornecedor de email:{" "}
+              <span className="font-mono">{convitePerdido.erro}</span>
+            </p>
+          )}
+        </div>
+
+        <Button
+          type="button"
+          onClick={() => router.push(`/sociedade/${token}/submetido`)}
+          className="self-start"
+        >
+          Continuar
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={enviar} className="flex flex-col gap-6">

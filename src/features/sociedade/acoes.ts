@@ -253,7 +253,24 @@ export async function guardarPassoSociedade(
 }
 
 export type ResultadoSubmissao =
-  | { ok: true; adminEmail: string; emailEnviado: boolean; erroEmail?: string }
+  | {
+      ok: true;
+      adminEmail: string;
+      emailEnviado: boolean;
+      erroEmail?: string;
+      /**
+       * O link do convite do administrador, em claro e **uma vez só**.
+       *
+       * Devolvido sempre, tenha o email saído ou não, e é a lição da D48
+       * aplicada ao único convite que não tem como ser reenviado: este nasce
+       * antes de existir conta nenhuma na sociedade, por isso não há ninguém
+       * que possa entrar no portal e carregar em «Reenviar». Se o email falha e
+       * o token fica só na base em SHA-256, aquela pessoa deixa de ser
+       * alcançável e o registo inteiro fica num beco — a sociedade submetida,
+       * o convite `pendente`, e nenhuma forma de o abrir.
+       */
+      linkConvite: string;
+    }
   | { ok: false; mensagem: string };
 
 /**
@@ -343,10 +360,18 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
 
   let emailEnviado = false;
   let erroEmail: string | undefined;
+  // Sem `origemPublica` não há domínio para montar o link. O caminho relativo é
+  // melhor do que nada: quem administra sabe colar o domínio à frente, e a
+  // alternativa era um convite inalcançável.
+  let link = `/convite/${tokenConvite}`;
 
   try {
-    const origem = await origemPublica();
-    const link = `${origem}/convite/${tokenConvite}`;
+    link = `${await origemPublica()}/convite/${tokenConvite}`;
+  } catch (e) {
+    console.error("[sociedade] origemPublica failed", { erro: String(e) });
+  }
+
+  try {
     const envio = await enviarEmail({
       para: adminEmail,
       assunto: ASSUNTO_CONVITE_UTILIZADOR,
@@ -358,6 +383,9 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
       }),
       template: "convite_utilizador",
       organizacaoId: org.id,
+      // O hash e nunca o token em claro: quem tiver leitura do `email_log` não
+      // fica com a chave de nenhum convite (D4/D34).
+      tokenHash: hash,
     });
     emailEnviado = envio.ok;
     if (!envio.ok) erroEmail = envio.erro;
@@ -384,12 +412,21 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
     console.error("[sociedade] audit write failed on submission", { erro: String(e) });
   }
 
-  try {
-    revalidatePath("/");
-  } catch {
-    // `revalidatePath` fora de um contexto de pedido não é motivo para
-    // transformar uma submissão bem-sucedida numa falha.
-  }
+  /*
+   * **Sem `revalidatePath` aqui**, e a ausência é deliberada.
+   *
+   * O que estava era `revalidatePath("/")` — revalidar a raiz a partir de uma
+   * ação pública, o que é largo demais e não servia nada: ninguém autenticado
+   * está a olhar para uma listagem de registos de sociedades. O que fazia era
+   * mandar a Next voltar a renderizar esta rota a meio da chamada — e o layout
+   * dos passos, que recusa tudo o que não seja um registo em curso, tomava
+   * conta do ecrã e engolia o painel que o formulário tinha acabado de montar
+   * com o link do convite. O único sítio onde esse link existe em claro
+   * desaparecia no instante em que era criado.
+   *
+   * Quem quiser ver o registo submetido navega para `/submetido`, e essa página
+   * lê a base de dados por sua conta.
+   */
 
-  return { ok: true, adminEmail, emailEnviado, erroEmail };
+  return { ok: true, adminEmail, emailEnviado, erroEmail, linkConvite: link };
 }

@@ -26,7 +26,7 @@ export function Lombada({
   percurso,
   atual,
   gravados,
-  href,
+  base,
   rotulo = "Passos do processo",
   contador = "Dossier",
 }: {
@@ -42,8 +42,20 @@ export function Lombada({
   percurso: readonly PassoDaLombada[];
   atual: number;
   gravados: number[];
-  /** Para onde vai o link de cada passo. */
-  href: (n: number) => string;
+  /**
+   * O prefixo dos links: `/onboarding/{token}`, `/sociedade/{token}`,
+   * `/convite/{token}`. O passo é acrescentado aqui.
+   *
+   * Uma **string** e não uma função `(n) => string`, que foi a primeira versão
+   * e não sobrevive ao primeiro uso: os layouts que montam esta barra são
+   * Server Components, e uma função não atravessa a fronteira para um Client
+   * Component. Não é erro de tipos nem de compilação — `pnpm build` e
+   * `pnpm typecheck` passam os dois — é um 500 na primeira vez que a página é
+   * pedida, com «Functions cannot be passed directly to Client Components». Os
+   * três percursos têm links da mesma forma, por isso a função nunca teve nada
+   * para exprimir que o prefixo não exprima.
+   */
+  base: string;
   rotulo?: string;
   contador?: string;
 }) {
@@ -121,7 +133,7 @@ export function Lombada({
           return (
             <li key={p.n}>
               {acessivel && !aqui ? (
-                <Link href={href(p.n)} className="block">
+                <Link href={`${base}/passo/${p.n}`} className="block">
                   {conteudo}
                 </Link>
               ) : (

@@ -9,6 +9,18 @@ import {
 import { LinkIndisponivelSociedade } from "@/features/sociedade/componentes/LinkIndisponivelSociedade";
 import { PASSOS_SOCIEDADE } from "@/features/sociedade/passos";
 
+/*
+ * Este layout vive em `passo/` e não em `[token]/`, e a diferença não é
+ * arrumação.
+ *
+ * Ele recusa tudo o que não seja um registo em curso — e um registo **já
+ * submetido** é um desses casos. Estando um nível acima, engolia a página
+ * `/submetido`, que é precisamente a que tem de conseguir mostrar-se nesse
+ * estado: quem acabava de submeter via «este registo já foi submetido» no lugar
+ * do ecrã de sucesso, com a lombada dos passos à volta de um registo que já não
+ * tem passos. O layout é dos passos; só os passos é que o levam.
+ */
+
 export const metadata = { title: "Registo da sociedade · JMASSANO" };
 export const dynamic = "force-dynamic";
 
@@ -55,7 +67,7 @@ export default async function LayoutSociedade({
             percurso={PASSOS_SOCIEDADE}
             atual={onboarding.passoAtual}
             gravados={gravados}
-            href={(n) => `/sociedade/${token}/passo/${n}`}
+            base={`/sociedade/${token}`}
             rotulo="Passos do registo"
             contador="Registo"
           />

@@ -165,7 +165,12 @@ export default async function LayoutBackoffice({
               Onboarding de clientes
             </span>
           </header>
-          <main className="flex-1 p-4 md:p-6">{children}</main>
+          {/* Um `div` e não um `<main>`: o `SidebarInset` já rende um `<main>`
+              por si, e dois `main` aninhados são HTML inválido — um leitor de
+              ecrã que salte para "o conteúdo principal" encontra dois e não
+              sabe qual é. Só apareceu ao tentar endereçar `main` numa página:
+              o seletor resolvia para dois elementos. */}
+          <div className="flex-1 p-4 md:p-6">{children}</div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
