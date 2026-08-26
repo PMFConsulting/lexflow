@@ -53,9 +53,11 @@ vi.mock("@/db", () => ({
 const {
   eSuperAdmin,
   exigirEquipaDaSociedade,
+  exigirEquipaOuSuperAdmin,
   exigirGestorDeUtilizadores,
   exigirSocietyAdmin,
   exigirSuperAdmin,
+  podeAcederSociedade,
   podeAprovarProcesso,
   podeGerirUtilizadores,
   podeVerEmails,
@@ -104,25 +106,30 @@ describe("as capacidades de cada papel", () => {
   });
 
   /**
-   * A decisão conservadora da migração, fixada aqui.
+   * Aprovação de processos:
    *
-   * O `utilizador` herda o `advogado`, que aprovava. Se algum dia isto passar a
-   * `false`, é uma capacidade a desaparecer de uma migração — e é este teste
-   * que obriga a que seja uma decisão e não um efeito lateral.
+   * O dono da plataforma (`super_admin`) tem acesso transversal para aprovar/rejeitar
+   * e editar dados, e a equipa da sociedade (`society_admin`, `utilizador`) mantém a
+   * sua aprovação.
    */
-  it("o utilizador mantém a aprovação que o advogado tinha", () => {
+  it("a aprovação e edição de processos é permitida aos três papéis", () => {
     expect(podeAprovarProcesso("utilizador")).toBe(true);
     expect(podeAprovarProcesso("society_admin")).toBe(true);
+    expect(podeAprovarProcesso("super_admin")).toBe(true);
   });
 
-  it("o dono da plataforma não decide sobre o cliente de uma sociedade", () => {
-    expect(podeAprovarProcesso("super_admin")).toBe(false);
-    expect(podeVerPpe("super_admin")).toBe(false);
-  });
-
-  it("quem trabalha processos vê o processo todo, PPE incluída", () => {
+  it("o dono da plataforma e a equipa da sociedade veem PPE", () => {
+    expect(podeVerPpe("super_admin")).toBe(true);
     expect(podeVerPpe("utilizador")).toBe(true);
     expect(podeVerPpe("society_admin")).toBe(true);
+  });
+
+  it("podeAcederSociedade confere acesso transversal ao super_admin e restrito aos restantes", () => {
+    expect(podeAcederSociedade({ papel: "super_admin", organizacaoId: null }, "org-qualquer")).toBe(true);
+    expect(podeAcederSociedade({ papel: "society_admin", organizacaoId: "org-1" }, "org-1")).toBe(true);
+    expect(podeAcederSociedade({ papel: "society_admin", organizacaoId: "org-1" }, "org-2")).toBe(false);
+    expect(podeAcederSociedade({ papel: "utilizador", organizacaoId: "org-1" }, "org-1")).toBe(true);
+    expect(podeAcederSociedade({ papel: "utilizador", organizacaoId: "org-1" }, "org-2")).toBe(false);
   });
 
   it("contas criam-se por administração, de um lado ou do outro", () => {
@@ -226,6 +233,13 @@ describe("os guards", () => {
     }
     entrarComo("utilizador");
     expect(await destinoDe(exigirGestorDeUtilizadores)).toBe("/meus-processos");
+  });
+
+  it("exigirEquipaOuSuperAdmin deixa passar os três papéis", async () => {
+    for (const papel of PAPEIS) {
+      entrarComo(papel);
+      expect(await destinoDe(exigirEquipaOuSuperAdmin)).toBeNull();
+    }
   });
 });
 

@@ -1,4 +1,4 @@
-import { Building2, LayoutDashboard, ShieldUser } from "lucide-react";
+import { Building2, FolderKanban, LayoutDashboard, ShieldUser } from "lucide-react";
 import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
 import { exigirSuperAdmin } from "@/lib/sessao";
 
@@ -11,14 +11,14 @@ import { exigirSuperAdmin } from "@/lib/sessao";
  * repete a verificação por sua conta: um Server Action é um endereço
  * alcançável a partir do browser, e o guard de uma página não o protege.
  *
- * O que aqui não há, e é deliberado: processos, clientes, PPE. Quem é dono da
- * infraestrutura não tem razão de negócio para abrir o dossier de um cliente de
- * uma sociedade, e o `podeVerPpe` diz o mesmo do lado das capacidades.
+ * O dono da plataforma tem acesso transversal de leitura e edição aos
+ * processos de todas as sociedades.
  */
 
 const NAVEGACAO: EntradaDeMenu[] = [
   { titulo: "Painel", href: "/admin", icone: LayoutDashboard },
   { titulo: "Sociedades", href: "/admin/sociedades", icone: Building2 },
+  { titulo: "Processos", href: "/admin/processos", icone: FolderKanban },
   { titulo: "Utilizadores", href: "/admin/utilizadores", icone: ShieldUser },
 ];
 

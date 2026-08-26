@@ -9,7 +9,7 @@ import { documento } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
 import { assinaturaConfere, mensagemConteudo } from "@/features/onboarding/formatos";
-import { exigirEquipaDaSociedade } from "@/lib/sessao";
+import { exigirEquipaOuSuperAdmin, podeAcederSociedade } from "@/lib/sessao";
 
 /**
  * A proposta comercial que segue com o convite.
@@ -42,7 +42,7 @@ export async function carregarPropostaComercial(
   processoId: string,
   formData: FormData,
 ): Promise<ResultadoProposta> {
-  const { eu } = await exigirEquipaDaSociedade();
+  const { eu } = await exigirEquipaOuSuperAdmin();
 
   const ficheiro = formData.get("ficheiro");
   if (!(ficheiro instanceof File) || ficheiro.size === 0) {
@@ -80,7 +80,8 @@ export async function carregarPropostaComercial(
 
   // Um processo de outra organização responde o mesmo que um que não existe —
   // a regra da rota de download e do detalhe do processo.
-  if (!processo || processo.organizacaoId !== eu.organizacaoId) {
+  // O super_admin tem acesso transversal.
+  if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
     return { ok: false, erro: "Processo não encontrado." };
   }
 

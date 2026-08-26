@@ -118,7 +118,13 @@ type Erros = Partial<Record<"nome" | "nif" | "email" | "proposta", string>>;
 /** O mesmo limite do servidor (`carregarPropostaComercial`), para o dizer antes da subida. */
 const MAX_PROPOSTA = 4 * 1024 * 1024;
 
-export function BotaoNovoProcesso({ tamanho = "default" }: { tamanho?: "default" | "sm" }) {
+export function BotaoNovoProcesso({
+  tamanho = "default",
+  organizacaoId,
+}: {
+  tamanho?: "default" | "sm";
+  organizacaoId?: string;
+}) {
   const [aberto, setAberto] = useState(false);
 
   return (
@@ -133,7 +139,12 @@ export function BotaoNovoProcesso({ tamanho = "default" }: { tamanho?: "default"
       {/* Montado só enquanto está aberto: é o que garante que a janela volta a
           abrir limpa depois de um processo criado, em vez de ficar presa no
           ecrã do link anterior. */}
-      {aberto && <Conteudo aoFechar={() => setAberto(false)} />}
+      {aberto && (
+        <Conteudo
+          organizacaoId={organizacaoId}
+          aoFechar={() => setAberto(false)}
+        />
+      )}
     </Dialog>
   );
 }
@@ -253,7 +264,13 @@ function Campo({
   );
 }
 
-function Conteudo({ aoFechar }: { aoFechar: () => void }) {
+function Conteudo({
+  aoFechar,
+  organizacaoId,
+}: {
+  aoFechar: () => void;
+  organizacaoId?: string;
+}) {
   const idNome = useId();
   const idNif = useId();
   const idEmail = useId();
@@ -354,7 +371,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
     transicao(async () => {
       setErro(null);
       try {
-        const r = await criarProcesso(entrada);
+        const r = await criarProcesso({ ...entrada, organizacaoId });
         if (!r.ok) {
           // O servidor diz qual foi o campo quando o problema é de um campo. Sem
           // isso, o aviso ia todo para o fundo da janela e obrigava a procurar.

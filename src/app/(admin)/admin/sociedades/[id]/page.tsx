@@ -5,6 +5,7 @@ import { Ref } from "@/components/ref-processo";
 import { EditarSociedade } from "@/features/plataforma/componentes/EditarSociedade";
 import { EmailsDaSociedade } from "@/features/plataforma/componentes/EmailsDaSociedade";
 import { GestaoUtilizadores } from "@/features/plataforma/componentes/GestaoUtilizadores";
+import { ProcessosDaSociedade } from "@/features/plataforma/componentes/ProcessosDaSociedade";
 import { sociedadePorId, utilizadoresDaSociedade } from "@/features/plataforma/consultas";
 import { env } from "@/env";
 
@@ -17,12 +18,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 /**
- * Uma sociedade: os dados dela e as contas que tem.
+ * Uma sociedade: os dados dela, os processos e as contas que tem.
  *
- * A gestão de contas é o **mesmo componente** que o `society_admin` usa em
- * `/utilizadores`. Não é economia de código: dois ecrãs com as mesmas regras
- * escritas duas vezes divergem, e o que diverge é sempre o que tem menos olhos
- * em cima.
+ * O dono da plataforma tem acesso total de consulta e edição aos processos desta sociedade.
  */
 export default async function Sociedade({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -56,6 +54,11 @@ export default async function Sociedade({ params }: { params: Promise<{ id: stri
           nif: sociedade.nif,
           prefixoReferencia: sociedade.prefixoReferencia,
         }}
+      />
+
+      <ProcessosDaSociedade
+        organizacaoId={sociedade.id}
+        prefixo={sociedade.prefixoReferencia}
       />
 
       {/*

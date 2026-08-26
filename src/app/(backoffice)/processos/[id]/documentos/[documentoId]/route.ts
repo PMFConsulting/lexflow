@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { documento } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
-import { exigirEquipaDaSociedade } from "@/lib/sessao";
+import { exigirEquipaOuSuperAdmin, podeAcederSociedade } from "@/lib/sessao";
 
 /**
  * Descarrega um documento anexado a um processo.
@@ -15,7 +15,7 @@ import { exigirEquipaDaSociedade } from "@/lib/sessao";
  * Quando `dados` estiver vazio (ficheiro só no bucket), a rota devolve 404 com
  * a indicação de que o download passa pelo URL assinado do armazenamento.
  *
- * Autorização: só um utilizador da mesma organização do processo descarrega.
+ * Autorização: utilizadores da organização ou super_admin (dono da plataforma).
  */
 
 /**
@@ -52,7 +52,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string; documentoId: string }> },
 ) {
   const { id, documentoId } = await params;
-  const { eu } = await exigirEquipaDaSociedade();
+  const { eu } = await exigirEquipaOuSuperAdmin();
 
   if (!UUID.test(id) || !UUID.test(documentoId)) {
     return NextResponse.json({ erro: "Documento não encontrado." }, { status: 404 });
@@ -68,9 +68,9 @@ export async function GET(
 
   // Um processo de outra organização responde o mesmo que um processo que não
   // existe: distingui-los seria confirmar a existência da referência a quem não
-  // a pode ver.
-  if (!processo || processo.organizacaoId !== eu.organizacaoId) {
-    return NextResponse.json({ erro: "Processo não encontrado." }, { status: 404 });
+  // a pode ver. O super_admin tem acesso transversal a todas as organizações.
+  if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
+    return NextResponse.json({ erro: "Documento não encontrado." }, { status: 404 });
   }
 
   const [doc] = await base

@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { organizacao, utilizador } from "@/db/schema/organizacao";
 import { processoOnboarding } from "@/db/schema/processo";
+import { dadosFiscais, dadosIdentificacao } from "@/db/schema/seccoes";
 
 /**
  * Consultas do portal da plataforma.
@@ -251,8 +252,8 @@ export async function numerosDaPlataforma() {
   };
 }
 
-/** Os processos de quem só vê os da sua sociedade — o portal do `utilizador`. */
-export async function processosDaSociedade(organizacaoId: string, limite = 50) {
+/** Os processos de quem só vê os da sua sociedade — o portal do `utilizador` e a visão da sociedade no `/admin`. */
+export async function processosDaSociedade(organizacaoId: string, limite = 100) {
   return db()
     .select({
       id: processoOnboarding.id,
@@ -261,9 +262,12 @@ export async function processosDaSociedade(organizacaoId: string, limite = 50) {
       tipoCliente: processoOnboarding.tipoCliente,
       passoAtual: processoOnboarding.passoAtual,
       atualizadoEm: processoOnboarding.atualizadoEm,
-      nomeCliente: processoOnboarding.nomeCliente,
+      nomeCliente: sql<string>`coalesce(${dadosIdentificacao.nome}, ${processoOnboarding.nomeCliente})`,
+      nifCliente: sql<string>`coalesce(${dadosFiscais.nif}, ${processoOnboarding.nifCliente})`,
     })
     .from(processoOnboarding)
+    .leftJoin(dadosIdentificacao, eq(dadosIdentificacao.processoId, processoOnboarding.id))
+    .leftJoin(dadosFiscais, eq(dadosFiscais.processoId, processoOnboarding.id))
     .where(
       and(
         eq(processoOnboarding.organizacaoId, organizacaoId),

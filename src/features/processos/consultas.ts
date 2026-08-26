@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { processoOnboarding } from "@/db/schema/processo";
-import { utilizador } from "@/db/schema/organizacao";
+import { organizacao, utilizador } from "@/db/schema/organizacao";
 import { dadosFiscais, dadosIdentificacao, declaracaoPpe } from "@/db/schema/seccoes";
 import { documento } from "@/db/schema/documentos";
 
@@ -85,6 +85,68 @@ export async function listarProcessos(f: Filtros, organizacaoId: string) {
         responsavel: utilizador.nome,
       })
       .from(processoOnboarding)
+      .leftJoin(dadosIdentificacao, eq(dadosIdentificacao.processoId, processoOnboarding.id))
+      .leftJoin(dadosFiscais, eq(dadosFiscais.processoId, processoOnboarding.id))
+      .leftJoin(utilizador, eq(utilizador.id, processoOnboarding.responsavelId))
+      .where(onde)
+      .orderBy(desc(processoOnboarding.atualizadoEm))
+      .limit(porPagina)
+      .offset((pagina - 1) * porPagina),
+    base.select({ n: count() }).from(processoOnboarding).where(onde),
+  ]);
+
+  return { linhas, total: total?.n ?? 0, pagina, porPagina };
+}
+
+/**
+ * Consulta global de processos para o dono da plataforma (`super_admin`).
+ * Atravessa todas as sociedades com filtros, busca e paginação.
+ */
+export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: string) {
+  const base = db();
+  const pagina = Math.max(1, f.pagina ?? 1);
+  const porPagina = Math.min(100, f.porPagina ?? 25);
+
+  const partes = [isNull(processoOnboarding.apagadoEm)];
+  if (organizacaoId) partes.push(daOrganizacao(organizacaoId));
+  if (f.estado?.length) partes.push(inArray(processoOnboarding.estado, f.estado as never[]));
+  if (f.tipo?.length) partes.push(inArray(processoOnboarding.tipoCliente, f.tipo as never[]));
+  if (f.ppe) {
+    partes.push(
+      sql`exists (select 1 from ${declaracaoPpe} where ${declaracaoPpe.processoId} = ${processoOnboarding.id} and ${declaracaoPpe.ePpe} = ${f.ppe === "sim"})`,
+    );
+  }
+  if (f.q?.trim()) {
+    const termo = `%${f.q.trim()}%`;
+    partes.push(
+      or(
+        ilike(processoOnboarding.referencia, termo),
+        sql`exists (select 1 from ${dadosIdentificacao} where ${dadosIdentificacao.processoId} = ${processoOnboarding.id} and unaccent(${dadosIdentificacao.nome}) ilike unaccent(${termo}))`,
+        sql`exists (select 1 from ${dadosFiscais} where ${dadosFiscais.processoId} = ${processoOnboarding.id} and ${dadosFiscais.nif} ilike ${termo})`,
+      )!,
+    );
+  }
+  const onde = and(...partes);
+
+  const [linhas, [total]] = await Promise.all([
+    base
+      .select({
+        id: processoOnboarding.id,
+        organizacaoId: processoOnboarding.organizacaoId,
+        referencia: processoOnboarding.referencia,
+        tipoCliente: processoOnboarding.tipoCliente,
+        estado: processoOnboarding.estado,
+        passoAtual: processoOnboarding.passoAtual,
+        submetidoEm: processoOnboarding.submetidoEm,
+        atualizadoEm: processoOnboarding.atualizadoEm,
+        nome: sql<string>`coalesce(${dadosIdentificacao.nome}, ${processoOnboarding.nomeCliente})`,
+        nif: sql<string>`coalesce(${dadosFiscais.nif}, ${processoOnboarding.nifCliente})`,
+        sociedade: organizacao.nome,
+        prefixo: organizacao.prefixoReferencia,
+        responsavel: utilizador.nome,
+      })
+      .from(processoOnboarding)
+      .leftJoin(organizacao, eq(organizacao.id, processoOnboarding.organizacaoId))
       .leftJoin(dadosIdentificacao, eq(dadosIdentificacao.processoId, processoOnboarding.id))
       .leftJoin(dadosFiscais, eq(dadosFiscais.processoId, processoOnboarding.id))
       .leftJoin(utilizador, eq(utilizador.id, processoOnboarding.responsavelId))

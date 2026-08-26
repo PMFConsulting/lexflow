@@ -20,18 +20,18 @@ export default async function PainelDaPlataforma() {
   const [n, sociedades] = await Promise.all([numerosDaPlataforma(), listarSociedades()]);
 
   const tiles = [
-    { rotulo: "Sociedades", valor: n.sociedades, nota: "inquilinos da plataforma" },
-    { rotulo: "Contas", valor: n.contas, nota: "em todas as sociedades" },
-    { rotulo: "Processos", valor: n.processos, nota: "no total" },
+    { rotulo: "Sociedades", valor: n.sociedades, nota: "inquilinos da plataforma", href: "/admin/sociedades" },
+    { rotulo: "Contas", valor: n.contas, nota: "em todas as sociedades", href: "/admin/utilizadores" },
+    { rotulo: "Processos", valor: n.processos, nota: "no total", href: "/admin/processos" },
   ];
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl">Plataforma</h1>
+          <h1 className="text-2xl font-serif">Plataforma</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            As sociedades que usam o sistema e as contas de cada uma.
+            As sociedades que usam o sistema, processos e contas de cada uma.
           </p>
         </div>
         <NovaSociedade />
@@ -39,17 +39,19 @@ export default async function PainelDaPlataforma() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {tiles.map((t) => (
-          <Card key={t.rotulo} className="gap-2">
-            <CardHeader className="pb-0">
-              <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {t.rotulo}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="font-mono text-3xl leading-none tabular-nums">{t.valor}</div>
-              <p className="mt-2 text-xs text-muted-foreground">{t.nota}</p>
-            </CardContent>
-          </Card>
+          <Link key={t.rotulo} href={t.href} className="group">
+            <Card className="gap-2 transition-colors group-hover:border-marca/50">
+              <CardHeader className="pb-0">
+                <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase group-hover:text-marca">
+                  {t.rotulo}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="font-mono text-3xl leading-none tabular-nums">{t.valor}</div>
+                <p className="mt-2 text-xs text-muted-foreground">{t.nota}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
 
         <Card className={n.semAdmin > 0 ? "border-selo/40 bg-selo/5 gap-2" : "gap-2"}>

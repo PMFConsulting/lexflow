@@ -146,23 +146,17 @@ export function eSuperAdmin(papel: string) {
  * depender de um efeito lateral.
  */
 export function podeVerPpe(papel: string) {
-  return !eSuperAdmin(papel);
+  return papel === "super_admin" || papel === "society_admin" || papel === "utilizador";
 }
 
 /**
  * Quem pode aprovar ou rejeitar um processo.
  *
- * Mesma fronteira da PPE, e pela mesma razão. A decisão sobre um cliente —
- * que dispara o email de boas-vindas ou uma rejeição — é da sociedade que o
- * aceita, e quem a toma assina-a: `aprovado_por` guarda o `utilizador.id`.
- *
- * O `utilizador` mantém a aprovação de propósito. Ele herda o antigo
- * `advogado`, que aprovava; tirar-lha na migração era uma capacidade a
- * desaparecer sem aviso, e o dia em que se dá por ela é o dia em que alguém
- * não consegue fechar um processo.
+ * O dono da plataforma (`super_admin`) e a equipa da sociedade (`society_admin`,
+ * `utilizador`) podem ambos aprovar ou rejeitar processos e alterar dados.
  */
 export function podeAprovarProcesso(papel: string) {
-  return !eSuperAdmin(papel);
+  return papel === "super_admin" || papel === "society_admin" || papel === "utilizador";
 }
 
 /**
@@ -188,6 +182,20 @@ export function podeVerEmails(papel: string) {
  */
 export function podeGerirUtilizadores(papel: string) {
   return papel === "super_admin" || papel === "society_admin";
+}
+
+/**
+ * Verifica se quem está autenticado tem permissão de acesso a uma dada sociedade.
+ *
+ * O `super_admin` tem acesso transversal a todas as sociedades.
+ * Os utilizadores com sociedade (`society_admin`, `utilizador`) só podem
+ * aceder à sociedade a que pertencem.
+ */
+export function podeAcederSociedade(
+  eu: { papel: string; organizacaoId: string | null },
+  organizacaoIdAlvo: string,
+): boolean {
+  return eSuperAdmin(eu.papel) || eu.organizacaoId === organizacaoIdAlvo;
 }
 
 /* ---------------------------------------------------------------- os guards */
@@ -260,6 +268,14 @@ export async function exigirSocietyAdmin() {
  */
 export async function exigirEquipaDaSociedade() {
   return exigirPapelComSociedade(["society_admin", "utilizador"]);
+}
+
+/**
+ * Acesso a processos e dados: o dono da plataforma (`super_admin`) ou a equipa
+ * da sociedade (`society_admin`, `utilizador`).
+ */
+export async function exigirEquipaOuSuperAdmin() {
+  return exigirPapel(["super_admin", "society_admin", "utilizador"]);
 }
 
 /**

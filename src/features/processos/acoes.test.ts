@@ -99,6 +99,11 @@ vi.mock("@/lib/sessao", () => ({
     if (!haSessao) throw new Error("NEXT_REDIRECT;/entrar");
     return { conta: { id: "auth-1" }, eu: EU };
   },
+  exigirEquipaOuSuperAdmin: async () => {
+    if (!haSessao) throw new Error("NEXT_REDIRECT;/entrar");
+    return { conta: { id: "auth-1" }, eu: EU };
+  },
+  podeAcederSociedade: () => true,
   podeAprovarProcesso: () => true,
 }));
 
@@ -504,5 +509,19 @@ describe("criarProcesso — o link entregue é o link que abre", () => {
     expect(r.token).toBe("token-em-claro");
     expect(r.linkVerificado).toBe(true);
     expect(enviados).toHaveLength(1);
+  });
+
+  it("super_admin pode criar processo numa sociedade fornecendo organizacaoId", async () => {
+    const r = await criarProcesso({
+      ...carga("cliente@empresa.pt"),
+      organizacaoId: "org-1",
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.referencia).toBe("JM-2026-0007");
+    expect(processosInseridos).toContainEqual(
+      expect.objectContaining({ organizacaoId: "org-1" }),
+    );
   });
 });

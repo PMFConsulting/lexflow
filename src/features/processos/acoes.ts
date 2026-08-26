@@ -2,11 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { contadorReferencia, organizacao } from "@/db/schema/organizacao";
 import { processoOnboarding } from "@/db/schema/processo";
-import { dadosFaturacao, dadosIdentificacao } from "@/db/schema/seccoes";
+import {
+  areaInteresse,
+  dadosFaturacao,
+  dadosFiscais,
+  dadosIdentificacao,
+  declaracaoPpe,
+  emailNewsletter,
+  fechoProposta,
+  nacionalidade,
+  preferenciasContacto,
+  relacaoNegocio,
+  representanteLegal,
+} from "@/db/schema/seccoes";
 import { registarEvento } from "@/features/auditoria/registar";
 import { acessoPorToken } from "@/features/onboarding/dados";
 import { enviarEmail } from "@/lib/email";
@@ -19,7 +31,11 @@ import {
 } from "@/lib/emails/jmassano";
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import { origemPublica } from "@/lib/origem";
-import { exigirEquipaDaSociedade, podeAprovarProcesso } from "@/lib/sessao";
+import {
+  exigirEquipaOuSuperAdmin,
+  podeAcederSociedade,
+  podeAprovarProcesso,
+} from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
 import { novoProcesso, type NovoProcesso } from "./schemas";
 
@@ -64,7 +80,7 @@ function restricaoViolada(erro: unknown): string {
  * "o servidor não respondeu" — uma avaria de auditoria com a cara de uma avaria
  * de email, e sem rasto nenhum a desfazer a confusão.
  */
-export async function criarProcesso(entrada: NovoProcesso) {
+export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: string }) {
   /*
    * A primeira linha do rasto, e é a **primeira instrução da ação** de
    * propósito: diz o que a Server Action recebeu de facto, antes de qualquer
@@ -103,7 +119,7 @@ export async function criarProcesso(entrada: NovoProcesso) {
    * chamada sem sessão a ação não devolve resultado nenhum, que é exatamente o
    * que se pretende.
    */
-  const { eu } = await exigirEquipaDaSociedade();
+  const { eu } = await exigirEquipaOuSuperAdmin();
 
   // O cliente já validou, e isso é conforto. A decisão é aqui: um NIPC com o
   // checksum errado não entra por a janela ter sido contornada.
@@ -130,17 +146,22 @@ export async function criarProcesso(entrada: NovoProcesso) {
   const base = db();
 
   /*
-   * A organização é a de quem está autenticado, e não a primeira da tabela.
-   *
-   * O `limit(1)` sem `where` funcionava enquanto houvesse uma organização só —
-   * e é assim na POC —, mas escreve a regra errada: no dia em que houver duas,
-   * um utilizador da segunda abria processos com a referência, o contador e a
-   * cadeia de auditoria da primeira, sem erro nenhum a assinalá-lo.
+   * A organização é a de quem está autenticado (para equipa da sociedade)
+   * ou a indicada na entrada (para o super_admin transversal).
    */
+  const orgId =
+    eu.papel === "super_admin"
+      ? (entrada.organizacaoId ?? eu.organizacaoId)
+      : eu.organizacaoId;
+
+  if (!orgId) {
+    return falha("Escolha a sociedade onde criar o processo.", "organizacaoId");
+  }
+
   const [org] = await base
     .select()
     .from(organizacao)
-    .where(eq(organizacao.id, eu.organizacaoId))
+    .where(eq(organizacao.id, orgId))
     .limit(1);
   if (!org) {
     return falha("Não há organização criada. Corra `pnpm db:seed`.");
@@ -543,6 +564,7 @@ async function emailDoCliente(processoId: string) {
  * A mesma regra do detalhe do processo (`processoPorId` + a comparação de
  * organização): um processo de outra organização responde como se não
  * existisse, e não com um erro que revele que existe algures noutra conta.
+ * O `super_admin` tem acesso transversal a todas as organizações.
  */
 async function processoParaDecisao(
   id: string,
@@ -550,7 +572,7 @@ async function processoParaDecisao(
   | { ok: true; processo: typeof processoOnboarding.$inferSelect; atorId: string }
   | { ok: false; erro: string }
 > {
-  const { eu } = await exigirEquipaDaSociedade();
+  const { eu } = await exigirEquipaOuSuperAdmin();
   if (!podeAprovarProcesso(eu.papel)) {
     return { ok: false, erro: "Não tem permissão para decidir este processo." };
   }
@@ -561,7 +583,7 @@ async function processoParaDecisao(
     .where(eq(processoOnboarding.id, id))
     .limit(1);
 
-  if (!processo || processo.organizacaoId !== eu.organizacaoId) {
+  if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
     return { ok: false, erro: "Processo não encontrado." };
   }
   if (processo.estado !== "aguardar_aprovacao") {
@@ -618,6 +640,9 @@ export async function aprovarProcesso(id: string): Promise<ResultadoDecisao> {
 
   revalidatePath("/processos");
   revalidatePath(`/processos/${id}`);
+  revalidatePath(`/admin/sociedades/${processo.organizacaoId}/processos/${id}`);
+  revalidatePath(`/admin/sociedades/${processo.organizacaoId}`);
+  revalidatePath("/admin");
   revalidatePath("/");
 
   return { ok: true };
@@ -690,7 +715,651 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
 
   revalidatePath("/processos");
   revalidatePath(`/processos/${id}`);
+  revalidatePath(`/admin/sociedades/${processo.organizacaoId}/processos/${id}`);
+  revalidatePath(`/admin/sociedades/${processo.organizacaoId}`);
+  revalidatePath("/admin");
   revalidatePath("/");
+
+  return { ok: true };
+}
+
+/* ------------------------------------------------------------- edição de dados */
+
+export type ResultadoEdicao =
+  | { ok: true }
+  | { ok: false; erro: string };
+
+/**
+ * Atualiza os dados de uma secção de um processo (passos 1 a 7).
+ *
+ * Permite ao `super_admin` e à equipa da sociedade editar/corrigir/preencher
+ * qualquer campo de dados de um processo. Toda a alteração é registada na auditoria.
+ */
+export async function atualizarSeccaoProcesso(
+  processoId: string,
+  passo: number,
+  dados: Record<string, unknown>,
+): Promise<ResultadoEdicao> {
+  const { eu } = await exigirEquipaOuSuperAdmin();
+
+  const base = db();
+  const [processo] = await base
+    .select()
+    .from(processoOnboarding)
+    .where(and(eq(processoOnboarding.id, processoId), isNull(processoOnboarding.apagadoEm)))
+    .limit(1);
+
+  if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
+    return { ok: false, erro: "Processo não encontrado." };
+  }
+
+  const insere = <T>(extra: Record<string, unknown>) => ({ processoId: processo.id, ...extra }) as T;
+
+  switch (passo) {
+    case 1: {
+      const {
+        nome,
+        profissao,
+        entidadePatronal,
+        dataNascimento,
+        naturezaJuridica,
+        dataConstituicao,
+        telefone,
+        email,
+        morada,
+        codigoPostal,
+        localidade,
+        freguesia,
+        concelho,
+        distrito,
+        pais,
+        nacionalidades,
+      } = dados as {
+        nome?: string;
+        profissao?: string;
+        entidadePatronal?: string;
+        dataNascimento?: string;
+        naturezaJuridica?: string;
+        dataConstituicao?: string;
+        telefone?: string;
+        email?: string;
+        morada?: string;
+        codigoPostal?: string;
+        localidade?: string;
+        freguesia?: string;
+        concelho?: string;
+        distrito?: string;
+        pais?: string;
+        nacionalidades?: string[];
+      };
+
+      if (!nome?.trim()) {
+        return { ok: false, erro: "O nome é obrigatório." };
+      }
+
+      const valoresIdentificacao = {
+        nome: nome.trim(),
+        profissao: profissao?.trim() || null,
+        entidadePatronal: entidadePatronal?.trim() || null,
+        dataNascimento: dataNascimento?.trim() || null,
+        naturezaJuridica: naturezaJuridica?.trim() || null,
+        dataConstituicao: dataConstituicao?.trim() || null,
+        telefone: telefone?.trim() || "",
+        email: email?.trim().toLowerCase() || "",
+        morada: morada?.trim() || "",
+        codigoPostal: codigoPostal?.trim() || "",
+        localidade: localidade?.trim() || "",
+        freguesia: freguesia?.trim() || "",
+        concelho: concelho?.trim() || "",
+        distrito: distrito?.trim() || "",
+        pais: pais?.trim() || "Portugal",
+      };
+
+      await base
+        .insert(dadosIdentificacao)
+        .values(insere<typeof dadosIdentificacao.$inferInsert>(valoresIdentificacao))
+        .onConflictDoUpdate({
+          target: dadosIdentificacao.processoId,
+          set: valoresIdentificacao,
+        });
+
+      if (Array.isArray(nacionalidades)) {
+        await base
+          .delete(nacionalidade)
+          .where(
+            and(
+              eq(nacionalidade.processoId, processo.id),
+              eq(nacionalidade.titular, "cliente"),
+            ),
+          );
+        if (nacionalidades.length) {
+          await base.insert(nacionalidade).values(
+            nacionalidades.map((p) => ({
+              processoId: processo.id,
+              titular: "cliente" as const,
+              pais: p,
+            })),
+          );
+        }
+      }
+
+      await base
+        .update(processoOnboarding)
+        .set({
+          nomeCliente: nome.trim(),
+          emailCliente: email?.trim().toLowerCase() || processo.emailCliente,
+          atualizadoEm: new Date(),
+        })
+        .where(eq(processoOnboarding.id, processo.id));
+      break;
+    }
+
+    case 2: {
+      const {
+        nif,
+        nifPortugues,
+        resideEmPortugal,
+        docTipo,
+        docNumero,
+        docValidade,
+        cae,
+        codigoCertidaoPermanente,
+        regimeIva,
+      } = dados as {
+        nif?: string;
+        nifPortugues?: boolean;
+        resideEmPortugal?: boolean;
+        docTipo?: "cartao_cidadao" | "passaporte" | "titulo_residencia" | "outro";
+        docNumero?: string;
+        docValidade?: string;
+        cae?: string;
+        codigoCertidaoPermanente?: string;
+        regimeIva?: "normal" | "isento_art53" | "isento_art9" | "misto";
+      };
+
+      if (!nif?.trim()) {
+        return { ok: false, erro: "O NIF é obrigatório." };
+      }
+
+      const valoresFiscais = {
+        nif: nif.trim(),
+        nifPortugues: nifPortugues ?? true,
+        resideEmPortugal: resideEmPortugal ?? true,
+        docTipo: docTipo || "cartao_cidadao",
+        docNumero: docNumero?.trim() || "",
+        docValidade: docValidade?.trim() || new Date().toISOString().slice(0, 10),
+        cae: cae?.trim() || null,
+        codigoCertidaoPermanente: codigoCertidaoPermanente?.trim() || null,
+        regimeIva: regimeIva === "normal" || regimeIva === "isento_art53" || regimeIva === "isento_art9" || regimeIva === "misto" ? regimeIva : null,
+      };
+
+      await base
+        .insert(dadosFiscais)
+        .values(insere<typeof dadosFiscais.$inferInsert>(valoresFiscais))
+        .onConflictDoUpdate({
+          target: dadosFiscais.processoId,
+          set: valoresFiscais,
+        });
+
+      await base
+        .update(processoOnboarding)
+        .set({ nifCliente: nif.trim(), atualizadoEm: new Date() })
+        .where(eq(processoOnboarding.id, processo.id));
+      break;
+    }
+
+    case 3: {
+      const {
+        eRepresentante,
+        relacao,
+        nome,
+        dataNascimento,
+        profissao,
+        telefone,
+        email,
+        morada,
+        pais,
+        localidade,
+        codigoPostal,
+        freguesia,
+        concelho,
+        distrito,
+        nif,
+        docTipo,
+        docNumero,
+        docValidade,
+        nacionalidades,
+      } = dados as {
+        eRepresentante?: boolean;
+        relacao?: string;
+        nome?: string;
+        dataNascimento?: string;
+        profissao?: string;
+        telefone?: string;
+        email?: string;
+        morada?: string;
+        pais?: string;
+        localidade?: string;
+        codigoPostal?: string;
+        freguesia?: string;
+        concelho?: string;
+        distrito?: string;
+        nif?: string;
+        docTipo?: "cartao_cidadao" | "passaporte" | "titulo_residencia" | "outro";
+        docNumero?: string;
+        docValidade?: string;
+        nacionalidades?: string[];
+      };
+
+      const valoresRep = {
+        eRepresentante: Boolean(eRepresentante),
+        relacao: relacao?.trim() || null,
+        nome: nome?.trim() || null,
+        dataNascimento: dataNascimento?.trim() || null,
+        profissao: profissao?.trim() || null,
+        telefone: telefone?.trim() || null,
+        email: email?.trim() || null,
+        morada: morada?.trim() || null,
+        pais: pais?.trim() || null,
+        localidade: localidade?.trim() || null,
+        codigoPostal: codigoPostal?.trim() || null,
+        freguesia: freguesia?.trim() || null,
+        concelho: concelho?.trim() || null,
+        distrito: distrito?.trim() || null,
+        nif: nif?.trim() || null,
+        docTipo: docTipo || null,
+        docNumero: docNumero?.trim() || null,
+        docValidade: docValidade?.trim() || null,
+      };
+
+      await base
+        .insert(representanteLegal)
+        .values(insere<typeof representanteLegal.$inferInsert>(valoresRep))
+        .onConflictDoUpdate({
+          target: representanteLegal.processoId,
+          set: valoresRep,
+        });
+
+      if (Array.isArray(nacionalidades)) {
+        await base
+          .delete(nacionalidade)
+          .where(
+            and(
+              eq(nacionalidade.processoId, processo.id),
+              eq(nacionalidade.titular, "representante"),
+            ),
+          );
+        if (nacionalidades.length) {
+          await base.insert(nacionalidade).values(
+            nacionalidades.map((p) => ({
+              processoId: processo.id,
+              titular: "representante" as const,
+              pais: p,
+            })),
+          );
+        }
+      }
+      break;
+    }
+
+    case 4: {
+      const {
+        ePpe,
+        ppeCargo,
+        ppePais,
+        ppeEntidade,
+        ppeInicio,
+        ppeFim,
+        eRelacionadoPpe,
+        relacaoPpe,
+        ppeRelacionadaNome,
+        ppeRelacionadaCargo,
+        ppeRelacionadaPais,
+        servicos,
+        origemFundos,
+      } = dados as {
+        ePpe?: boolean;
+        ppeCargo?: string;
+        ppePais?: string;
+        ppeEntidade?: string;
+        ppeInicio?: string;
+        ppeFim?: string;
+        eRelacionadoPpe?: boolean;
+        relacaoPpe?: string;
+        ppeRelacionadaNome?: string;
+        ppeRelacionadaCargo?: string;
+        ppeRelacionadaPais?: string;
+        servicos?: string;
+        origemFundos?: string;
+      };
+
+      const valoresPpe = {
+        ePpe: Boolean(ePpe),
+        ppeCargo: ppeCargo?.trim() || null,
+        ppePais: ppePais?.trim() || null,
+        ppeEntidade: ppeEntidade?.trim() || null,
+        ppeInicio: ppeInicio?.trim() || null,
+        ppeFim: ppeFim?.trim() || null,
+        eRelacionadoPpe: Boolean(eRelacionadoPpe),
+        relacaoPpe: relacaoPpe?.trim() || null,
+        ppeRelacionadaNome: ppeRelacionadaNome?.trim() || null,
+        ppeRelacionadaCargo: ppeRelacionadaCargo?.trim() || null,
+        ppeRelacionadaPais: ppeRelacionadaPais?.trim() || null,
+      };
+
+      await base
+        .insert(declaracaoPpe)
+        .values(insere<typeof declaracaoPpe.$inferInsert>(valoresPpe))
+        .onConflictDoUpdate({
+          target: declaracaoPpe.processoId,
+          set: valoresPpe,
+        });
+
+      if (servicos !== undefined || origemFundos !== undefined) {
+        await base
+          .insert(relacaoNegocio)
+          .values({
+            processoId: processo.id,
+            servicos: servicos?.trim() || "",
+            origemFundos: origemFundos?.trim() || "",
+          })
+          .onConflictDoUpdate({
+            target: relacaoNegocio.processoId,
+            set: {
+              servicos: servicos?.trim() || "",
+              origemFundos: origemFundos?.trim() || "",
+            },
+          });
+      }
+
+      if (ePpe) {
+        await base
+          .update(processoOnboarding)
+          .set({
+            nivelRisco: "elevado",
+            fatoresRisco: [
+              {
+                codigo: "ppe",
+                descricao: "Pessoa politicamente exposta declarada",
+                peso: 100,
+              },
+            ],
+            atualizadoEm: new Date(),
+          })
+          .where(eq(processoOnboarding.id, processo.id));
+      }
+      break;
+    }
+
+    case 5: {
+      const {
+        igualAoCliente,
+        nome,
+        nif,
+        email,
+        acIgualAoCliente,
+        acNome,
+        acEmail,
+        acTelefone,
+        morada,
+        codigoPostal,
+        localidade,
+        freguesia,
+        concelho,
+        distrito,
+        pais,
+      } = dados as {
+        igualAoCliente?: boolean;
+        nome?: string;
+        nif?: string;
+        email?: string;
+        acIgualAoCliente?: boolean;
+        acNome?: string;
+        acEmail?: string;
+        acTelefone?: string;
+        morada?: string;
+        codigoPostal?: string;
+        localidade?: string;
+        freguesia?: string;
+        concelho?: string;
+        distrito?: string;
+        pais?: string;
+      };
+
+      if (!nome?.trim() || !nif?.trim() || !email?.trim()) {
+        return { ok: false, erro: "Nome, NIF e email de faturação são obrigatórios." };
+      }
+
+      const valoresFaturacao = {
+        igualAoCliente: Boolean(igualAoCliente),
+        nome: nome.trim(),
+        nif: nif.trim(),
+        email: email.trim().toLowerCase(),
+        acIgualAoCliente: Boolean(acIgualAoCliente),
+        acNome: acNome?.trim() || null,
+        acEmail: acEmail?.trim() || null,
+        acTelefone: acTelefone?.trim() || null,
+        morada: morada?.trim() || "",
+        codigoPostal: codigoPostal?.trim() || "",
+        localidade: localidade?.trim() || "",
+        freguesia: freguesia?.trim() || "",
+        concelho: concelho?.trim() || "",
+        distrito: distrito?.trim() || "",
+        pais: pais?.trim() || "Portugal",
+      };
+
+      await base
+        .insert(dadosFaturacao)
+        .values(insere<typeof dadosFaturacao.$inferInsert>(valoresFaturacao))
+        .onConflictDoUpdate({
+          target: dadosFaturacao.processoId,
+          set: valoresFaturacao,
+        });
+      break;
+    }
+
+    case 6: {
+      const {
+        origemContacto,
+        origemDetalhe,
+        newsletter,
+        emailsNewsletter,
+        areasInteresse,
+        convitesIniciativas,
+        convitesNome,
+        convitesEmail,
+      } = dados as {
+        origemContacto?: "evento_conferencia" | "recomendacao" | "pesquisa_online" | "outro";
+        origemDetalhe?: string;
+        newsletter?: boolean;
+        emailsNewsletter?: string[];
+        areasInteresse?: string[];
+        convitesIniciativas?: boolean;
+        convitesNome?: string;
+        convitesEmail?: string;
+      };
+
+      const valoresPrefs = {
+        origemContacto: origemContacto || null,
+        origemDetalhe: origemDetalhe?.trim() || null,
+        newsletter: Boolean(newsletter),
+        convitesIniciativas: Boolean(convitesIniciativas),
+        convitesNome: convitesNome?.trim() || null,
+        convitesEmail: convitesEmail?.trim() || null,
+      };
+
+      await base
+        .insert(preferenciasContacto)
+        .values(insere<typeof preferenciasContacto.$inferInsert>(valoresPrefs))
+        .onConflictDoUpdate({
+          target: preferenciasContacto.processoId,
+          set: valoresPrefs,
+        });
+
+      if (Array.isArray(emailsNewsletter)) {
+        await base
+          .delete(emailNewsletter)
+          .where(eq(emailNewsletter.processoId, processo.id));
+        if (emailsNewsletter.length) {
+          await base.insert(emailNewsletter).values(
+            emailsNewsletter.map((e) => ({
+              processoId: processo.id,
+              email: e.trim().toLowerCase(),
+            })),
+          );
+        }
+      }
+
+      if (Array.isArray(areasInteresse)) {
+        await base
+          .delete(areaInteresse)
+          .where(eq(areaInteresse.processoId, processo.id));
+        if (areasInteresse.length) {
+          await base
+            .insert(areaInteresse)
+            .values(areasInteresse.map((a) => ({ processoId: processo.id, area: a.trim() })));
+        }
+      }
+      break;
+    }
+
+    case 7: {
+      const { declaracaoVeracidade, tcAceitacao, propostaAceitacao } = dados as {
+        declaracaoVeracidade?: boolean;
+        tcAceitacao?: boolean;
+        propostaAceitacao?: boolean;
+      };
+
+      const valoresFecho = {
+        declaracaoVeracidade: Boolean(declaracaoVeracidade),
+        tcAceitacao: Boolean(tcAceitacao),
+        propostaAceitacao: Boolean(propostaAceitacao),
+      };
+
+      await base
+        .insert(fechoProposta)
+        .values(insere<typeof fechoProposta.$inferInsert>(valoresFecho))
+        .onConflictDoUpdate({
+          target: fechoProposta.processoId,
+          set: valoresFecho,
+        });
+      break;
+    }
+
+    default:
+      return { ok: false, erro: "Passo inválido." };
+  }
+
+  await base
+    .update(processoOnboarding)
+    .set({ atualizadoEm: new Date() })
+    .where(eq(processoOnboarding.id, processo.id));
+
+  let ip: string | null = null;
+  let userAgent: string | null = null;
+  try {
+    const h = await headers();
+    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    userAgent = h.get("user-agent") ?? null;
+  } catch {
+    // Headers might fail outside request context
+  }
+
+  try {
+    await registarEvento({
+      organizacaoId: processo.organizacaoId,
+      processoId: processo.id,
+      atorId: eu.id,
+      acao: "processo.dados_atualizados",
+      entidade: "processo_onboarding",
+      entidadeId: processo.id,
+      valorNovo: { passo, papel: eu.papel },
+      ip,
+      userAgent,
+    });
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: falhou registo de auditoria da edição`, e);
+  }
+
+  try {
+    revalidatePath("/processos");
+    revalidatePath(`/processos/${processo.id}`);
+    revalidatePath(`/admin/sociedades/${processo.organizacaoId}/processos/${processo.id}`);
+    revalidatePath(`/admin/sociedades/${processo.organizacaoId}`);
+  } catch {
+    // revalidatePath outside request context
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Atualiza o estado de um processo diretamente (ex: marcar como verificado, rascunho, etc.).
+ */
+export async function atualizarEstadoProcesso(
+  processoId: string,
+  novoEstado:
+    | "rascunho"
+    | "pendente_cliente"
+    | "submetido"
+    | "em_revisao"
+    | "aguardar_aprovacao"
+    | "aprovado"
+    | "rejeitado",
+): Promise<ResultadoEdicao> {
+  const { eu } = await exigirEquipaOuSuperAdmin();
+  const base = db();
+
+  const [processo] = await base
+    .select()
+    .from(processoOnboarding)
+    .where(and(eq(processoOnboarding.id, processoId), isNull(processoOnboarding.apagadoEm)))
+    .limit(1);
+
+  if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
+    return { ok: false, erro: "Processo não encontrado." };
+  }
+
+  await base
+    .update(processoOnboarding)
+    .set({ estado: novoEstado, atualizadoEm: new Date() })
+    .where(eq(processoOnboarding.id, processo.id));
+
+  let ip: string | null = null;
+  let userAgent: string | null = null;
+  try {
+    const h = await headers();
+    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    userAgent = h.get("user-agent") ?? null;
+  } catch {
+    // Headers outside request context
+  }
+
+  try {
+    await registarEvento({
+      organizacaoId: processo.organizacaoId,
+      processoId: processo.id,
+      atorId: eu.id,
+      acao: "processo.estado_atualizado",
+      entidade: "processo_onboarding",
+      entidadeId: processo.id,
+      valorAnterior: { estado: processo.estado },
+      valorNovo: { estado: novoEstado, papel: eu.papel },
+      ip,
+      userAgent,
+    });
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: falhou auditoria de estado`, e);
+  }
+
+  try {
+    revalidatePath("/processos");
+    revalidatePath(`/processos/${processo.id}`);
+    revalidatePath(`/admin/sociedades/${processo.organizacaoId}/processos/${processo.id}`);
+    revalidatePath(`/admin/sociedades/${processo.organizacaoId}`);
+  } catch {
+    // revalidatePath outside request context
+  }
 
   return { ok: true };
 }

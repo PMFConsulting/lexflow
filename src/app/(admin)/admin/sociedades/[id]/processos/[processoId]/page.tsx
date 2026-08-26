@@ -1,30 +1,44 @@
 import { notFound } from "next/navigation";
 import { auditoriaDoProcesso } from "@/features/auditoria/consultas";
+import { registarEvento } from "@/features/auditoria/registar";
+import {
+  assinaturaDoProcesso,
+  seccoesDoProcesso,
+} from "@/features/onboarding/dados";
+import { DetalheProcesso } from "@/features/processos/componentes/DetalheProcesso";
 import {
   documentosDoProcesso,
   processoPorId,
   propostaDoProcesso,
 } from "@/features/processos/consultas";
-import {
-  assinaturaDoProcesso,
-  seccoesDoProcesso,
-} from "@/features/onboarding/dados";
-import { exigirEquipaDaSociedade, podeAprovarProcesso, podeVerPpe } from "@/lib/sessao";
-import { registarEvento } from "@/features/auditoria/registar";
-import { DetalheProcesso } from "@/features/processos/componentes/DetalheProcesso";
+import { sociedadePorId } from "@/features/plataforma/consultas";
+import { exigirSuperAdmin, podeAprovarProcesso, podeVerPpe } from "@/lib/sessao";
 
 export const dynamic = "force-dynamic";
 
-export default async function Processo({
+export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; processoId: string }>;
 }) {
-  const { id } = await params;
-  const { eu } = await exigirEquipaDaSociedade();
+  const { processoId } = await params;
+  const processo = await processoPorId(processoId);
+  return { title: processo ? `Processo ${processo.referencia}` : "Processo" };
+}
 
-  const processo = await processoPorId(id);
-  if (!processo || processo.organizacaoId !== eu.organizacaoId) notFound();
+export default async function DetalheProcessoSociedadeAdmin({
+  params,
+}: {
+  params: Promise<{ id: string; processoId: string }>;
+}) {
+  const { id, processoId } = await params;
+  const { eu } = await exigirSuperAdmin();
+
+  const sociedade = await sociedadePorId(id);
+  if (!sociedade) notFound();
+
+  const processo = await processoPorId(processoId);
+  if (!processo || processo.organizacaoId !== id) notFound();
 
   const [s, docs, eventos, assinatura, proposta] = await Promise.all([
     seccoesDoProcesso(processo.id),
@@ -58,8 +72,8 @@ export default async function Processo({
       vePpe={vePpe}
       podeAprovar={podeAprovar}
       podeEditar={true}
-      caminhoVoltar="/processos"
-      textoVoltar="Processos"
+      caminhoVoltar={`/admin/sociedades/${id}`}
+      textoVoltar={sociedade.nome}
       papelAtual={eu.papel}
     />
   );

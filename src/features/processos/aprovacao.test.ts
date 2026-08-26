@@ -144,7 +144,12 @@ vi.mock("@/lib/sessao", () => ({
   exigirEquipaDaSociedade: async () => ({
     eu: { id: "user-1", papel: papelAtual, organizacaoId: "org-1" },
   }),
-  podeAprovarProcesso: (papel: string) => papel !== "super_admin",
+  exigirEquipaOuSuperAdmin: async () => ({
+    eu: { id: "user-1", papel: papelAtual, organizacaoId: papelAtual === "super_admin" ? null : "org-1" },
+  }),
+  podeAcederSociedade: (eu: { papel: string; organizacaoId: string | null }, orgAlvo: string) =>
+    eu.papel === "super_admin" || eu.organizacaoId === orgAlvo,
+  podeAprovarProcesso: (papel: string) => papel !== "desconhecido",
 }));
 
 const { aprovarProcesso, rejeitarProcesso } = await import("./acoes");
@@ -224,7 +229,7 @@ describe("aprovarProcesso", () => {
   });
 
   it("recusa quando o papel não pode decidir", async () => {
-    papelAtual = "super_admin";
+    papelAtual = "desconhecido";
 
     const r = await aprovarProcesso("proc-1");
 
@@ -232,7 +237,18 @@ describe("aprovarProcesso", () => {
     expect(atualizacoes).toHaveLength(0);
   });
 
-  it("um processo de outra organização não se encontra", async () => {
+  it("o super_admin pode aprovar processos transversalmente", async () => {
+    papelAtual = "super_admin";
+    linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+
+    const r = await aprovarProcesso("proc-1");
+
+    expect(r).toEqual({ ok: true });
+    expect(atualizacoes.some((a) => a.valores.estado === "aprovado")).toBe(true);
+  });
+
+  it("um utilizador de outra organização não encontra o processo", async () => {
+    papelAtual = "utilizador";
     linhas["processo_onboarding"] = [PROCESSO({ organizacaoId: "outra-org" })];
 
     const r = await aprovarProcesso("proc-1");
@@ -309,11 +325,21 @@ describe("rejeitarProcesso", () => {
   });
 
   it("recusa quando o papel não pode decidir", async () => {
-    papelAtual = "super_admin";
+    papelAtual = "desconhecido";
 
     const r = await rejeitarProcesso("proc-1", "Documentação incompleta");
 
     expect(r.ok).toBe(false);
     expect(atualizacoes).toHaveLength(0);
+  });
+
+  it("o super_admin pode rejeitar processos transversalmente", async () => {
+    papelAtual = "super_admin";
+    linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+
+    const r = await rejeitarProcesso("proc-1", "Documentação incompleta");
+
+    expect(r).toEqual({ ok: true });
+    expect(atualizacoes.some((a) => a.valores.estado === "rejeitado")).toBe(true);
   });
 });
