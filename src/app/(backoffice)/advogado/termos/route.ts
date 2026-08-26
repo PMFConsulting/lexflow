@@ -3,7 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { documentoOrganizacao } from "@/db/schema/sociedade";
 import { registarEvento } from "@/features/auditoria/registar";
-import { exigirSessao } from "@/lib/sessao";
+import { exigirEquipaDaSociedade } from "@/lib/sessao";
 import { termosEmVigor } from "@/lib/termos-sociedade";
 
 /**
@@ -14,7 +14,7 @@ import { termosEmVigor } from "@/lib/termos-sociedade";
  * seria uma aceitação pedida às cegas.
  */
 export async function GET(pedido: Request) {
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
 
   const termos = await termosEmVigor(eu.organizacaoId);
   if (termos.forma !== "documento") {

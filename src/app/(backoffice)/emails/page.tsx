@@ -18,7 +18,7 @@ import {
   type TemplateEmail,
 } from "@/features/emails/rotulos";
 import { estadoEmail, templateEmail } from "@/db/schema/enums";
-import { exigirAdmin } from "@/lib/sessao";
+import { exigirSocietyAdmin } from "@/lib/sessao";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Emails" };
@@ -96,7 +96,7 @@ export default async function Emails({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigirAdmin();
+  await exigirSocietyAdmin();
 
   const sp = await searchParams;
   const filtros = {

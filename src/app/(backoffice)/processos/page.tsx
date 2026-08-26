@@ -8,7 +8,7 @@ import { facetas, listarProcessos } from "@/features/processos/consultas";
 import { Filtros } from "@/features/processos/componentes/Filtros";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 import { passosAntesDe, passosDoProcesso } from "@/features/onboarding/passos";
-import { exigirSessao, podeVerPpe } from "@/lib/sessao";
+import { exigirEquipaDaSociedade, podeVerPpe } from "@/lib/sessao";
 
 export const metadata = { title: "Processos" };
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function Processos({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
   const sp = await searchParams;
 
   // O papel `assistente` não vê declarações de PPE no detalhe — e não pode

@@ -1,6 +1,6 @@
 import { Check, FileText, Paperclip } from "lucide-react";
 import { Ref } from "@/components/ref-processo";
-import { exigirSessao } from "@/lib/sessao";
+import { exigirEquipaDaSociedade } from "@/lib/sessao";
 import { termosEmVigor } from "@/lib/termos-sociedade";
 import { sociedadeDe } from "@/features/administracao/consultas";
 import {
@@ -68,7 +68,7 @@ function Linha({
  * um colega a um parâmetro de distância.
  */
 export default async function PortalAdvogado() {
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
 
   const [perfil, aceitacoes, documentos, colegas, org, emVigor] = await Promise.all([
     perfilDe(eu.id),

@@ -1,0 +1,137 @@
+import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
+import { Logotipo } from "@/components/logotipo";
+
+/**
+ * A moldura dos três portais.
+ *
+ * Desde que há três papéis há três barras laterais, e a alternativa a esta
+ * moldura era o mesmo ficheiro copiado três vezes — com o defeito conhecido de
+ * quem copia layouts: a terceira cópia deixa de acompanhar as outras duas, e
+ * ninguém dá por isso porque cada papel só vê a sua.
+ *
+ * O que muda entre portais é o que vem por parâmetro: as entradas, a legenda do
+ * grupo e a etiqueta do cabeçalho. **O guard não vem daqui** — cada layout
+ * chama o seu antes de montar isto, porque é ele que sabe quem entra.
+ */
+
+export type EntradaDeMenu = {
+  titulo: string;
+  href: string;
+  icone: LucideIcon;
+};
+
+export function PortalShell({
+  entradas,
+  grupo,
+  cabecalho,
+  legendaDaMarca,
+  utilizador,
+  children,
+}: {
+  entradas: EntradaDeMenu[];
+  grupo: string;
+  cabecalho: string;
+  legendaDaMarca: string;
+  utilizador: { nome: string; papel: string };
+  children: React.ReactNode;
+}) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <SidebarProvider>
+        <Sidebar collapsible="icon">
+          <SidebarHeader className="px-3 py-4 group-data-[collapsible=icon]:px-1.5">
+            {/* A lombada do dossier, com a marca da sociedade. É SVG com fundo
+                próprio (verde-arquivo), por isso assenta direto na tinta sólida
+                da barra sem precisar de uma caixa clara por trás.
+
+                `group-data-[collapsible=icon]` é o estado recolhido: aí só cabe
+                a marca, e a legenda sairia por cima do ícone seguinte. O
+                `shrink-0` impede a alternativa — encolher só a largura e
+                entregar o logo esticado. */}
+            <Link href={entradas[0]?.href ?? "/"} className="flex min-w-0 items-center gap-2.5">
+              <Logotipo className="h-8 w-auto shrink-0 group-data-[collapsible=icon]:h-6" />
+              <span className="font-mono text-2xs truncate tracking-[0.16em] uppercase opacity-60 group-data-[collapsible=icon]:hidden">
+                {legendaDaMarca}
+              </span>
+            </Link>
+          </SidebarHeader>
+
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel>{grupo}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {entradas.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild tooltip={item.titulo}>
+                        <Link href={item.href}>
+                          <item.icone />
+                          <span>{item.titulo}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+
+          <SidebarFooter className="gap-2 px-3 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium">{utilizador.nome}</p>
+              <p className="text-2xs truncate font-mono tracking-wider uppercase opacity-60">
+                {utilizador.papel}
+              </p>
+            </div>
+            <BotaoSair />
+            <span className="text-2xs font-mono opacity-40">POC · v0.1.0</span>
+          </SidebarFooter>
+        </Sidebar>
+
+        <SidebarInset>
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-linha bg-papel-alto px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-1 h-4" />
+            <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
+              {cabecalho}
+            </span>
+          </header>
+          <main className="flex-1 p-4 md:p-6">{children}</main>
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
+  );
+}
+
+/**
+ * O papel como se escreve para uma pessoa.
+ *
+ * A barra lateral mostrava `eu.papel` em cru, que com `admin`/`socio` ainda se
+ * lia. Com `society_admin` deixou de se ler — um sublinhado no meio de uma
+ * palavra é um identificador de base de dados a aparecer numa interface, e a
+ * regra do projeto é que o que o utilizador vê está em português.
+ */
+export const ROTULO_DO_PAPEL: Record<string, string> = {
+  super_admin: "Administração da plataforma",
+  society_admin: "Administração da sociedade",
+  utilizador: "Utilizador",
+};

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { papelUtilizador } from "@/db/schema/enums";
 import { organizacao } from "@/db/schema/organizacao";
-import { exigirSessao } from "@/lib/sessao";
+import { exigirSocietyAdmin } from "@/lib/sessao";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Configuração" };
@@ -31,10 +31,9 @@ type Papel = (typeof papelUtilizador.enumValues)[number];
  * parte a compilação aqui, que é onde a tradução falta.
  */
 const ROTULOS_PAPEL: Record<Papel, string> = {
-  admin: "Administrador",
-  socio: "Sócio",
-  advogado: "Advogado",
-  assistente: "Assistente",
+  super_admin: "Administrador da plataforma",
+  society_admin: "Administrador da sociedade",
+  utilizador: "Utilizador",
 };
 
 const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
@@ -71,8 +70,17 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
   );
 }
 
+/**
+ * Só o administrador da sociedade.
+ *
+ * A página é de leitura e não mostra nada de perigoso, mas mostra a sociedade
+ * inteira — e o portal do `utilizador` é, por definição, o que não tem
+ * administração (nem emails, nem configuração, nem contas). O guard está aqui e
+ * não só na barra lateral: esconder a entrada não fecha o endereço a quem o
+ * escreve à mão.
+ */
 export default async function Configuracao() {
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirSocietyAdmin();
 
   const [org] = await db()
     .select()

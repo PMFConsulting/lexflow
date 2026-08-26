@@ -30,13 +30,13 @@ const PASSO_1 = {
 };
 
 describe("quem exerce advocacia", () => {
-  it("advogados e sócios sim, administradores e assistentes não", () => {
-    // Um assistente não tem cédula profissional, e exigir-lha tornava o passo 2
-    // impossível de fechar para um perfil que legitimamente não a tem.
-    expect(exerceAdvocacia("advogado")).toBe(true);
-    expect(exerceAdvocacia("socio")).toBe(true);
-    expect(exerceAdvocacia("assistente")).toBe(false);
-    expect(exerceAdvocacia("admin")).toBe(false);
+  it("quem trabalha na sociedade sim, o dono da plataforma não", () => {
+    // Quem trabalha na sociedade (utilizador, administração da sociedade)
+    // precisa da cédula profissional; o super_admin não trabalha processos de
+    // nenhuma sociedade e não está sujeito a esse requisito.
+    expect(exerceAdvocacia("utilizador")).toBe(true);
+    expect(exerceAdvocacia("society_admin")).toBe(true);
+    expect(exerceAdvocacia("super_admin")).toBe(false);
   });
 });
 

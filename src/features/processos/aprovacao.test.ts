@@ -18,7 +18,7 @@ const boasVindasEnviadas: { processoId: string; para: string; nome: string | nul
 const atualizacoes: { tabela: string; valores: Linha }[] = [];
 
 let linhas: Record<string, Linha[]> = {};
-let papelAtual = "advogado";
+let papelAtual = "utilizador";
 let boasVindasRebenta = false;
 let emailRejeicaoRebenta = false;
 
@@ -130,11 +130,21 @@ vi.mock("@/lib/token", () => ({
   expiraDaquiA: () => new Date("2027-01-01T00:00:00.000Z"),
 }));
 
+/**
+ * Os papéis mudaram (migração `0016`), a regra não.
+ *
+ * `advogado` — que aprovava — passou a `utilizador`, e continua a aprovar: essa
+ * era a decisão conservadora da migração, porque tirar a aprovação a quem a
+ * tinha é uma capacidade que desaparece sem aviso. Quem passou a não decidir é
+ * o `super_admin`, e por uma razão diferente da do antigo `assistente`: a
+ * decisão sobre um cliente é da sociedade que o aceita, e ele não está em
+ * nenhuma.
+ */
 vi.mock("@/lib/sessao", () => ({
-  exigirSessao: async () => ({
+  exigirEquipaDaSociedade: async () => ({
     eu: { id: "user-1", papel: papelAtual, organizacaoId: "org-1" },
   }),
-  podeAprovarProcesso: (papel: string) => papel !== "assistente",
+  podeAprovarProcesso: (papel: string) => papel !== "super_admin",
 }));
 
 const { aprovarProcesso, rejeitarProcesso } = await import("./acoes");
@@ -145,7 +155,7 @@ beforeEach(() => {
   boasVindasEnviadas.length = 0;
   atualizacoes.length = 0;
   linhas = { processo_onboarding: [PROCESSO()] };
-  papelAtual = "advogado";
+  papelAtual = "utilizador";
   boasVindasRebenta = false;
   emailRejeicaoRebenta = false;
   vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -214,7 +224,7 @@ describe("aprovarProcesso", () => {
   });
 
   it("recusa quando o papel não pode decidir", async () => {
-    papelAtual = "assistente";
+    papelAtual = "super_admin";
 
     const r = await aprovarProcesso("proc-1");
 
@@ -299,7 +309,7 @@ describe("rejeitarProcesso", () => {
   });
 
   it("recusa quando o papel não pode decidir", async () => {
-    papelAtual = "assistente";
+    papelAtual = "super_admin";
 
     const r = await rejeitarProcesso("proc-1", "Documentação incompleta");
 

@@ -548,7 +548,7 @@ export async function concluirConvite(
 
   try {
     revalidatePath(`/convite/${token}`, "layout");
-    revalidatePath("/admin/utilizadores");
+    revalidatePath("/gestao/utilizadores");
   } catch {
     // Fora de um contexto de pedido, `revalidatePath` não é motivo para
     // transformar uma conta criada com sucesso numa falha.

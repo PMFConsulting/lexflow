@@ -78,7 +78,7 @@ export default async function SociedadeSubmetida({
     .where(
       and(
         eq(conviteUtilizador.organizacaoId, org.id),
-        eq(conviteUtilizador.papel, "admin"),
+        eq(conviteUtilizador.papel, "society_admin"),
       ),
     )
     .orderBy(desc(conviteUtilizador.criadoEm))

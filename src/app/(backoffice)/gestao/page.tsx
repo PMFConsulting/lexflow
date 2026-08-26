@@ -11,21 +11,21 @@ export const dynamic = "force-dynamic";
 
 const CARTOES = [
   {
-    href: "/admin/sociedade",
+    href: "/gestao/sociedade",
     titulo: "Sociedade",
     icone: Building2,
     descricao:
       "Dados da sociedade e o articulado de Termos e Condições em vigor — o mesmo que os clientes e a equipa aceitam.",
   },
   {
-    href: "/admin/utilizadores",
+    href: "/gestao/utilizadores",
     titulo: "Utilizadores e convites",
     icone: Users,
     descricao:
       "Quem tem acesso, com que perfil, e os convites por aceitar. É por aqui que entra alguém de novo.",
   },
   {
-    href: "/admin/conformidade",
+    href: "/gestao/conformidade",
     titulo: "Conformidade",
     icone: ShieldCheck,
     descricao:
@@ -70,7 +70,7 @@ export default async function Administracao() {
           <p className="mt-1 text-sm text-muted-foreground">
             Enquanto não houver, os vossos clientes aceitam o texto genérico da plataforma — que é
             texto de demonstração e não o contrato da sociedade.{" "}
-            <Link href="/admin/sociedade" className="underline underline-offset-2">
+            <Link href="/gestao/sociedade" className="underline underline-offset-2">
               Publicar o articulado
             </Link>
             .

@@ -38,14 +38,28 @@ export async function ligarConta(email: string, authUserId: string) {
     .set({ authUserId })
     .where(eq(utilizador.id, eu.id));
 
-  await registarEvento({
-    organizacaoId: eu.organizacaoId,
-    atorId: eu.id,
-    acao: "conta.ligada",
-    entidade: "utilizador",
-    entidadeId: eu.id,
-    valorNovo: { email: limpo, papel: eu.papel },
-  });
+  /**
+   * A auditoria é encadeada **por organização** (D6), e desde a `0016` há uma
+   * conta que não tem nenhuma: o `super_admin`. Pendurá-la numa sociedade
+   * qualquer para o registo poder existir seria pior do que não o registar —
+   * introduzia na cadeia dessa sociedade um evento que não é dela, e a cadeia é
+   * exatamente aquilo cuja leitura tem de ser confiável.
+   *
+   * O que fica no lugar é uma linha no console. As operações de plataforma não
+   * têm hoje um registo próprio; quando tiverem, é para lá que isto passa.
+   */
+  if (eu.organizacaoId) {
+    await registarEvento({
+      organizacaoId: eu.organizacaoId,
+      atorId: eu.id,
+      acao: "conta.ligada",
+      entidade: "utilizador",
+      entidadeId: eu.id,
+      valorNovo: { email: limpo, papel: eu.papel },
+    });
+  } else {
+    console.info(`[plataforma] conta de ${eu.papel} ligada: ${limpo}`);
+  }
 
   return { ok: true as const, papel: eu.papel };
 }

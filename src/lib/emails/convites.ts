@@ -88,11 +88,10 @@ export const ASSUNTO_CONVITE_UTILIZADOR = "LexFlow | Convite para criar a sua co
  * no enum parte a compilação aqui, que é onde falta a tradução, em vez de sair
  * `socio` em cru dentro de um email para uma pessoa.
  */
-const PAPEIS: Record<"admin" | "socio" | "advogado" | "assistente", string> = {
-  admin: "Administrador",
-  socio: "Sócio",
-  advogado: "Advogado",
-  assistente: "Assistente",
+const PAPEIS: Record<"super_admin" | "society_admin" | "utilizador", string> = {
+  super_admin: "Administração da plataforma",
+  society_admin: "Administração da sociedade",
+  utilizador: "Utilizador",
 };
 
 export function emailConviteUtilizador({
@@ -107,7 +106,7 @@ export function emailConviteUtilizador({
   papel: keyof typeof PAPEIS;
 }): string {
   const href = escapar(link);
-  const eAdmin = papel === "admin";
+  const eAdmin = papel === "society_admin";
 
   return moldura(
     `

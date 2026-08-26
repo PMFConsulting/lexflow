@@ -144,7 +144,7 @@ export const conviteUtilizador = pgTable(
     email: text("email").notNull(),
     /** The name the firm typed when inviting; the person confirms it at step 1. */
     nome: text("nome").notNull(),
-    papel: papelUtilizador("papel").notNull().default("advogado"),
+    papel: papelUtilizador("papel").notNull().default("utilizador"),
     tokenAcessoHash: text("token_acesso_hash").notNull().unique(),
     expiraEm: timestamp("expira_em", { withTimezone: true }),
     estado: estadoConvite("estado").notNull().default("pendente"),

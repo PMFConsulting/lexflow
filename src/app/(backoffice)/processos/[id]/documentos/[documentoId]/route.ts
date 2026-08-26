@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { documento } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
-import { exigirSessao } from "@/lib/sessao";
+import { exigirEquipaDaSociedade } from "@/lib/sessao";
 
 /**
  * Descarrega um documento anexado a um processo.
@@ -52,7 +52,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string; documentoId: string }> },
 ) {
   const { id, documentoId } = await params;
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
 
   if (!UUID.test(id) || !UUID.test(documentoId)) {
     return NextResponse.json({ erro: "Documento não encontrado." }, { status: 404 });

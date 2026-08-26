@@ -17,6 +17,10 @@ const PASTA = join(process.cwd(), "src", "db", "migrations");
 
 type Journal = { entries: { idx: number; tag: string }[] };
 
+const JOURNAL: Journal = JSON.parse(
+  readFileSync(join(PASTA, "meta", "_journal.json"), "utf8"),
+);
+
 /**
  * O bloco é só comentários (e, portanto, não há nada para executar)?
  *
@@ -39,23 +43,26 @@ function soComentarios(bloco: string): boolean {
     .every((l) => l.startsWith("--"));
 }
 
-async function main() {
-  const journal: Journal = JSON.parse(
-    readFileSync(join(PASTA, "meta", "_journal.json"), "utf8"),
-  );
+/** As instruções de uma migração, já sem os blocos que são só comentário. */
+function instrucoes(tag: string) {
+  return readFileSync(join(PASTA, `${tag}.sql`), "utf8")
+    .split("--> statement-breakpoint")
+    .map((b) => b.trim())
+    .filter((b) => b.length > 0 && !soComentarios(b));
+}
 
-  // `unaccent` não vem no build base do PGlite — no Supabase é `CREATE EXTENSION`.
-  const db = new PGlite({ extensions: { unaccent } });
-  await db.waitReady;
+/**
+ * Aplica as migrações do journal a uma base, opcionalmente até uma delas.
+ *
+ * O `ate` é o que permite construir uma base **no estado anterior** a uma
+ * migração — sem isso não há como verificar o que ela faz aos dados que já lá
+ * estavam, que é a única parte de uma migração que não se desfaz.
+ */
+async function aplicar(db: PGlite, { ate }: { ate?: number } = {}) {
+  for (const entrada of JOURNAL.entries) {
+    if (ate !== undefined && entrada.idx > ate) break;
 
-  for (const entrada of journal.entries) {
-    const sql = readFileSync(join(PASTA, `${entrada.tag}.sql`), "utf8");
-    const blocos = sql
-      .split("--> statement-breakpoint")
-      .map((b) => b.trim())
-      .filter((b) => b.length > 0 && !soComentarios(b));
-
-    for (const bloco of blocos) {
+    for (const bloco of instrucoes(entrada.tag)) {
       try {
         await db.exec(bloco);
       } catch (e) {
@@ -65,8 +72,146 @@ async function main() {
         process.exit(1);
       }
     }
-    console.log(`✓ ${entrada.tag}`);
+    if (ate === undefined) console.log(`✓ ${entrada.tag}`);
   }
+}
+
+/**
+ * A `0017` sobre uma base com contas lá dentro.
+ *
+ * As outras verificações deste ficheiro olham para o **esquema**: existe a
+ * tabela, existe o índice, a regra bloqueia o UPDATE. Esta olha para os
+ * **dados**, e é a única parte de uma migração que não se desfaz — um esquema
+ * errado corrige-se com outra migração, três contas mapeadas para o papel
+ * errado são três pessoas que na segunda-feira entram e veem o sistema doutra
+ * maneira.
+ *
+ * Por isso a base é construída no estado **anterior** à `0017` (até à `0015`),
+ * povoada com a forma exata do que está em produção — três `admin` na PMF — mais
+ * um de cada papel descontinuado, e só então é que a `0017` corre.
+ *
+ * E corre **duas vezes**: a segunda passagem é a prova de idempotência. Uma
+ * migração de tipos que não se possa repetir é uma migração que não se pode
+ * retomar depois de uma ligação cair a meio.
+ */
+async function validarPapeis(falhas: string[]) {
+  const db = new PGlite({ extensions: { unaccent } });
+  await db.waitReady;
+  // A 0017 (papeis) corre sobre o estado que a 0016 (portais) deixa: é ela que
+  // cria `convite_utilizador`, de que a 0017 depende. A base é povoada no
+  // estado anterior à 0017 (até à 0016).
+  await aplicar(db, { ate: 16 });
+
+  await db.exec(`
+    insert into organizacao (id, nome, nif, prefixo_referencia)
+    values ('fe6c269c-5358-43f9-8a7e-ccade4778940', 'PMF Consulting', '500000000', 'PMF');
+
+    insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel)
+    values
+      ('01920000-0000-7000-8000-000000000101', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'a1', 'Admin',    'admin@poc.pt',                'admin'),
+      ('01920000-0000-7000-8000-000000000102', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'a2', 'Pedro',    'pedro@poc.pt',                'admin'),
+      ('01920000-0000-7000-8000-000000000103', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'a3', 'Teste',    'teste@poc.terlicalabs.com',   'admin'),
+      ('01920000-0000-7000-8000-000000000104', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'a4', 'Sócia',    'socio@pmf.local',             'socio'),
+      ('01920000-0000-7000-8000-000000000105', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'a5', 'Advogado', 'advogado@pmf.local',          'advogado'),
+      ('01920000-0000-7000-8000-000000000106', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'a6', 'Assist.',  'assistente@pmf.local',        'assistente');
+  `);
+
+  for (const passagem of [1, 2]) {
+    for (const bloco of instrucoes("0017_papeis_plataforma")) {
+      try {
+        await db.exec(bloco);
+      } catch (e) {
+        falhas.push(
+          `a 0017 falhou na passagem ${passagem} (não é idempotente): ${(e as Error).message}`,
+        );
+        await db.close();
+        return;
+      }
+    }
+  }
+
+  const papeis = await db.query<{ email: string; papel: string }>(
+    "select email, papel from utilizador order by email",
+  );
+  const obtido = Object.fromEntries(papeis.rows.map((l) => [l.email, l.papel]));
+
+  const esperado: Record<string, string> = {
+    "admin@poc.pt": "society_admin",
+    "pedro@poc.pt": "society_admin",
+    "teste@poc.terlicalabs.com": "society_admin",
+    "socio@pmf.local": "utilizador",
+    "advogado@pmf.local": "utilizador",
+    "assistente@pmf.local": "utilizador",
+  };
+
+  for (const [email, papel] of Object.entries(esperado)) {
+    if (obtido[email] !== papel) {
+      falhas.push(`${email} ficou "${obtido[email]}" em vez de "${papel}"`);
+    }
+  }
+
+  /* --- e as restrições novas mordem mesmo? ---------------------------------- */
+
+  const recusa = async (descricao: string, sql: string) => {
+    try {
+      await db.exec(sql);
+      falhas.push(`${descricao} — devia ter sido recusado e passou`);
+    } catch {
+      /* recusado, que é o esperado */
+    }
+  };
+
+  await recusa(
+    "society_admin sem sociedade",
+    `insert into utilizador (id, organizacao_id, nome, email, papel)
+     values ('01920000-0000-7000-8000-000000000201', null, 'Sem casa', 'semcasa@x.pt', 'society_admin')`,
+  );
+
+  await recusa(
+    "super_admin com sociedade",
+    `insert into utilizador (id, organizacao_id, nome, email, papel)
+     values ('01920000-0000-7000-8000-000000000202', 'fe6c269c-5358-43f9-8a7e-ccade4778940',
+             'Dono', 'dono@plataforma.pt', 'super_admin')`,
+  );
+
+  // O super_admin legítimo entra — e o segundo com o mesmo email não.
+  await db.exec(
+    `insert into utilizador (id, organizacao_id, nome, email, papel)
+     values ('01920000-0000-7000-8000-000000000203', null, 'Dono', 'dono@plataforma.pt', 'super_admin')`,
+  );
+
+  await recusa(
+    "segundo super_admin com o mesmo email",
+    `insert into utilizador (id, organizacao_id, nome, email, papel)
+     values ('01920000-0000-7000-8000-000000000204', null, 'Outro', 'dono@plataforma.pt', 'super_admin')`,
+  );
+
+  await recusa(
+    "segunda sociedade com o mesmo prefixo",
+    `insert into organizacao (id, nome, nif, prefixo_referencia)
+     values ('01920000-0000-7000-8000-000000000301', 'Outra', '500000001', 'PMF')`,
+  );
+
+  await recusa(
+    "segunda sociedade com o mesmo NIF",
+    `insert into organizacao (id, nome, nif, prefixo_referencia)
+     values ('01920000-0000-7000-8000-000000000302', 'Outra', '500000000', 'OUT')`,
+  );
+
+  await db.close();
+
+  console.log(
+    "\nPapéis: admin → society_admin, socio/advogado/assistente → utilizador; " +
+      "0017 repetida sem efeito; org obrigatória por papel e prefixo/NIF únicos.",
+  );
+}
+
+async function main() {
+  // `unaccent` não vem no build base do PGlite — no Supabase é `CREATE EXTENSION`.
+  const db = new PGlite({ extensions: { unaccent } });
+  await db.waitReady;
+
+  await aplicar(db);
 
   /* ------------------------------------------------ verificações do estado */
 
@@ -143,7 +288,7 @@ async function main() {
     values (
       '01920000-0000-7000-8000-000000000003',
       '01920000-0000-7000-8000-000000000002',
-      'João Gonçalves Antunes', '+351912345678', 'joao@exemplo.pt',
+      'João Gonçalves Antunes', '+351****5678', 'joao@exemplo.pt',
       'Rua das Amoreiras 12', 'PT', 'Lisboa', '1250-096', 'Campolide', 'Lisboa', 'Lisboa'
     );
   `);
@@ -177,6 +322,10 @@ async function main() {
   }
 
   await db.close();
+
+  /* ---------------------------------- a 0017 mexe em dados que já existiam -- */
+
+  await validarPapeis(falhas);
 
   if (falhas.length > 0) {
     console.error(`\n${falhas.length} problema(s):`);

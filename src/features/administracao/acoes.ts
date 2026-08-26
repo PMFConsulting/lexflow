@@ -38,7 +38,7 @@ async function contexto() {
   };
 }
 
-const PAPEIS = ["admin", "socio", "advogado", "assistente"] as const;
+const PAPEIS = ["society_admin", "utilizador"] as const;
 
 /* ------------------------------------------------------------- convidar */
 
@@ -218,7 +218,7 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
   }
 
   try {
-    revalidatePath("/admin/utilizadores");
+    revalidatePath("/gestao/utilizadores");
   } catch {
     // Fora de um contexto de pedido não é motivo para falhar um convite criado.
   }
@@ -327,7 +327,7 @@ export async function reenviarConvite(conviteId: string): Promise<ResultadoReenv
     console.error("[admin] audit write failed", { erro: String(e) });
   }
 
-  revalidatePath("/admin/utilizadores");
+  revalidatePath("/gestao/utilizadores");
   return { ok: true, link, emailEnviado, erroEmail };
 }
 
@@ -374,7 +374,7 @@ export async function cancelarConvite(conviteId: string) {
     userAgent,
   }).catch((e) => console.error("[admin] audit write failed", { erro: String(e) }));
 
-  revalidatePath("/admin/utilizadores");
+  revalidatePath("/gestao/utilizadores");
   return { ok: true as const };
 }
 
@@ -416,7 +416,7 @@ export async function alterarPapel(dados: unknown) {
   if (!alvo) return { ok: false as const, mensagem: "Utilizador não encontrado." };
   if (alvo.papel === papel) return { ok: true as const };
 
-  if (alvo.papel === "admin" && papel !== "admin") {
+  if (alvo.papel === "society_admin" && papel !== "society_admin") {
     const restantes = await contarAdministradores(eu.organizacaoId, alvo.id);
     if (restantes === 0) {
       return {
@@ -445,7 +445,7 @@ export async function alterarPapel(dados: unknown) {
     userAgent,
   }).catch((e) => console.error("[admin] audit write failed", { erro: String(e) }));
 
-  revalidatePath("/admin/utilizadores");
+  revalidatePath("/gestao/utilizadores");
   return { ok: true as const };
 }
 
@@ -457,7 +457,7 @@ async function contarAdministradores(organizacaoId: string, exceto: string) {
     .where(
       and(
         eq(utilizador.organizacaoId, organizacaoId),
-        eq(utilizador.papel, "admin"),
+        eq(utilizador.papel, "society_admin"),
         eq(utilizador.ativo, true),
         isNull(utilizador.apagadoEm),
       ),
@@ -499,7 +499,7 @@ export async function alterarEstadoUtilizador(utilizadorId: string, ativo: boole
     };
   }
 
-  if (!ativo && alvo.papel === "admin") {
+  if (!ativo && alvo.papel === "society_admin") {
     const restantes = await contarAdministradores(eu.organizacaoId, alvo.id);
     if (restantes === 0) {
       return {
@@ -527,7 +527,7 @@ export async function alterarEstadoUtilizador(utilizadorId: string, ativo: boole
     userAgent,
   }).catch((e) => console.error("[admin] audit write failed", { erro: String(e) }));
 
-  revalidatePath("/admin/utilizadores");
+  revalidatePath("/gestao/utilizadores");
   return { ok: true as const };
 }
 
@@ -689,6 +689,6 @@ export async function publicarTermosSociedade(formData: FormData): Promise<Resul
     userAgent,
   }).catch((e) => console.error("[admin] audit write failed", { erro: String(e) }));
 
-  revalidatePath("/admin/sociedade");
+  revalidatePath("/gestao/sociedade");
   return { ok: true, versao };
 }

@@ -120,6 +120,13 @@
       "when": 1787691361406,
       "tag": "0016_portais_sociedade",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787700000000,
+      "tag": "0017_papeis_plataforma",
+      "breakpoints": true
     }
   ]
 }

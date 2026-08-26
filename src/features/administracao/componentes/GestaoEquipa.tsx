@@ -28,17 +28,14 @@ import {
 import type { LinhaConvite, LinhaEquipa } from "../consultas";
 
 const PAPEIS = [
-  { valor: "advogado", texto: "Advogado" },
-  { valor: "socio", texto: "Sócio" },
-  { valor: "assistente", texto: "Assistente" },
-  { valor: "admin", texto: "Administrador" },
+  { valor: "utilizador", texto: "Utilizador" },
+  { valor: "society_admin", texto: "Administração da sociedade" },
 ];
 
 const ROTULOS_PAPEL: Record<string, string> = {
-  admin: "Administrador",
-  socio: "Sócio",
-  advogado: "Advogado",
-  assistente: "Assistente",
+  super_admin: "Administração da plataforma",
+  society_admin: "Administração da sociedade",
+  utilizador: "Utilizador",
 };
 
 const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
@@ -409,10 +406,11 @@ function CorpoConvite({
             erros={erros}
             obrigatorio
             opcoes={PAPEIS}
-            valorInicial="advogado"
+            valorInicial="utilizador"
           />
           <p className="text-xs text-muted-foreground">
-            Advogados e sócios têm de indicar e anexar a cédula profissional; assistentes não.
+            Quem trabalha na sociedade indica e anexa a cédula profissional; sem
+            esse passo não valida.
           </p>
         </div>
 

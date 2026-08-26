@@ -22,7 +22,7 @@ export type LinhaEquipa = {
   id: string;
   nome: string;
   email: string;
-  papel: "admin" | "socio" | "advogado" | "assistente";
+  papel: "super_admin" | "society_admin" | "utilizador";
   ativo: boolean;
   criadoEm: Date;
   cargo: string | null;
@@ -84,7 +84,7 @@ export type LinhaConvite = {
   id: string;
   nome: string;
   email: string;
-  papel: "admin" | "socio" | "advogado" | "assistente";
+  papel: "super_admin" | "society_admin" | "utilizador";
   estado: "pendente" | "aceite" | "cancelado";
   passoAtual: number;
   expiraEm: Date | null;

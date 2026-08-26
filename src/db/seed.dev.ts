@@ -42,10 +42,29 @@ async function main() {
     })
     .returning();
 
+  // Os três níveis da migração `0016`. O `super_admin` fica **sem** sociedade —
+  // é a restrição `utilizador_org_por_papel`, e é também o que faz com que ele
+  // não apareça em consulta nenhuma do back-office desta organização.
   await db.insert(utilizador).values([
-    { organizacaoId: org.id, nome: "Sócia responsável", email: "socio@pmf.local", papel: "socio" },
-    { organizacaoId: org.id, nome: "Advogado", email: "advogado@pmf.local", papel: "advogado" },
-    { organizacaoId: org.id, nome: "Assistente", email: "assistente@pmf.local", papel: "assistente" },
+    {
+      organizacaoId: null,
+      nome: "Administrador da plataforma",
+      email: "plataforma@terlicalabs.local",
+      papel: "super_admin",
+    },
+    {
+      organizacaoId: org.id,
+      nome: "Sócia responsável",
+      email: "socio@pmf.local",
+      papel: "society_admin",
+    },
+    { organizacaoId: org.id, nome: "Advogado", email: "advogado@pmf.local", papel: "utilizador" },
+    {
+      organizacaoId: org.id,
+      nome: "Assistente",
+      email: "assistente@pmf.local",
+      papel: "utilizador",
+    },
   ]);
 
   // The legal texts are versioned from the start: without them there is no

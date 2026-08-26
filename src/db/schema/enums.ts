@@ -24,11 +24,40 @@ export const estadoProcesso = pgEnum("estado_processo", [
 
 export const nivelRisco = pgEnum("nivel_risco", ["baixo", "medio", "elevado"]);
 
+/**
+ * Três níveis, e não os quatro cargos de escritório que aqui estavam
+ * (`admin`/`socio`/`advogado`/`assistente`).
+ *
+ * A diferença não é de nomes: os quatro antigos descreviam a **hierarquia de
+ * uma sociedade** e por isso viviam todos dentro dela. O que a plataforma
+ * passou a precisar é de um nível **acima** da sociedade — quem cria as
+ * sociedades não pertence a nenhuma, e não havia forma de o dizer com um enum
+ * em que todos os valores pressupunham uma.
+ *
+ * - `super_admin` — dono da plataforma. `organizacao_id` é **NULL** (ver a
+ *   restrição `utilizador_org_por_papel` em `organizacao.ts`), e é essa
+ *   ausência, e não o papel sozinho, que o mantém fora do âmbito de qualquer
+ *   sociedade: todas as consultas do back-office comparam a organização do
+ *   processo com a de quem lê, e `NULL` nunca é igual a nada.
+ * - `society_admin` — o que era `admin`: gere a sua sociedade.
+ * - `utilizador` — o que eram `socio`, `advogado` e `assistente`.
+ *
+ * A migração `0016` faz o mapeamento nesse sentido e não noutro. `admin` →
+ * `society_admin` porque os três de produção são a equipa da sociedade e não da
+ * plataforma; os outros três → `utilizador` porque a alternativa (perder o
+ * `advogado` para um nível sem aprovação) tirava capacidade a quem já a tinha,
+ * que é o género de migração que só se descobre no dia em que alguém não
+ * consegue trabalhar.
+ *
+ * Ao contrário dos `ADD VALUE` dos outros enums deste ficheiro, aqui há valores
+ * a **desaparecer** — e um enum do Postgres não perde valores por ALTER. Daí a
+ * migração criar o tipo de raiz e converter a coluna com `USING`; a ordem deste
+ * array é a da criação do tipo novo e não a de acrescentos sucessivos.
+ */
 export const papelUtilizador = pgEnum("papel_utilizador", [
-  "admin",
-  "socio",
-  "advogado",
-  "assistente",
+  "super_admin",
+  "society_admin",
+  "utilizador",
 ]);
 
 /** Types seen at step 2 of the real form. */

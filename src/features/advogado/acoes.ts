@@ -29,6 +29,13 @@ export type ResultadoAceitacao =
 export async function aceitarTermosEmVigor(): Promise<ResultadoAceitacao> {
   const { eu } = await exigirSessao();
 
+  // Aceitar os T&C da sociedade só faz sentido para quem pertence a uma: o
+  // `super_admin` não tem `organizacaoId` (é o dono da plataforma), e não há
+  // articulado de sociedade nenhum que ele deva aceitar.
+  if (!eu.organizacaoId) {
+    return { ok: false, mensagem: "Só a equipa de uma sociedade aceita estes Termos." };
+  }
+
   const termos = await termosEmVigor(eu.organizacaoId);
   const base = db();
 

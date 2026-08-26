@@ -339,7 +339,7 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
         organizacaoId: org.id,
         email: adminEmail,
         nome: adminNome,
-        papel: "admin",
+        papel: "society_admin",
         tokenAcessoHash: hash,
         expiraEm: expiraDaquiA(30),
       })
@@ -379,7 +379,7 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
         nome: adminNome,
         sociedade: org.nome,
         link,
-        papel: "admin",
+        papel: "society_admin",
       }),
       template: "convite_utilizador",
       organizacaoId: org.id,
