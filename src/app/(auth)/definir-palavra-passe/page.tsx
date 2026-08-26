@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { FormularioNovaPalavraPasse } from "@/features/conta/componentes/FormularioNovaPalavraPasse";
 import { portalDoPapel, sessaoAtual } from "@/lib/sessao";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Definir palavra-passe" };
 
 /**
