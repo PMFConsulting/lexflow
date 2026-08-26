@@ -479,6 +479,13 @@ export async function concluirConvite(
             authUserId,
             ativo: true,
             apagadoEm: null,
+            // A palavra-passe foi escolhida por esta pessoa, no passo anterior:
+            // não há nada a redefinir. Explícito porque a linha pode ser
+            // anterior — uma conta criada por um administrador (que nasce
+            // marcada) e depois apagada volta por aqui, e sem esta linha ficava
+            // a exigir a redefinição de uma palavra-passe que ela mesma acabou
+            // de definir.
+            deveRedefinirPassword: false,
             atualizadoEm: new Date(),
           })
           .where(eq(utilizador.id, id));

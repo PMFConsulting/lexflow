@@ -21,47 +21,47 @@ export const PASSOS_SOCIEDADE = [
   {
     n: 1,
     chave: "identificacao",
-    titulo: "Identificação da sociedade",
+    titulo: "Identificação",
     curto: "Identificação",
     descricao:
-      "Nome, NIPC e forma jurídica da sociedade, e o número de inscrição na Ordem dos Advogados.",
+      "Nome, NIPC, forma jurídica e número de inscrição na Ordem dos Advogados.",
   },
   {
     n: 2,
     chave: "contactos",
-    titulo: "Morada e contactos",
+    titulo: "Contactos",
     curto: "Contactos",
-    descricao: "A morada da sede e os contactos gerais da sociedade.",
+    descricao: "Morada da sede e contactos gerais da sociedade.",
   },
   {
     n: 3,
     chave: "documentos",
-    titulo: "Documentos da sociedade",
+    titulo: "Documentos",
     curto: "Documentos",
-    descricao: "Certidão permanente da sociedade, para confirmarmos os dados que indicou.",
+    descricao: "Certidão permanente da sociedade para validação dos dados.",
   },
   {
     n: 4,
     chave: "termos",
-    titulo: "Termos e Condições da sociedade",
-    curto: "T&C",
+    titulo: "Termos e Condições",
+    curto: "Termos e Condições",
     descricao:
-      "O articulado que os vossos clientes vão aceitar. É este documento que a plataforma passa a apresentar, em vez do texto genérico.",
+      "Termos e Condições da sociedade a apresentar aos clientes e à equipa.",
   },
   {
     n: 5,
     chave: "administrador",
-    titulo: "Administrador da conta",
+    titulo: "Administrador",
     curto: "Administrador",
     descricao:
-      "Quem vai administrar a plataforma do vosso lado. Recebe um convite próprio para criar a conta.",
+      "Identificação e contacto do responsável pela administração da conta.",
   },
   {
     n: 6,
     chave: "fecho",
-    titulo: "Revisão e submissão",
-    curto: "Fecho",
-    descricao: "Rever o que foi preenchido e submeter.",
+    titulo: "Conclusão",
+    curto: "Conclusão",
+    descricao: "Revisão dos dados preenchidos e submissão do registo.",
   },
 ] as const;
 

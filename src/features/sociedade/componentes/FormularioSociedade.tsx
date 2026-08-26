@@ -15,6 +15,7 @@ import {
   CampoTexto,
 } from "@/features/onboarding/componentes/Campo";
 import { PAISES } from "@/features/onboarding/componentes/paises";
+import { LogotipoOnboarding } from "./LogotipoOnboarding";
 import { guardarPassoSociedade, submeterSociedade } from "../acoes";
 import { carregarDocumentoSociedade, removerDocumentoSociedade } from "../documentos";
 import {
@@ -51,6 +52,7 @@ export type DadosSociedade = {
   declaracaoNome: string | null;
   declaracaoCargo: string | null;
   declaracaoVinculo: boolean;
+  logotipoNome: string | null;
 };
 
 const txt = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -392,6 +394,14 @@ export function FormularioSociedade({
               ajuda="Entra em cada referência de processo — «JM» dá JM-2026-0142."
             />
           </div>
+
+          <Separator />
+
+          <LogotipoOnboarding
+            token={token}
+            temLogotipo={Boolean(dados.logotipoNome)}
+            nomeLogotipo={dados.logotipoNome}
+          />
         </Bloco>
       )}
 
@@ -492,8 +502,8 @@ export function FormularioSociedade({
           remover={remover}
           tipos={["certidao_sociedade", "outro"]}
           iniciais={anexos.filter((a) => a.tipo !== "termos_sociedade")}
-          titulo="Documentos da sociedade"
-          ajuda="A certidão permanente é o que nos permite confirmar o NIPC e a forma jurídica que indicou no passo 1."
+          titulo="Certidão permanente"
+          ajuda="A certidão permanente permite confirmar a identificação e a forma jurídica da sociedade."
           obrigatorios={["certidao_sociedade"]}
           erros={erros}
         />
@@ -506,21 +516,21 @@ export function FormularioSociedade({
             remover={remover}
             tipos={["termos_sociedade"]}
             iniciais={anexos.filter((a) => a.tipo === "termos_sociedade")}
-            titulo="Termos e Condições"
-            ajuda="Em PDF. É este documento que a plataforma passa a apresentar aos vossos clientes no passo final do registo, e que cada advogado ou colaborador vosso vai aceitar no registo dele."
-            obrigatorios={["termos_sociedade"]}
+            titulo="Documento em PDF"
+            ajuda="É este documento que a plataforma passa a apresentar aos clientes no fecho do registo e à equipa no primeiro acesso."
             erros={erros}
           />
 
           <Bloco>
             <CampoTexto
-              etiqueta="Versão do articulado"
+              etiqueta="Versão dos Termos e Condições"
               nome="termosVersao"
+              placeholder="ex: 2026.08.1"
               erros={erros}
               obrigatorio
               mono
               valorInicial={dados.termosVersao ?? ""}
-              ajuda="Por exemplo 2026.08.1. Cada aceitação fica gravada com esta versão — trocar o documento sem subir a versão apaga a diferença entre o que um cliente aceitou e o que passou a estar escrito."
+              ajuda="Cada aceitação fica gravada com esta versão. Ao atualizar o documento no futuro, deverá indicar uma nova versão."
             />
             {dados.termosVersao && dados.termosAtualizadoEm && (
               <p className="text-xs text-muted-foreground">
@@ -538,8 +548,7 @@ export function FormularioSociedade({
       {n === 5 && (
         <Bloco>
           <p className="border-linha bg-muted rounded-sm border p-3 text-sm text-muted-foreground">
-            Esta pessoa recebe um convite próprio, por email, para criar a conta dela. É ela que
-            passa a poder convidar o resto da equipa e a gerir os Termos e Condições da sociedade.
+            Esta pessoa recebe um convite por email para criar a sua conta de administração da sociedade.
           </p>
           <CampoTexto
             etiqueta="Nome"
@@ -580,7 +589,10 @@ export function FormularioSociedade({
               <Linha etiqueta="N.º na Ordem" valor={dados.numeroOrdem} />
               <Linha etiqueta="Sede" valor={dados.morada} />
               <Linha etiqueta="Email geral" valor={dados.emailGeral} />
-              <Linha etiqueta="T&C" valor={dados.termosVersao ? `versão ${dados.termosVersao}` : null} />
+              <Linha
+                etiqueta="Termos e Condições"
+                valor={dados.termosVersao ? `versão ${dados.termosVersao}` : null}
+              />
               <Linha etiqueta="Administrador" valor={dados.adminNome} />
               <Linha etiqueta="Email do administrador" valor={dados.adminEmail} />
             </dl>
@@ -614,7 +626,7 @@ export function FormularioSociedade({
               etiqueta={
                 <>
                   Declaro que tenho poderes para vincular a sociedade, que os dados indicados são
-                  verdadeiros e que o documento anexado no passo 4 é o articulado de Termos e
+                  verdadeiros e que o documento anexado no passo 4 corresponde aos Termos e
                   Condições em vigor da sociedade.
                 </>
               }

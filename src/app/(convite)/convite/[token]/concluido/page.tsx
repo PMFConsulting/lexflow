@@ -45,12 +45,15 @@ export default async function ConviteConcluido({
   }
 
   const { convite, org } = linha;
+  const logotipoUrl = org.logotipoDados
+    ? `/api/sociedade/logotipo?sociedadeId=${org.id}&t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
+    : null;
 
   return (
     <div className="bg-papel grid min-h-svh place-items-center px-4 py-10">
       <div className="w-full max-w-md text-center">
         <div className="mb-8 flex flex-col items-center">
-          <Logotipo className="h-14 w-auto" />
+          <Logotipo logotipoUrl={logotipoUrl} titulo={org.nome} className="h-14 w-auto" />
           <p className="text-2xs mt-3 font-mono tracking-[0.16em] text-muted-foreground uppercase">
             {org.nome}
           </p>

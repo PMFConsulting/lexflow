@@ -84,9 +84,11 @@ export const ASSUNTO_REGISTO = "LexFlow | Registro";
 export function emailRegisto({
   nome,
   link,
+  logotipoUrl,
 }: {
   nome?: string | null;
   link: string;
+  logotipoUrl?: string | null;
 }): string {
   const href = escapar(link);
   return moldura(
@@ -116,6 +118,7 @@ export function emailRegisto({
     ${despedida()}
   `,
     MARCA,
+    logotipoUrl,
   );
 }
 
@@ -126,7 +129,8 @@ export const ASSUNTO_CONFIRMACAO = "LexFlow | Confirmação de Receção dos seu
 export function emailConfirmacaoRececao({
   nome,
   referencia,
-}: { nome?: string | null; referencia?: string | null } = {}): string {
+  logotipoUrl,
+}: { nome?: string | null; referencia?: string | null; logotipoUrl?: string | null } = {}): string {
   return moldura(
     `
     ${refProcesso(referencia)}
@@ -145,6 +149,7 @@ export function emailConfirmacaoRececao({
     ${despedida()}
   `,
     LATAO,
+    logotipoUrl,
   );
 }
 
@@ -156,10 +161,12 @@ export function emailBoasVindas({
   nome,
   referencia,
   anexos,
+  logotipoUrl,
 }: {
   nome?: string | null;
   referencia?: string;
   anexos: string[];
+  logotipoUrl?: string | null;
 }): string {
   // The list in the client's document ends in "[Outros documentos
   // aplicáveis]", which is where the lawyer adds whatever they attach by hand;
@@ -195,6 +202,7 @@ export function emailBoasVindas({
     ${despedida()}
   `,
     ARQUIVO,
+    logotipoUrl,
   );
 }
 
@@ -219,11 +227,13 @@ export function emailCodigoOtp({
   codigo,
   referencia,
   minutos,
+  logotipoUrl,
 }: {
   nome?: string | null;
   codigo: string;
   referencia?: string | null;
   minutos: number;
+  logotipoUrl?: string | null;
 }): string {
   return moldura(
     `
@@ -248,6 +258,7 @@ export function emailCodigoOtp({
     ${despedida()}
   `,
     LATAO,
+    logotipoUrl,
   );
 }
 
@@ -268,7 +279,8 @@ export const ASSUNTO_REJEICAO = "LexFlow | Feedback Registro";
 export function emailRejeicao({
   nome,
   referencia,
-}: { nome?: string | null; referencia?: string | null } = {}): string {
+  logotipoUrl,
+}: { nome?: string | null; referencia?: string | null; logotipoUrl?: string | null } = {}): string {
   return moldura(
     `
     ${refProcesso(referencia)}
@@ -289,5 +301,6 @@ export function emailRejeicao({
     ${despedida()}
   `,
     SELO,
+    logotipoUrl,
   );
 }

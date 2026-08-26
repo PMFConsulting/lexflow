@@ -1,6 +1,10 @@
 import "server-only";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { organizacao } from "@/db/schema/organizacao";
 import { enviarEmail, type AnexoEmail } from "@/lib/email";
 import { ASSUNTO_BOAS_VINDAS, emailBoasVindas } from "./jmassano";
+import { urlLogotipoSociedade } from "./moldura";
 import type { processoOnboarding } from "@/db/schema/processo";
 
 /**
@@ -70,10 +74,27 @@ export async function enviarBoasVindas(
     return readFile(join(process.cwd(), "public", "custos.pdf"));
   });
 
+  const [org] = await db()
+    .select({
+      id: organizacao.id,
+      logotipoDados: organizacao.logotipoDados,
+      logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+    })
+    .from(organizacao)
+    .where(eq(organizacao.id, processo.organizacaoId))
+    .limit(1);
+
+  const logotipoUrl = urlLogotipoSociedade(org);
+
   return enviarEmail({
     para,
     assunto: ASSUNTO_BOAS_VINDAS,
-    html: emailBoasVindas({ nome, referencia: processo.referencia, anexos: rotulos }),
+    html: emailBoasVindas({
+      nome,
+      referencia: processo.referencia,
+      anexos: rotulos,
+      logotipoUrl,
+    }),
     anexos,
     template: "boas_vindas",
     organizacaoId: processo.organizacaoId,

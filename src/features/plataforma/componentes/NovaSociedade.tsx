@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { criarSociedade } from "../acoes";
 import type { ContaCriada } from "../contas";
-import { Credenciais } from "./Credenciais";
+import { ContasCriadas } from "./ContasCriadas";
 import { Erro, ErroGeral } from "./Erro";
 
 /**
@@ -30,8 +30,11 @@ import { Erro, ErroGeral } from "./Erro";
  * número, adiar transforma-se em esquecer, e uma sociedade sem administrador
  * não tem por onde ser usada.
  *
- * A janela fecha-se sozinha quando não há credenciais para mostrar. Havendo,
- * fica aberta: fechá-la levava consigo a única cópia da palavra-passe.
+ * A janela fecha-se sozinha quando não há administrador para confirmar. Havendo,
+ * fica aberta — não por causa da palavra-passe, que hoje vai por email e nunca
+ * chega ao ecrã, mas porque é ali que se lê se o email chegou a sair. Uma
+ * mensagem que não saiu é uma sociedade com um administrador que não entra, e
+ * fechar a janela sem o dizer transformava isso numa descoberta de dias depois.
  */
 export function NovaSociedade() {
   const [aberta, setAberta] = useState(false);
@@ -55,7 +58,6 @@ export function NovaSociedade() {
           prefixoReferencia: String(fd.get("prefixo") ?? ""),
           adminNome: String(fd.get("adminNome") ?? "").trim() || undefined,
           adminEmail: String(fd.get("adminEmail") ?? "").trim() || undefined,
-          adminPalavraPasse: String(fd.get("adminPalavraPasse") ?? "").trim() || undefined,
         });
 
         if (!r.ok) {
@@ -113,11 +115,8 @@ export function NovaSociedade() {
           {criada ? (
             <>
               <DialogBody className="flex flex-col gap-3">
-                <p className="text-sm">
-                  Sociedade criada, com o primeiro administrador. Copie as credenciais antes de
-                  fechar.
-                </p>
-                <Credenciais contas={[criada]} titulo="Administrador da sociedade" />
+                <p className="text-sm">Sociedade criada, com o primeiro administrador.</p>
+                <ContasCriadas contas={[criada]} titulo="Administrador da sociedade" />
               </DialogBody>
               <DialogFooter>
                 <Button onClick={() => fechar(false)}>Concluir</Button>
@@ -208,19 +207,11 @@ export function NovaSociedade() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor={`${base}-admin-pw`}>Palavra-passe (opcional)</Label>
-                    <Input
-                      id={`${base}-admin-pw`}
-                      name="adminPalavraPasse"
-                      className="font-mono"
-                      autoComplete="new-password"
-                    />
-                    <p className="text-2xs text-muted-foreground">
-                      Em branco, é gerada — e mostrada uma única vez a seguir.
-                    </p>
-                    <Erro erros={erros} campo="adminPalavraPasse" />
-                  </div>
+                  <p className="text-2xs text-muted-foreground">
+                    A palavra-passe é gerada pela plataforma e enviada por email para esta
+                    pessoa. É temporária: ela terá de definir uma sua no primeiro início de
+                    sessão.
+                  </p>
                 </div>
               </DialogBody>
 

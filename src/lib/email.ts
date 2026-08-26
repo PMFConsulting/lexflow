@@ -4,6 +4,7 @@ import { uuidv7 } from "uuidv7";
 import { db } from "@/db";
 import { emailLog } from "@/db/schema/email";
 import type { canalEmail, estadoEmail, templateEmail } from "@/db/schema/enums";
+import { organizacao } from "@/db/schema/organizacao";
 import { enviarSmtp } from "@/lib/smtp";
 import { env, type Ambiente } from "@/env";
 
@@ -40,7 +41,20 @@ type ParametrosEmail = {
    * writes it has to answer the question for the code to compile.
    */
   template: TemplateEmail;
+  /**
+   * A sociedade em nome de quem esta mensagem sai. É por ela que o remetente é
+   * resolvido — ver `remetenteDaOrganizacao`.
+   */
   organizacaoId?: string | null;
+  /**
+   * Força o `From`, saltando a consulta à sociedade.
+   *
+   * Existe para quem já tem o endereço em mãos e não quer uma ida à base de
+   * dados — o `pnpm email:testar`, um envio de diagnóstico. Não é a via normal:
+   * o remetente de um email de uma sociedade é uma propriedade dela, não uma
+   * decisão de quem chama.
+   */
+  remetente?: string;
   processoId?: string | null;
   /**
    * SHA-256 of the magic link token, when the email carries one. Never the
@@ -203,7 +217,56 @@ export async function enviarEmail(p: ParametrosEmail): Promise<ResultadoEnvio> {
 }
 
 /** What gets sent, without the log bookkeeping around it. */
-type Mensagem = Pick<ParametrosEmail, "para" | "assunto" | "html" | "anexos">;
+type Mensagem = Pick<ParametrosEmail, "para" | "assunto" | "html" | "anexos"> & {
+  /** The resolved `From`, already decided — no channel picks its own. */
+  de: string;
+};
+
+/**
+ * Whose address this message goes out under.
+ *
+ * The rule in one line: **the firm's, when it has one; the installation's
+ * otherwise**. `organizacao.email_remetente` is `null` for every firm that has
+ * not configured anything, which is what makes the whitelabel additive — an
+ * existing installation keeps sending from `EMAIL_REMETENTE` without a single
+ * row changing.
+ *
+ * The lookup **never throws**, and that is the point of the `try`: this
+ * function sits between the caller and the send, and a firm's row that cannot
+ * be read is not a reason for the client to be left without a link. It falls
+ * back to the global sender and says so in the console — the message still goes
+ * out, from an address that is merely less right.
+ *
+ * It is also not conditional on the domain being verified. An address
+ * configured against a domain Resend has not verified produces a 403 with the
+ * sender in front (D43), which is a message solved on first reading; silently
+ * sending from the platform's domain instead would produce a client asking why
+ * a firm they never heard of wants their identification documents.
+ */
+async function remetenteDaOrganizacao(
+  organizacaoId: string | null | undefined,
+  global: string,
+): Promise<string> {
+  if (!organizacaoId) return global;
+
+  try {
+    const [linha] = await db()
+      .select({ de: organizacao.emailRemetente })
+      .from(organizacao)
+      .where(eq(organizacao.id, organizacaoId))
+      .limit(1);
+
+    const de = linha?.de?.trim();
+    return de ? de : global;
+  } catch (e) {
+    console.warn(
+      `[email] could not read the sender of organisation ${organizacaoId} — ` +
+        `falling back to ${global}.`,
+      e,
+    );
+    return global;
+  }
+}
 
 /**
  * Picks the channel and, failing that one, tries the next.
@@ -232,21 +295,28 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     assunto: p.assunto,
     html: p.html,
     anexos: p.anexos,
+    // Resolved **once**, before the channels are assembled, and handed to all
+    // four. Letting each read it for itself is how the SMTP channel ended up
+    // being the only one on `env().EMAIL_REMETENTE` while the other three were
+    // already elsewhere — and a fallback that changes the sender halfway down
+    // the chain is a difference nobody sees until a client asks who wrote to
+    // them.
+    de: p.remetente?.trim() || (await remetenteDaOrganizacao(p.organizacaoId, ambiente.EMAIL_REMETENTE)),
   };
 
   const canais: { nome: string; enviar: () => Promise<ResultadoEnvio> }[] = [];
   if (ambiente.RESEND_API_KEY) {
     const chave = ambiente.RESEND_API_KEY;
-    canais.push({ nome: "Resend", enviar: () => tentarEnviarResend(msg, ambiente, chave) });
+    canais.push({ nome: "Resend", enviar: () => tentarEnviarResend(msg, chave) });
   }
   if (ambiente.MAILJET_API_KEY && ambiente.MAILJET_SECRET_KEY) {
     const chave = ambiente.MAILJET_API_KEY;
     const segredo = ambiente.MAILJET_SECRET_KEY;
-    canais.push({ nome: "Mailjet", enviar: () => tentarEnviarMailjet(msg, ambiente, chave, segredo) });
+    canais.push({ nome: "Mailjet", enviar: () => tentarEnviarMailjet(msg, chave, segredo) });
   }
   if (ambiente.BREVO_API_KEY) {
     const chave = ambiente.BREVO_API_KEY;
-    canais.push({ nome: "Brevo", enviar: () => tentarEnviarBrevo(msg, ambiente, chave) });
+    canais.push({ nome: "Brevo", enviar: () => tentarEnviarBrevo(msg, chave) });
   }
   // Our own SMTP (postfix on the client's server) is the last resort: it has no
   // third-party quota, but delivery is less closely watched (no domain DKIM),
@@ -361,8 +431,7 @@ async function idDaResposta(resposta: Response, campo: "id" | "messageId"): Prom
 
 /** Sending via Resend: `Authorization: Bearer`, attachments in `attachments`. */
 async function tentarEnviarResend(
-  { para, assunto, html, anexos }: Mensagem,
-  ambiente: Ambiente,
+  { de, para, assunto, html, anexos }: Mensagem,
   chave: string,
 ): Promise<ResultadoEnvio> {
   try {
@@ -374,7 +443,7 @@ async function tentarEnviarResend(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: ambiente.EMAIL_REMETENTE,
+        from: de,
         to: [para],
         subject: assunto,
         html,
@@ -396,10 +465,12 @@ async function tentarEnviarResend(
       // The sender goes into the message because it is the most likely cause of
       // a 403 and the one not visible in the response: Resend refuses any send
       // from a domain not verified on the account, and `POC@jmassano.pt` is a
-      // default value nobody wrote and therefore nobody suspects.
+      // default value nobody wrote and therefore nobody suspects. Since the
+      // whitelabel, it is also the firm's own address — and then the 403 says,
+      // in one line, that the domain was configured and never verified.
       return {
         ok: false,
-        erro: `Resend devolveu ${resposta.status} (de=${ambiente.EMAIL_REMETENTE}): ${corpo}`,
+        erro: `Resend devolveu ${resposta.status} (de=${de}): ${corpo}`,
       };
     }
 
@@ -420,8 +491,7 @@ async function tentarEnviarResend(
 
 /** Sending via Brevo (ex-Sendinblue): `api-key` in the header, attachments in `attachment`. */
 async function tentarEnviarBrevo(
-  { para, assunto, html, anexos }: Mensagem,
-  ambiente: Ambiente,
+  { de, para, assunto, html, anexos }: Mensagem,
   chave: string,
 ): Promise<ResultadoEnvio> {
   try {
@@ -433,7 +503,7 @@ async function tentarEnviarBrevo(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        sender: { email: ambiente.EMAIL_REMETENTE },
+        sender: { email: de },
         to: [{ email: para }],
         subject: assunto,
         htmlContent: html,
@@ -453,7 +523,7 @@ async function tentarEnviarBrevo(
       const corpo = await resposta.text();
       return {
         ok: false,
-        erro: `Brevo devolveu ${resposta.status} (de=${ambiente.EMAIL_REMETENTE}): ${corpo}`,
+        erro: `Brevo devolveu ${resposta.status} (de=${de}): ${corpo}`,
       };
     }
 
@@ -475,8 +545,7 @@ async function tentarEnviarBrevo(
  * infer it from the name, unlike Resend and Brevo).
  */
 async function tentarEnviarMailjet(
-  { para, assunto, html, anexos }: Mensagem,
-  ambiente: Ambiente,
+  { de, para, assunto, html, anexos }: Mensagem,
   chave: string,
   segredo: string,
 ): Promise<ResultadoEnvio> {
@@ -491,7 +560,7 @@ async function tentarEnviarMailjet(
       body: JSON.stringify({
         Messages: [
           {
-            From: { Email: ambiente.EMAIL_REMETENTE, Name: "LexFlow" },
+            From: { Email: de, Name: "LexFlow" },
             To: [{ Email: para }],
             Subject: assunto,
             HTMLPart: html,
@@ -515,7 +584,7 @@ async function tentarEnviarMailjet(
       const corpo = await resposta.text();
       return {
         ok: false,
-        erro: `Mailjet devolveu ${resposta.status} (de=${ambiente.EMAIL_REMETENTE}): ${corpo}`,
+        erro: `Mailjet devolveu ${resposta.status} (de=${de}): ${corpo}`,
       };
     }
 
@@ -543,12 +612,12 @@ async function tentarEnviarMailjet(
  * trace (`mensagemId` `null`, and `confirmarEntrega` skips these rows).
  */
 async function tentarEnviarSmtp(
-  { para, assunto, html, anexos }: Mensagem,
+  { de, para, assunto, html, anexos }: Mensagem,
   anfitriao: string,
   porta: number,
 ): Promise<ResultadoEnvio> {
   const resultado = await enviarSmtp(anfitriao, porta, {
-    de: env().EMAIL_REMETENTE,
+    de,
     para,
     assunto,
     html,

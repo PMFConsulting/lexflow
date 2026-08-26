@@ -111,14 +111,21 @@ describe("sociedadeComAdminSchema", () => {
     expect(erros(r)).toHaveProperty("adminEmail");
   });
 
-  it("recusa uma palavra-passe demasiado curta para o Better Auth", () => {
+  /**
+   * O formulário deixou de ter caixa de palavra-passe, e o schema deixou de a
+   * aceitar. Um `optional()` esquecido aqui era o processo antigo à espera de
+   * voltar — bastava um formulário mandar o valor.
+   */
+  it("ignora uma palavra-passe mandada à mão para o administrador", () => {
     const r = sociedadeComAdminSchema.safeParse({
       ...SOCIEDADE,
       adminNome: "Maria",
       adminEmail: "maria@exemplo.pt",
-      adminPalavraPasse: "curta",
+      adminPalavraPasse: "escolhida-por-terceiros",
     });
-    expect(erros(r)).toHaveProperty("adminPalavraPasse");
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    expect(r.data).not.toHaveProperty("adminPalavraPasse");
   });
 });
 
@@ -168,13 +175,17 @@ describe("contaSchema", () => {
     expect(erros(r)).toHaveProperty("organizacaoId");
   });
 
-  it("uma palavra-passe em branco é a mesma coisa que não a indicar", () => {
-    const r = contaSchema.safeParse({ ...VALIDA, palavraPasse: "" });
+  /**
+   * A palavra-passe é sempre gerada pelo servidor e enviada por email à pessoa.
+   * O schema não a aceita de fora — nem em branco, nem escolhida: um campo
+   * opcional era uma porta para o processo antigo voltar sem ninguém decidir
+   * nada.
+   */
+  it("não aceita uma palavra-passe vinda do formulário", () => {
+    const r = contaSchema.safeParse({ ...VALIDA, palavraPasse: "escolhida-a-mao" });
     expect(r.success).toBe(true);
     if (!r.success) return;
-    // `undefined` e não `""`: é o que faz o serviço gerar uma, em vez de tentar
-    // usar a cadeia vazia como palavra-passe.
-    expect(r.data.palavraPasse).toBeUndefined();
+    expect(r.data).not.toHaveProperty("palavraPasse");
   });
 });
 

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { criarAdministradorDePlataforma } from "../acoes";
 import type { ContaCriada } from "../contas";
-import { Credenciais } from "./Credenciais";
+import { ContasCriadas } from "./ContasCriadas";
 import { Erro, ErroGeral } from "./Erro";
 
 /**
@@ -40,7 +40,6 @@ export function NovoAdminPlataforma() {
         const r = await criarAdministradorDePlataforma({
           nome: String(fd.get("nome") ?? ""),
           email: String(fd.get("email") ?? ""),
-          palavraPasse: String(fd.get("palavraPasse") ?? "").trim() || undefined,
         });
 
         if (!r.ok) {
@@ -73,7 +72,7 @@ export function NovoAdminPlataforma() {
         </Button>
       </div>
 
-      <Credenciais contas={criadas} titulo="Conta de plataforma criada" />
+      <ContasCriadas contas={criadas} titulo="Conta de plataforma criada" />
 
       {aberto && (
         <form ref={formulario} onSubmit={submeter} className="mt-4 flex flex-col gap-4">
@@ -101,19 +100,10 @@ export function NovoAdminPlataforma() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${base}-pw`}>Palavra-passe (opcional)</Label>
-            <Input
-              id={`${base}-pw`}
-              name="palavraPasse"
-              className="font-mono"
-              autoComplete="new-password"
-            />
-            <p className="text-2xs text-muted-foreground">
-              Em branco, é gerada — e mostrada uma única vez a seguir.
-            </p>
-            <Erro erros={erros} campo="palavraPasse" />
-          </div>
+          <p className="text-2xs border-linha rounded-xs border border-dashed p-2.5 text-muted-foreground">
+            A palavra-passe é gerada pela plataforma e enviada por email para a pessoa. É
+            temporária: ela terá de definir uma sua no primeiro início de sessão.
+          </p>
 
           <Button type="submit" disabled={aGravar} className="self-start">
             {aGravar ? "A criar…" : "Criar conta de plataforma"}

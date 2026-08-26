@@ -1,25 +1,18 @@
-import { Check, FileText, Paperclip } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { Ref } from "@/components/ref-processo";
 import { exigirEquipaDaSociedade } from "@/lib/sessao";
-import { termosEmVigor } from "@/lib/termos-sociedade";
 import { sociedadeDe } from "@/features/administracao/consultas";
 import {
-  aceitacoesDe,
   colegasDe,
   documentosDe,
   perfilDe,
 } from "@/features/advogado/consultas";
-import { AceitarTermos } from "@/features/advogado/componentes/AceitarTermos";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "A minha conta" };
 export const dynamic = "force-dynamic";
 
 const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
-const dataHora = new Intl.DateTimeFormat("pt-PT", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
 
 const ROTULOS_PAPEL: Record<string, string> = {
   admin: "Administrador",
@@ -70,26 +63,13 @@ function Linha({
 export default async function PortalAdvogado() {
   const { eu } = await exigirEquipaDaSociedade();
 
-  const [perfil, aceitacoes, documentos, colegas, org, emVigor] = await Promise.all([
+  const [perfil, documentos, colegas, org] = await Promise.all([
     perfilDe(eu.id),
-    aceitacoesDe(eu.id),
     documentosDe(eu.id),
     colegasDe(eu.organizacaoId, eu.id),
     sociedadeDe(eu.organizacaoId),
-    termosEmVigor(eu.organizacaoId),
   ]);
 
-  const termos =
-    emVigor.forma === "documento"
-      ? {
-          forma: "documento" as const,
-          versao: emVigor.versao,
-          nome: emVigor.nome,
-          url: "/advogado/termos",
-        }
-      : emVigor;
-
-  const aceitouAtual = aceitacoes.some((a) => a.versao === emVigor.versao);
   const morada = [perfil?.morada, perfil?.codigoPostal, perfil?.localidade]
     .filter(Boolean)
     .join(", ");
@@ -103,10 +83,6 @@ export default async function PortalAdvogado() {
           {perfil?.cargo ? ` · ${perfil.cargo}` : ""} em {org?.nome ?? "—"}
         </p>
       </div>
-
-      {/* A coisa por fazer vem primeiro. Uma página que enterrasse isto debaixo
-          de três blocos de dados era uma aceitação que ninguém dava. */}
-      {!aceitouAtual && <AceitarTermos termos={termos} />}
 
       <section className="border-linha bg-papel-alto rounded-sm border p-4">
         <h2 className="text-lg">Conta</h2>
@@ -161,46 +137,6 @@ export default async function PortalAdvogado() {
           existirem.
         </section>
       )}
-
-      <section className="border-linha bg-papel-alto rounded-sm border p-4">
-        <h2 className="text-lg">Termos e Condições da sociedade</h2>
-        {aceitacoes.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Ainda não há nenhuma aceitação registada em seu nome.
-          </p>
-        ) : (
-          <ul className="divide-linha mt-2 divide-y">
-            {aceitacoes.map((a) => {
-              const atual = a.versao === emVigor.versao;
-              return (
-                <li key={a.id} className="flex flex-wrap items-baseline justify-between gap-3 py-2">
-                  <div className="flex items-center gap-2">
-                    {atual && <Check className="text-arquivo size-3.5" strokeWidth={2.5} />}
-                    <span className="text-sm">
-                      Versão <Ref>{a.versao}</Ref>
-                      {atual && <span className="text-arquivo ml-2 text-xs">em vigor</span>}
-                    </span>
-                  </div>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                    {dataHora.format(new Date(a.aceiteEm))} · {a.ip}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {emVigor.forma === "documento" && (
-          <a
-            href="/advogado/termos"
-            target="_blank"
-            rel="noopener"
-            className="mt-3 inline-block text-xs text-muted-foreground underline underline-offset-2"
-          >
-            <FileText className="mr-1 inline size-3" />
-            Ver o articulado em vigor
-          </a>
-        )}
-      </section>
 
       {documentos.length > 0 && (
         <section className="border-linha bg-papel-alto rounded-sm border p-4">

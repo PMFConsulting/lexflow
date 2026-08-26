@@ -105,6 +105,66 @@ export const organizacao = pgTable(
     /** Quando é que a sociedade submeteu esta versão. */
     termosAtualizadoEm: timestamp("termos_atualizado_em", { withTimezone: true }),
 
+    /* ------------------------------------------- Email do domínio da sociedade
+     *
+     * Até aqui os quatro canais de envio partilhavam um remetente só — o
+     * `EMAIL_REMETENTE` do ambiente, `POC@jmassano.pt` por omissão. Numa
+     * instalação com uma sociedade isso passa despercebido; com duas, o cliente
+     * da segunda recebe um pedido de dados pessoais assinado com o domínio da
+     * primeira, e a resposta certa dele é não responder.
+     *
+     * As cinco colunas são anuláveis, e a ausência tem um significado só:
+     * **esta sociedade ainda usa o remetente global**. É o que faz a adição ser
+     * mesmo aditiva — a sociedade sementeada não tem nenhuma delas e continua a
+     * enviar exatamente como enviava.
+     */
+
+    /**
+     * O endereço `From` desta sociedade (`geral@andradecosta.pt`).
+     *
+     * Guardado mesmo antes de o domínio estar verificado: é ele que se vê no
+     * ecrã como "remetente efetivo", e escondê-lo até à verificação tirava a
+     * quem configura a única forma de confirmar que escreveu o endereço certo.
+     * O preço de o usar cedo demais é um 403 da Resend com o remetente à
+     * frente, que é uma mensagem que se resolve à primeira leitura (D43).
+     */
+    emailRemetente: text("email_remetente"),
+    /**
+     * O domínio de envio (`andradecosta.pt`), sem a parte local.
+     *
+     * Separado do `emailRemetente` de propósito: é o domínio que se verifica na
+     * Resend, e um endereço pode mudar (`geral@` → `advogados@`) sem que a
+     * verificação de SPF/DKIM tenha de ser refeita.
+     */
+    dominioEmail: text("dominio_email"),
+    /** O `id` do domínio na Resend — sem ele não há a quem perguntar o estado. */
+    dominioResendId: text("dominio_resend_id"),
+    /** Quando é que a Resend disse `verified` pela primeira vez. */
+    dominioVerificadoEm: timestamp("dominio_verificado_em", { withTimezone: true }),
+    /**
+     * Espelho do `status` da Resend: `not_started`, `pending`, `verified`,
+     * `failed` (e o `temporary_failure` que ela também devolve).
+     *
+     * `text` e não um enum do Postgres: o conjunto de valores é de outra pessoa
+     * e muda quando ela quiser. Um enum obrigava a uma migração no dia em que a
+     * Resend acrescentasse um estado, e entretanto a escrita rebentava — o que
+     * transformava uma verificação de DNS numa falha da plataforma.
+     */
+    dominioEstado: text("dominio_estado"),
+
+    /* ------------------------------------------- Logótipo próprio da sociedade
+     *
+     * Permite que cada sociedade use a sua própria marca no portal em vez do
+     * logótipo genérico "LexFlow". Guardado em base64 com mime e nome originais (POC).
+     *
+     * Todas as colunas são anuláveis: `null` significa uma coisa só — esta sociedade
+     * usa o logótipo padrão do software ("LexFlow").
+     */
+    logotipoDados: text("logotipo_dados"),
+    logotipoMime: text("logotipo_mime"),
+    logotipoNome: text("logotipo_nome"),
+    logotipoAtualizadoEm: timestamp("logotipo_atualizado_em", { withTimezone: true }),
+
     ...timestamps(),
     ...softDelete(),
   },
@@ -168,6 +228,31 @@ export const utilizador = pgTable(
      */
     papel: papelUtilizador("papel").notNull().default("utilizador"),
     ativo: boolean("ativo").notNull().default(true),
+    /**
+     * A pessoa tem de definir uma palavra-passe nova antes de usar a
+     * plataforma.
+     *
+     * Uma conta criada por um administrador nasce com uma palavra-passe que a
+     * plataforma gerou e enviou por email — ou seja, com um segredo que já
+     * viajou por um canal que não é secreto e que ninguém escolheu. Enquanto
+     * esta coluna estiver a `true`, `exigirSessao()` manda a pessoa para
+     * `/definir-palavra-passe` e não a deixa passar dali: o início de sessão
+     * confirma quem ela é, e a redefinição é o que transforma a credencial
+     * temporária numa credencial dela.
+     *
+     * **A coluna vive aqui e não em `user`** — a tabela do Better Auth não leva
+     * colunas de negócio (D2). O que ela guarda é a autenticação; isto é uma
+     * regra do produto sobre quem já se autenticou.
+     *
+     * O valor por omissão é `false`, e é uma decisão e não uma distração: a
+     * migração é aditiva, e um `default true` punha **todas** as contas
+     * existentes a redefinir a palavra-passe no login seguinte — pessoas que
+     * escolheram a sua e não têm nada a corrigir. Quem nasce com uma
+     * palavra-passe gerada é marcado explicitamente (`criarConta`); quem a
+     * escolhe no próprio registo (`concluirConvite`) fica em `false`, que é o
+     * que a ausência de marca já dizia.
+     */
+    deveRedefinirPassword: boolean("deve_redefinir_password").notNull().default(false),
     ...timestamps(),
     ...softDelete(),
   },

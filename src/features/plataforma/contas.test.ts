@@ -1,14 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CredencialPorEnviar, Transacao } from "./contas";
 
 /**
  * O serviço de criação de contas.
  *
- * O que aqui se fixa é a razão de o serviço existir: **as duas escritas**
- * (decisão D2). A conta do Better Auth (`user` + `account`, onde vive a
- * palavra-passe) e o utilizador de domínio (`utilizador`, que tem papel e
- * sociedade). Falhar a segunda produz o defeito mais confuso que este sistema
- * sabe dar — o início de sessão passa, `sessaoAtual()` não encontra ninguém por
- * `auth_user_id` e a pessoa volta para `/entrar` sem uma única mensagem de erro.
+ * O que aqui se fixa são duas coisas.
+ *
+ * **As duas escritas** (decisão D2): a conta do Better Auth (`user` + `account`,
+ * onde vive a palavra-passe) e o utilizador de domínio (`utilizador`, que tem
+ * papel e sociedade). Falhar a segunda produz o defeito mais confuso que este
+ * sistema sabe dar — o início de sessão passa, `sessaoAtual()` não encontra
+ * ninguém por `auth_user_id` e a pessoa volta para `/entrar` sem uma única
+ * mensagem de erro.
+ *
+ * **E o percurso da palavra-passe**: gerada aqui, nunca escolhida por quem
+ * administra, nunca devolvida a quem chama, enviada por email para a pessoa a
+ * quem pertence, e marcada como temporária na base de dados. Cada um destes
+ * quatro tem um teste, porque cada um deles calado sozinho reabre o processo
+ * antigo sem partir compilação nenhuma.
  *
  * O `hashPassword` é falsificado: o real é scrypt e leva ~100 ms por chamada, o
  * que num ficheiro de testes é meio minuto para não medir nada — o que interessa
@@ -21,6 +30,11 @@ const inseridos: { tabela: string; valores: Linha }[] = [];
 const atualizados: { tabela: string; valores: Linha }[] = [];
 let linhas: Record<string, Linha[]> = {};
 
+/** Os emails que saíram, com o corpo, para se poder olhar lá dentro. */
+type EmailEnviado = { para: string; assunto: string; html: string; template: string };
+const emails: EmailEnviado[] = [];
+let envioFalha: string | null = null;
+
 vi.mock("better-auth/crypto", () => ({
   hashPassword: async (p: string) => `scrypt$${p}`,
 }));
@@ -32,7 +46,23 @@ vi.mock("drizzle-orm", () => ({
 }));
 
 vi.mock("@/db/schema/auth", () => ({ user: "user", account: "account" }));
-vi.mock("@/db/schema/organizacao", () => ({ utilizador: "utilizador" }));
+vi.mock("@/db/schema/organizacao", () => ({
+  utilizador: "utilizador",
+  organizacao: "organizacao",
+}));
+
+vi.mock("@/lib/email", () => ({
+  enviarEmail: async (p: EmailEnviado) => {
+    emails.push(p);
+    return envioFalha
+      ? { ok: false as const, erro: envioFalha }
+      : { ok: true as const, canal: "resend" as const, mensagemId: "m-1" };
+  },
+}));
+
+vi.mock("@/lib/origem", () => ({
+  origemPublica: async () => "https://exemplo.pt",
+}));
 
 const transacao = {
   select: () => ({
@@ -57,6 +87,12 @@ const transacao = {
 vi.mock("@/db", () => ({
   db: () => ({
     transaction: async (f: (t: unknown) => Promise<unknown>) => f(transacao),
+    // `nomeDaSociedade` consulta fora da transação, com o mesmo encadeamento.
+    select: () => ({
+      from: (t: unknown) => ({
+        where: () => ({ limit: async () => linhas[String(t)] ?? [] }),
+      }),
+    }),
   }),
 }));
 
@@ -74,8 +110,16 @@ const inseridoEm = (tabela: string) => inseridos.find((i) => i.tabela === tabela
 beforeEach(() => {
   inseridos.length = 0;
   atualizados.length = 0;
+  emails.length = 0;
+  envioFalha = null;
   linhas = {};
 });
+
+/** A palavra-passe que saiu no email — a única cópia em claro que existe. */
+const palavraPasseDoEmail = () => {
+  const hash = String(inseridoEm("account")?.password ?? "");
+  return hash.replace(/^scrypt\$/, "");
+};
 
 describe("criarConta", () => {
   it("escreve as três linhas que uma conta precisa", async () => {
@@ -94,20 +138,78 @@ describe("criarConta", () => {
   });
 
   it("guarda o hash e nunca a palavra-passe em claro", async () => {
-    const conta = await criarConta({ ...PEDIDO, palavraPasse: "palavra-passe-longa" });
+    await criarConta(PEDIDO);
 
-    expect(inseridoEm("account")!.password).toBe("scrypt$palavra-passe-longa");
+    const clara = palavraPasseDoEmail();
+    expect(clara.length).toBeGreaterThanOrEqual(12);
+    expect(inseridoEm("account")!.password).toBe(`scrypt$${clara}`);
 
+    // Em lado nenhum da base de dados — nem na `user`, nem na `utilizador`.
     const gravado = JSON.stringify([...inseridos, ...atualizados]);
-    expect(gravado).not.toContain('"palavra-passe-longa"');
-
-    // Em claro só na resposta desta chamada, que é o que o ecrã mostra uma vez.
-    expect(conta.palavraPasse).toBe("palavra-passe-longa");
+    expect(gravado.split(clara)).toHaveLength(2); // só o `scrypt$…` da `account`
   });
 
-  it("sem palavra-passe indicada, gera uma que o Better Auth aceita", async () => {
+  /**
+   * A decisão de produto deste ficheiro, fixada aqui: **a resposta não leva a
+   * palavra-passe**. Enquanto ela vinha, havia um cartão no ecrã de quem
+   * administra a mostrá-la — e a pessoa a quem ela pertence recebia-a de
+   * terceiros e não era obrigada a trocá-la nunca.
+   */
+  it("não devolve a palavra-passe a quem criou a conta", async () => {
     const conta = await criarConta(PEDIDO);
-    expect(conta.palavraPasse.length).toBeGreaterThanOrEqual(12);
+    expect(JSON.stringify(conta)).not.toContain(palavraPasseDoEmail());
+    expect(Object.keys(conta)).not.toContain("palavraPasse");
+  });
+
+  it("manda as credenciais para a pessoa, e a palavra-passe vai lá dentro", async () => {
+    const conta = await criarConta(PEDIDO);
+
+    expect(emails).toHaveLength(1);
+    expect(emails[0]).toMatchObject({
+      para: "maria@exemplo.pt",
+      template: "credenciais_acesso",
+    });
+    // O email é o único sítio onde ela circula em claro — é para isso que ele
+    // existe, e é o que substitui o cartão que aqui estava.
+    expect(emails[0].html).toContain(palavraPasseDoEmail());
+    expect(conta.emailEnviado).toBe(true);
+    expect(conta.erroEmail).toBeNull();
+  });
+
+  /**
+   * Uma conta criada cuja mensagem não saiu é uma pessoa que não entra. Se isso
+   * não vier na resposta, descobre-se por telefone dias depois — que é
+   * exactamente o silêncio da D48, deste lado.
+   */
+  it("a conta fica criada mesmo quando o email não sai, e a resposta di-lo", async () => {
+    envioFalha = "Resend devolveu 403";
+
+    const conta = await criarConta(PEDIDO);
+
+    expect(inseridos.map((i) => i.tabela)).toContain("utilizador");
+    expect(conta.emailEnviado).toBe(false);
+    expect(conta.erroEmail).toBe("Resend devolveu 403");
+  });
+
+  it("marca a conta para redefinir a palavra-passe no primeiro início de sessão", async () => {
+    await criarConta(PEDIDO);
+    expect(inseridoEm("utilizador")).toMatchObject({ deveRedefinirPassword: true });
+  });
+
+  /**
+   * Dentro de uma transação, o envio espera por ela. Enviado lá de dentro, um
+   * `ROLLBACK` na linha seguinte entregava a palavra-passe de uma conta que
+   * deixou de existir.
+   */
+  it("adia o envio quando corre dentro de uma transação de outrem", async () => {
+    const pendentes: CredencialPorEnviar[] = [];
+
+    const conta = await criarConta(PEDIDO, transacao as unknown as Transacao, pendentes);
+
+    expect(emails).toHaveLength(0);
+    expect(pendentes).toHaveLength(1);
+    expect(pendentes[0].conta).toBe(conta);
+    expect(conta.emailEnviado).toBeNull();
   });
 
   it("normaliza o email antes de o gravar", async () => {
@@ -138,14 +240,14 @@ describe("criarConta", () => {
     linhas["user"] = [{ id: "auth-1" }];
     linhas["account"] = [{ id: "cred-1" }];
 
-    await criarConta({ ...PEDIDO, palavraPasse: "outra-palavra-passe" });
+    await criarConta(PEDIDO);
 
-    expect(atualizados).toContainEqual(
-      expect.objectContaining({
-        tabela: "account",
-        valores: expect.objectContaining({ password: "scrypt$outra-palavra-passe" }),
-      }),
-    );
+    const escrita = atualizados.find((a) => a.tabela === "account");
+    expect(escrita).toBeDefined();
+    expect(String(escrita!.valores.password)).toMatch(/^scrypt\$/);
+    // E é essa mesma que sai no email — não uma qualquer outra gerada pelo
+    // caminho, que era uma conta com uma palavra-passe que ninguém tem.
+    expect(emails[0].html).toContain(String(escrita!.valores.password).replace(/^scrypt\$/, ""));
   });
 
   it("recusa quem já lá está na mesma sociedade", async () => {
@@ -169,7 +271,13 @@ describe("criarConta", () => {
     expect(atualizados).toContainEqual(
       expect.objectContaining({
         tabela: "utilizador",
-        valores: expect.objectContaining({ ativo: true, apagadoEm: null }),
+        valores: expect.objectContaining({
+          ativo: true,
+          apagadoEm: null,
+          // É uma conta acabada de criar como qualquer outra: a palavra-passe
+          // que acabou de sair por email é temporária também para ela.
+          deveRedefinirPassword: true,
+        }),
       }),
     );
   });
@@ -196,13 +304,6 @@ describe("criarConta", () => {
       organizacaoId: null,
       papel: "super_admin",
     });
-  });
-
-  it("recusa uma palavra-passe curta antes de tocar na base de dados", async () => {
-    await expect(criarConta({ ...PEDIDO, palavraPasse: "curta" })).rejects.toThrow(
-      /pelo menos 12/,
-    );
-    expect(inseridos).toHaveLength(0);
   });
 
   it("recusa um nome vazio — a coluna é NOT NULL", async () => {

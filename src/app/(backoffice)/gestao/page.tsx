@@ -15,7 +15,7 @@ const CARTOES = [
     titulo: "Sociedade",
     icone: Building2,
     descricao:
-      "Dados da sociedade e o articulado de Termos e Condições em vigor — o mesmo que os clientes e a equipa aceitam.",
+      "Dados da sociedade e os Termos e Condições em vigor — o mesmo que os clientes e a equipa aceitam.",
   },
   {
     href: "/gestao/utilizadores",
@@ -46,7 +46,7 @@ export default async function Administracao() {
         <h1 className="text-2xl">Administração</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           A conta da {org?.nome ?? "sociedade"} nesta plataforma: quem lá entra, com que perfil, e
-          o articulado que vincula os vossos clientes.
+          os Termos e Condições que vinculam os vossos clientes.
         </p>
       </div>
 
@@ -61,17 +61,17 @@ export default async function Administracao() {
       </div>
 
       {/* O aviso mais importante desta página, e por isso não está num rodapé:
-          sem articulado da sociedade, o passo 7 do cliente está a servir o texto
+          sem Termos e Condições da sociedade, o passo 7 do cliente está a servir o texto
           genérico da plataforma — ou seja, a sociedade está a fazer os seus
           clientes aceitarem um contrato que não escreveu. */}
       {!org?.termosVersao && (
         <div className="border-latao/40 bg-latao/5 rounded-sm border p-4">
-          <p className="text-sm font-medium">Ainda não há articulado da sociedade.</p>
+          <p className="text-sm font-medium">Ainda não há Termos e Condições da sociedade.</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Enquanto não houver, os vossos clientes aceitam o texto genérico da plataforma — que é
             texto de demonstração e não o contrato da sociedade.{" "}
             <Link href="/gestao/sociedade" className="underline underline-offset-2">
-              Publicar o articulado
+              Publicar Termos e Condições
             </Link>
             .
           </p>

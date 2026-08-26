@@ -22,6 +22,19 @@ import {
 export const obrigatorio = (campo: string) =>
   z.string().trim().min(1, `${campo} é obrigatório.`);
 
+/**
+ * O comprimento mínimo de uma palavra-passe — o `minPasswordLength` do Better
+ * Auth (`lib/auth.ts`).
+ *
+ * Vive aqui, e não no serviço de contas, porque quem precisa dele são os dois
+ * lados: o servidor, que recusa, e o ecrã, que avisa antes de a pessoa
+ * submeter. O serviço é `server-only` e importá-lo de um componente de cliente
+ * rebenta o build — o que empurrava para escrever o `12` outra vez, e dois
+ * números com o mesmo propósito divergem. O dia em que divergissem era o dia
+ * em que um ecrã aceitava uma palavra-passe com que ninguém entra.
+ */
+export const MINIMO_PALAVRA_PASSE = 12;
+
 export const email = z
   .string()
   .trim()

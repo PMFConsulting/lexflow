@@ -17,6 +17,7 @@ import {
 import { email as campoEmail, obrigatorio } from "@/lib/campos";
 import { enviarEmail } from "@/lib/email";
 import { ASSUNTO_CONVITE_UTILIZADOR, emailConviteUtilizador } from "@/lib/emails/convites";
+import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import { origemPublica } from "@/lib/origem";
 import { exigirAdministracao } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
@@ -150,7 +151,12 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
     .returning({ id: conviteUtilizador.id });
 
   const [org] = await base
-    .select({ nome: organizacao.nome })
+    .select({
+      id: organizacao.id,
+      nome: organizacao.nome,
+      logotipoDados: organizacao.logotipoDados,
+      logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+    })
     .from(organizacao)
     .where(eq(organizacao.id, eu.organizacaoId))
     .limit(1);
@@ -187,6 +193,7 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
         sociedade: org?.nome ?? "a sociedade",
         link,
         papel,
+        logotipoUrl: urlLogotipoSociedade(org),
       }),
       template: "convite_utilizador",
       organizacaoId: eu.organizacaoId,

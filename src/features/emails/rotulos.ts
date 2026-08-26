@@ -27,6 +27,7 @@ export const ROTULOS_TEMPLATE: Partial<Record<TemplateEmail, string>> = {
   boas_vindas: "Boas-vindas",
   notificacao_backoffice: "Aviso interno",
   rejeicao: "Rejeição",
+  credenciais_acesso: "Credenciais de acesso",
 };
 
 /**

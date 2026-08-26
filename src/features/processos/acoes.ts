@@ -17,6 +17,7 @@ import {
   emailRegisto,
   emailRejeicao,
 } from "@/lib/emails/jmassano";
+import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import { origemPublica } from "@/lib/origem";
 import { exigirEquipaDaSociedade, podeAprovarProcesso } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
@@ -419,7 +420,7 @@ export async function criarProcesso(entrada: NovoProcesso) {
       const r = await enviarEmail({
         para: emailCliente,
         assunto: ASSUNTO_REGISTO,
-        html: emailRegisto({ nome, link }),
+        html: emailRegisto({ nome, link, logotipoUrl: urlLogotipoSociedade(org) }),
         template: "registo",
         organizacaoId: org.id,
         processoId: dossier.id,
@@ -656,10 +657,24 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
   try {
     const { email, nome } = await emailDoCliente(id);
     if (email) {
+      const [org] = await db()
+        .select({
+          id: organizacao.id,
+          logotipoDados: organizacao.logotipoDados,
+          logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+        })
+        .from(organizacao)
+        .where(eq(organizacao.id, processo.organizacaoId))
+        .limit(1);
+
       await enviarEmail({
         para: email,
         assunto: ASSUNTO_REJEICAO,
-        html: emailRejeicao({ nome, referencia: processo.referencia }),
+        html: emailRejeicao({
+          nome,
+          referencia: processo.referencia,
+          logotipoUrl: urlLogotipoSociedade(org),
+        }),
         template: "rejeicao",
         organizacaoId: processo.organizacaoId,
         processoId: processo.id,

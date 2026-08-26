@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Carimbo } from "@/components/carimbo";
@@ -28,7 +29,6 @@ export function Lombada({
   gravados,
   base,
   rotulo = "Passos do processo",
-  contador = "Dossier",
 }: {
   /**
    * Os passos deste percurso, **já filtrados** por quem chama.
@@ -57,8 +57,15 @@ export function Lombada({
    */
   base: string;
   rotulo?: string;
-  contador?: string;
 }) {
+  const pathname = usePathname();
+  const passoNaUrl = pathname ? Number(pathname.match(/\/passo\/(\d+)/)?.[1]) : NaN;
+  const passoAtivo = Number.isInteger(passoNaUrl) && passoNaUrl > 0 ? passoNaUrl : atual;
+
+  const indiceAtual = percurso.findIndex((p) => p.n === passoAtivo);
+  const passoNumero = indiceAtual >= 0 ? indiceAtual + 1 : (passoAtivo <= percurso.length ? passoAtivo : 1);
+  const totalPassos = percurso.length;
+
   const [carimbo, setCarimbo] = useState<{ passo: number; quando: Date } | null>(null);
 
   // O carimbo é a recompensa de ter gravado, por isso aparece na página
@@ -77,22 +84,22 @@ export function Lombada({
   return (
     <nav aria-label={rotulo}>
       <p className="text-2xs mb-3 font-mono tracking-[0.16em] text-muted-foreground uppercase">
-        {contador} · {gravados.length} de {percurso.length}
+        Passo {passoNumero} de {totalPassos}
       </p>
 
       {/* barra de progresso — em mobile é o único indicador que cabe bem */}
       <div className="bg-linha mb-3 h-0.5 w-full md:hidden">
         <div
           className="bg-selo h-full transition-[width] duration-500 ease-out"
-          style={{ width: `${(gravados.length / percurso.length) * 100}%` }}
+          style={{ width: `${(passoNumero / totalPassos) * 100}%` }}
         />
       </div>
 
       <ol className="border-linha flex gap-1 overflow-x-auto pb-2 md:flex-col md:gap-0 md:overflow-visible md:border-l md:pb-0">
         {percurso.map((p, indice) => {
           const feito = gravados.includes(p.n);
-          const aqui = p.n === atual;
-          const acessivel = feito || p.n <= atual;
+          const aqui = p.n === passoAtivo;
+          const acessivel = feito || p.n <= passoAtivo;
           const aCarimbar = carimbo?.passo === p.n;
 
           const conteudo = (
@@ -101,7 +108,7 @@ export function Lombada({
                 "relative flex shrink-0 items-center gap-2 rounded-sm px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors",
                 "md:-ml-px md:rounded-none md:border-l-2 md:px-0 md:py-2 md:pl-4 md:whitespace-normal",
                 aqui
-                  ? "bg-tinta text-papel-alto md:bg-transparent md:border-selo md:text-tinta font-medium"
+                  ? "bg-tinta text-papel-alto font-medium md:bg-transparent md:border-selo md:text-tinta md:font-semibold"
                   : feito
                     ? "border-linha text-tinta-suave border md:border-0 md:border-l-2 md:border-arquivo/50"
                     : "border-linha border text-muted-foreground md:border-0 md:border-l-2 md:border-transparent",
@@ -117,7 +124,13 @@ export function Lombada({
               </span>
               <span className="md:flex-1">{p.curto}</span>
               {feito && !aCarimbar && (
-                <Check className="text-arquivo size-3.5 shrink-0" strokeWidth={2.5} />
+                <Check
+                  className={cn(
+                    "size-3.5 shrink-0",
+                    aqui ? "text-papel-alto md:text-arquivo" : "text-arquivo",
+                  )}
+                  strokeWidth={2.5}
+                />
               )}
               {aCarimbar && (
                 <span

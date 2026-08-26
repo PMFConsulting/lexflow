@@ -299,9 +299,9 @@ export function Anexos({
         )}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={idFicheiro} className="text-tinta-suave">
+          <span className="text-tinta-suave text-sm font-medium">
             Ficheiro
-          </Label>
+          </span>
           {/* Sem `name`, e de propósito: o anexo não é campo deste passo. Sobe
               pela sua própria Server Action (`carregarDocumento`) no `onChange`,
               e o `passo2` não pede documento nenhum. Pô-lo no `FormData` do
@@ -314,14 +314,27 @@ export function Anexos({
             type="file"
             accept={ACCEPT}
             onChange={(e) => escolher(e.target.files)}
-            className="file:bg-tinta file:text-papel-alto text-sm file:mr-3 file:rounded-sm file:border-0 file:px-3 file:py-1.5 file:text-sm"
+            className="sr-only"
           />
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              htmlFor={idFicheiro}
+              className={cn(
+                "bg-tinta text-papel-alto hover:bg-tinta/90 focus-within:ring-ring inline-flex cursor-pointer items-center justify-center rounded-sm px-3 py-1.5 text-sm font-medium transition-colors focus-within:ring-2 focus-within:outline-none",
+                aCarregar && "pointer-events-none opacity-50",
+              )}
+            >
+              Escolher ficheiro
+            </label>
+            <span className="text-xs text-muted-foreground">
+              {aCarregar ? "A carregar…" : "Nenhum ficheiro escolhido"}
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground">
             PDF, JPG, PNG, WEBP ou HEIC. Máximo 4 MB.
           </p>
         </div>
 
-        {aCarregar && <p className="text-xs text-muted-foreground">A carregar…</p>}
         {erro && (
           <p className="text-selo text-xs" role="alert">
             {erro}

@@ -69,8 +69,8 @@ export function PropostaComercial({
         <h3 className="text-sm font-medium">Proposta comercial</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {atual
-            ? "É este o documento que o cliente lê e aceita no último passo. Anexar outro substitui-o."
-            : "Sem proposta anexada, o cliente aceita a proposta genérica da plataforma."}
+            ? "É esta a proposta que o cliente lê e aceita no fim do processo. Anexar outro ficheiro substitui esta."
+            : "Ainda não anexaste a proposta deste processo. O cliente só a pode aceitar depois de a anexares."}
         </p>
       </div>
 
@@ -91,7 +91,7 @@ export function PropostaComercial({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={id} className="text-tinta-suave">
-          {atual ? "Substituir por" : "Ficheiro"}
+          Selecionar PDF
         </Label>
         <input
           id={id}

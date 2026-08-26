@@ -50,14 +50,44 @@ export async function sessaoAtual() {
 }
 
 /**
+ * Onde vive o ecrã de definição de palavra-passe.
+ *
+ * Exportado porque é o mesmo endereço em três sítios — o guard aqui, a página
+ * que ele serve e a ação que a fecha — e um literal repetido três vezes é um
+ * `redirect` para uma página que deixou de existir no dia em que a rota mudar.
+ */
+export const ROTA_DEFINIR_PALAVRA_PASSE = "/definir-palavra-passe";
+
+/**
  * Requires a session. Without one, it goes to the login screen.
  *
  * Called on every back-office page: a system holding PEP declarations and
  * identification documents cannot have a single page left open by oversight.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * A redefinição obrigatória, e porque é aqui
+ *
+ * Uma conta criada por um administrador nasce com uma palavra-passe gerada e
+ * enviada por email — um segredo que viajou por um canal que não é secreto.
+ * Enquanto `deve_redefinir_password` estiver a `true`, esta função não deixa
+ * passar: manda para o ecrã de definição, e mais nada.
+ *
+ * **O guard é este e não o `middleware`.** O middleware desta instalação só
+ * corre sobre `/api/auth/sign-in` de propósito (ver a nota lá) e não tem acesso
+ * à base de dados de onde esta marca vem — a sessão do Better Auth diz quem é a
+ * pessoa, não o que falta a essa pessoa. Pôr a decisão aqui é pô-la no mesmo
+ * sítio por onde já passam todas as páginas e todos os Server Actions
+ * autenticados: os guards de papel chamam esta função, e uma página nova que se
+ * esqueça do desvio não existe — teria de se esquecer também da sessão.
+ *
+ * As duas exceções óbvias — a página de definição e a ação que a fecha — usam
+ * `sessaoAtual()` diretamente. É a única forma de não ficarem a redirecionar
+ * para si próprias.
  */
 export async function exigirSessao() {
   const s = await sessaoAtual();
   if (!s) redirect("/entrar");
+  if (s.eu.deveRedefinirPassword) redirect(ROTA_DEFINIR_PALAVRA_PASSE);
   return s;
 }
 

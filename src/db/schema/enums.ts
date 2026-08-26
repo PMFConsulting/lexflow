@@ -163,6 +163,22 @@ export const templateEmail = pgEnum("template_email", [
    */
   "convite_sociedade",
   "convite_utilizador",
+  /**
+   * Décimo: as credenciais de acesso de uma conta criada por um administrador.
+   *
+   * É o único email da lista que leva uma palavra-passe no corpo, e é por isso
+   * que o corpo não é guardado em lado nenhum — nem aqui (o `email_log` regista
+   * assunto e destinatário, D34), nem em `evento_auditoria`, que dura sete anos.
+   * O que fica registado é a mesma coisa que fica registado para os outros: que
+   * a mensagem foi tentada, para quem, e como correu.
+   *
+   * A palavra-passe que ela transporta é temporária: quem a recebe é obrigado a
+   * definir outra no primeiro início de sessão
+   * (`utilizador.deve_redefinir_password`).
+   *
+   * No fim do array porque é aí que o `ALTER TYPE ADD VALUE` o põe.
+   */
+  "credenciais_acesso",
 ]);
 
 /**

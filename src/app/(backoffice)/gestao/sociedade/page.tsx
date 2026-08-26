@@ -4,6 +4,7 @@ import {
   sociedadeDe,
 } from "@/features/administracao/consultas";
 import { PublicarTermos } from "@/features/administracao/componentes/PublicarTermos";
+import { LogotipoSociedade } from "@/features/administracao/componentes/LogotipoSociedade";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Sociedade" };
@@ -48,9 +49,15 @@ export default async function Sociedade() {
       <div>
         <h1 className="text-2xl">Sociedade</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Os dados que a sociedade indicou no registo, e o articulado que vincula os seus clientes.
+          Os dados que a sociedade indicou no registo, e os Termos e Condições que vinculam os seus clientes.
         </p>
       </div>
+
+      <LogotipoSociedade
+        temLogotipo={Boolean(org?.logotipoDados)}
+        nomeLogotipo={org?.logotipoNome ?? null}
+        atualizadoEm={org?.logotipoAtualizadoEm ?? null}
+      />
 
       <PublicarTermos
         versaoAtual={org?.termosVersao ?? null}

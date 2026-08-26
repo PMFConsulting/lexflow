@@ -80,7 +80,6 @@ articulado que o vincula tem de ser o dela. Isso está resolvido:
 | Cada pessoa da equipa aceita-o | passo 5 do registo de utilizador |
 | Prova da aceitação | `aceitacao_termos` — versão, data, IP, user-agent. **Nunca atualizada** |
 | Quem ainda não aceitou a versão em vigor | `/admin/conformidade` |
-| Aceitar uma versão nova, já com conta | `/advogado`, `aceitarTermosEmVigor` |
 
 ⚠ **O texto em `src/lib/termos.ts` continua a ser texto de demonstração**, e é o que
 serve enquanto a sociedade não publicar o dela. O ecrã de administração diz isso em

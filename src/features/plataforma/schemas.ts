@@ -70,6 +70,67 @@ export const sociedadeSchema = z.object({
 
 export type DadosSociedade = z.infer<typeof sociedadeSchema>;
 
+/* --------------------------------------------------- email próprio da sociedade */
+
+/**
+ * O remetente da sociedade — ou o pedido para deixar de haver um.
+ *
+ * O vazio é uma resposta válida e transforma-se em `null`, não num erro: apagar
+ * o campo é como se volta ao remetente global da instalação, e é a única saída
+ * de quem configurou um domínio errado. Um `min(1)` aqui deixava a sociedade
+ * presa a um endereço que já não serve.
+ */
+export const remetenteSchema = z.object({
+  emailRemetente: z
+    .string()
+    .transform((v) => v.trim().toLowerCase())
+    .pipe(
+      z
+        .union([z.literal(""), z.email("Indique um endereço de email válido.").max(200)])
+        .transform((v) => (v === "" ? null : v)),
+    ),
+});
+
+/**
+ * O domínio de envio.
+ *
+ * A normalização faz-se antes de validar, e não é cortesia: o que uma pessoa
+ * cola aqui vem quase sempre de um browser ou de um cartão — `https://`,
+ * `www.`, uma barra no fim, ou o endereço inteiro por distração
+ * (`geral@andradecosta.pt`). Todos esses **são** o domínio certo escrito de
+ * outra maneira, e recusá-los obrigava a adivinhar uma regra de formatação que
+ * a plataforma sabe aplicar sozinha.
+ *
+ * O que fica de fora é o que não é um domínio: sem ponto (`localhost`), com
+ * espaços, com acentos. Um domínio internacionalizado tem de vir já em
+ * punycode — a conversão não se faz aqui às escuras, porque o que a Resend vai
+ * verificar no DNS é o punycode e o que a pessoa veria no ecrã era outra coisa.
+ */
+export const dominioSchema = z.object({
+  dominioEmail: z
+    .string()
+    .transform((v) =>
+      v
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/^.*@/, "")
+        .replace(/^www\./, "")
+        .replace(/\/.*$/, "")
+        .replace(/\.$/, ""),
+    )
+    .pipe(
+      z
+        .string()
+        .min(4, "Indique o domínio de envio (por exemplo, andradecosta.pt).")
+        .max(253, "O domínio é demasiado longo.")
+        .regex(
+          /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/,
+          "Indique só o domínio, sem espaços nem acentos — por exemplo, andradecosta.pt.",
+        ),
+    ),
+});
+
 /**
  * A conta criada à mão, uma de cada vez.
  *
@@ -79,6 +140,13 @@ export type DadosSociedade = z.infer<typeof sociedadeSchema>;
  * esse valor ganhava, com um clique, a lista de todas as sociedades do sistema
  * e a possibilidade de criar contas em qualquer uma. O caminho para criar um
  * `super_admin` é outro, é só do `super_admin`, e está noutro formulário.
+ *
+ * **Não há campo de palavra-passe, e a ausência é a regra.** Ela é sempre
+ * gerada pelo servidor e vai por email para a pessoa a quem pertence, que é
+ * obrigada a trocá-la no primeiro início de sessão. Um campo opcional aqui era
+ * o processo antigo à espera de voltar: bastava um formulário mandar o valor
+ * para quem administra voltar a escolher — e a escolher, na décima conta
+ * seguida, sempre a mesma.
  */
 export const contaSchema = z.object({
   nome,
@@ -87,18 +155,6 @@ export const contaSchema = z.object({
     error: "Escolha o papel desta conta.",
   }),
   organizacaoId: z.uuid("Escolha a sociedade a que esta conta pertence."),
-  /**
-   * Opcional: em branco, é gerada. É o caminho recomendado — uma palavra-passe
-   * escolhida à pressa por quem cria dez contas seguidas é sempre a mesma
-   * palavra-passe.
-   */
-  palavraPasse: z
-    .string()
-    .trim()
-    .min(12, "A palavra-passe tem de ter pelo menos 12 caracteres.")
-    .max(200)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
 });
 
 /**
@@ -112,13 +168,6 @@ export const contaSchema = z.object({
 export const contaDePlataformaSchema = z.object({
   nome,
   email,
-  palavraPasse: z
-    .string()
-    .trim()
-    .min(12, "A palavra-passe tem de ter pelo menos 12 caracteres.")
-    .max(200)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
 });
 
 /**
@@ -133,7 +182,6 @@ export const sociedadeComAdminSchema = sociedadeSchema
   .extend({
     adminNome: z.string().trim().max(160).optional(),
     adminEmail: z.string().trim().optional(),
-    adminPalavraPasse: z.string().trim().max(200).optional(),
   })
   .superRefine((v, ctx) => {
     const temNome = Boolean(v.adminNome);
@@ -159,13 +207,6 @@ export const sociedadeComAdminSchema = sociedadeSchema
         code: "custom",
         path: ["adminEmail"],
         message: "Indique um endereço de email válido.",
-      });
-    }
-    if (v.adminPalavraPasse && v.adminPalavraPasse.length < 12) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["adminPalavraPasse"],
-        message: "A palavra-passe tem de ter pelo menos 12 caracteres.",
       });
     }
   });

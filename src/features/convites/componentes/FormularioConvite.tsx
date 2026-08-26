@@ -461,7 +461,7 @@ export function FormularioConvite({
               : ["identificacao", "outro"]
           }
           iniciais={anexos}
-          titulo="Os seus documentos"
+          titulo="Comprovativos"
           ajuda="Ficam guardados no dossier da sociedade e não são visíveis para clientes."
           obrigatorios={
             dados.exerce ? ["identificacao", "cedula_profissional"] : ["identificacao"]
@@ -522,8 +522,8 @@ export function FormularioConvite({
       {n === 5 && (
         <Bloco>
           <p className="border-linha bg-muted rounded-sm border p-3 text-sm text-muted-foreground">
-            Este é o mesmo articulado que os clientes da {dados.sociedade} leem e aceitam no
-            registo deles. A sua aceitação fica registada com a versão do documento, a data e o
+            Estes são os Termos e Condições da {dados.sociedade}, apresentados também aos clientes no
+            registo. A sua aceitação fica registada com a versão do documento, a data e o
             endereço de onde foi dada.
           </p>
 
@@ -552,9 +552,8 @@ export function FormularioConvite({
       {n === 6 && (
         <Bloco>
           <p className="border-linha bg-muted rounded-sm border p-3 text-sm text-muted-foreground">
-            A conta fica criada com o email <span className="font-mono">{dados.email}</span>. A
-            palavra-passe é definida por si e a plataforma nunca a conhece — fica guardada apenas o
-            suficiente para a poder confirmar quando entrar.
+            A conta fica associada ao email <span className="font-mono">{dados.email}</span>. Defina
+            uma palavra-passe segura para aceder à plataforma.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <CampoTexto

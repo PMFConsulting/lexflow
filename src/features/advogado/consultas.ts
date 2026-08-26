@@ -3,7 +3,6 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { utilizador } from "@/db/schema/organizacao";
 import {
-  aceitacaoTermos,
   conviteUtilizador,
   documentoOrganizacao,
   perfilUtilizador,
@@ -31,26 +30,6 @@ export async function perfilDe(utilizadorId: string) {
     )
     .limit(1);
   return linha ?? null;
-}
-
-/**
- * As aceitações de articulado desta pessoa, da mais recente para a mais antiga.
- *
- * Todas, e não só a última: uma pessoa que trabalhe aqui durante anos vai
- * acumular uma por cada versão do articulado, e o histórico é o que lhe permite
- * ver o que aceitou e quando — que é informação dela sobre ela.
- */
-export async function aceitacoesDe(utilizadorId: string) {
-  return db()
-    .select({
-      id: aceitacaoTermos.id,
-      versao: aceitacaoTermos.versao,
-      aceiteEm: aceitacaoTermos.aceiteEm,
-      ip: aceitacaoTermos.ip,
-    })
-    .from(aceitacaoTermos)
-    .where(eq(aceitacaoTermos.utilizadorId, utilizadorId))
-    .orderBy(desc(aceitacaoTermos.aceiteEm));
 }
 
 /**

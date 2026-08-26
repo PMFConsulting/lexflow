@@ -2,6 +2,7 @@ import { FileText, Users } from "lucide-react";
 import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
 import { exigirEquipaDaSociedade, podeVerEmails, portalDoPapel } from "@/lib/sessao";
 import { redirect } from "next/navigation";
+import { sociedadeDe } from "@/features/administracao/consultas";
 
 /**
  * O portal de quem trabalha os processos.
@@ -29,6 +30,11 @@ export default async function LayoutPortal({
   const { eu } = await exigirEquipaDaSociedade();
   if (podeVerEmails(eu.papel)) redirect(portalDoPapel(eu.papel));
 
+  const org = await sociedadeDe(eu.organizacaoId);
+  const logotipoUrl = org?.logotipoDados
+    ? `/api/sociedade/logotipo?t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
+    : null;
+
   return (
     <PortalShell
       entradas={NAVEGACAO}
@@ -36,6 +42,7 @@ export default async function LayoutPortal({
       cabecalho="Onboarding de clientes"
       legendaDaMarca="Processos"
       utilizador={{ nome: eu.nome, papel: ROTULO_DO_PAPEL[eu.papel] ?? eu.papel }}
+      logotipoUrl={logotipoUrl}
     >
       {children}
     </PortalShell>

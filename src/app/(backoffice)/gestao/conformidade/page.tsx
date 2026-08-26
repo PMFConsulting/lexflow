@@ -50,14 +50,14 @@ export default async function Conformidade() {
       <div>
         <h1 className="text-2xl">Conformidade</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          As aceitações do articulado da sociedade, com a versão, a data e o endereço de onde foram
+          As aceitações dos Termos e Condições da sociedade, com a versão, a data e o endereço de onde foram
           dadas. Nenhuma destas linhas se apaga — são a prova de que a lei manda ser possível
           apresentar.
         </p>
       </div>
 
       <section className="border-linha bg-papel-alto rounded-sm border p-4">
-        <h2 className="text-lg">Articulado em vigor</h2>
+        <h2 className="text-lg">Termos e Condições em vigor</h2>
         {versaoAtual ? (
           <p className="mt-2 text-sm text-muted-foreground">
             Versão <Ref>{versaoAtual}</Ref>
@@ -71,7 +71,7 @@ export default async function Conformidade() {
           <p className="text-latao mt-2 flex items-start gap-2 text-sm">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>
-              A sociedade ainda não publicou articulado. Os clientes estão a aceitar o texto
+              A sociedade ainda não publicou Termos e Condições. Os clientes estão a aceitar o texto
               genérico da plataforma, que é texto de demonstração e não o contrato da sociedade —
               é o primeiro ponto que uma validação jurídica vai levantar.
             </span>
@@ -174,14 +174,9 @@ export default async function Conformidade() {
             pessoa da equipa fica no registo de auditoria, com a data e o endereço.
           </li>
           <li>
-            O <strong className="text-tinta">registo de auditoria</strong> é imutável por
-            construção: a base de dados recusa <code>UPDATE</code> e <code>DELETE</code> sobre ele,
-            e cada linha encadeia com a anterior por hash. <code>pnpm auditoria:verificar</code>
-            revalida a cadeia inteira.
-          </li>
-          <li>
-            O detalhe de cada obrigação legal e o sítio do código onde é cumprida estão em{" "}
-            <code>docs/CONFORMIDADE.md</code>.
+            O <strong className="text-tinta">registo de auditoria</strong> não pode ser alterado
+            nem apagado — é o registo definitivo do que aconteceu. Está detalhado, obrigação a
+            obrigação, em <code>docs/CONFORMIDADE.md</code>.
           </li>
         </ul>
       </section>

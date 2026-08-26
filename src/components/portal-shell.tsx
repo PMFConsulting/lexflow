@@ -45,6 +45,7 @@ export function PortalShell({
   cabecalho,
   legendaDaMarca,
   utilizador,
+  logotipoUrl,
   children,
 }: {
   entradas: EntradaDeMenu[];
@@ -52,6 +53,7 @@ export function PortalShell({
   cabecalho: string;
   legendaDaMarca: string;
   utilizador: { nome: string; papel: string };
+  logotipoUrl?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -68,7 +70,16 @@ export function PortalShell({
                 `shrink-0` impede a alternativa — encolher só a largura e
                 entregar o logo esticado. */}
             <Link href={entradas[0]?.href ?? "/"} className="flex min-w-0 items-center gap-2.5">
-              <Logotipo className="h-8 w-auto shrink-0 group-data-[collapsible=icon]:h-6" />
+              {logotipoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={logotipoUrl}
+                  alt={legendaDaMarca}
+                  className="h-8 max-w-[140px] w-auto shrink-0 object-contain group-data-[collapsible=icon]:hidden"
+                />
+              ) : (
+                <Logotipo sobreEscuro className="h-8 w-auto shrink-0 group-data-[collapsible=icon]:hidden" />
+              )}
               <span className="font-mono text-2xs truncate tracking-[0.16em] uppercase opacity-60 group-data-[collapsible=icon]:hidden">
                 {legendaDaMarca}
               </span>

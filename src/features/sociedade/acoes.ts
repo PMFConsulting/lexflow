@@ -15,6 +15,7 @@ import { novoTokenAcesso, expiraDaquiA } from "@/lib/token";
 import { origemPublica } from "@/lib/origem";
 import { enviarEmail } from "@/lib/email";
 import { ASSUNTO_CONVITE_UTILIZADOR, emailConviteUtilizador } from "@/lib/emails/convites";
+import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import {
   acessoSociedadePorToken,
   motivoDoAcessoSociedade,
@@ -380,6 +381,7 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
         sociedade: org.nome,
         link,
         papel: "society_admin",
+        logotipoUrl: urlLogotipoSociedade(org),
       }),
       template: "convite_utilizador",
       organizacaoId: org.id,

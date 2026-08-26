@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Ref } from "@/components/ref-processo";
 import { EditarSociedade } from "@/features/plataforma/componentes/EditarSociedade";
+import { EmailsDaSociedade } from "@/features/plataforma/componentes/EmailsDaSociedade";
 import { GestaoUtilizadores } from "@/features/plataforma/componentes/GestaoUtilizadores";
 import { sociedadePorId, utilizadoresDaSociedade } from "@/features/plataforma/consultas";
+import { env } from "@/env";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +56,25 @@ export default async function Sociedade({ params }: { params: Promise<{ id: stri
           nif: sociedade.nif,
           prefixoReferencia: sociedade.prefixoReferencia,
         }}
+      />
+
+      {/*
+        O remetente global vem do ambiente e é lido **aqui**, no servidor: é o
+        valor de recuo de quem não configurou nada, e mostrá-lo é o que impede a
+        leitura errada de um campo vazio — que é «esta sociedade não envia
+        emails». O `env()` é preguiçoso (D11) e esta página é `force-dynamic`,
+        por isso a leitura não entra no build.
+      */}
+      <EmailsDaSociedade
+        id={sociedade.id}
+        inicial={{
+          emailRemetente: sociedade.emailRemetente,
+          dominioEmail: sociedade.dominioEmail,
+          dominioResendId: sociedade.dominioResendId,
+          dominioEstado: sociedade.dominioEstado,
+          dominioVerificadoEm: sociedade.dominioVerificadoEm,
+        }}
+        remetenteGlobal={env().EMAIL_REMETENTE}
       />
 
       <GestaoUtilizadores organizacaoId={sociedade.id} contas={contas} />

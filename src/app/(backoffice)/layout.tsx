@@ -1,6 +1,7 @@
 import { Building2, FileText, LayoutDashboard, Mail, Settings, UserRound, Users } from "lucide-react";
 import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
 import { exigirEquipaDaSociedade, podeVerEmails } from "@/lib/sessao";
+import { sociedadeDe } from "@/features/administracao/consultas";
 
 /**
  * O portal da sociedade.
@@ -74,12 +75,17 @@ export default async function LayoutBackoffice({
   // Guard num sítio só: todas as páginas do back-office passam por aqui, e é
   // o que impede que uma página nova nasça aberta por esquecimento.
   const { eu } = await exigirEquipaDaSociedade();
+  const org = await sociedadeDe(eu.organizacaoId);
 
   const admin = podeVerEmails(eu.papel);
   const entradas = NAVEGACAO.filter((item) => !item.soAdmin || admin);
   const entradasSociedade = NAVEGACAO_SOCIEDADE.filter(
     (item) => !item.soAdmin || admin,
   );
+
+  const logotipoUrl = org?.logotipoDados
+    ? `/api/sociedade/logotipo?t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
+    : null;
 
   return (
     <PortalShell
@@ -88,6 +94,7 @@ export default async function LayoutBackoffice({
       cabecalho="Onboarding de clientes"
       legendaDaMarca="Processos"
       utilizador={{ nome: eu.nome, papel: ROTULO_DO_PAPEL[eu.papel] ?? eu.papel }}
+      logotipoUrl={logotipoUrl}
     >
       {children}
     </PortalShell>

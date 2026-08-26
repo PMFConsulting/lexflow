@@ -12,7 +12,13 @@ import {
   exigirSuperAdmin,
   type Papel,
 } from "@/lib/sessao";
-import { criarConta, ErroDeConta, type ContaCriada } from "./contas";
+import {
+  criarConta,
+  enviarCredenciaisPendentes,
+  ErroDeConta,
+  type ContaCriada,
+  type CredencialPorEnviar,
+} from "./contas";
 import { prepararImportacao, type LinhaRecusada } from "./importacao";
 import {
   contaDePlataformaSchema,
@@ -152,7 +158,6 @@ export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade
         email: v.adminEmail,
         papel: "society_admin",
         organizacaoId: id,
-        palavraPasse: v.adminPalavraPasse || undefined,
       });
 
       await auditar({
@@ -162,7 +167,12 @@ export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade
         entidade: "utilizador",
         entidadeId: admin.utilizadorId,
         // Sem a palavra-passe, obviamente: a auditoria dura sete anos.
-        valorNovo: { email: admin.email, papel: admin.papel, primeiroAdmin: true },
+        valorNovo: {
+          email: admin.email,
+          papel: admin.papel,
+          primeiroAdmin: true,
+          credenciaisEnviadas: admin.emailEnviado,
+        },
         ip,
         userAgent,
       });
@@ -318,7 +328,6 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
       email: lido.data.email,
       papel: lido.data.papel,
       organizacaoId: alvo,
-      palavraPasse: lido.data.palavraPasse,
     });
 
     const { ip, userAgent } = await ambiente();
@@ -329,7 +338,14 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
       acao: "utilizador.criado",
       entidade: "utilizador",
       entidadeId: conta.utilizadorId,
-      valorNovo: { email: conta.email, papel: conta.papel },
+      // Sem a palavra-passe, obviamente: a auditoria dura sete anos. Com o
+      // desfecho do envio, que é o que responde a "esta pessoa chegou a poder
+      // entrar?" no dia em que alguém perguntar.
+      valorNovo: {
+        email: conta.email,
+        papel: conta.papel,
+        credenciaisEnviadas: conta.emailEnviado,
+      },
       ip,
       userAgent,
     });
@@ -366,7 +382,6 @@ export async function criarAdministradorDePlataforma(dados: unknown): Promise<Re
       email: lido.data.email,
       papel: "super_admin",
       organizacaoId: null,
-      palavraPasse: lido.data.palavraPasse,
     });
 
     const { ip, userAgent } = await ambiente();
@@ -457,6 +472,18 @@ export async function importarUtilizadores(
   if (validas.length === 0) return { ok: true, criadas: [], recusadas };
 
   let criadas: ContaCriada[];
+
+  /**
+   * Os envios ficam à espera de a transação fechar.
+   *
+   * Enviados lá de dentro, um `ROLLBACK` na vigésima linha entregava
+   * palavras-passe de dezanove contas que deixaram de existir — e prendia a
+   * transação durante trinta chamadas HTTP a um fornecedor de email. O desfecho
+   * de cada envio é escrito nos objetos que já estão em `criadas`, que são os
+   * mesmos que vão para o ecrã.
+   */
+  const pendentes: CredencialPorEnviar[] = [];
+
   try {
     criadas = await db().transaction(async (tx) => {
       const feitas: ContaCriada[] = [];
@@ -470,6 +497,7 @@ export async function importarUtilizadores(
               organizacaoId: alvo,
             },
             tx,
+            pendentes,
           ),
         );
       }
@@ -486,6 +514,9 @@ export async function importarUtilizadores(
     };
   }
 
+  // As contas estão criadas e a transação fechou: agora sim, as credenciais.
+  await enviarCredenciaisPendentes(pendentes);
+
   const { ip, userAgent } = await ambiente();
 
   await auditar({
@@ -498,6 +529,9 @@ export async function importarUtilizadores(
       criadas: criadas.length,
       recusadas: recusadas.length,
       emails: criadas.map((c) => c.email),
+      // Quantas contas ficaram sem forma de lá entrar. Nunca a palavra-passe —
+      // a auditoria dura sete anos.
+      credenciaisNaoEnviadas: criadas.filter((c) => c.emailEnviado === false).length,
     },
     ip,
     userAgent,

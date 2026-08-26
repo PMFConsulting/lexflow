@@ -86,6 +86,7 @@ export function CampoTexto({
   tipo = "text",
   valorInicial = "",
   mono,
+  placeholder,
   className,
 }: {
   etiqueta: string;
@@ -96,6 +97,7 @@ export function CampoTexto({
   tipo?: string;
   valorInicial?: string;
   mono?: boolean;
+  placeholder?: string;
   className?: string;
 }) {
   return (
@@ -113,6 +115,7 @@ export function CampoTexto({
           name={nome}
           type={tipo}
           defaultValue={valorInicial}
+          placeholder={placeholder}
           aria-invalid={invalido}
           aria-describedby={descrito || undefined}
           className={cn(mono && "font-mono tracking-tight tabular-nums")}

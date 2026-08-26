@@ -14,6 +14,7 @@ import {
   emailCodigoOtp,
   emailConfirmacaoRececao,
 } from "@/lib/emails/jmassano";
+import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import { origemPublica } from "@/lib/origem";
 import { termosEmVigor } from "@/lib/termos-sociedade";
 import { assinatura, documento } from "@/db/schema/documentos";
@@ -859,6 +860,16 @@ export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
     .where(eq(dadosIdentificacao.processoId, processo.id))
     .limit(1);
 
+  const [org] = await db()
+    .select({
+      id: organizacao.id,
+      logotipoDados: organizacao.logotipoDados,
+      logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+    })
+    .from(organizacao)
+    .where(eq(organizacao.id, processo.organizacaoId))
+    .limit(1);
+
   const envio = await enviarEmail({
     para: destino,
     assunto: ASSUNTO_OTP,
@@ -867,6 +878,7 @@ export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
       codigo,
       referencia: processo.referencia,
       minutos: VALIDADE_OTP_MINUTOS,
+      logotipoUrl: urlLogotipoSociedade(org),
     }),
     template: "otp",
     organizacaoId: processo.organizacaoId,
@@ -1080,6 +1092,30 @@ export async function submeter(bruto: string): Promise<Resultado> {
     };
   }
 
+  const [propostaDoc] = await db()
+    .select({ id: documento.id })
+    .from(documento)
+    .where(
+      and(
+        eq(documento.processoId, processo.id),
+        eq(documento.tipo, "proposta_comercial"),
+        isNull(documento.apagadoEm),
+      ),
+    )
+    .limit(1);
+
+  if (!propostaDoc) {
+    return {
+      ok: false,
+      erros: {
+        propostaAceitacao: [
+          "A sociedade ainda não anexou a proposta deste processo. Para continuar, contacte-a.",
+        ],
+      },
+      mensagem: "A sociedade ainda não anexou a proposta deste processo.",
+    };
+  }
+
   if (!fecho?.declaracaoVeracidade) {
     return {
       ok: false,
@@ -1245,6 +1281,16 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
 
   const envios: Promise<unknown>[] = [];
 
+  const [org] = await db()
+    .select({
+      id: organizacao.id,
+      logotipoDados: organizacao.logotipoDados,
+      logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+    })
+    .from(organizacao)
+    .where(eq(organizacao.id, processo.organizacaoId))
+    .limit(1);
+
   if (emailCliente) {
     envios.push(
       enviarEmail({
@@ -1253,6 +1299,7 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
         html: emailConfirmacaoRececao({
           nome: identificacao?.nome,
           referencia: processo.referencia,
+          logotipoUrl: urlLogotipoSociedade(org),
         }),
         template: "confirmacao_rececao",
         organizacaoId: processo.organizacaoId,

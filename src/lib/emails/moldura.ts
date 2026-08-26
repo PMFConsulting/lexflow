@@ -48,14 +48,31 @@ export const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
 const logotipo = () =>
   `${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/lexflow.png`;
 
-export const moldura = (conteudo: string, corAcento: string = MARCA) => `
+export function urlLogotipoSociedade(org?: {
+  id: string;
+  logotipoDados?: string | null;
+  logotipoAtualizadoEm?: Date | string | null;
+} | null): string | null {
+  if (!org?.logotipoDados) return null;
+  const base = (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  const t = org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now();
+  return `${base}/api/sociedade/logotipo?sociedadeId=${org.id}&t=${t}`;
+}
+
+export const moldura = (
+  conteudo: string,
+  corAcento: string = MARCA,
+  logotipoUrl?: string | null,
+) => {
+  const urlLogo = logotipoUrl || logotipo();
+  return `
 <div style="background:${PAPEL};padding:32px 16px;font-family:${FONTE_CORPO};">
   <div style="max-width:560px;margin:0 auto;">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"
            style="margin:0 auto 22px;text-align:center;">
       <tr>
         <td style="text-align:center;">
-          <img src="${logotipo()}" alt="LexFlow" width="150"
+          <img src="${urlLogo}" alt="LexFlow" width="150"
                style="display:block;margin:0 auto;max-width:100%;height:auto;">
         </td>
       </tr>
@@ -78,6 +95,7 @@ export const moldura = (conteudo: string, corAcento: string = MARCA) => `
     </p>
   </div>
 </div>`;
+};
 
 export const p = (texto: string) =>
   `<p style="font-family:${FONTE_CORPO};font-size:14px;line-height:1.7;color:${TINTA_SUAVE};margin:0 0 14px;">${texto}</p>`;

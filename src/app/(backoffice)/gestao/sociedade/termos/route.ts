@@ -20,7 +20,7 @@ export async function GET(pedido: Request) {
   const termos = await termosEmVigor(eu.organizacaoId);
   if (termos.forma !== "documento") {
     return NextResponse.json(
-      { erro: "Ainda não há articulado publicado." },
+      { erro: "Ainda não há Termos e Condições publicados." },
       { status: 404 },
     );
   }

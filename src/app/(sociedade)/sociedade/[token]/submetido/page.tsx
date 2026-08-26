@@ -52,6 +52,9 @@ export default async function SociedadeSubmetida({
   }
 
   const { onboarding, org } = linha;
+  const logotipoUrl = org.logotipoDados
+    ? `/api/sociedade/logotipo?sociedadeId=${org.id}&t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
+    : null;
 
   // Ainda em rascunho: quem chegou aqui à mão não submeteu nada, e dizer-lhe
   // que está submetido era mentir-lhe sobre o estado do próprio registo.
@@ -59,7 +62,7 @@ export default async function SociedadeSubmetida({
     return (
       <div className="bg-papel grid min-h-svh place-items-center px-4 py-10">
         <div className="w-full max-w-md text-center">
-          <Logotipo className="mx-auto h-14 w-auto" />
+          <Logotipo logotipoUrl={logotipoUrl} titulo={org.nome} className="mx-auto h-14 w-auto" />
           <p className="mt-6 text-sm text-muted-foreground">
             O registo ainda não foi submetido.{" "}
             <a className="underline" href={`/sociedade/${acesso.token}/passo/${onboarding.passoAtual}`}>
@@ -88,7 +91,7 @@ export default async function SociedadeSubmetida({
     <div className="bg-papel grid min-h-svh place-items-center px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="mb-8 flex flex-col items-center">
-          <Logotipo className="h-14 w-auto" />
+          <Logotipo logotipoUrl={logotipoUrl} titulo={org.nome} className="h-14 w-auto" />
           <p className="text-2xs mt-3 font-mono tracking-[0.16em] text-muted-foreground uppercase">
             Registo da sociedade
           </p>

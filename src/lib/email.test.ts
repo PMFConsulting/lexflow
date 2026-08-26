@@ -17,6 +17,13 @@ let gravacaoRebenta = false;
 let atualizacaoRebenta = false;
 let ambiente: Record<string, unknown> = {};
 let ambienteRebenta: Error | null = null;
+/**
+ * O remetente da organização, tal como estaria na linha da `organizacao`.
+ * `null` é a sociedade que não configurou nada — o estado de toda a instalação
+ * antes do whitelabel.
+ */
+let remetenteDaOrg: string | null = null;
+let leituraDaOrgRebenta = false;
 
 vi.mock("@/env", () => ({
   env: () => {
@@ -29,6 +36,17 @@ vi.mock("@/db/schema/email", () => ({ emailLog: "email_log" }));
 
 vi.mock("@/db", () => ({
   db: () => ({
+    /** A leitura do remetente da sociedade, em `remetenteDaOrganizacao`. */
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => {
+            if (leituraDaOrgRebenta) throw new Error('relation "organizacao" does not exist');
+            return [{ de: remetenteDaOrg }];
+          },
+        }),
+      }),
+    }),
     insert: () => ({
       values: async (v: Record<string, unknown>) => {
         if (gravacaoRebenta) throw new Error('relation "email_log" does not exist');
@@ -68,6 +86,8 @@ beforeEach(() => {
   gravacaoRebenta = false;
   atualizacaoRebenta = false;
   ambienteRebenta = null;
+  remetenteDaOrg = null;
+  leituraDaOrgRebenta = false;
   ambiente = { RESEND_API_KEY: "re_teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -349,6 +369,150 @@ describe("enviarEmail", () => {
 });
 
 /**
+ * O remetente, agora por sociedade.
+ *
+ * A regra numa linha: **o da sociedade quando ela tem um, o da instalação
+ * quando não tem**. O defeito que isto fecha não dá erro nenhum — dá um cliente
+ * da segunda sociedade a receber um pedido de documentos de identificação
+ * assinado com o domínio da primeira, e a não responder, que é o que ele deve
+ * fazer.
+ */
+describe("remetente por sociedade", () => {
+  const corpoEnviado = (espia: ReturnType<typeof espiarFetch>, parte: string) =>
+    JSON.parse(
+      String(
+        (espia.mock.calls.find(([url]) => String(url).includes(parte)) as [string, RequestInit])[1]
+          .body,
+      ),
+    );
+
+  it("sem organização, usa o remetente global e não vai à base de dados", async () => {
+    const espia = responde(200, '{"id":"abc"}');
+
+    await enviarEmail(base);
+
+    expect(corpoEnviado(espia, "resend").from).toBe("POC@jmassano.pt");
+  });
+
+  it("com a sociedade sem remetente configurado, continua a usar o global", async () => {
+    remetenteDaOrg = null;
+    const espia = responde(200, '{"id":"abc"}');
+
+    await enviarEmail({ ...base, organizacaoId: "org-1" });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("POC@jmassano.pt");
+  });
+
+  it("com remetente na sociedade, o «de» é esse", async () => {
+    remetenteDaOrg = "geral@andradecosta.pt";
+    const espia = responde(200, '{"id":"abc"}');
+
+    await enviarEmail({ ...base, organizacaoId: "org-1" });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("geral@andradecosta.pt");
+  });
+
+  /**
+   * Um remetente gravado com espaços à volta (uma colagem) não é um remetente
+   * diferente — mas `" geral@x.pt "` no header `From` é recusado por qualquer
+   * fornecedor, e o erro que volta não fala de espaços.
+   */
+  it("corta os espaços em volta do remetente da sociedade", async () => {
+    remetenteDaOrg = "  geral@andradecosta.pt  ";
+    const espia = responde(200, '{"id":"abc"}');
+
+    await enviarEmail({ ...base, organizacaoId: "org-1" });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("geral@andradecosta.pt");
+  });
+
+  it("um remetente vazio na sociedade não apaga o global", async () => {
+    remetenteDaOrg = "   ";
+    const espia = responde(200, '{"id":"abc"}');
+
+    await enviarEmail({ ...base, organizacaoId: "org-1" });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("POC@jmassano.pt");
+  });
+
+  /**
+   * A leitura da sociedade fica entre quem chama e o envio. Uma linha que não se
+   * consegue ler não é razão para o cliente ficar sem o link: o email sai à
+   * mesma, de um endereço apenas menos certo, e a consola di-lo.
+   */
+  it("se a leitura da sociedade rebentar, envia do global em vez de falhar", async () => {
+    leituraDaOrgRebenta = true;
+    const espia = responde(200, '{"id":"abc"}');
+
+    await expect(enviarEmail({ ...base, organizacaoId: "org-1" })).resolves.toMatchObject({
+      ok: true,
+    });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("POC@jmassano.pt");
+    expect(consolaAviso).toHaveBeenCalledWith(
+      expect.stringContaining("could not read the sender"),
+      expect.anything(),
+    );
+  });
+
+  it("o «remetente» explícito ganha à sociedade e ao global", async () => {
+    remetenteDaOrg = "geral@andradecosta.pt";
+    const espia = responde(200, '{"id":"abc"}');
+
+    await enviarEmail({ ...base, organizacaoId: "org-1", remetente: "diagnostico@lexflow.pt" });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("diagnostico@lexflow.pt");
+  });
+
+  /**
+   * O remetente resolve-se **uma vez** e vai igual para os quatro canais. Sem
+   * isso, um recuo para o canal seguinte trocava o endereço a meio da cadeia —
+   * uma diferença que ninguém vê até um cliente perguntar quem lhe escreveu.
+   */
+  it("o mesmo remetente segue para o Mailjet e para o Brevo no recuo", async () => {
+    remetenteDaOrg = "geral@andradecosta.pt";
+    ambiente = {
+      RESEND_API_KEY: "re_teste",
+      MAILJET_API_KEY: "mj_chave",
+      MAILJET_SECRET_KEY: "mj_segredo",
+      BREVO_API_KEY: "xkeysib-teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url) => {
+      if (url.includes("brevo")) return new Response('{"messageId":"<1@brevo>"}', { status: 201 });
+      return new Response("recusado", { status: 401 });
+    });
+
+    await expect(enviarEmail({ ...base, organizacaoId: "org-1" })).resolves.toMatchObject({
+      ok: true,
+      canal: "brevo",
+    });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("geral@andradecosta.pt");
+    expect(corpoEnviado(espia, "mailjet").Messages[0].From.Email).toBe("geral@andradecosta.pt");
+    expect(corpoEnviado(espia, "brevo").sender.email).toBe("geral@andradecosta.pt");
+  });
+
+  /**
+   * O 403 mais caro de todos passa a ser o da sociedade que configurou o
+   * endereço e nunca verificou o domínio. Sem o remetente na mensagem, a recusa
+   * não diz o que corrigir — e agora ele é o da sociedade, não o valor por
+   * omissão que ninguém escreveu.
+   */
+  it("o 403 do Resend nomeia o remetente da sociedade", async () => {
+    remetenteDaOrg = "geral@andradecosta.pt";
+    responde(403, '{"message":"The andradecosta.pt domain is not verified"}');
+
+    const r = await enviarEmail({ ...base, organizacaoId: "org-1" });
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.erro).toContain("de=geral@andradecosta.pt");
+    expect(r.erro).toContain("not verified");
+  });
+});
+
+/**
  * The log's new half: what happened to the message **after** the provider
  * accepted it.
  *
@@ -364,7 +528,7 @@ describe("enviarEmail", () => {
       MAILJET_SECRET_KEY: "mj_segredo",
       EMAIL_REMETENTE: "POC@jmassano.pt",
     };
-    const espia = espiarFetch(async (url, opcoes) => {
+    const espia = espiarFetch(async (url, _opcoes) => {
       if (url.includes("mailjet")) return new Response('{"Messages":[{"To":[{"MessageID":"mj-1"}]}]}', { status: 200 });
       return new Response("{}", { status: 500 });
     });

@@ -44,9 +44,11 @@ export const ASSUNTO_CONVITE_SOCIEDADE = "LexFlow | Registo da sociedade";
 export function emailConviteSociedade({
   sociedade,
   link,
+  logotipoUrl,
 }: {
   sociedade: string;
   link: string;
+  logotipoUrl?: string | null;
 }): string {
   const href = escapar(link);
   return moldura(
@@ -74,6 +76,7 @@ export function emailConviteSociedade({
     ${p("Ficamos ao dispor para qualquer esclarecimento.")}
   `,
     ARQUIVO,
+    logotipoUrl,
   );
 }
 
@@ -99,11 +102,13 @@ export function emailConviteUtilizador({
   sociedade,
   link,
   papel,
+  logotipoUrl,
 }: {
   nome?: string | null;
   sociedade: string;
   link: string;
   papel: keyof typeof PAPEIS;
+  logotipoUrl?: string | null;
 }): string {
   const href = escapar(link);
   const eAdmin = papel === "society_admin";
@@ -136,5 +141,6 @@ export function emailConviteUtilizador({
     )}
   `,
     LATAO,
+    logotipoUrl,
   );
 }

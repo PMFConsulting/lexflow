@@ -45,12 +45,20 @@ export default async function LayoutSociedade({
     documentos.map((d) => d.tipo),
   );
 
+  const logotipoUrl = org.logotipoDados
+    ? `/api/sociedade/logotipo?sociedadeId=${org.id}&t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
+    : null;
+
   return (
     <div className="bg-papel min-h-svh">
       <header className="border-linha bg-papel-alto border-b">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <Logotipo className="h-9 w-auto max-w-[40vw] shrink-0 sm:h-11" />
+            <Logotipo
+              logotipoUrl={logotipoUrl}
+              titulo={org.nome}
+              className="h-9 w-auto max-w-[40vw] shrink-0 sm:h-11"
+            />
             <p className="text-2xs min-w-0 truncate font-mono tracking-[0.16em] text-muted-foreground uppercase">
               Registo da sociedade
             </p>
@@ -69,7 +77,6 @@ export default async function LayoutSociedade({
             gravados={gravados}
             base={`/sociedade/${token}`}
             rotulo="Passos do registo"
-            contador="Registo"
           />
         </aside>
 

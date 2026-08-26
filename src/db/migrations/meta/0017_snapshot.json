@@ -429,6 +429,78 @@
           "primaryKey": false,
           "notNull": true
         },
+        "natureza_juridica": {
+          "name": "natureza_juridica",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "numero_ordem": {
+          "name": "numero_ordem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_geral": {
+          "name": "email_geral",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telefone": {
+          "name": "telefone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "website": {
+          "name": "website",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "morada": {
+          "name": "morada",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pais": {
+          "name": "pais",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "localidade": {
+          "name": "localidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "codigo_postal": {
+          "name": "codigo_postal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "freguesia": {
+          "name": "freguesia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "concelho": {
+          "name": "concelho",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "distrito": {
+          "name": "distrito",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "termos_documento_ref": {
           "name": "termos_documento_ref",
           "type": "text",
@@ -2029,6 +2101,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "tc_versao": {
+          "name": "tc_versao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "proposta_aceitacao": {
           "name": "proposta_aceitacao",
@@ -3810,6 +3888,988 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
+    },
+    "public.aceitacao_termos": {
+      "name": "aceitacao_termos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organizacao_id": {
+          "name": "organizacao_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "convite_id": {
+          "name": "convite_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "utilizador_id": {
+          "name": "utilizador_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "versao": {
+          "name": "versao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "documento_ref": {
+          "name": "documento_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aceite_em": {
+          "name": "aceite_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ip": {
+          "name": "ip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "aceitacao_org": {
+          "name": "aceitacao_org",
+          "columns": [
+            {
+              "expression": "organizacao_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "versao",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "aceitacao_utilizador": {
+          "name": "aceitacao_utilizador",
+          "columns": [
+            {
+              "expression": "utilizador_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "aceitacao_termos_organizacao_id_organizacao_id_fk": {
+          "name": "aceitacao_termos_organizacao_id_organizacao_id_fk",
+          "tableFrom": "aceitacao_termos",
+          "tableTo": "organizacao",
+          "columnsFrom": [
+            "organizacao_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "aceitacao_termos_convite_id_convite_utilizador_id_fk": {
+          "name": "aceitacao_termos_convite_id_convite_utilizador_id_fk",
+          "tableFrom": "aceitacao_termos",
+          "tableTo": "convite_utilizador",
+          "columnsFrom": [
+            "convite_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "aceitacao_termos_utilizador_id_utilizador_id_fk": {
+          "name": "aceitacao_termos_utilizador_id_utilizador_id_fk",
+          "tableFrom": "aceitacao_termos",
+          "tableTo": "utilizador",
+          "columnsFrom": [
+            "utilizador_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.convite_utilizador": {
+      "name": "convite_utilizador",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organizacao_id": {
+          "name": "organizacao_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "papel": {
+          "name": "papel",
+          "type": "papel_utilizador",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'utilizador'"
+        },
+        "token_acesso_hash": {
+          "name": "token_acesso_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expira_em": {
+          "name": "expira_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estado": {
+          "name": "estado",
+          "type": "estado_convite",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendente'"
+        },
+        "passo_atual": {
+          "name": "passo_atual",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "utilizador_id": {
+          "name": "utilizador_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aceite_em": {
+          "name": "aceite_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "apagado_em": {
+          "name": "apagado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "convite_org": {
+          "name": "convite_org",
+          "columns": [
+            {
+              "expression": "organizacao_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "estado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "convite_email": {
+          "name": "convite_email",
+          "columns": [
+            {
+              "expression": "organizacao_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "convite_utilizador_organizacao_id_organizacao_id_fk": {
+          "name": "convite_utilizador_organizacao_id_organizacao_id_fk",
+          "tableFrom": "convite_utilizador",
+          "tableTo": "organizacao",
+          "columnsFrom": [
+            "organizacao_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "convite_utilizador_utilizador_id_utilizador_id_fk": {
+          "name": "convite_utilizador_utilizador_id_utilizador_id_fk",
+          "tableFrom": "convite_utilizador",
+          "tableTo": "utilizador",
+          "columnsFrom": [
+            "utilizador_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "convite_utilizador_criado_por_utilizador_id_fk": {
+          "name": "convite_utilizador_criado_por_utilizador_id_fk",
+          "tableFrom": "convite_utilizador",
+          "tableTo": "utilizador",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "convite_utilizador_token_acesso_hash_unique": {
+          "name": "convite_utilizador_token_acesso_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_acesso_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.documento_organizacao": {
+      "name": "documento_organizacao",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organizacao_id": {
+          "name": "organizacao_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "convite_id": {
+          "name": "convite_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "tipo_documento_organizacao",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'outro'"
+        },
+        "nome_original": {
+          "name": "nome_original",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mime": {
+          "name": "mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tamanho_bytes": {
+          "name": "tamanho_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hash_sha256": {
+          "name": "hash_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave_storage": {
+          "name": "chave_storage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dados": {
+          "name": "dados",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validade": {
+          "name": "validade",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "carregado_por": {
+          "name": "carregado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "extra": {
+          "name": "extra",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "apagado_em": {
+          "name": "apagado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "documento_org": {
+          "name": "documento_org",
+          "columns": [
+            {
+              "expression": "organizacao_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tipo",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "documento_org_convite": {
+          "name": "documento_org_convite",
+          "columns": [
+            {
+              "expression": "convite_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "documento_organizacao_organizacao_id_organizacao_id_fk": {
+          "name": "documento_organizacao_organizacao_id_organizacao_id_fk",
+          "tableFrom": "documento_organizacao",
+          "tableTo": "organizacao",
+          "columnsFrom": [
+            "organizacao_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "documento_organizacao_carregado_por_utilizador_id_fk": {
+          "name": "documento_organizacao_carregado_por_utilizador_id_fk",
+          "tableFrom": "documento_organizacao",
+          "tableTo": "utilizador",
+          "columnsFrom": [
+            "carregado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.onboarding_sociedade": {
+      "name": "onboarding_sociedade",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organizacao_id": {
+          "name": "organizacao_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_acesso_hash": {
+          "name": "token_acesso_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expira_em": {
+          "name": "expira_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estado": {
+          "name": "estado",
+          "type": "estado_onboarding_sociedade",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'rascunho'"
+        },
+        "passo_atual": {
+          "name": "passo_atual",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "submetido_em": {
+          "name": "submetido_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "admin_nome": {
+          "name": "admin_nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "admin_email": {
+          "name": "admin_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "admin_telefone": {
+          "name": "admin_telefone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "declaracao_vinculo": {
+          "name": "declaracao_vinculo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "declaracao_nome": {
+          "name": "declaracao_nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "declaracao_cargo": {
+          "name": "declaracao_cargo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "extra": {
+          "name": "extra",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "apagado_em": {
+          "name": "apagado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "onboarding_sociedade_estado": {
+          "name": "onboarding_sociedade_estado",
+          "columns": [
+            {
+              "expression": "estado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "onboarding_sociedade_organizacao_id_organizacao_id_fk": {
+          "name": "onboarding_sociedade_organizacao_id_organizacao_id_fk",
+          "tableFrom": "onboarding_sociedade",
+          "tableTo": "organizacao",
+          "columnsFrom": [
+            "organizacao_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "onboarding_sociedade_organizacao_id_unique": {
+          "name": "onboarding_sociedade_organizacao_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organizacao_id"
+          ]
+        },
+        "onboarding_sociedade_token_acesso_hash_unique": {
+          "name": "onboarding_sociedade_token_acesso_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_acesso_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.perfil_utilizador": {
+      "name": "perfil_utilizador",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organizacao_id": {
+          "name": "organizacao_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "convite_id": {
+          "name": "convite_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "utilizador_id": {
+          "name": "utilizador_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nome_completo": {
+          "name": "nome_completo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data_nascimento": {
+          "name": "data_nascimento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nif": {
+          "name": "nif",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telefone": {
+          "name": "telefone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "doc_tipo": {
+          "name": "doc_tipo",
+          "type": "tipo_doc_id",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "doc_numero": {
+          "name": "doc_numero",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "doc_validade": {
+          "name": "doc_validade",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "morada": {
+          "name": "morada",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pais": {
+          "name": "pais",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "localidade": {
+          "name": "localidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "codigo_postal": {
+          "name": "codigo_postal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "freguesia": {
+          "name": "freguesia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "concelho": {
+          "name": "concelho",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "distrito": {
+          "name": "distrito",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cedula_profissional": {
+          "name": "cedula_profissional",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "conselho_regional": {
+          "name": "conselho_regional",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data_inscricao_oa": {
+          "name": "data_inscricao_oa",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cargo": {
+          "name": "cargo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "areas_pratica": {
+          "name": "areas_pratica",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "informacao_rgpd_em": {
+          "name": "informacao_rgpd_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sigilo_profissional": {
+          "name": "sigilo_profissional",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "sigilo_aceite_em": {
+          "name": "sigilo_aceite_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "comunicacoes_internas": {
+          "name": "comunicacoes_internas",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "apagado_em": {
+          "name": "apagado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "perfil_org": {
+          "name": "perfil_org",
+          "columns": [
+            {
+              "expression": "organizacao_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "perfil_utilizador_unico": {
+          "name": "perfil_utilizador_unico",
+          "columns": [
+            {
+              "expression": "utilizador_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "perfil_utilizador_organizacao_id_organizacao_id_fk": {
+          "name": "perfil_utilizador_organizacao_id_organizacao_id_fk",
+          "tableFrom": "perfil_utilizador",
+          "tableTo": "organizacao",
+          "columnsFrom": [
+            "organizacao_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "perfil_utilizador_convite_id_convite_utilizador_id_fk": {
+          "name": "perfil_utilizador_convite_id_convite_utilizador_id_fk",
+          "tableFrom": "perfil_utilizador",
+          "tableTo": "convite_utilizador",
+          "columnsFrom": [
+            "convite_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "perfil_utilizador_utilizador_id_utilizador_id_fk": {
+          "name": "perfil_utilizador_utilizador_id_utilizador_id_fk",
+          "tableFrom": "perfil_utilizador",
+          "tableTo": "utilizador",
+          "columnsFrom": [
+            "utilizador_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "perfil_utilizador_convite_id_unique": {
+          "name": "perfil_utilizador_convite_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "convite_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -3823,6 +4883,15 @@
         "smtp"
       ]
     },
+    "public.estado_convite": {
+      "name": "estado_convite",
+      "schema": "public",
+      "values": [
+        "pendente",
+        "aceite",
+        "cancelado"
+      ]
+    },
     "public.estado_email": {
       "name": "estado_email",
       "schema": "public",
@@ -3832,6 +4901,15 @@
         "entregue",
         "devolvido",
         "queixa"
+      ]
+    },
+    "public.estado_onboarding_sociedade": {
+      "name": "estado_onboarding_sociedade",
+      "schema": "public",
+      "values": [
+        "rascunho",
+        "submetido",
+        "ativo"
       ]
     },
     "public.estado_processo": {
@@ -3907,7 +4985,9 @@
         "notificacao_backoffice",
         "rejeicao",
         "reabertura",
-        "otp"
+        "otp",
+        "convite_sociedade",
+        "convite_utilizador"
       ]
     },
     "public.tipo_cliente": {
@@ -3942,6 +5022,17 @@
         "outro",
         "proposta_comercial",
         "termos_sociedade"
+      ]
+    },
+    "public.tipo_documento_organizacao": {
+      "name": "tipo_documento_organizacao",
+      "schema": "public",
+      "values": [
+        "termos_sociedade",
+        "identificacao",
+        "cedula_profissional",
+        "certidao_sociedade",
+        "outro"
       ]
     },
     "public.titular_nacionalidade": {

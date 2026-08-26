@@ -269,6 +269,58 @@ describe("o gate da organização", () => {
   });
 });
 
+/* ------------------------------------------- a redefinição obrigatória */
+
+/**
+ * A conta criada por um administrador nasce com uma palavra-passe gerada e
+ * enviada por email — um segredo que já viajou por um canal que não é secreto.
+ * Enquanto ela não for trocada, a plataforma inteira está fechada.
+ *
+ * O desvio está em `exigirSessao` de propósito, e é isso que estes testes
+ * fixam: **todos** os guards de papel passam por lá, por isso não há página nem
+ * Server Action autenticado que possa esquecer-se dele. Um desvio posto em cada
+ * página seria um desvio esquecido na página seguinte.
+ */
+describe("a redefinição obrigatória da palavra-passe", () => {
+  it("qualquer guard manda para o ecrã de definição, seja qual for o papel", async () => {
+    entrarComo("super_admin", { deveRedefinirPassword: true });
+    expect(await destinoDe(exigirSuperAdmin)).toBe("/definir-palavra-passe");
+    expect(await destinoDe(exigirGestorDeUtilizadores)).toBe("/definir-palavra-passe");
+
+    entrarComo("society_admin", { deveRedefinirPassword: true });
+    expect(await destinoDe(exigirSocietyAdmin)).toBe("/definir-palavra-passe");
+
+    entrarComo("utilizador", { deveRedefinirPassword: true });
+    expect(await destinoDe(exigirEquipaDaSociedade)).toBe("/definir-palavra-passe");
+  });
+
+  /**
+   * O desvio vem **antes** da verificação de papel: quem tem a marca não deve
+   * receber "esta página não é para si" sobre uma página onde o problema é
+   * outro, nem ser mandado para um portal em que também não pode entrar.
+   */
+  it("a marca decide antes do papel", async () => {
+    entrarComo("utilizador", { deveRedefinirPassword: true });
+    expect(await destinoDe(exigirSuperAdmin)).toBe("/definir-palavra-passe");
+  });
+
+  it("sem a marca, nada muda", async () => {
+    entrarComo("society_admin", { deveRedefinirPassword: false });
+    expect(await destinoDe(exigirSocietyAdmin)).toBeNull();
+  });
+
+  /**
+   * A coluna é `not null` na base de dados, mas uma sessão montada por um teste
+   * — ou uma leitura de uma base anterior à `0020` — pode não a trazer. O recuo
+   * tem de ser "não é preciso redefinir": o contrário trancava toda a gente
+   * fora da plataforma num ecrã que não tem saída.
+   */
+  it("uma coluna ausente não tranca ninguém", async () => {
+    entrarComo("society_admin");
+    expect(await destinoDe(exigirSocietyAdmin)).toBeNull();
+  });
+});
+
 /* ---------------------------------------------------------------- a sessão */
 
 describe("sessaoAtual", () => {

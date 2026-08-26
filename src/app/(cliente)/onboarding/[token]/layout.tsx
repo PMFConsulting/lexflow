@@ -3,6 +3,7 @@ import { acessoPorToken, passosGravados, seccoesDoProcesso } from "@/features/on
 import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndisponivel";
 import { Lombada } from "@/features/onboarding/componentes/Lombada";
 import { Ref } from "@/components/ref-processo";
+import { sociedadeDe } from "@/features/administracao/consultas";
 
 export const metadata = { title: "Onboarding" };
 
@@ -22,8 +23,15 @@ export default async function LayoutOnboarding({
 
   const { processo, token } = acesso;
 
-  const seccoes = await seccoesDoProcesso(processo.id);
+  const [seccoes, org] = await Promise.all([
+    seccoesDoProcesso(processo.id),
+    sociedadeDe(processo.organizacaoId),
+  ]);
   const gravados = passosGravados(seccoes, processo.tipoCliente);
+
+  const logotipoUrl = org?.logotipoDados
+    ? `/api/sociedade/logotipo?sociedadeId=${org.id}&t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
+    : null;
 
   return (
     <div className="bg-papel min-h-svh">
@@ -36,7 +44,11 @@ export default async function LayoutOnboarding({
               fica presa no `h-11` e a largura cede, que é o logo esticado. Quem
               encolhe passa a ser o texto ao lado, que tem por onde. */}
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <Logotipo className="h-9 w-auto max-w-[40vw] shrink-0 sm:h-11" />
+            <Logotipo
+              logotipoUrl={logotipoUrl}
+              titulo={org?.nome ?? undefined}
+              className="h-9 w-auto max-w-[40vw] shrink-0 sm:h-11"
+            />
             <p className="text-2xs min-w-0 truncate font-mono tracking-[0.16em] text-muted-foreground uppercase">
               Onboarding de cliente
             </p>

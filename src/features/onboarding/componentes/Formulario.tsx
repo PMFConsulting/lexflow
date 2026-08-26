@@ -309,12 +309,11 @@ export function Formulario({
   const passo = PASSOS.find((p) => p.n === n)!;
 
   /**
-   * A proposta comercial que a sociedade anexou ao convite, se anexou.
+   * A proposta comercial que a sociedade anexou ao processo.
    *
    * Sai dos documentos do processo — não é preciso consulta nenhuma nova, o
    * `seccoesDoProcesso` já os traz — e o URL é a rota autorizada pelo mesmo
-   * token que abriu esta página. Sem anexo fica `null`, e o leitor volta ao
-   * documento genérico de `public/`, como antes de isto existir.
+   * token que abriu esta página. Sem anexo fica `null`, e o cliente fica bloqueado.
    */
   const anexo = seccoes.documentos.find((d) => d.tipo === "proposta_comercial");
   const propostaAnexada = anexo
@@ -1011,9 +1010,7 @@ export function Formulario({
             <div>
               <h2 className="text-lg">Proposta de Honorários</h2>
               <p className="text-sm text-muted-foreground">
-                {propostaAnexada
-                  ? "Ao aceitar, confirma que leu e aceita os serviços e as condições descritos na proposta comercial que a sociedade lhe enviou."
-                  : "Ao aceitar, confirma que leu e aceita os serviços e as condições descritos na proposta que lhe foi apresentada."}
+                Ao aceitar, confirma que leu e aceita os serviços e as condições descritos na proposta comercial que a sociedade lhe enviou.
               </p>
             </div>
 
@@ -1027,8 +1024,12 @@ export function Formulario({
               etiqueta="Aceito a proposta de honorários."
               nome="propostaAceitacao"
               erros={erros}
-              desativado={!propostaLida}
-              ajudaDesativado="Abra o documento acima e percorra-o até ao fim para poder aceitar."
+              desativado={!propostaAnexada || !propostaLida}
+              ajudaDesativado={
+                !propostaAnexada
+                  ? "A sociedade ainda não anexou a proposta deste processo. Para continuar, contacte-a."
+                  : "Abra o documento acima para poder aceitar."
+              }
               valorInicial={seccoes.fecho?.propostaAceitacao ?? false}
             />
 

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { alterarEstadoDaConta, criarUtilizador, importarUtilizadores } from "../acoes";
 import type { ContaCriada } from "../contas";
 import { MODELO_CSV, type LinhaRecusada } from "../importacao";
-import { Credenciais } from "./Credenciais";
+import { ContasCriadas } from "./ContasCriadas";
 import { Erro, ErroGeral } from "./Erro";
 
 /**
@@ -79,7 +79,6 @@ export function GestaoUtilizadores({
           email: String(fd.get("email") ?? ""),
           papel: String(fd.get("papel") ?? ""),
           organizacaoId,
-          palavraPasse: String(fd.get("palavraPasse") ?? "").trim() || undefined,
         });
 
         if (!r.ok) {
@@ -87,9 +86,9 @@ export function GestaoUtilizadores({
           return;
         }
 
-        // As credenciais acumulam-se em vez de se substituírem: quem cria três
-        // contas seguidas precisa das três, e mostrar só a última era perder as
-        // outras duas sem aviso nenhum.
+        // As confirmações acumulam-se em vez de se substituírem: quem cria três
+        // contas seguidas precisa de ver as três — e sobretudo de ver qual das
+        // três ficou com o email por sair.
         setCriadas((c) => [...c, r.conta]);
         formulario.current?.reset();
       } catch (e) {
@@ -147,7 +146,7 @@ export function GestaoUtilizadores({
     <div className="flex flex-col gap-5">
       <ErroGeral erros={erros} />
 
-      <Credenciais contas={criadas} titulo="Credenciais criadas" />
+      <ContasCriadas contas={criadas} titulo="Contas criadas" />
 
       {/* ---------------------------------------------------------- a lista */}
 
@@ -250,19 +249,12 @@ export function GestaoUtilizadores({
               <Erro erros={erros} campo="papel" />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${base}-pw`}>Palavra-passe (opcional)</Label>
-              <Input
-                id={`${base}-pw`}
-                name="palavraPasse"
-                className="font-mono"
-                autoComplete="new-password"
-              />
-              <p className="text-2xs text-muted-foreground">
-                Em branco, é gerada — e mostrada uma única vez a seguir.
-              </p>
-              <Erro erros={erros} campo="palavraPasse" />
-            </div>
+            {/* Não há campo de palavra-passe, e o ecrã diz porquê: sem esta
+                linha, a ausência lê-se como um campo que falta. */}
+            <p className="text-2xs border-linha rounded-xs border border-dashed p-2.5 text-muted-foreground">
+              A palavra-passe é gerada pela plataforma e enviada por email para a pessoa. É
+              temporária: ela terá de definir uma sua no primeiro início de sessão.
+            </p>
 
             <Button type="submit" disabled={aGravar} className="self-start">
               {aGravar ? "A criar…" : "Criar conta"}

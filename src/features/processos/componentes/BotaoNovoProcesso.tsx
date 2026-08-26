@@ -107,12 +107,7 @@ type Resultado = {
    */
   paraServidor: string | null;
   /**
-   * A proposta comercial, quando foi escolhida uma.
-   *
-   * `null` quando não se anexou nada — que continua a ser um caso legítimo: a
-   * proposta pode ainda estar por fechar quando o dossier se abre, e o cliente
-   * pode começar a preencher sem ela. Sem anexo, o passo 7 mostra a proposta
-   * genérica, como fazia antes.
+   * A proposta comercial obrigatória do processo.
    */
   proposta: { nome: string; ok: boolean; erro?: string } | null;
 };
@@ -331,15 +326,13 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
     if (destinatario && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
       novos.email = "Falta o @ ou o domínio — por exemplo nome@empresa.pt.";
     }
-    // O servidor recusa pelas mesmas duas razões; dizê-lo aqui poupa a subida de
-    // um ficheiro que já se sabe que não entra — e, sobretudo, poupa criar o
-    // processo primeiro e só depois descobrir que a proposta ficou de fora.
-    if (proposta) {
-      if (proposta.size > MAX_PROPOSTA) {
-        novos.proposta = `A proposta tem ${(proposta.size / 1024 / 1024).toFixed(1)} MB. O máximo são 4 MB.`;
-      } else if (!proposta.name.toLowerCase().endsWith(".pdf")) {
-        novos.proposta = `«${proposta.name}» não é um PDF. A proposta comercial tem de ser um ficheiro PDF.`;
-      }
+    // A proposta comercial é obrigatória: sem ela o processo não pode ser criado.
+    if (!proposta) {
+      novos.proposta = "Anexe a proposta comercial em PDF para criar o processo.";
+    } else if (proposta.size > MAX_PROPOSTA) {
+      novos.proposta = `A proposta tem ${(proposta.size / 1024 / 1024).toFixed(1)} MB. O máximo são 4 MB.`;
+    } else if (!proposta.name.toLowerCase().endsWith(".pdf")) {
+      novos.proposta = `«${proposta.name}» não é um PDF. A proposta comercial tem de ser um ficheiro PDF.`;
     }
 
     setErros(novos);
@@ -382,8 +375,8 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
          * dizer a verdade no ecrã seguinte — o dossier está aberto, o link é
          * válido, e a proposta ou entrou ou não entrou. Um upload falhado a
          * apresentar-se como criação falhada mandava repetir tudo e deixava atrás
-         * um processo órfão; a apresentar-se como silêncio, deixava o cliente a
-         * aceitar a proposta genérica sem ninguém saber porquê.
+         * um processo órfão; a apresentar-se como silêncio, deixava o cliente
+         * bloqueado sem a proposta comercial.
          */
         let estadoProposta: Resultado["proposta"] = null;
         if (proposta) {
@@ -541,7 +534,7 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
                   <>
                     <span>
                       O processo foi criado, mas a proposta <strong>não ficou anexada</strong>.
-                      Sem ela, o cliente aceita a proposta genérica.
+                      Falta anexar a proposta no detalhe do processo para o cliente poder continuar.
                     </span>
                     <span className="font-mono break-all opacity-80">
                       {resultado.proposta.erro}
@@ -770,18 +763,12 @@ function Conteudo({ aoFechar }: { aoFechar: () => void }) {
             />
           </Campo>
 
-          {/* A proposta comercial deste cliente.
-              Opcional, e é uma decisão e não uma folga: a proposta pode ainda
-              estar por fechar quando o dossier se abre, e obrigar a tê-la para
-              poder criar o processo seria travar o passo 1 do cliente por causa
-              do passo 7. Sem ela, o fecho mostra a proposta genérica; com ela,
-              mostra esta — e é esta que ele aceita. */}
+          {/* A proposta comercial deste cliente. Obrigatória: é o documento que ele lê e aceita. */}
           <Campo
             id={idProposta}
             etiqueta="Proposta comercial"
-            opcional
             erro={erros.proposta}
-            ajuda="PDF, até 4 MB. É o documento que o cliente lê e aceita no último passo. Pode anexá-lo mais tarde, no detalhe do processo."
+            ajuda="PDF, até 4 MB. É o documento que o cliente lê e aceita no último passo."
           >
             <input
               id={idProposta}
