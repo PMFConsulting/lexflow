@@ -16,12 +16,34 @@ import { processoOnboarding } from "@/db/schema/processo";
 /**
  * As sociedades, com os números que dizem se estão vivas.
  *
- * As contagens vão em subconsultas e não em `join` + `group by`: com dois
- * `join` sobre a mesma linha (contas e processos) as contagens multiplicam-se
- * uma pela outra, e uma sociedade com 3 contas e 4 processos aparecia com 12
- * de cada. É o erro clássico e não dá erro nenhum — dá números plausíveis.
+ * As contagens **não** podem ir em subconsulta correlacionada escrita num
+ * `sql` template dentro da lista de campos. O Drizzle constrói a lista de
+ * campos com `buildSelection({ isSingleTable })`, e quando a consulta tem uma
+ * tabela só — que é o caso aqui, `from(organizacao)` sem `join` — ele **retira
+ * o prefixo de tabela a todas as colunas** que apareçam nesses templates. O que
+ * saía era isto:
+ *
+ *   (select count(*)::int from "utilizador" where "organizacao_id" = "id" ...)
+ *
+ * Dentro da subconsulta, `"id"` já não é o da organização: resolve para
+ * `utilizador.id`. A condição passa a comparar duas colunas da mesma tabela, é
+ * sempre falsa, e o Postgres não se queixa de nada — a página mostrava 0 contas
+ * e 0 processos em todas as sociedades. Dar um alias à tabela de fora não
+ * salva: a remoção do prefixo é incondicional.
+ *
+ * Também não vão em `join` + `group by` sobre esta consulta: com dois `join`
+ * sobre a mesma linha (contas e processos) as contagens multiplicam-se uma pela
+ * outra, e uma sociedade com 3 contas e 4 processos aparecia com 12 de cada. É
+ * o erro clássico e, tal como o de cima, não dá erro nenhum — dá números
+ * plausíveis.
+ *
+ * O que fica são três agregações independentes, cada uma agrupada pela sua
+ * organização e com `count()` nativo, reunidas em memória. Sem produto
+ * cartesiano, sem subconsulta correlacionada, e nada que dependa de como o
+ * Drizzle qualifica colunas.
  */
 export async function listarSociedades(procura?: string) {
+  const base = db();
   const termo = procura?.trim();
   const vivas = isNull(organizacao.apagadoEm);
 
@@ -36,33 +58,57 @@ export async function listarSociedades(procura?: string) {
       )
     : vivas;
 
-  return db()
-    .select({
-      id: organizacao.id,
-      nome: organizacao.nome,
-      nif: organizacao.nif,
-      prefixoReferencia: organizacao.prefixoReferencia,
-      criadoEm: organizacao.criadoEm,
-      contas: sql<number>`(
-        select count(*)::int from ${utilizador}
-        where ${utilizador.organizacaoId} = ${organizacao.id}
-          and ${utilizador.apagadoEm} is null
-      )`,
-      administradores: sql<number>`(
-        select count(*)::int from ${utilizador}
-        where ${utilizador.organizacaoId} = ${organizacao.id}
-          and ${utilizador.apagadoEm} is null
-          and ${utilizador.papel} = 'society_admin'
-      )`,
-      processos: sql<number>`(
-        select count(*)::int from ${processoOnboarding}
-        where ${processoOnboarding.organizacaoId} = ${organizacao.id}
-          and ${processoOnboarding.apagadoEm} is null
-      )`,
-    })
-    .from(organizacao)
-    .where(onde)
-    .orderBy(asc(organizacao.nome));
+  const [linhas, porContas, porAdministradores, porProcessos] = await Promise.all([
+    base
+      .select({
+        id: organizacao.id,
+        nome: organizacao.nome,
+        nif: organizacao.nif,
+        prefixoReferencia: organizacao.prefixoReferencia,
+        criadoEm: organizacao.criadoEm,
+      })
+      .from(organizacao)
+      .where(onde)
+      .orderBy(asc(organizacao.nome)),
+    base
+      .select({ organizacaoId: utilizador.organizacaoId, n: count() })
+      .from(utilizador)
+      .where(isNull(utilizador.apagadoEm))
+      .groupBy(utilizador.organizacaoId),
+    base
+      .select({ organizacaoId: utilizador.organizacaoId, n: count() })
+      .from(utilizador)
+      .where(and(isNull(utilizador.apagadoEm), eq(utilizador.papel, "society_admin")))
+      .groupBy(utilizador.organizacaoId),
+    base
+      .select({ organizacaoId: processoOnboarding.organizacaoId, n: count() })
+      .from(processoOnboarding)
+      .where(isNull(processoOnboarding.apagadoEm))
+      .groupBy(processoOnboarding.organizacaoId),
+  ]);
+
+  /**
+   * O `organizacaoId` do `utilizador` é anulável desde a `0016` — é assim que o
+   * `super_admin` está guardado. Essas linhas não pertencem a sociedade
+   * nenhuma e ficam de fora do mapa em vez de irem parar a uma chave inventada.
+   */
+  const mapa = (ls: { organizacaoId: string | null; n: number }[]) =>
+    new Map(
+      ls.filter((l): l is { organizacaoId: string; n: number } => l.organizacaoId !== null).map(
+        (l) => [l.organizacaoId, l.n],
+      ),
+    );
+
+  const contas = mapa(porContas);
+  const administradores = mapa(porAdministradores);
+  const processos = mapa(porProcessos);
+
+  return linhas.map((l) => ({
+    ...l,
+    contas: contas.get(l.id) ?? 0,
+    administradores: administradores.get(l.id) ?? 0,
+    processos: processos.get(l.id) ?? 0,
+  }));
 }
 
 export async function sociedadePorId(id: string) {
@@ -175,6 +221,11 @@ export async function numerosDaPlataforma() {
      * entra nela, ninguém abre processos, e do lado de fora parece que está a
      * funcionar. É o resultado de criar a sociedade e adiar o primeiro
      * `society_admin`, que o formulário permite de propósito.
+     *
+     * Aqui a subconsulta correlacionada **é** segura, ao contrário da de
+     * `listarSociedades`: esta vive no `where` e não na lista de campos, e o
+     * `where` não passa por `buildSelection` — o Drizzle mantém o prefixo, e o
+     * SQL gerado diz `"utilizador"."organizacao_id" = "organizacao"."id"`.
      */
     base
       .select({ n: count() })

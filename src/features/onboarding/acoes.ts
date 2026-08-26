@@ -17,6 +17,7 @@ import {
 import { origemPublica } from "@/lib/origem";
 import { termosEmVigor } from "@/lib/termos-sociedade";
 import { assinatura, documento } from "@/db/schema/documentos";
+import { organizacao } from "@/db/schema/organizacao";
 import { codigoOtp } from "@/db/schema/otp";
 import { processoOnboarding } from "@/db/schema/processo";
 import {
@@ -1204,22 +1205,42 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
 
   const emailCliente = identificacao?.email ?? faturacao?.email;
 
-  // Sem valor por omissão. Aqui estava um endereço pessoal escrito à mão, e
-  // numa instalação a que faltasse a variável eram os dados de processos de
-  // clientes — referência, tipo, link para o dossier — a sair para a caixa de
-  // correio de quem escreveu o código. Não havendo destino configurado, o
-  // aviso não sai: os dois emails ao cliente e o arquivo não dependem disto.
+  // O aviso interno é da **sociedade** dona do processo, e por isso o primeiro
+  // destino é o email geral dela. `EMAIL_NOTIFICACOES` é uma variável única de
+  // instalação: numa plataforma com várias sociedades, mandar por ali todos os
+  // avisos é entregar referências e links de dossiers de umas à caixa de
+  // correio de outra. Fica como recuo — para a sociedade que ainda não
+  // preencheu o contacto no seu onboarding — e não como destino por omissão.
   //
   // Dentro de um `try` porque o `env()` **lança** — valida o ambiente inteiro,
   // e uma variável qualquer inválida rebentava aqui, três linhas antes de os
   // dois emails ao cliente entrarem na fila. O aviso interno é o acessório
   // desta função; deixá-lo derrubar o principal era ter a prioridade ao
-  // contrário.
-  let emailBackoffice: string | undefined;
+  // contrário. Pela mesma razão a leitura da sociedade também é guardada.
+  let emailSociedade: string | undefined;
   try {
-    emailBackoffice = env().EMAIL_NOTIFICACOES;
+    const [dona] = await base
+      .select({ email: organizacao.emailGeral })
+      .from(organizacao)
+      .where(eq(organizacao.id, processo.organizacaoId))
+      .limit(1);
+    emailSociedade = dona?.email?.trim() || undefined;
   } catch (e) {
-    console.error("[email] o ambiente não valida — o aviso ao back-office não sai", e);
+    console.error("[email] não foi possível ler o contacto da sociedade", e);
+  }
+
+  // Sem valor por omissão. Aqui estava um endereço pessoal escrito à mão, e
+  // numa instalação a que faltasse a variável eram os dados de processos de
+  // clientes — referência, tipo, link para o dossier — a sair para a caixa de
+  // correio de quem escreveu o código. Não havendo destino nenhum, o aviso não
+  // sai: os dois emails ao cliente e o arquivo não dependem disto.
+  let emailBackoffice = emailSociedade;
+  if (!emailBackoffice) {
+    try {
+      emailBackoffice = env().EMAIL_NOTIFICACOES;
+    } catch (e) {
+      console.error("[email] o ambiente não valida — o aviso ao back-office não sai", e);
+    }
   }
 
   const envios: Promise<unknown>[] = [];
@@ -1273,7 +1294,7 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
     );
   } else {
     console.warn(
-      "[email] EMAIL_NOTIFICACOES não está configurada — o aviso ao back-office não foi enviado.",
+      "[email] a sociedade não tem email geral e EMAIL_NOTIFICACOES não está configurada — o aviso ao back-office não foi enviado.",
     );
   }
 
