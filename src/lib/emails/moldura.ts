@@ -26,6 +26,28 @@ export const FONTE_CORPO = "'Inter Tight','Segoe UI',Arial,sans-serif";
 export const FONTE_DISPLAY = "'Instrument Serif',Georgia,serif";
 export const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
 
+/**
+ * O logótipo, servido por esta instalação.
+ *
+ * Estava escrito à mão como `https://poc.terlicalabs.com/lexflow.png`, o que
+ * quer dizer que qualquer instalação — a do cliente, a de desenvolvimento, a
+ * seguinte — mandava emails a ir buscar a imagem ao servidor da POC. No dia em
+ * que essa máquina desaparecer, os emails de toda a gente ficam com um
+ * rectângulo partido no cabeçalho.
+ *
+ * Sai de `BETTER_AUTH_URL`, que é a mesma fonte de onde saem os links que estas
+ * mensagens levam (`lib/origem.ts`) — e não de `origemPublica()`, que lê os
+ * cabeçalhos do pedido e por isso não existe fora de um: um email também sai de
+ * um script (`pnpm email:testar`) e de tarefas sem pedido nenhum por trás.
+ *
+ * Lido de `process.env` e não pelo `env()`, como o `lib/auth.ts` já faz com a
+ * mesma variável: montar o HTML de uma mensagem não pode rebentar por faltar
+ * uma variável que nada tem a ver com ela — é a D42 vista deste lado, e o
+ * ficheiro tem de continuar a montar-se num teste sem ambiente nenhum.
+ */
+const logotipo = () =>
+  `${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/lexflow.png`;
+
 export const moldura = (conteudo: string, corAcento: string = MARCA) => `
 <div style="background:${PAPEL};padding:32px 16px;font-family:${FONTE_CORPO};">
   <div style="max-width:560px;margin:0 auto;">
@@ -33,14 +55,14 @@ export const moldura = (conteudo: string, corAcento: string = MARCA) => `
            style="margin:0 auto 22px;text-align:center;">
       <tr>
         <td style="text-align:center;">
-          <img src="https://poc.terlicalabs.com/logo-jm.png" alt="JMASSANO" width="110"
+          <img src="${logotipo()}" alt="LexFlow" width="150"
                style="display:block;margin:0 auto;max-width:100%;height:auto;">
         </td>
       </tr>
       <tr>
         <td style="padding-top:8px;text-align:center;">
           <span style="font-family:${FONTE_MONO};font-size:11px;letter-spacing:0.18em;
-                       text-transform:uppercase;color:${LATAO};">JMASSANO Escritório de Advogado</span>
+                       text-transform:uppercase;color:${LATAO};">LexFlow · Software de gestão para sociedades de advogados</span>
         </td>
       </tr>
     </table>
@@ -49,7 +71,7 @@ export const moldura = (conteudo: string, corAcento: string = MARCA) => `
       ${conteudo}
     </div>
     <p style="font-family:${FONTE_MONO};font-size:11px;line-height:1.7;color:${TINTA_SUAVE};margin:22px 4px 0;">
-      JMASSANO — Escritório de Advogado<br />
+      LexFlow — Software de gestão para sociedades de advogados<br />
       Esta mensagem e os ficheiros que a acompanham são confidenciais e destinam-se
       exclusivamente ao destinatário. Se a recebeu por engano, agradecemos que nos
       informe e a elimine.

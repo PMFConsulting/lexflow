@@ -103,7 +103,7 @@ export function PortalShell({
               </p>
             </div>
             <BotaoSair />
-            <span className="text-2xs font-mono opacity-40">POC · v0.1.0</span>
+            <span className="text-2xs font-mono opacity-40">LexFlow · v1.0.0</span>
           </SidebarFooter>
         </Sidebar>
 

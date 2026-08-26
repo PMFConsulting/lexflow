@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Carimbo } from "@/components/carimbo";
 
 /** Onde o formulário deixa dito qual foi o último passo gravado. */
-export const CHAVE_CARIMBO = "pmf.carimbado";
+export const CHAVE_CARIMBO = "lexflow.passo_concluido";
 
 /** O mínimo que a lombada precisa de saber de um passo. */
 export type PassoDaLombada = { n: number; curto: string };

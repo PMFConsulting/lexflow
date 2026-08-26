@@ -9,7 +9,7 @@ import { onboardingSociedade } from "@/db/schema/sociedade";
 import { and, desc, eq } from "drizzle-orm";
 import { hashToken, normalizarToken } from "@/lib/token";
 
-export const metadata = { title: "Registo submetido · JMASSANO" };
+export const metadata = { title: "Registo submetido" };
 export const dynamic = "force-dynamic";
 
 /**

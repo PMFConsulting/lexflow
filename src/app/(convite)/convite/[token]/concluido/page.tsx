@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Logotipo } from "@/components/logotipo";
 import { hashToken, normalizarToken } from "@/lib/token";
 
-export const metadata = { title: "Conta criada · JMASSANO" };
+export const metadata = { title: "Conta criada" };
 export const dynamic = "force-dynamic";
 
 /**

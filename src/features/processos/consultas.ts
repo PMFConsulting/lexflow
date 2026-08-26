@@ -22,8 +22,20 @@ export type Filtros = {
   porPagina?: number;
 };
 
-function condicoes(f: Filtros) {
-  const partes = [isNull(processoOnboarding.apagadoEm)];
+/**
+ * A sociedade de quem lê é a primeira condição de todas as listagens.
+ *
+ * Não é um filtro entre outros: sem ela, uma listagem global devolve processos
+ * de outras sociedades a quem abrir a página — e nenhuma das outras condições
+ * repara nisso, porque todas elas descrevem o processo e nenhuma descreve o
+ * dono. Fica numa constante para as quatro consultas deste ficheiro a
+ * escreverem exatamente a mesma coisa.
+ */
+const daOrganizacao = (organizacaoId: string) =>
+  eq(processoOnboarding.organizacaoId, organizacaoId);
+
+function condicoes(f: Filtros, organizacaoId: string) {
+  const partes = [daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm)];
 
   if (f.estado?.length) {
     partes.push(inArray(processoOnboarding.estado, f.estado as never[]));
@@ -52,11 +64,11 @@ function condicoes(f: Filtros) {
   return and(...partes);
 }
 
-export async function listarProcessos(f: Filtros) {
+export async function listarProcessos(f: Filtros, organizacaoId: string) {
   const base = db();
   const pagina = Math.max(1, f.pagina ?? 1);
   const porPagina = Math.min(100, f.porPagina ?? 25);
-  const onde = condicoes(f);
+  const onde = condicoes(f, organizacaoId);
 
   const [linhas, [total]] = await Promise.all([
     base
@@ -87,9 +99,9 @@ export async function listarProcessos(f: Filtros) {
 }
 
 /** Contagens por estado e tipo — os filtros facetados do §6. */
-export async function facetas() {
+export async function facetas(organizacaoId: string) {
   const base = db();
-  const vivos = isNull(processoOnboarding.apagadoEm);
+  const vivos = and(daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm));
 
   const [porEstado, porTipo] = await Promise.all([
     base
@@ -108,9 +120,9 @@ export async function facetas() {
 }
 
 /** Os números do painel. Só o que faz agir — nada de gráficos decorativos. */
-export async function numerosDoPainel() {
+export async function numerosDoPainel(organizacaoId: string) {
   const base = db();
-  const vivos = isNull(processoOnboarding.apagadoEm);
+  const vivos = and(daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm));
   const seteDias = new Date(Date.now() - 7 * 86_400_000);
   const sessentaDias = new Date(Date.now() + 60 * 86_400_000);
 
@@ -134,11 +146,16 @@ export async function numerosDoPainel() {
           lte(processoOnboarding.atualizadoEm, seteDias),
         ),
       ),
+    // O `inner join` está aqui por uma razão só: `dados_fiscais` não tem
+    // organização — quem a tem é o processo. Sem ele, este número contava
+    // documentos a expirar de sociedades que quem está a ver não conhece.
     base
       .select({ n: count() })
       .from(dadosFiscais)
+      .innerJoin(processoOnboarding, eq(processoOnboarding.id, dadosFiscais.processoId))
       .where(
         and(
+          daOrganizacao(organizacaoId),
           gte(dadosFiscais.docValidade, new Date().toISOString().slice(0, 10)),
           lte(dadosFiscais.docValidade, sessentaDias.toISOString().slice(0, 10)),
         ),
@@ -158,7 +175,7 @@ export async function numerosDoPainel() {
 }
 
 /** Atividade recente, para o painel. */
-export async function recentes(limite = 6) {
+export async function recentes(organizacaoId: string, limite = 6) {
   return db()
     .select({
       id: processoOnboarding.id,
@@ -169,7 +186,7 @@ export async function recentes(limite = 6) {
     })
     .from(processoOnboarding)
     .leftJoin(dadosIdentificacao, eq(dadosIdentificacao.processoId, processoOnboarding.id))
-    .where(isNull(processoOnboarding.apagadoEm))
+    .where(and(daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm)))
     .orderBy(desc(processoOnboarding.atualizadoEm))
     .limit(limite);
 }

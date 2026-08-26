@@ -65,6 +65,16 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrar.mjs ./scripts/migr
 # deixa lixo na base de dados.
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/testar_email.mjs ./scripts/testar_email.mjs
 
+# O arranque de uma base de dados nova. Sem estes dois na imagem não há maneira
+# nenhuma de a plataforma sair do zero: o registo público não existe (D23), o
+# primeiro `super_admin` não tem quem o crie pela interface — não há ninguém
+# autenticado — e uma sociedade entra por convite e não por formulário. Faltando
+# aqui, a única saída era abrir um psql contra a produção e escrever à mão as
+# três linhas do Better Auth com o hash certo, que é exatamente o que o
+# `criar_utilizador.mjs` existe para ninguém ter de fazer.
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/criar_utilizador.mjs ./scripts/criar_utilizador.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/convidar_sociedade.mjs ./scripts/convidar_sociedade.mjs
+
 # O `output: standalone` só inclui o que a aplicação importa, e ela nunca
 # importa o migrador. Estes dois pacotes vêm explicitamente para o
 # scripts/migrar.mjs ter com que trabalhar.

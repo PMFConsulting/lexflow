@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LexFlow — Arquitetura do sistema</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'JetBrains Mono', monospace;
+    background:#020617; color:#e2e8f0;
+    padding:32px;
+  }
+  header { margin-bottom:24px; }
+  header h1 { font-size:22px; font-weight:700; display:flex; align-items:center; gap:12px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:#22d3ee; animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  header p { margin-top:6px; font-size:11px; color:#64748b; }
+  .svg { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:16px; overflow-x:auto; }
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:20px; }
+  .card { background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:16px; }
+  .card-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .card-header h3 { font-size:13px; font-weight:700; }
+  .card-dot { width:8px; height:8px; border-radius:50%; }
+  .card ul { list-style:none; }
+  .card li { font-size:11px; color:#94a3b8; line-height:1.7; }
+  .card li::before { content:'• '; color:#334155; }
+  .cy { background:#22d3ee; } .em { background:#34d399; } .vi { background:#a78bfa; }
+  .am { background:#fbbf24; } .ro { background:#fb7185; } .sl { background:#94a3b8; }
+  footer { margin-top:20px; font-size:10px; color:#475569; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot"></span>LexFlow — Arquitetura do sistema</h1>
+  <p>POC pmfconsulting · poc.terlicalabs.com · Next.js + Drizzle + PostgreSQL · database-per-tenant (schema por sociedade, em curso)</p>
+</header>
+
+<svg class="svg" width="1360" viewBox="0 0 1360 820" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="ahh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
+    </marker>
+  </defs>
+
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+
+  <!-- ===== ARROWS (draw early, behind boxes) ===== -->
+  <g stroke="#334155" stroke-width="1.2" fill="none" marker-end="url(#ah)">
+    <path d="M 430 250 L 430 320"/>            <!-- site -> actions -->
+    <path d="M 430 470 L 430 560"/>            <!-- actions -> db -->
+    <path d="M 168 470 L 168 560"/>            <!-- email -> provider -->
+    <path d="M 900 180 L 900 320"/>            <!-- badge -> actions -->
+    <path d="M 760 640 L 430 640"/>            <!-- storage -> db -->
+  </g>
+  <g stroke="#fb7185" stroke-width="1.4" stroke-dasharray="4,4" fill="none" marker-end="url(#ahh)">
+    <path d="M 900 300 L 700 560"/>            <!-- security -> db isolation -->
+    <path d="M 900 250 L 200 560"/>            <!-- security -> data -->
+  </g>
+
+  <!-- ===== FRONTEND ===== -->
+  <rect x="34" y="60" width="820" height="120" rx="8" fill="#0f172a"/>
+  <rect x="34" y="60" width="820" height="120" rx="8" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="50" y="84" font-size="12" font-weight="700" fill="#22d3ee">FRONTEND · Next.js (App Router, React, Tailwind)</text>
+  <text x="50" y="104" font-size="9" fill="#94a3b8">Portais / grupos de rotas</text>
+  <g font-size="9" fill="#cbd5e1">
+    <text x="50" y="124">/admin → super_admin</text>
+    <text x="50" y="138">/gestão, /processos, /clientes → society_admin & utilizador</text>
+    <text x="50" y="152">/sociedade/[token] → onboarding da sociedade</text>
+    <text x="50" y="166">/onboarding/[token] → percurso do cliente (KYC)</text>
+  </g>
+  <rect x="620" y="104" width="220" height="60" rx="6" fill="#0f172a"/>
+  <rect x="620" y="104" width="220" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1"/>
+  <text x="635" y="126" font-size="9" fill="#cbd5e1">/convite/[token] (utilizador)</text>
+  <text x="635" y="140" font-size="9" fill="#cbd5e1">/meus-processos (advogado)</text>
+  <text x="635" y="154" font-size="9" fill="#cbd5e1">/api/onboarding/* (Server Actions)</text>
+
+  <!-- ===== BACKEND ===== -->
+  <rect x="34" y="330" width="820" height="150" rx="8" fill="#0f172a"/>
+  <rect x="34" y="330" width="820" height="150" rx="8" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+  <text x="50" y="356" font-size="12" font-weight="700" fill="#34d399">BACKEND · Server Actions + Módulos de domínio</text>
+  <g font-size="9" fill="#cbd5e1">
+    <text x="50" y="378">processos · onboarding (KYC) · clientes · emails · auditoria</text>
+    <text x="50" y="392">convites · sociedade · plataforma (super_admin) · conta</text>
+    <text x="50" y="406">Autorização: sessao.ts (RBAC 3 níveis · super_admin / society_admin / utilizador)</text>
+    <text x="50" y="420">middleware.ts · origem.ts (allowlist de host) · smtp.ts (cadeia de envio)</text>
+    <text x="50" y="434">Registo de auditoria: hash canónico por ação e entidade</text>
+  </g>
+  <rect x="620" y="366" width="220" height="80" rx="6" fill="#0f172a"/>
+  <rect x="620" y="366" width="220" height="80" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1"/>
+  <text x="635" y="388" font-size="9" font-weight="700" fill="#a7f3d0">autenticação</text>
+  <text x="635" y="402" font-size="9" fill="#cbd5e1">Better Auth · email+password</text>
+  <text x="635" y="416" font-size="9" fill="#cbd5e1">disableSignUp · min 12 chars</text>
+  <text x="635" y="430" font-size="9" fill="#cbd5e1">sessões 30 dias (renovação)</text>
+
+  <!-- ===== EMAIL ===== -->
+  <rect x="34" y="500" width="180" height="110" rx="8" fill="#0f172a"/>
+  <rect x="34" y="500" width="180" height="110" rx="8" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1.5"/>
+  <text x="50" y="524" font-size="11" font-weight="700" fill="#fb923c">EMAIL</text>
+  <text x="50" y="542" font-size="9" fill="#cbd5e1">Cadeia</text>
+  <text x="50" y="556" font-size="8" fill="#94a3b8">Resend (ativo) → Mailjet</text>
+  <text x="50" y="570" font-size="8" fill="#94a3b8">→ Brevo → SMTP</text>
+  <text x="50" y="588" font-size="8" fill="#94a3b8">Templates LexFlow</text>
+  <text x="50" y="602" font-size="8" fill="#94a3b8">OTP · convites · T&C</text>
+
+  <!-- ===== SECURITY ===== -->
+  <rect x="880" y="60" width="440" height="240" rx="8" fill="#0f172a"/>
+  <rect x="880" y="60" width="440" height="240" rx="8" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+  <text x="900" y="84" font-size="12" font-weight="700" fill="#fb7185">SEGURANÇA</text>
+  <g font-size="9" fill="#cbd5e1">
+    <text x="900" y="106">· RBAC 3 níveis (portal por papel)</text>
+    <text x="900" y="122">· Rate-limit login (10/15min por IP)</text>
+    <text x="900" y="138">· OTP no fecho (6 dígitos, 5 tentativas, 10min)</text>
+    <text x="900" y="154">· Allowlist de host (origem.ts)</text>
+    <text x="900" y="170">· Magic-bytes PDF (proposta/upload)</text>
+    <text x="900" y="186">· Soft delete + retenção legal (retention)</text>
+    <text x="900" y="202">· Expiração de OTP + hash do dossier (SHA-256)</text>
+    <text x="900" y="218">· Verificação por token mágico no KYC</text>
+  </g>
+  <text x="900" y="246" font-size="9" fill="#fb7185">⚠ pendente: MFA (twoFactor), sanear CRLF no SMTP</text>
+  <text x="900" y="266" font-size="9" fill="#fb7185">⚠ pendente: isolamento por schema (database-per-tenant)</text>
+
+  <!-- ===== DATABASE ===== -->
+  <rect x="34" y="640" width="820" height="150" rx="8" fill="#0f172a"/>
+  <rect x="34" y="640" width="820" height="150" rx="8" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="50" y="666" font-size="12" font-weight="700" fill="#a78bfa">BASE DE DADOS · PostgreSQL 16 · Drizzle ORM + postgres-js</text>
+  <text x="50" y="688" font-size="9" fill="#cbd5e1">35 tabelas · 18 migrações · multi-tenant por organizacao_id</text>
+  <text x="50" y="702" font-size="9" fill="#cbd5e1">auth (Better Auth) · organizacao (sociedades) · processo · seccoes (KYC) · documento</text>
+  <text x="50" y="716" font-size="9" fill="#cbd5e1">email_log · auditoria · armazenamento · otp · contador_referencia</text>
+  <text x="50" y="730" font-size="9" fill="#94a3b8">→ objetivo: schema por sociedade (schema-per-tenant), sem organizacao_id</text>
+  <rect x="620" y="668" width="220" height="90" rx="6" fill="#0f172a"/>
+  <rect x="620" y="668" width="220" height="90" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1"/>
+  <text x="635" y="690" font-size="9" font-weight="700" fill="#d8b4fe">ARMAZENAMENTO</text>
+  <text x="635" y="708" font-size="8" fill="#94a3b8">Documentos em base64 +</text>
+  <text x="635" y="722" font-size="8" fill="#94a3b8">config cifrada (ARMAZENAMENTO_CHAVE)</text>
+  <text x="635" y="738" font-size="8" fill="#94a3b8">sync p/ servidor</text>
+
+  <!-- ===== EXTERNAL / CLOUD ===== -->
+  <rect x="880" y="330" width="440" height="140" rx="8" fill="#0f172a"/>
+  <rect x="880" y="330" width="440" height="140" rx="8" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="900" y="356" font-size="12" font-weight="700" fill="#fbbf24">INFRAESTRUTURA · VPS + Coolify + Docker</text>
+  <g font-size="9" fill="#cbd5e1">
+    <text x="900" y="378">VPS Hostinger KVM 4GB (UE) · Coolify panel</text>
+    <text x="900" y="394">Dockerfile · push a main → deploy · migrações (scripts/migrar.mjs)</text>
+    <text x="900" y="410">Traefik + Let's Encrypt · Cloudflare DNS (proxy off)</text>
+    <text x="900" y="426">subdomínio poc.terlicalabs.com</text>
+  </g>
+
+  <!-- ===== LEGEND ===== -->
+  <g font-size="8" fill="#64748b">
+    <text x="34" y="806">● FRONTEND (cyan) · ● BACKEND (verde) · ● DB (violeta) · ● SEGURANÇA (rosa) · ● INFRA (âmbar) · ··· fluxo de segurança</text>
+  </g>
+</svg>
+
+<div class="cards">
+  <div class="card"><div class="card-header"><div class="card-dot cy"></div><h3>Camada de apresentação</h3></div>
+    <ul>
+      <li>4 portais: admin / backoffice / cliente (token) / convite (token)</li>
+      <li>Server Actions + rotas /api para KYC</li>
+      <li>UI PT · componentes shadcn · Tailwind</li>
+    </ul>
+  </div>
+  <div class="card"><div class="card-header"><div class="card-dot em"></div><h3>Regras de negócio</h3></div>
+    <ul>
+      <li>Modular por domínio (features/*)</li>
+      <li>RBAC 3 níveis + permissões por sociedade</li>
+      <li>Auditoria por hash · OTP no fecho</li>
+    </ul>
+  </div>
+  <div class="card"><div class="card-header"><div class="card-dot vi"></div><h3>Dados</h3></div>
+    <ul>
+      <li>PostgreSQL 16 + Drizzle (tipos)</li>
+      <li>Multi-tenant por organizacao_id</li>
+      <li>→ próximo: schema-per-tenant</li>
+    </ul>
+  </div>
+</div>
+
+<footer>Gerado a partir do código-fonte · 2026-08-26 · versão deployed 266036a</footer>
+</body>
+</html>

@@ -82,7 +82,7 @@ const TIPO_DOCUMENTO_TEXTO: Record<string, string> = {
 export async function gerarResumoPdf(d: DadosResumo): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Dossier do cliente · ${d.referencia}`);
-  pdf.setProducer("POC Processos");
+  pdf.setProducer("LexFlow");
   pdf.setCreationDate(d.geradoEm);
   pdf.setModificationDate(d.geradoEm);
 

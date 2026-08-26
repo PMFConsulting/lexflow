@@ -6,7 +6,7 @@ import {
   sociedadeDe,
 } from "@/features/administracao/consultas";
 
-export const metadata = { title: "Administração · JMASSANO" };
+export const metadata = { title: "Administração" };
 export const dynamic = "force-dynamic";
 
 const CARTOES = [

@@ -27,7 +27,7 @@ import {
 export async function gerarTermosPdf(geradoEm: Date): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Termos e Condicoes ${VERSAO_TERMOS}`);
-  pdf.setProducer("POC Processos");
+  pdf.setProducer("LexFlow");
   pdf.setCreationDate(geradoEm);
   pdf.setModificationDate(geradoEm);
 

@@ -11,14 +11,14 @@ function servidorFalso(respostas: Record<string, string> = {}, recolher: { corpo
     const servidor = createServer((socket) => {
       let linha = "";
       const responder = (texto: string) => socket.write(`${texto}\r\n`);
-      responder(respostas.banner ?? "220 mail.terlicalabs.com ESMTP");
+      responder(respostas.banner ?? "220 mail.exemplo.pt ESMTP");
       socket.on("data", (dados) => {
         linha += dados.toString();
         while (linha.includes("\r\n")) {
           const comando = linha.slice(0, linha.indexOf("\r\n"));
           linha = linha.slice(linha.indexOf("\r\n") + 2);
-          if (comando === "EHLO terlicalabs.com") responder("250 mail.terlicalabs.com");
-          else if (comando === "MAIL FROM:<poc@terlicalabs.com>") responder(respostas.mail ?? "250 2.1.0 Ok");
+          if (comando === "EHLO exemplo.pt") responder("250 mail.exemplo.pt");
+          else if (comando === "MAIL FROM:<poc@exemplo.pt>") responder(respostas.mail ?? "250 2.1.0 Ok");
           else if (comando.startsWith("RCPT TO:")) responder(respostas.rcpt ?? "250 2.1.5 Ok");
           else if (comando === "DATA") responder("354 End data with <CR><LF>.<CR><LF>");
           else if (comando === ".") responder(respostas.corpo ?? "250 2.0.0 Ok: queued as A1B2");
@@ -52,7 +52,7 @@ describe("enviarSmtp", () => {
     servidores.push(servidor);
 
     const r = await enviarSmtp("127.0.0.1", porta, {
-      de: "poc@terlicalabs.com",
+      de: "poc@exemplo.pt",
       para: "cliente@exemplo.pt",
       assunto: "Assunto de teste",
       html: "<p>Olá</p>",
@@ -71,7 +71,7 @@ describe("enviarSmtp", () => {
     servidores.push(servidor);
 
     const r = await enviarSmtp("127.0.0.1", porta, {
-      de: "poc@terlicalabs.com",
+      de: "poc@exemplo.pt",
       para: "naoexiste@exemplo.pt",
       assunto: "x",
       html: "<p>x</p>",

@@ -41,7 +41,7 @@ export type DadosCapa = {
 export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Dados do cliente · ${d.referencia}`);
-  pdf.setProducer("POC Processos");
+  pdf.setProducer("LexFlow");
   pdf.setCreationDate(d.geradoEm);
   pdf.setModificationDate(d.geradoEm);
 

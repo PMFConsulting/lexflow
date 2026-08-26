@@ -21,7 +21,7 @@ import { exerceAdvocacia, PASSOS_CONVITE } from "@/features/convites/passos";
  * tem passos. O layout é dos passos; só os passos é que o levam.
  */
 
-export const metadata = { title: "Registo de utilizador · JMASSANO" };
+export const metadata = { title: "Registo de utilizador" };
 export const dynamic = "force-dynamic";
 
 export default async function LayoutConvite({

@@ -15,7 +15,7 @@
  * ninguém autenticado que o possa criar pela interface:
  *
  *   node scripts/criar_utilizador.mjs --papel super_admin \
- *     --email dono@terlicalabs.com --nome "…" --password '...'
+ *     --email dono@exemplo.pt --nome "…" --password '...'
  *
  * A partir daí, as contas criam-se no portal `/admin`, que chama o mesmo par de
  * escritas através de `src/features/plataforma/contas.ts`. Este script fica
@@ -48,7 +48,16 @@ import { hashPassword } from "better-auth/crypto";
 import postgres from "postgres";
 import { uuidv7 } from "uuidv7";
 
-/** A PMF nos seeds e em produção. Trocável por `--organizacao`. */
+/**
+ * A organização das seeds de desenvolvimento — e só isso.
+ *
+ * É o recuo de `--organizacao` para os dois papéis que **têm** sociedade, e
+ * numa base de dados nova ela não existe: o script morre a dizê-lo (ver o
+ * `morrer` em `criar()`), em vez de inserir uma conta órfã. Numa instalação a
+ * sério a ordem é a inversa — o primeiro `super_admin` nasce sem organização
+ * nenhuma, e é ele que convida a sociedade com `pnpm sociedade:convidar`; daí
+ * em diante as contas dela criam-se no portal `/admin`.
+ */
 const ORGANIZACAO_PMF = "fe6c269c-5358-43f9-8a7e-ccade4778940";
 
 /**

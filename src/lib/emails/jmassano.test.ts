@@ -26,14 +26,14 @@ const texto = (html: string) =>
  */
 describe("assuntos", () => {
   it("são os quatro dos documentos do cliente", () => {
-    expect(ASSUNTO_REGISTO).toBe("JMASSANO | Registro");
-    expect(ASSUNTO_CONFIRMACAO).toBe("JMASSANO | Confirmação de Receção dos seus Dados");
-    expect(ASSUNTO_BOAS_VINDAS).toBe("Bem-vindo à JMASSANO Escritório de Advogado");
-    expect(ASSUNTO_REJEICAO).toBe("JMASSANO | Feedback Registro");
+    expect(ASSUNTO_REGISTO).toBe("LexFlow | Registro");
+    expect(ASSUNTO_CONFIRMACAO).toBe("LexFlow | Confirmação de Receção dos seus Dados");
+    expect(ASSUNTO_BOAS_VINDAS).toBe("Bem-vindo à LexFlow");
+    expect(ASSUNTO_REJEICAO).toBe("LexFlow | Feedback Registro");
   });
 });
 
-describe("1. JMASSANO | Registro", () => {
+describe("1. LexFlow | Registro", () => {
   const html = emailRegisto({ nome: "Maria Silva", link: LINK });
 
   it("leva o link no botão e em texto, para quando o botão não funciona", () => {
@@ -45,7 +45,7 @@ describe("1. JMASSANO | Registro", () => {
 
   it("abre com a frase do cliente sobre o acolhimento", () => {
     expect(texto(html)).toContain(
-      "É com grande satisfação que o recebemos como cliente da João Massano Escritório de Advogado.",
+      "É com grande satisfação que o recebemos como cliente da LexFlow.",
     );
   });
 
@@ -91,7 +91,7 @@ describe("2. Confirmação de Receção dos seus Dados", () => {
   });
 });
 
-describe("3. Bem-vindo à JMASSANO Escritório de Advogado", () => {
+describe("3. Bem-vindo à LexFlow", () => {
   const ANEXOS = [
     "Resumo das informações fornecidas durante o processo de registo",
     "Termos e Condições de Prestação de Serviços (T&C)",
@@ -101,7 +101,7 @@ describe("3. Bem-vindo à JMASSANO Escritório de Advogado", () => {
 
   it("anuncia a conclusão do registo", () => {
     expect(texto(html)).toContain(
-      "o processo de registo junto da JMASSANO Escritório de Advogado foi concluído com sucesso",
+      "o processo de registo junto da LexFlow foi concluído com sucesso",
     );
   });
 
@@ -138,17 +138,17 @@ describe("3. Bem-vindo à JMASSANO Escritório de Advogado", () => {
  * and recorded in the matter and in the audit trail, they just stopped going in
  * the body of the email.
  */
-describe("4. JMASSANO | Feedback Registro", () => {
+describe("4. LexFlow | Feedback Registro", () => {
   const html = emailRejeicao();
 
   it("tem o assunto certo", () => {
-    expect(ASSUNTO_REJEICAO).toBe("JMASSANO | Feedback Registro");
+    expect(ASSUNTO_REJEICAO).toBe("LexFlow | Feedback Registro");
   });
 
   it("segue o texto do template à letra", () => {
     const t = texto(html);
     expect(t).toContain(
-      "Agradecemos a confiança depositada na JMASSANO Escritório de Advogado e o interesse demonstrado nos nossos serviços.",
+      "Agradecemos a confiança depositada na LexFlow e o interesse demonstrado nos nossos serviços.",
     );
     expect(t).toContain(
       "lamentamos informar que o seu processo de validação não foi aceite nesta fase",
@@ -166,7 +166,7 @@ describe("4. JMASSANO | Feedback Registro", () => {
 
   it("fecha com o mesmo rodapé e a mesma despedida dos outros três", () => {
     const t = texto(html);
-    expect(t).toContain("JMASSANO — Escritório de Advogado");
+    expect(t).toContain("LexFlow — Software de gestão para sociedades de advogados");
     expect(t).toContain(
       "Com os melhores cumprimentos, Assinatura do Advogado gestor do Cliente",
     );
@@ -240,7 +240,7 @@ describe("identificação do destinatário e do processo", () => {
 
   it("os três fecham com o rodapé de confidencialidade", () => {
     for (const html of todos) {
-      expect(texto(html)).toContain("JMASSANO — Escritório de Advogado");
+      expect(texto(html)).toContain("LexFlow — Software de gestão para sociedades de advogados");
       expect(texto(html)).toContain("confidenciais e destinam-se exclusivamente ao destinatário");
     }
   });

@@ -68,8 +68,8 @@ export default async function Processos({
   };
 
   const [{ linhas, total, pagina, porPagina }, f] = await Promise.all([
-    listarProcessos(filtros),
-    facetas(),
+    listarProcessos(filtros, eu.organizacaoId),
+    facetas(eu.organizacaoId),
   ]);
 
   const paginas = Math.max(1, Math.ceil(total / porPagina));

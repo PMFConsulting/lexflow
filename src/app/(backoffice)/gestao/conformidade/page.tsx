@@ -7,7 +7,7 @@ import {
   sociedadeDe,
 } from "@/features/administracao/consultas";
 
-export const metadata = { title: "Conformidade · JMASSANO" };
+export const metadata = { title: "Conformidade" };
 export const dynamic = "force-dynamic";
 
 const dataHora = new Intl.DateTimeFormat("pt-PT", {

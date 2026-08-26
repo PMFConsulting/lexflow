@@ -1,17 +1,17 @@
 /**
- * The JMASSANO emails, all in one place.
+ * The client-facing emails, all in one place.
  *
- * 1. **JMASSANO | Registro** — goes out with the form link, when the firm
+ * 1. **LexFlow | Registro** — goes out with the form link, when the firm
  *    creates the matter.
- * 2. **JMASSANO | Confirmação de Receção dos seus Dados** — when the client
+ * 2. **LexFlow | Confirmação de Receção dos seus Dados** — when the client
  *    submits.
- * 3. **Bem-vindo à JMASSANO Escritório de Advogado** — when the matter is
+ * 3. **Bem-vindo à LexFlow** — when the matter is
  *    approved in the back-office, with the summary of the information, the T&C
  *    and the fee proposal attached.
- * 4. **JMASSANO | Feedback Registro** — when the matter is rejected in the
+ * 4. **LexFlow | Feedback Registro** — when the matter is rejected in the
  *    back-office. It follows, verbatim, the template delivered by the client on
  *    11/08/2026 — which replaces the in-house wording used until now.
- * 5. **JMASSANO | Código de verificação** — the six-digit code that unlocks the
+ * 5. **LexFlow | Código de verificação** — the six-digit code that unlocks the
  *    signature at step 7. It is the only one of the five that does **not** come
  *    from a client document: it is a platform message, written here, because
  *    there was nothing of this kind to follow verbatim.
@@ -79,7 +79,7 @@ import {
 
 /* ------------------------------------------------ 1. registration (the link) */
 
-export const ASSUNTO_REGISTO = "JMASSANO | Registro";
+export const ASSUNTO_REGISTO = "LexFlow | Registro";
 
 export function emailRegisto({
   nome,
@@ -93,7 +93,7 @@ export function emailRegisto({
     `
     ${saudacao(nome)}
     ${p(
-      "É com grande satisfação que o recebemos como cliente da João Massano Escritório de Advogado.",
+      "É com grande satisfação que o recebemos como cliente da LexFlow.",
     )}
     ${p(
       "Agradecemos a confiança depositada na nossa equipa e reiteramos o nosso compromisso de prestar um serviço jurídico rigoroso, personalizado e orientado para a melhor defesa dos seus interesses.",
@@ -121,7 +121,7 @@ export function emailRegisto({
 
 /* ----------------------------------------------- 2. receipt confirmation */
 
-export const ASSUNTO_CONFIRMACAO = "JMASSANO | Confirmação de Receção dos seus Dados";
+export const ASSUNTO_CONFIRMACAO = "LexFlow | Confirmação de Receção dos seus Dados";
 
 export function emailConfirmacaoRececao({
   nome,
@@ -133,7 +133,7 @@ export function emailConfirmacaoRececao({
     ${saudacao(nome)}
     ${p("Agradecemos o registo e o envio das informações através da nossa plataforma.")}
     ${p(
-      "Informamos que os dados e documentos submetidos foram recebidos com sucesso e o processo encontra-se agora a aguardar aprovação pela equipa da JMASSANO Escritório de Advogado.",
+      "Informamos que os dados e documentos submetidos foram recebidos com sucesso e o processo encontra-se agora a aguardar aprovação pela equipa da LexFlow.",
     )}
     ${p(
       "A nossa equipa está a proceder à respetiva validação para que possamos dar seguimento ao seu processo da forma mais célere e eficiente possível. Caso seja necessária informação adicional ou documentação complementar, entraremos em contacto consigo.",
@@ -150,7 +150,7 @@ export function emailConfirmacaoRececao({
 
 /* ---------------------------------------------------------- 3. welcome */
 
-export const ASSUNTO_BOAS_VINDAS = "Bem-vindo à JMASSANO Escritório de Advogado";
+export const ASSUNTO_BOAS_VINDAS = "Bem-vindo à LexFlow";
 
 export function emailBoasVindas({
   nome,
@@ -179,7 +179,7 @@ export function emailBoasVindas({
     ${refProcesso(referencia)}
     ${saudacao(nome)}
     ${p(
-      "Temos o prazer de informar que o processo de registo junto da JMASSANO Escritório de Advogado foi concluído com sucesso.",
+      "Temos o prazer de informar que o processo de registo junto da LexFlow foi concluído com sucesso.",
     )}
     ${p(
       "Após análise das informações e documentos submetidos, procedemos à validação dos dados necessários para a formalização da nossa relação profissional e para o acompanhamento do assunto que nos confiou.",
@@ -190,7 +190,7 @@ export function emailBoasVindas({
       "Solicitamos que analise cuidadosamente a documentação anexa. Caso tenha alguma questão ou necessite de esclarecimentos adicionais, a nossa equipa estará inteiramente disponível para o apoiar.",
     )}
     ${p(
-      "Agradecemos, uma vez mais, a confiança depositada na JMASSANO Escritório de Advogado e reforçamos o nosso compromisso de prestar um acompanhamento jurídico pautado pelo rigor, proximidade e profissionalismo.",
+      "Agradecemos, uma vez mais, a confiança depositada na LexFlow e reforçamos o nosso compromisso de prestar um acompanhamento jurídico pautado pelo rigor, proximidade e profissionalismo.",
     )}
     ${despedida()}
   `,
@@ -200,7 +200,7 @@ export function emailBoasVindas({
 
 /* ---------------------------------------------- 5. verification code (OTP) */
 
-export const ASSUNTO_OTP = "JMASSANO | Código de verificação";
+export const ASSUNTO_OTP = "LexFlow | Código de verificação";
 
 /**
  * The code that unlocks the signature at closing.
@@ -253,7 +253,7 @@ export function emailCodigoOtp({
 
 /* ----------------------------------------------------------- 4. rejection */
 
-export const ASSUNTO_REJEICAO = "JMASSANO | Feedback Registro";
+export const ASSUNTO_REJEICAO = "LexFlow | Feedback Registro";
 
 /**
  * The body of the client's template (11/08/2026), verbatim.
@@ -274,7 +274,7 @@ export function emailRejeicao({
     ${refProcesso(referencia)}
     ${saudacao(nome)}
     ${p(
-      "Agradecemos a confiança depositada na JMASSANO Escritório de Advogado e o interesse demonstrado nos nossos serviços.",
+      "Agradecemos a confiança depositada na LexFlow e o interesse demonstrado nos nossos serviços.",
     )}
     ${p(
       "Após uma análise cuidada das informações e documentação submetidas, lamentamos informar que o seu processo de validação não foi aceite nesta fase.",

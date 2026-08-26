@@ -21,7 +21,7 @@ import { PASSOS_SOCIEDADE } from "@/features/sociedade/passos";
  * tem passos. O layout é dos passos; só os passos é que o levam.
  */
 
-export const metadata = { title: "Registo da sociedade · JMASSANO" };
+export const metadata = { title: "Registo da sociedade" };
 export const dynamic = "force-dynamic";
 
 export default async function LayoutSociedade({

@@ -6,7 +6,7 @@ import {
 import { PublicarTermos } from "@/features/administracao/componentes/PublicarTermos";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Sociedade · JMASSANO" };
+export const metadata = { title: "Sociedade" };
 export const dynamic = "force-dynamic";
 
 const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });

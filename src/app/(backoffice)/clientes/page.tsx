@@ -27,11 +27,11 @@ export default async function Clientes({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigirEquipaDaSociedade();
+  const { eu } = await exigirEquipaDaSociedade();
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : undefined;
 
-  const clientes = await listarClientes(q);
+  const clientes = await listarClientes(eu.organizacaoId, q);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5">

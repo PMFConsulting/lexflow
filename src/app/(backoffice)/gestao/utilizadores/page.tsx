@@ -6,7 +6,7 @@ import {
 } from "@/features/administracao/consultas";
 import { GestaoEquipa } from "@/features/administracao/componentes/GestaoEquipa";
 
-export const metadata = { title: "Utilizadores · JMASSANO" };
+export const metadata = { title: "Utilizadores" };
 export const dynamic = "force-dynamic";
 
 export default async function Utilizadores() {

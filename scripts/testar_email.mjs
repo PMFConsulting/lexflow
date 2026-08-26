@@ -234,6 +234,18 @@ async function tentar(canal) {
  * mesma razão de sempre (D15) — a coluna não tem valor por omissão.
  */
 /**
+ * O nome com que nos apresentamos ao relay. Mesma regra de `src/lib/smtp.ts`:
+ * o domínio vem de `EMAIL_REMETENTE`, que é o que esta instalação possui, em
+ * vez de estar preso no código ao domínio da máquina onde isto foi escrito.
+ * Sem domínio utilizável, recua para `localhost` — que o relay aceita da sua
+ * própria rede, que é a única de onde este canal é usado.
+ */
+function saudacao(de) {
+  const dominio = String(de).split("@")[1]?.trim().toLowerCase() ?? "";
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(dominio) ? dominio : "localhost";
+}
+
+/**
  * SMTP próprio (postfix no servidor) — o mesmo protocolo mínimo da app
  * (src/lib/smtp.ts): EHLO → MAIL FROM → RCPT TO → DATA → QUIT, sem
  * autenticação nem TLS (rede interna do servidor).
@@ -255,7 +267,7 @@ function tentarSmtp(canal) {
       resolver({ ok: false, erro: `O SMTP ${canal.anfitriao}:${canal.porta} não respondeu em ${TEMPO_LIMITE_MS / 1000}s.` });
     }, TEMPO_LIMITE_MS);
 
-    socket.on("connect", () => socket.write(`EHLO terlicalabs.com\r\n`));
+    socket.on("connect", () => socket.write(`EHLO ${saudacao(remetente)}\r\n`));
 
     let linha = "";
     let etapa = 0; // 0=EHLO, 1=MAIL, 2=RCPT, 3=DATA, 4=corpo, 5=QUIT

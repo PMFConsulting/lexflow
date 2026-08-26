@@ -41,8 +41,14 @@ export const LIMITE = 500;
  * das facetas têm de usar exatamente as mesmas condições — se divergirem, o
  * botão diz "3" e a lista mostra 5.
  */
-function condicoes({ q, estado, template }: FiltrosEmails): SQL[] {
-  const onde: SQL[] = [];
+function condicoes(organizacaoId: string, { q, estado, template }: FiltrosEmails): SQL[] {
+  // A sociedade de quem lê, sempre e antes de tudo o resto. Esta tabela guarda
+  // endereços de clientes ao lado do assunto da mensagem, e uma listagem sem
+  // este filtro era a lista de contactos de outra sociedade servida a quem
+  // abrisse a página. `organizacao_id` é anulável no schema (um envio fora do
+  // contexto de uma sociedade); uma linha assim não pertence a nenhuma
+  // listagem, e a igualdade deixa-a de fora sem ser preciso dizer mais nada.
+  const onde: SQL[] = [eq(emailLog.organizacaoId, organizacaoId)];
 
   const termo = q?.trim();
   if (termo) {
@@ -72,8 +78,11 @@ function condicoes({ q, estado, template }: FiltrosEmails): SQL[] {
  * fazia desaparecer da lista exatamente as mensagens cujo destino já não
  * existe — que são as que alguém iria lá procurar.
  */
-export async function listarEmails(filtros: FiltrosEmails = {}): Promise<LinhaEmail[]> {
-  const onde = condicoes(filtros);
+export async function listarEmails(
+  organizacaoId: string,
+  filtros: FiltrosEmails = {},
+): Promise<LinhaEmail[]> {
+  const onde = condicoes(organizacaoId, filtros);
 
   return db()
     .select({
@@ -104,14 +113,14 @@ export async function listarEmails(filtros: FiltrosEmails = {}): Promise<LinhaEm
  * faz um filtro facetado ser navegável: os números continuam a dizer quanto é
  * que cada botão traz, mesmo com um deles já carregado.
  */
-export async function facetasEmails(filtros: FiltrosEmails = {}) {
+export async function facetasEmails(organizacaoId: string, filtros: FiltrosEmails = {}) {
   const base = db();
 
   const contar = async <T extends string>(
     coluna: typeof emailLog.estado | typeof emailLog.template,
     semEste: FiltrosEmails,
   ) => {
-    const onde = condicoes(semEste);
+    const onde = condicoes(organizacaoId, semEste);
     const linhas = await base
       .select({ chave: sql<T>`${coluna}`.as("chave"), n: count() })
       .from(emailLog)

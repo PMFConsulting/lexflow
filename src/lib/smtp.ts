@@ -23,6 +23,19 @@ export interface MensagemSmtp {
 const BOUNDARY = "----=_jmassano_7f3a";
 const TIMEOUT_MS = 15_000;
 
+/**
+ * The name we greet the relay with. RFC 5321 asks for the client's own FQDN,
+ * and the sender's domain is the one this installation actually owns — so it
+ * travels with `EMAIL_REMETENTE` instead of being pinned in the code to
+ * whichever domain the machine that wrote this happened to be on. An address
+ * with no usable domain falls back to `localhost`, which the relay accepts
+ * from its own network (this channel is local-only; see the note above).
+ */
+function saudacao(de: string): string {
+  const dominio = de.split("@")[1]?.trim().toLowerCase() ?? "";
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(dominio) ? dominio : "localhost";
+}
+
 function codificarMensagem(m: MensagemSmtp): string {
   const cabecalhos = [
     `From: JMASSANO <${m.de}>`,
@@ -72,7 +85,7 @@ export function enviarSmtp(anfitriao: string, porta: number, mensagem: MensagemS
 
     const temporizador = setTimeout(() => terminar(false, `O servidor SMTP ${anfitriao}:${porta} não respondeu em ${TIMEOUT_MS / 1000}s.`), TIMEOUT_MS);
 
-    socket.on("connect", () => socket.write(`EHLO terlicalabs.com\r\n`));
+    socket.on("connect", () => socket.write(`EHLO ${saudacao(mensagem.de)}\r\n`));
 
     let linha = "";
     const comandos = [

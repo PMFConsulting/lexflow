@@ -2,9 +2,9 @@ import { Logotipo } from "@/components/logotipo";
 import { TERMOS_CONDICOES, VERSAO_TERMOS } from "@/lib/termos";
 
 export const metadata = {
-  // Absoluto: o `template` do layout de raiz acrescenta "· JMASSANO" ao
-  // título, e este documento é para o cliente guardar ou imprimir.
-  title: { absolute: "Termos e Condições — JMASSANO" },
+  // Sem `absolute`: o `template` do layout de raiz acrescenta "· LexFlow", e o
+  // título do separador passa a ser o mesmo em toda a aplicação.
+  title: "Termos e Condições",
   description: "Condições de prestação de serviços jurídicos.",
 };
 

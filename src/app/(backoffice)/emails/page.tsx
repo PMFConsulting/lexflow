@@ -96,7 +96,7 @@ export default async function Emails({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigirSocietyAdmin();
+  const { eu } = await exigirSocietyAdmin();
 
   const sp = await searchParams;
   const filtros = {
@@ -106,8 +106,8 @@ export default async function Emails({
   };
 
   const [linhas, facetas] = await Promise.all([
-    listarEmails(filtros),
-    facetasEmails(filtros),
+    listarEmails(eu.organizacaoId, filtros),
+    facetasEmails(eu.organizacaoId, filtros),
   ]);
 
   const falhas = linhas.filter((l) => ESTADOS_FALHADOS.includes(l.estado)).length;

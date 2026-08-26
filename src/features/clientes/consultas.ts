@@ -38,8 +38,15 @@ type LinhaBruta = {
  * mesmo NIF pode passar por vários processos ao longo do tempo. A ficha usa
  * sempre os dados do processo mais recente desse NIF; um processo ainda sem
  * NIF (passo 2 por preencher) ainda não conta como cliente.
+ *
+ * `organizacaoId` é o primeiro parâmetro e não é opcional de propósito: a
+ * deduplicação é por NIF, e sem o filtro da sociedade o mesmo NIF em duas
+ * sociedades fundia-se numa linha só — a ficha de um cliente mostrava a
+ * contagem e o último processo de outra sociedade. O filtro entra **dentro** da
+ * CTE, antes do `row_number()`: aplicado por fora, a janela já tinha contado e
+ * ordenado sobre as linhas de toda a gente.
  */
-export async function listarClientes(q?: string) {
+export async function listarClientes(organizacaoId: string, q?: string) {
   const termo = q?.trim() ?? "";
   const like = `%${termo}%`;
 
@@ -61,6 +68,7 @@ export async function listarClientes(q?: string) {
       inner join dados_fiscais df on df.processo_id = po.id
       left join dados_identificacao di on di.processo_id = po.id
       where po.apagado_em is null
+        and po.organizacao_id = ${organizacaoId}::uuid
     )
     select
       pn.nif,

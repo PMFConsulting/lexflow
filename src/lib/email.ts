@@ -491,7 +491,7 @@ async function tentarEnviarMailjet(
       body: JSON.stringify({
         Messages: [
           {
-            From: { Email: ambiente.EMAIL_REMETENTE, Name: "JMASSANO" },
+            From: { Email: ambiente.EMAIL_REMETENTE, Name: "LexFlow" },
             To: [{ Email: para }],
             Subject: assunto,
             HTMLPart: html,

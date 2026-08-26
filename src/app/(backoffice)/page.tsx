@@ -35,7 +35,10 @@ export default async function Painel() {
   const destino = portalDoPapel(eu.papel);
   if (destino !== "/") redirect(destino);
 
-  const [n, ultimos] = await Promise.all([numerosDoPainel(), recentes()]);
+  const [n, ultimos] = await Promise.all([
+    numerosDoPainel(eu.organizacaoId),
+    recentes(eu.organizacaoId),
+  ]);
 
   const tiles = [
     {

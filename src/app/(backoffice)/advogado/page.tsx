@@ -12,7 +12,7 @@ import {
 import { AceitarTermos } from "@/features/advogado/componentes/AceitarTermos";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "A minha conta · JMASSANO" };
+export const metadata = { title: "A minha conta" };
 export const dynamic = "force-dynamic";
 
 const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
