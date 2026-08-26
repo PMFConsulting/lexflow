@@ -5,7 +5,7 @@ import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { listarClientes } from "@/features/clientes/consultas";
 import { PesquisaClientes } from "@/features/clientes/componentes/PesquisaClientes";
-import { exigirSessao } from "@/lib/sessao";
+import { exigirEquipaDaSociedade } from "@/lib/sessao";
 
 export const metadata = { title: "Clientes" };
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function Clientes({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigirSessao();
+  await exigirEquipaDaSociedade();
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : undefined;
 

@@ -1,42 +1,46 @@
-import Link from "next/link";
-import { FileText, LayoutDashboard, Mail, Settings, Users, type LucideIcon } from "lucide-react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { exigirSessao, podeVerEmails } from "@/lib/sessao";
-import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
-import { Logotipo } from "@/components/logotipo";
+import { FileText, LayoutDashboard, Mail, Settings, Users, UserCog } from "lucide-react";
+import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
+import { exigirEquipaDaSociedade, podeVerEmails } from "@/lib/sessao";
 
-type Entrada = {
-  titulo: string;
-  href: string;
-  icone: LucideIcon;
-  /** Entradas sem isto são para toda a equipa. */
+/**
+ * O portal da sociedade.
+ *
+ * Entram os dois papéis que trabalham dentro de uma sociedade — o
+ * `society_admin` e o `utilizador` — e é `exigirEquipaDaSociedade` que o diz:
+ * o `super_admin` é reencaminhado daqui para `/admin`, que é o portal dele.
+ *
+ * A separação entre os dois que entram **não é** de processos: os dois veem
+ * processos e clientes, e é o mesmo trabalho. O que os separa é a
+ * administração — emails, configuração e contas —, e por isso essas três
+ * entradas saem da barra para o `utilizador`. Sair da barra é cortesia; o que
+ * fecha os endereços é o `exigirSocietyAdmin()` em cada uma dessas páginas.
+ */
+
+type Entrada = EntradaDeMenu & {
+  /** Entradas sem nenhum dos dois são para toda a equipa da sociedade. */
   soAdmin?: boolean;
+  soUtilizador?: boolean;
 };
 
+/**
+ * As duas primeiras entradas são a mesma coisa em sítios diferentes: a página
+ * de entrada de cada papel. Sem a segunda, um `utilizador` que abrisse
+ * `/processos` a partir da barra ficava sem forma de voltar ao portal dele a
+ * não ser pelo logótipo.
+ */
 const NAVEGACAO: Entrada[] = [
-  { titulo: "Painel", href: "/", icone: LayoutDashboard },
+  { titulo: "Painel", href: "/", icone: LayoutDashboard, soAdmin: true },
+  {
+    titulo: "Os meus processos",
+    href: "/meus-processos",
+    icone: LayoutDashboard,
+    soUtilizador: true,
+  },
   { titulo: "Processos", href: "/processos", icone: FileText },
   { titulo: "Clientes", href: "/clientes", icone: Users },
-  // Só administração — a página tem o seu próprio guard (`exigirAdmin`), e
-  // esconder a entrada aqui é cortesia, não segurança.
+  { titulo: "Utilizadores", href: "/utilizadores", icone: UserCog, soAdmin: true },
   { titulo: "Emails", href: "/emails", icone: Mail, soAdmin: true },
-  { titulo: "Configuração", href: "/configuracao", icone: Settings },
+  { titulo: "Configuração", href: "/configuracao", icone: Settings, soAdmin: true },
 ];
 
 /**
@@ -51,75 +55,22 @@ export default async function LayoutBackoffice({
 }: Readonly<{ children: React.ReactNode }>) {
   // Guard num sítio só: todas as páginas do back-office passam por aqui, e é
   // o que impede que uma página nova nasça aberta por esquecimento.
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
+
+  const admin = podeVerEmails(eu.papel);
+  const entradas = NAVEGACAO.filter(
+    (item) => (!item.soAdmin || admin) && (!item.soUtilizador || !admin),
+  );
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <SidebarProvider>
-        <Sidebar collapsible="icon">
-          <SidebarHeader className="px-3 py-4 group-data-[collapsible=icon]:px-1.5">
-            {/* A lombada do dossier, agora com a marca da sociedade — o mesmo
-                emblema do onboarding, da entrada e dos T&C. É SVG com fundo
-                próprio (verde-arquivo), por isso assenta direto na tinta
-                sólida da barra sem precisar de uma caixa clara por trás.
-
-                `group-data-[collapsible=icon]` é o estado recolhido da barra:
-                aí só cabe a marca, e a linha de baixo sairia por cima do
-                ícone seguinte. O `shrink-0` é o que impede a alternativa a
-                encolher — encolher só a largura e entregar o logo esticado. */}
-            <Link href="/" className="flex min-w-0 items-center gap-2.5">
-              <Logotipo className="h-8 w-auto shrink-0 group-data-[collapsible=icon]:h-6" />
-              <span className="font-mono text-2xs truncate tracking-[0.16em] uppercase opacity-60 group-data-[collapsible=icon]:hidden">
-                Processos
-              </span>
-            </Link>
-          </SidebarHeader>
-
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Onboarding</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {NAVEGACAO.filter(
-                    (item) => !item.soAdmin || podeVerEmails(eu.papel),
-                  ).map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild tooltip={item.titulo}>
-                        <Link href={item.href}>
-                          <item.icone />
-                          <span>{item.titulo}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-
-          <SidebarFooter className="gap-2 px-3 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium">{eu.nome}</p>
-              <p className="text-2xs truncate font-mono tracking-wider uppercase opacity-60">
-                {eu.papel}
-              </p>
-            </div>
-            <BotaoSair />
-            <span className="text-2xs font-mono opacity-40">POC · v0.1.0</span>
-          </SidebarFooter>
-        </Sidebar>
-
-        <SidebarInset>
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-linha bg-papel-alto px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-1 h-4" />
-            <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
-              Onboarding de clientes
-            </span>
-          </header>
-          <main className="flex-1 p-4 md:p-6">{children}</main>
-        </SidebarInset>
-      </SidebarProvider>
-    </TooltipProvider>
+    <PortalShell
+      entradas={entradas}
+      grupo="Onboarding"
+      cabecalho="Onboarding de clientes"
+      legendaDaMarca="Processos"
+      utilizador={{ nome: eu.nome, papel: ROTULO_DO_PAPEL[eu.papel] ?? eu.papel }}
+    >
+      {children}
+    </PortalShell>
   );
 }

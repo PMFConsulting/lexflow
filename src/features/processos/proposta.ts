@@ -9,7 +9,7 @@ import { documento } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
 import { assinaturaConfere, mensagemConteudo } from "@/features/onboarding/formatos";
-import { exigirSessao } from "@/lib/sessao";
+import { exigirEquipaDaSociedade } from "@/lib/sessao";
 
 /**
  * A proposta comercial que segue com o convite.
@@ -42,7 +42,7 @@ export async function carregarPropostaComercial(
   processoId: string,
   formData: FormData,
 ): Promise<ResultadoProposta> {
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
 
   const ficheiro = formData.get("ficheiro");
   if (!(ficheiro instanceof File) || ficheiro.size === 0) {

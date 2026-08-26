@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 import { numerosDoPainel, recentes } from "@/features/processos/consultas";
+import { exigirEquipaDaSociedade, portalDoPapel } from "@/lib/sessao";
 
 export const metadata = { title: "Painel" };
 
@@ -12,12 +14,27 @@ const quando = (d: Date) =>
   new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d);
 
 /**
- * Painel. Sem gráficos decorativos — só o que faz agir (§6 do brief).
+ * Painel — e o despachante da raiz.
  *
- * Cada número é um link para a listagem já filtrada: ver "3 por rever" e não
- * poder clicar seria obrigar a refazer o filtro à mão.
+ * `/` é o destino único a seguir ao início de sessão, e é aqui que ele se
+ * resolve: o ecrã de entrada manda toda a gente para a raiz e é o servidor que
+ * decide para onde. Assim o browser nunca precisa de saber o papel de quem
+ * entra para calcular um destino — o que, além de mais simples, evita
+ * anunciar o papel a quem ainda não passou por guard nenhum.
+ *
+ * Para o `society_admin`, `portalDoPapel` devolve `/` e a página continua para
+ * baixo, que é o painel. Os outros dois saem daqui.
+ *
+ * Sem gráficos decorativos — só o que faz agir (§6 do brief). Cada número é um
+ * link para a listagem já filtrada: ver "3 por rever" e não poder clicar seria
+ * obrigar a refazer o filtro à mão.
  */
 export default async function Painel() {
+  const { eu } = await exigirEquipaDaSociedade();
+
+  const destino = portalDoPapel(eu.papel);
+  if (destino !== "/") redirect(destino);
+
   const [n, ultimos] = await Promise.all([numerosDoPainel(), recentes()]);
 
   const tiles = [

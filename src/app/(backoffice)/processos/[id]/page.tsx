@@ -22,7 +22,7 @@ import {
   passosDoProcesso,
   type TipoCliente,
 } from "@/features/onboarding/passos";
-import { exigirSessao, podeAprovarProcesso, podeVerPpe } from "@/lib/sessao";
+import { exigirEquipaDaSociedade, podeAprovarProcesso, podeVerPpe } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 import { AcoesAprovacao } from "@/features/processos/componentes/AcoesAprovacao";
 import { PropostaComercial } from "@/features/processos/componentes/PropostaComercial";
@@ -103,7 +103,7 @@ export default async function Processo({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
 
   const processo = await processoPorId(id);
   // A mesma regra da rota de download: um processo de outra organização

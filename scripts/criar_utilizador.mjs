@@ -7,7 +7,19 @@
  * de identificação não pode ter um formulário aberto a criar contas.
  *
  *   node scripts/criar_utilizador.mjs --email pedro@pmf.pt --nome "Pedro Faria" \
- *     --papel admin --password '...'
+ *     --papel society_admin --password '...'
+ *
+ * Os papéis são três: `super_admin` (dono da plataforma, **sem** sociedade),
+ * `society_admin` (administra uma sociedade) e `utilizador` (trabalha os
+ * processos dela). O primeiro `super_admin` tem de nascer aqui — não há
+ * ninguém autenticado que o possa criar pela interface:
+ *
+ *   node scripts/criar_utilizador.mjs --papel super_admin \
+ *     --email dono@terlicalabs.com --nome "…" --password '...'
+ *
+ * A partir daí, as contas criam-se no portal `/admin`, que chama o mesmo par de
+ * escritas através de `src/features/plataforma/contas.ts`. Este script fica
+ * para o arranque e para operações de servidor.
  *
  *   node scripts/criar_utilizador.mjs --gerar-hash --password '...'
  *
@@ -39,7 +51,18 @@ import { uuidv7 } from "uuidv7";
 /** A PMF nos seeds e em produção. Trocável por `--organizacao`. */
 const ORGANIZACAO_PMF = "fe6c269c-5358-43f9-8a7e-ccade4778940";
 
-const PAPEIS = ["admin", "socio", "advogado", "assistente"];
+/**
+ * Os três níveis da migração `0016`.
+ *
+ * O `super_admin` **não pertence a sociedade nenhuma** — a restrição
+ * `utilizador_org_por_papel` exige `organizacao_id` a NULL para ele e a
+ * NOT NULL para os outros dois. É por isso que o `--organizacao` deixou de ter
+ * um valor por omissão universal: para um `super_admin`, esse valor por
+ * omissão era o que fazia a inserção rebentar contra a restrição.
+ */
+const PAPEIS = ["super_admin", "society_admin", "utilizador"];
+
+const PAPEL_DE_PLATAFORMA = "super_admin";
 
 const MINIMO_PALAVRA_PASSE = 12;
 
@@ -129,13 +152,20 @@ async function criar({ email, nome, papel, password, organizacaoId, reativar }) 
   const sql = postgres(url, { max: 1, prepare: false });
 
   try {
-    const [org] = await sql`
-      select id, nome from organizacao where id = ${organizacaoId} limit 1
-    `;
-    if (!org) {
-      morrer(
-        `A organização ${organizacaoId} não existe. Corra as migrações e as seeds, ou indique --organizacao.`,
-      );
+    // O `super_admin` não tem organização — a coluna fica a NULL, e é isso que
+    // o mantém fora do âmbito de qualquer sociedade (todas as consultas do
+    // back-office comparam organizações, e NULL nunca é igual a nada).
+    let org = null;
+
+    if (organizacaoId) {
+      [org] = await sql`
+        select id, nome from organizacao where id = ${organizacaoId} limit 1
+      `;
+      if (!org) {
+        morrer(
+          `A organização ${organizacaoId} não existe. Corra as migrações e as seeds, ou indique --organizacao.`,
+        );
+      }
     }
 
     let criouConta = false;
@@ -186,11 +216,20 @@ async function criar({ email, nome, papel, password, organizacaoId, reativar }) 
 
       /* --- utilizador de domínio ----------------------------------------- */
 
-      const [eu] = await tx`
-        select id, apagado_em from utilizador
-        where organizacao_id = ${organizacaoId} and email = ${email}
-        limit 1
-      `;
+      // `is null` e não `= null`: em SQL, `= null` não é falso, é desconhecido,
+      // e não encontrava nunca o `super_admin` que já lá estivesse — o script
+      // tentava inserir outro e batia no índice único parcial.
+      const [eu] = organizacaoId
+        ? await tx`
+            select id, apagado_em from utilizador
+            where organizacao_id = ${organizacaoId} and email = ${email}
+            limit 1
+          `
+        : await tx`
+            select id, apagado_em from utilizador
+            where organizacao_id is null and email = ${email}
+            limit 1
+          `;
 
       if (eu) {
         await tx`
@@ -231,7 +270,7 @@ async function criar({ email, nome, papel, password, organizacaoId, reativar }) 
     console.log(`  Email:        ${email}`);
     console.log(`  Nome:         ${nome}`);
     console.log(`  Papel:        ${papel}`);
-    console.log(`  Organização:  ${org.nome}`);
+    console.log(`  Organização:  ${org ? org.nome : "— (administração da plataforma)"}`);
     if (!criouConta) {
       console.log("  A conta já existia — a palavra-passe foi substituída.");
     }
@@ -256,8 +295,7 @@ async function principal() {
 
   const email = (argumento("email") ?? process.env.UTILIZADOR_EMAIL ?? "").trim().toLowerCase();
   const nome = (argumento("nome") ?? process.env.UTILIZADOR_NOME ?? "").trim();
-  const papel = (argumento("papel") ?? process.env.UTILIZADOR_PAPEL ?? "assistente").trim();
-  const organizacaoId = argumento("organizacao") ?? ORGANIZACAO_PMF;
+  const papel = (argumento("papel") ?? process.env.UTILIZADOR_PAPEL ?? "utilizador").trim();
 
   if (!email || !email.includes("@")) morrer("Falta um email válido em --email.");
   // `nome` é NOT NULL em `utilizador`; sem ele o insert rebentava com uma
@@ -265,6 +303,28 @@ async function principal() {
   if (!nome) morrer("Falta o nome em --nome.");
   if (!PAPEIS.includes(papel)) {
     morrer(`Papel inválido: "${papel}". Um de: ${PAPEIS.join(", ")}.`);
+  }
+
+  /**
+   * A organização depende do papel, e a mensagem de erro também.
+   *
+   * Um `super_admin` **com** organização e um `society_admin` **sem** ela são
+   * os dois recusados pela restrição `utilizador_org_por_papel`. Recusá-los
+   * aqui é o que faz a diferença entre uma frase que diz o que fazer e um
+   * `violates check constraint` no fim de uma transação.
+   */
+  const orgPedida = argumento("organizacao");
+  let organizacaoId;
+
+  if (papel === PAPEL_DE_PLATAFORMA) {
+    if (orgPedida) {
+      morrer(
+        `Um ${PAPEL_DE_PLATAFORMA} não pertence a nenhuma sociedade — não indique --organizacao.`,
+      );
+    }
+    organizacaoId = null;
+  } else {
+    organizacaoId = orgPedida ?? ORGANIZACAO_PMF;
   }
 
   await criar({

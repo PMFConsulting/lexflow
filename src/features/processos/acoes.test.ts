@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const ORG = { id: "org-1", prefixoReferencia: "JM" };
-const EU = { id: "utilizador-1", organizacaoId: "org-1", papel: "admin" };
+const EU = { id: "utilizador-1", organizacaoId: "org-1", papel: "society_admin" };
 
 let organizacoes: unknown[] = [ORG];
 /** Falso quando se quer encenar uma chamada sem sessão iniciada. */
@@ -85,12 +85,17 @@ vi.mock("@/db/schema/processo", () => ({ processoOnboarding: "processo_onboardin
  * A sessão do back-office.
  *
  * `criarProcesso` deixou de ser uma ação pública (D59): sem sessão não há
- * processo nem email. O `exigirSessao` real redireciona para `/entrar`, e um
+ * processo nem email. O guard real redireciona para `/entrar`, e um
  * `redirect()` do Next é uma exceção — é isso que o mock imita, para o teste
  * poder afirmar que **nada** acontece do outro lado.
+ *
+ * `exigirEquipaDaSociedade` (D61) no lugar do antigo `exigirSessao`: além da
+ * sessão, exige um papel **com** sociedade, e devolve `organizacaoId` já como
+ * `string`. É o que impede o `super_admin` — que a tem a `null` — de abrir
+ * processos numa sociedade que não é dele, porque não é de nenhuma.
  */
 vi.mock("@/lib/sessao", () => ({
-  exigirSessao: async () => {
+  exigirEquipaDaSociedade: async () => {
     if (!haSessao) throw new Error("NEXT_REDIRECT;/entrar");
     return { conta: { id: "auth-1" }, eu: EU };
   },

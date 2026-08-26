@@ -18,7 +18,7 @@ import {
   emailRejeicao,
 } from "@/lib/emails/jmassano";
 import { origemPublica } from "@/lib/origem";
-import { exigirSessao, podeAprovarProcesso } from "@/lib/sessao";
+import { exigirEquipaDaSociedade, podeAprovarProcesso } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
 import { novoProcesso, type NovoProcesso } from "./schemas";
 
@@ -102,7 +102,7 @@ export async function criarProcesso(entrada: NovoProcesso) {
    * chamada sem sessão a ação não devolve resultado nenhum, que é exatamente o
    * que se pretende.
    */
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
 
   // O cliente já validou, e isso é conforto. A decisão é aqui: um NIPC com o
   // checksum errado não entra por a janela ter sido contornada.
@@ -549,7 +549,7 @@ async function processoParaDecisao(
   | { ok: true; processo: typeof processoOnboarding.$inferSelect; atorId: string }
   | { ok: false; erro: string }
 > {
-  const { eu } = await exigirSessao();
+  const { eu } = await exigirEquipaDaSociedade();
   if (!podeAprovarProcesso(eu.papel)) {
     return { ok: false, erro: "Não tem permissão para decidir este processo." };
   }
