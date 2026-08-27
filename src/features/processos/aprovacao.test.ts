@@ -151,6 +151,8 @@ vi.mock("@/lib/sessao", () => ({
     eu.papel === "super_admin" || eu.organizacaoId === orgAlvo,
   podeAprovarProcesso: (papel: string) =>
     papel !== "desconhecido" && papel !== "super_admin",
+  podeReabrirProcesso: (papel: string) =>
+    papel === "society_admin" || papel === "gestor" || papel === "super_admin",
 }));
 
 const { aprovarProcesso, rejeitarProcesso } = await import("./acoes");

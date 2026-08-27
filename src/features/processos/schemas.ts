@@ -78,3 +78,15 @@ export const novoProcesso = z.discriminatedUnion("tipoCliente", [
 export type NovoProcesso =
   | { tipoCliente: "particular"; nome?: string; email?: string }
   | { tipoCliente: "empresa"; nome: string; nif: string; email?: string };
+
+export const reaberturaProcessoSchema = z.object({
+  processoId: z.string().min(1, "Identificador do processo obrigatório."),
+  motivo: z
+    .string()
+    .trim()
+    .min(1, "Indique o motivo da reabertura.")
+    .min(10, "O motivo deve ter pelo menos 10 caracteres."),
+});
+
+export type ReaberturaProcesso = z.infer<typeof reaberturaProcessoSchema>;
+

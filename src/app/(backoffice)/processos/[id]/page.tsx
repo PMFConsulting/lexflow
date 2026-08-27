@@ -11,7 +11,12 @@ import {
   assinaturaDoProcesso,
   seccoesDoProcesso,
 } from "@/features/onboarding/dados";
-import { exigirEquipaDaSociedade, podeAprovarProcesso, podeVerPpe } from "@/lib/sessao";
+import {
+  exigirEquipaDaSociedade,
+  podeAprovarProcesso,
+  podeReabrirProcesso,
+  podeVerPpe,
+} from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 import { DetalheProcesso } from "@/features/processos/componentes/DetalheProcesso";
 
@@ -44,6 +49,7 @@ export default async function Processo({
 
   const vePpe = podeVerPpe(eu.papel);
   const podeAprovar = podeAprovarProcesso(eu.papel);
+  const podeReabrir = podeReabrirProcesso(eu.papel);
 
   await registarEvento({
     organizacaoId: processo.organizacaoId,
@@ -66,6 +72,7 @@ export default async function Processo({
       proposta={proposta}
       vePpe={vePpe}
       podeAprovar={podeAprovar}
+      podeReabrir={podeReabrir}
       podeEditar={true}
       caminhoVoltar="/processos"
       textoVoltar="Processos"

@@ -182,6 +182,19 @@ export function podeAprovarProcesso(papel: string) {
 }
 
 /**
+ * Quem pode reabrir um processo (Frente M).
+ * Apenas administradores da sociedade e gestores (ou o super_admin transversal).
+ * Utilizadores regulares não têm permissão para reabrir processos.
+ */
+export function podeReabrirProcesso(papel: string) {
+  return (
+    papel === "society_admin" ||
+    papel === "gestor" ||
+    papel === "super_admin"
+  );
+}
+
+/**
  * O diário de emails é administração da sociedade.
  *
  * A lista mostra a quem a sociedade escreveu e quando — endereços de clientes,

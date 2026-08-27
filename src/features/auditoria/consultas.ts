@@ -55,9 +55,6 @@ export const ACOES: Record<string, string> = {
   "processo.em_revisao": "Processo marcado em revisão",
   "processo.aprovado": "Processo aprovado",
   "processo.rejeitado": "Processo rejeitado",
-  // A reabertura de processos rejeitados foi removida da plataforma. O rótulo
-  // fica: a auditoria é append-only e os eventos gravados enquanto a
-  // funcionalidade existiu continuam na linha do tempo — tirá-lo daqui não
-  // apagava o evento, só o deixava ilegível a quem o lê.
   "processo.reaberto": "Processo reaberto para correção",
+  "reabertura": "Processo reaberto",
 };

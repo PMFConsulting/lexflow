@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { novoProcesso } from "./schemas";
+import { novoProcesso, reaberturaProcessoSchema } from "./schemas";
 
 /**
  * A janela "Novo processo", à entrada do servidor.
@@ -265,3 +265,68 @@ describe("novoProcesso — o discriminante e os limites", () => {
     expect(r.error.issues[0]?.path).toEqual(["nome"]);
   });
 });
+
+describe("reaberturaProcessoSchema — validação de motivo", () => {
+  it("aceita motivo com 10 ou mais caracteres", () => {
+    const r = reaberturaProcessoSchema.safeParse({
+      processoId: "proc-123",
+      motivo: "Comprovativo de morada ilegível.",
+    });
+
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    expect(r.data.motivo).toBe("Comprovativo de morada ilegível.");
+  });
+
+  it("aceita motivo exatamente com 10 caracteres após trim", () => {
+    const r = reaberturaProcessoSchema.safeParse({
+      processoId: "proc-123",
+      motivo: "  1234567890  ",
+    });
+
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    expect(r.data.motivo).toBe("1234567890");
+  });
+
+  it("recusa motivo com menos de 10 caracteres", () => {
+    const r = reaberturaProcessoSchema.safeParse({
+      processoId: "proc-123",
+      motivo: "Curto",
+    });
+
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    expect(r.error.issues[0]?.message).toBe("O motivo deve ter pelo menos 10 caracteres.");
+  });
+
+  it("recusa motivo vazio ou apenas com espaços", () => {
+    const rVazio = reaberturaProcessoSchema.safeParse({
+      processoId: "proc-123",
+      motivo: "",
+    });
+    expect(rVazio.success).toBe(false);
+    if (!rVazio.success) {
+      expect(rVazio.error.issues[0]?.message).toBe("Indique o motivo da reabertura.");
+    }
+
+    const rEspacos = reaberturaProcessoSchema.safeParse({
+      processoId: "proc-123",
+      motivo: "     ",
+    });
+    expect(rEspacos.success).toBe(false);
+    if (!rEspacos.success) {
+      expect(rEspacos.error.issues[0]?.message).toBe("Indique o motivo da reabertura.");
+    }
+  });
+
+  it("recusa payload sem processoId", () => {
+    const r = reaberturaProcessoSchema.safeParse({
+      processoId: "",
+      motivo: "Motivo suficientemente longo para reabertura",
+    });
+
+    expect(r.success).toBe(false);
+  });
+});
+

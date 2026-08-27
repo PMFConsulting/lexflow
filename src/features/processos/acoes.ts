@@ -36,9 +36,14 @@ import {
   exigirEquipaOuSuperAdmin,
   podeAcederSociedade,
   podeAprovarProcesso,
+  podeReabrirProcesso,
 } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
-import { novoProcesso, type NovoProcesso } from "./schemas";
+import {
+  novoProcesso,
+  reaberturaProcessoSchema,
+  type NovoProcesso,
+} from "./schemas";
 
 /** Mesma forma em todas as saídas por erro — o `campo` fica sempre no tipo. */
 const falha = (erro: string, campo?: string) => ({ ok: false as const, erro, campo });
@@ -729,6 +734,166 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
   revalidatePath(`/admin/sociedades/${processo.organizacaoId}`);
   revalidatePath("/admin");
   revalidatePath("/");
+
+  return { ok: true };
+}
+
+/**
+ * Reabre um processo (Frente M): muda o estado, renova o acesso do cliente,
+ * grava o motivo na auditoria e notifica o cliente por email com o modelo de reabertura.
+ *
+ * Apenas permitido para processos nos estados `aprovado`, `arquivado` ou `rejeitado`.
+ *
+ * Transições de estado:
+ * - `aprovado` -> `em_revisao`
+ * - `arquivado` -> `em_revisao`
+ * - `rejeitado` -> `pendente_cliente`
+ */
+export async function reabrirProcesso(
+  id: string,
+  motivoBruto: string,
+): Promise<ResultadoDecisao> {
+  const analise = reaberturaProcessoSchema.safeParse({
+    processoId: id,
+    motivo: motivoBruto,
+  });
+
+  if (!analise.success) {
+    const problema = analise.error.issues[0];
+    return falha(problema?.message ?? "Indique o motivo da reabertura.");
+  }
+
+  const { motivo } = analise.data;
+
+  const { eu } = await exigirEquipaOuSuperAdmin();
+  if (!podeReabrirProcesso(eu.papel)) {
+    return falha("Não tem permissão para reabrir este processo.");
+  }
+
+  const [processo] = await db()
+    .select()
+    .from(processoOnboarding)
+    .where(eq(processoOnboarding.id, id))
+    .limit(1);
+
+  if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
+    return falha("Processo não encontrado.");
+  }
+
+  const ESTADOS_REABERTURA: Record<string, "em_revisao" | "pendente_cliente"> = {
+    aprovado: "em_revisao",
+    arquivado: "em_revisao",
+    rejeitado: "pendente_cliente",
+  };
+
+  const novoEstado = ESTADOS_REABERTURA[processo.estado];
+  if (!novoEstado) {
+    return falha("Apenas processos aprovados, arquivados ou rejeitados podem ser reabertos.");
+  }
+
+  const { token, hash } = novoTokenAcesso();
+  const expiraEm = expiraDaquiA(30);
+
+  await db()
+    .update(processoOnboarding)
+    .set({
+      estado: novoEstado,
+      tokenAcessoHash: hash,
+      expiraEm,
+      apagadoEm: null,
+      atualizadoEm: new Date(),
+    })
+    .where(eq(processoOnboarding.id, id));
+
+  let ip: string | null = null;
+  let userAgent: string | null = null;
+  try {
+    const h = await headers();
+    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    userAgent = h.get("user-agent") ?? null;
+  } catch {
+    // Headers outside request context
+  }
+
+  try {
+    await registarEvento({
+      organizacaoId: processo.organizacaoId,
+      processoId: processo.id,
+      atorId: eu.id,
+      acao: "reabertura",
+      entidade: "processo_onboarding",
+      entidadeId: processo.id,
+      valorAnterior: { estado: processo.estado },
+      valorNovo: { estado: novoEstado, motivo },
+      ip,
+      userAgent,
+    });
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: falhou auditoria de reabertura`, e);
+  }
+
+  try {
+    let linkProcesso = `/onboarding/${token}`;
+    try {
+      linkProcesso = `${await origemPublica()}/onboarding/${token}`;
+    } catch (erro) {
+      console.error(`[processo] ${processo.referencia}: origemPublica falhou; link relativo`, erro);
+    }
+
+    const { email, nome } = await emailDoCliente(id);
+    if (email) {
+      const [org] = await db()
+        .select({
+          id: organizacao.id,
+          nome: organizacao.nome,
+          logotipoDados: organizacao.logotipoDados,
+          logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+        })
+        .from(organizacao)
+        .where(eq(organizacao.id, processo.organizacaoId))
+        .limit(1);
+
+      const emailResolvido = await resolverEmailCliente({
+        organizacaoId: processo.organizacaoId,
+        template: "reabertura",
+        variaveis: {
+          nome_cliente: nome,
+          referencia: processo.referencia,
+          nome_sociedade: org?.nome,
+          motivo,
+          link_processo: linkProcesso,
+        },
+        logotipoUrl: urlLogotipoSociedade(org),
+      });
+
+      await enviarEmail({
+        para: email,
+        assunto: emailResolvido.assunto,
+        html: emailResolvido.html,
+        template: "reabertura",
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+        tokenHash: hash,
+      });
+    } else {
+      console.warn(
+        `[processo] ${processo.referencia}: reaberto sem endereço de email — notificação não enviada.`,
+      );
+    }
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: o email de reabertura não foi enviado`, e);
+  }
+
+  try {
+    revalidatePath("/processos");
+    revalidatePath(`/processos/${id}`);
+    revalidatePath(`/admin/sociedades/${processo.organizacaoId}/processos/${id}`);
+    revalidatePath(`/admin/sociedades/${processo.organizacaoId}`);
+    revalidatePath("/admin");
+    revalidatePath("/");
+  } catch {
+    // revalidatePath outside request context
+  }
 
   return { ok: true };
 }

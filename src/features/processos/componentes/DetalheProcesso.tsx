@@ -20,6 +20,8 @@ import {
   type TipoCliente,
 } from "@/features/onboarding/passos";
 import { AcoesAprovacao } from "@/features/processos/componentes/AcoesAprovacao";
+import { AcoesReabertura } from "@/features/processos/componentes/AcoesReabertura";
+import { BotaoReabrirProcesso } from "@/features/processos/componentes/BotaoReabrirProcesso";
 import { PropostaComercial } from "@/features/processos/componentes/PropostaComercial";
 import { BotaoExportarPdf } from "@/features/processos/componentes/BotaoExportarPdf";
 import { ModalEditarSeccao } from "./ModalEditarSeccao";
@@ -158,6 +160,7 @@ export type DetalheProcessoProps = {
   } | null;
   vePpe: boolean;
   podeAprovar: boolean;
+  podeReabrir?: boolean;
   podeEditar?: boolean;
   caminhoVoltar: string;
   textoVoltar?: string;
@@ -174,6 +177,7 @@ export function DetalheProcesso({
   proposta,
   vePpe,
   podeAprovar,
+  podeReabrir,
   podeEditar = true,
   caminhoVoltar,
   textoVoltar = "Voltar",
@@ -181,6 +185,11 @@ export function DetalheProcesso({
 }: DetalheProcessoProps) {
   const podeEditarEfetivo =
     podeEditar && processo.estado !== "aprovado" && processo.estado !== "arquivado";
+  const podeReabrirEfetivo =
+    podeReabrir ??
+    (papelAtual
+      ? papelAtual === "society_admin" || papelAtual === "gestor" || papelAtual === "super_admin"
+      : true);
   const naoChegaram = emails.filter((m) => ESTADOS_FALHADOS.includes(m.estado)).length;
 
   return (
@@ -211,6 +220,12 @@ export function DetalheProcesso({
           {papelAtual === "society_admin" && (
             <BotaoExportarPdf processoId={processo.id} referencia={processo.referencia} />
           )}
+          {podeReabrirEfetivo &&
+            (processo.estado === "aprovado" ||
+              processo.estado === "arquivado" ||
+              processo.estado === "rejeitado") && (
+              <BotaoReabrirProcesso processoId={processo.id} />
+            )}
         </div>
       </header>
 
@@ -250,6 +265,14 @@ export function DetalheProcesso({
           </CardContent>
         </Card>
       )}
+
+      {/* ── reabertura ─────────────────────────────────────────────────── */}
+      {podeReabrirEfetivo &&
+        (processo.estado === "aprovado" ||
+          processo.estado === "arquivado" ||
+          processo.estado === "rejeitado") && (
+          <AcoesReabertura processoId={processo.id} estado={processo.estado} />
+        )}
 
       {/* ── dados ─────────────────────────────────────────────────────── */}
       <div className="grid gap-3">
