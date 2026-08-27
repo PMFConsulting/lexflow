@@ -328,6 +328,11 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
   }
 
   const aprovadoEm = eu.papel === "super_admin" ? new Date() : null;
+  // Diogo's rule: O super_admin NÃO escolhe gestores nem dependentes. Apenas society_admin.
+  const gestorIdEfetivo =
+    eu.papel === "society_admin" && lido.data.papel === "utilizador"
+      ? lido.data.gestorId
+      : null;
 
   try {
     const conta = await criarConta({
@@ -335,7 +340,7 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
       email: lido.data.email,
       papel: lido.data.papel,
       organizacaoId: alvo,
-      gestorId: lido.data.gestorId,
+      gestorId: gestorIdEfetivo,
       aprovadoEm,
     });
 
@@ -350,7 +355,7 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
       valorNovo: {
         email: conta.email,
         papel: conta.papel,
-        gestorId: lido.data.gestorId ?? null,
+        gestorId: gestorIdEfetivo ?? null,
         pendenteAprovacao: aprovadoEm === null,
         credenciaisEnviadas: conta.emailEnviado,
       },
@@ -370,6 +375,81 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
     console.error("[plataforma] falhou a criar a conta:", e);
     return { ok: false, erros: { _: "Não foi possível criar a conta. Tente de novo." } };
   }
+}
+
+/**
+ * Associa ou move o gestor atribuído a um utilizador da sociedade.
+ * Operação administrativa imediata (sem aprovação da plataforma),
+ * reservada exclusivamente ao administrador da sociedade (`society_admin`).
+ * O super_admin NÃO pode associar gestores nem dependentes.
+ */
+export async function associarGestor(
+  utilizadorId: string,
+  gestorId: string | null,
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const { eu } = await exigirGestorDeUtilizadores();
+
+  if (eu.papel !== "society_admin" || !eu.organizacaoId) {
+    return { ok: false, erro: "Apenas o administrador da sociedade pode associar ou alterar gestores." };
+  }
+
+  const [alvo] = await db()
+    .select()
+    .from(utilizador)
+    .where(and(eq(utilizador.id, utilizadorId), isNull(utilizador.apagadoEm)))
+    .limit(1);
+
+  if (!alvo || alvo.organizacaoId !== eu.organizacaoId) {
+    return { ok: false, erro: "Utilizador não encontrado nesta sociedade." };
+  }
+
+  if (alvo.papel !== "utilizador") {
+    return { ok: false, erro: "Apenas contas com papel 'utilizador' podem ter gestor associado." };
+  }
+
+  const gestorIdLimpo = gestorId && gestorId.trim() ? gestorId.trim() : null;
+
+  if (gestorIdLimpo) {
+    const [gestor] = await db()
+      .select()
+      .from(utilizador)
+      .where(and(eq(utilizador.id, gestorIdLimpo), isNull(utilizador.apagadoEm)))
+      .limit(1);
+
+    if (
+      !gestor ||
+      gestor.organizacaoId !== eu.organizacaoId ||
+      gestor.papel !== "gestor" ||
+      !gestor.ativo
+    ) {
+      return { ok: false, erro: "O gestor selecionado não é válido ou não pertence à sociedade." };
+    }
+  }
+
+  await db()
+    .update(utilizador)
+    .set({ gestorId: gestorIdLimpo, atualizadoEm: new Date() })
+    .where(eq(utilizador.id, utilizadorId));
+
+  const { ip, userAgent } = await ambiente();
+
+  await auditar({
+    organizacaoId: eu.organizacaoId,
+    atorId: eu.id,
+    acao: "utilizador.gestor_atualizado",
+    entidade: "utilizador",
+    entidadeId: alvo.id,
+    valorAnterior: { gestorId: alvo.gestorId },
+    valorNovo: { gestorId: gestorIdLimpo },
+    ip,
+    userAgent,
+  });
+
+  revalidatePath("/utilizadores");
+  revalidatePath("/equipa");
+  revalidatePath("/processos");
+
+  return { ok: true };
 }
 
 /**

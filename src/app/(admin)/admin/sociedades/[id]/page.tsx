@@ -96,7 +96,11 @@ export default async function Sociedade({ params }: { params: Promise<{ id: stri
         />
       )}
 
-      <GestaoUtilizadores organizacaoId={sociedade.id} contas={contas} />
+      <GestaoUtilizadores
+        organizacaoId={sociedade.id}
+        contas={contas}
+        podeGerirGestores={false}
+      />
     </div>
   );
 }

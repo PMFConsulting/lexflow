@@ -7,9 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Ref } from "@/components/ref-processo";
 import { cn } from "@/lib/utils";
-import { alterarEstadoDaConta, criarUtilizador, importarUtilizadores } from "../acoes";
+import {
+  alterarEstadoDaConta,
+  associarGestor,
+  criarUtilizador,
+  importarUtilizadores,
+} from "../acoes";
 import type { ContaCriada } from "../contas";
 import { MODELO_CSV, type LinhaRecusada } from "../importacao";
+import { classeSelect } from "@/features/onboarding/componentes/Campo";
 import { ContasCriadas } from "./ContasCriadas";
 import { Erro, ErroGeral } from "./Erro";
 
@@ -54,10 +60,12 @@ export function GestaoUtilizadores({
   organizacaoId,
   contas,
   podeAlterarEstado = true,
+  podeGerirGestores = true,
 }: {
   organizacaoId: string;
   contas: LinhaDeConta[];
   podeAlterarEstado?: boolean;
+  podeGerirGestores?: boolean;
 }) {
   const [criadas, setCriadas] = useState<ContaCriada[]>([]);
   const [recusadas, setRecusadas] = useState<LinhaRecusada[]>([]);
@@ -149,6 +157,18 @@ export function GestaoUtilizadores({
     });
   };
 
+  const mudarGestor = (id: string, novoGestorId: string) => {
+    transicao(async () => {
+      try {
+        const r = await associarGestor(id, novoGestorId || null);
+        if (!r.ok) setErros({ _: r.erro });
+      } catch (e) {
+        console.error("[plataforma] associarGestor falhou:", e);
+        setErros({ _: "Não foi possível associar o gestor. Tente de novo." });
+      }
+    });
+  };
+
   const modelo = `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${MODELO_CSV}`)}`;
 
   return (
@@ -187,7 +207,26 @@ export function GestaoUtilizadores({
                 <span className="text-2xs border-linha rounded-xs border px-2 py-0.5">
                   {ROTULOS[c.papel] ?? c.papel}
                 </span>
-                {c.papel === "utilizador" && c.gestorNome && (
+                {c.papel === "utilizador" && podeGerirGestores && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-2xs text-muted-foreground">Gestor:</span>
+                    <select
+                      value={c.gestorId ?? ""}
+                      onChange={(e) => mudarGestor(c.id, e.target.value)}
+                      disabled={aGravar}
+                      className={cn(classeSelect, "h-7 w-auto py-0 text-2xs")}
+                      aria-label={`Associar gestor a ${c.nome}`}
+                    >
+                      <option value="">Sem gestor</option>
+                      {gestores.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {c.papel === "utilizador" && !podeGerirGestores && c.gestorNome && (
                   <span
                     className="text-2xs border-linha text-muted-foreground rounded-xs border px-2 py-0.5"
                     title={`Gestor: ${c.gestorNome}`}
@@ -265,7 +304,7 @@ export function GestaoUtilizadores({
                 name="papel"
                 value={papelEscolhido}
                 onChange={(e) => setPapelEscolhido(e.target.value)}
-                className="border-input bg-papel-alto focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border px-2.5 text-sm focus-visible:ring-3"
+                className={cn(classeSelect, "w-full")}
               >
                 <option value="utilizador">Utilizador — trabalha os processos</option>
                 <option value="gestor">Gestor — coordena uma equipa de utilizadores</option>
@@ -276,14 +315,14 @@ export function GestaoUtilizadores({
               <Erro erros={erros} campo="papel" />
             </div>
 
-            {papelEscolhido === "utilizador" && (
+            {podeGerirGestores && papelEscolhido === "utilizador" && (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`${base}-gestor`}>Gestor associado (opcional)</Label>
                 <select
                   id={`${base}-gestor`}
                   name="gestorId"
                   defaultValue=""
-                  className="border-input bg-papel-alto focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border px-2.5 text-sm focus-visible:ring-3"
+                  className={cn(classeSelect, "w-full")}
                 >
                   <option value="">Nenhum (sem gestor)</option>
                   {gestores.map((g) => (

@@ -3,6 +3,7 @@ import { auditoriaDoProcesso } from "@/features/auditoria/consultas";
 import { emailsDoProcesso } from "@/features/emails/consultas";
 import {
   documentosDoProcesso,
+  gestorPodeVerProcesso,
   processoPorId,
   propostaDoProcesso,
 } from "@/features/processos/consultas";
@@ -26,6 +27,11 @@ export default async function Processo({
 
   const processo = await processoPorId(id);
   if (!processo || processo.organizacaoId !== eu.organizacaoId) notFound();
+
+  if (eu.papel === "gestor") {
+    const podeVer = await gestorPodeVerProcesso(processo.id, eu.id, eu.organizacaoId);
+    if (!podeVer) notFound();
+  }
 
   const [s, docs, eventos, emails, assinatura, proposta] = await Promise.all([
     seccoesDoProcesso(processo.id),
