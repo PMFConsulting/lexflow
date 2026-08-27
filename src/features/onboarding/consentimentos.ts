@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { consentimento, versaoTextoLegal } from "@/db/schema/legal";
 import type { finalidadeConsentimento } from "@/db/schema/enums";
@@ -107,9 +107,9 @@ async function textoEmVigor(finalidade: Finalidade) {
 /**
  * Grava um consentimento — ou a sua retirada.
  *
- * Retirar não apaga: marca `revogado_em` na linha existente e grava uma nova
- * com `aceite = false`. O histórico é a prova, e apagá-lo destruiria
- * exatamente aquilo que a lei manda conseguir demonstrar.
+ * Retirar não apaga: marca `revogado_em` na linha existente.
+ * Uma nova concessão após revogação cria uma LINHA NOVA, preservando
+ * a linha revogada como prova inalterável no histórico.
  */
 export async function registarConsentimento(opts: {
   processoId: string;
@@ -122,7 +122,7 @@ export async function registarConsentimento(opts: {
   const texto = await textoEmVigor(opts.finalidade);
   if (!texto) return;
 
-  const [anterior] = await base
+  const [anteriorAtivo] = await base
     .select()
     .from(consentimento)
     .where(
@@ -130,42 +130,33 @@ export async function registarConsentimento(opts: {
         eq(consentimento.processoId, opts.processoId),
         eq(consentimento.finalidade, opts.finalidade),
         eq(consentimento.textoLegalId, texto.id),
+        isNull(consentimento.revogadoEm),
       ),
     )
+    .orderBy(desc(consentimento.aceiteEm))
     .limit(1);
 
-  // Sem mudança de resposta, não há nada a registar: repetir a mesma linha a
-  // cada gravação do passo só enche o histórico de ruído.
-  if (anterior && anterior.aceite === opts.aceite && !anterior.revogadoEm) return;
+  if (opts.aceite) {
+    if (anteriorAtivo && anteriorAtivo.aceite) return;
 
-  if (anterior && anterior.aceite && !opts.aceite) {
-    await base
-      .update(consentimento)
-      .set({ revogadoEm: new Date() })
-      .where(eq(consentimento.id, anterior.id));
-  }
-
-  await base
-    .insert(consentimento)
-    .values({
+    await base.insert(consentimento).values({
       processoId: opts.processoId,
       finalidade: opts.finalidade,
       textoLegalId: texto.id,
-      aceite: opts.aceite,
+      aceite: true,
       aceiteEm: new Date(),
       ip: opts.ip ?? "desconhecido",
       userAgent: opts.userAgent ?? "desconhecido",
-    })
-    .onConflictDoUpdate({
-      target: [consentimento.processoId, consentimento.finalidade, consentimento.textoLegalId],
-      set: {
-        aceite: opts.aceite,
-        aceiteEm: new Date(),
-        ip: opts.ip ?? "desconhecido",
-        userAgent: opts.userAgent ?? "desconhecido",
-        revogadoEm: null,
-      },
+      revogadoEm: null,
     });
+  } else {
+    if (anteriorAtivo && anteriorAtivo.aceite) {
+      await base
+        .update(consentimento)
+        .set({ revogadoEm: new Date() })
+        .where(eq(consentimento.id, anteriorAtivo.id));
+    }
+  }
 }
 
 /** O texto em vigor, para o mostrar ao lado da caixa que se está a aceitar. */

@@ -51,12 +51,12 @@ const logotipo = () =>
 export function urlLogotipoSociedade(org?: {
   id: string;
   logotipoDados?: string | null;
+  logotipoMime?: string | null;
   logotipoAtualizadoEm?: Date | string | null;
 } | null): string | null {
   if (!org?.logotipoDados) return null;
-  const base = (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-  const t = org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now();
-  return `${base}/api/sociedade/logotipo?sociedadeId=${org.id}&t=${t}`;
+  const mime = org.logotipoMime || "image/png";
+  return `data:${mime};base64,${org.logotipoDados}`;
 }
 
 export const moldura = (

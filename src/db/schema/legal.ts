@@ -1,3 +1,4 @@
+import { isNull } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -58,7 +59,9 @@ export const consentimento = pgTable(
     ...timestamps(),
   },
   (t) => [
-    uniqueIndex("consentimento_unico").on(t.processoId, t.finalidade, t.textoLegalId),
+    uniqueIndex("consentimento_unico")
+      .on(t.processoId, t.finalidade, t.textoLegalId)
+      .where(isNull(t.revogadoEm)),
     index("consentimento_processo").on(t.processoId),
   ],
 );

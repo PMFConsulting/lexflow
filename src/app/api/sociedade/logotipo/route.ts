@@ -26,6 +26,11 @@ function mimeSeguro(valor: string | null): MimeLogotipo | null {
 }
 
 export async function GET(pedido: Request) {
+  const sessao = await sessaoAtual();
+  if (!sessao?.eu) {
+    return NextResponse.json({ erro: "Sessão não autenticada." }, { status: 401 });
+  }
+
   const url = new URL(pedido.url);
   const sociedadeIdParam = url.searchParams.get("sociedadeId");
 
@@ -36,12 +41,12 @@ export async function GET(pedido: Request) {
   let organizacaoId: string | null = null;
 
   if (sociedadeIdParam) {
-    organizacaoId = sociedadeIdParam;
-  } else {
-    const sessao = await sessaoAtual();
-    if (!sessao?.eu) {
-      return NextResponse.json({ erro: "Sessão não autenticada." }, { status: 401 });
+    if (sessao.eu.papel === "super_admin" || sessao.eu.organizacaoId === sociedadeIdParam) {
+      organizacaoId = sociedadeIdParam;
+    } else {
+      return NextResponse.json({ erro: "Acesso não autorizado." }, { status: 403 });
     }
+  } else {
     organizacaoId = sessao.eu.organizacaoId ?? null;
   }
 

@@ -17,8 +17,8 @@ function servidorFalso(respostas: Record<string, string> = {}, recolher: { corpo
         while (linha.includes("\r\n")) {
           const comando = linha.slice(0, linha.indexOf("\r\n"));
           linha = linha.slice(linha.indexOf("\r\n") + 2);
-          if (comando === "EHLO exemplo.pt") responder("250 mail.exemplo.pt");
-          else if (comando === "MAIL FROM:<poc@exemplo.pt>") responder(respostas.mail ?? "250 2.1.0 Ok");
+          if (comando.startsWith("EHLO")) responder("250 mail.exemplo.pt");
+          else if (comando.startsWith("MAIL FROM:")) responder(respostas.mail ?? "250 2.1.0 Ok");
           else if (comando.startsWith("RCPT TO:")) responder(respostas.rcpt ?? "250 2.1.5 Ok");
           else if (comando === "DATA") responder("354 End data with <CR><LF>.<CR><LF>");
           else if (comando === ".") responder(respostas.corpo ?? "250 2.0.0 Ok: queued as A1B2");
@@ -79,5 +79,24 @@ describe("enviarSmtp", () => {
 
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.erro).toContain("destinatário recusado");
+  });
+
+  it("sanitiza quebras de linha (CRLF) no assunto e cabeçalhos para evitar injeção SMTP", async () => {
+    const recolher: { corpo?: string } = {};
+    const { servidor, porta } = await servidorFalso({}, recolher);
+    servidores.push(servidor);
+
+    const r = await enviarSmtp("127.0.0.1", porta, {
+      de: "poc@exemplo.pt\r\nBcc: atacante_from@x.pt",
+      para: "cliente@exemplo.pt\r\nBcc: atacante_to@x.pt",
+      assunto: "Assunto legítimo\r\nBcc: atacante@x.pt\r\nInjected: malicious-header",
+      html: "<p>Conteúdo</p>",
+    });
+
+    expect(r).toEqual({ ok: true });
+    // Não deve conter cabeçalho Bcc injetado em linha separada
+    expect(recolher.corpo).not.toMatch(/\r?\nBcc:/i);
+    expect(recolher.corpo).not.toMatch(/\r?\nInjected:/i);
+    expect(recolher.corpo).toContain("Subject: Assunto legítimo  Bcc: atacante@x.pt  Injected: malicious-header");
   });
 });

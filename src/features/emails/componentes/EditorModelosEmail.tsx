@@ -13,6 +13,7 @@ import {
   aplicarPlaceholders,
   comporHtmlPersonalizado,
   PLACEHOLDERS_DISPONIVEIS,
+  sanitizarHtmlEmail,
   type TemplateEditavel,
 } from "@/lib/emails/personalizacao";
 import { guardarModeloEmail, reverterModeloEmail } from "@/features/emails/acoes";
@@ -164,7 +165,7 @@ export function EditorModelosEmail({
   // Pré-visualização com dados simulados
   const assuntoPrevisualizacao = aplicarPlaceholders(assuntoAtual, DADOS_EXEMPLO);
   const corpoPrevisualizacao = comporHtmlPersonalizado(
-    aplicarPlaceholders(corpoAtual, DADOS_EXEMPLO),
+    sanitizarHtmlEmail(aplicarPlaceholders(corpoAtual, DADOS_EXEMPLO)),
     modeloAtual.corAcento,
     logotipoUrl,
   );

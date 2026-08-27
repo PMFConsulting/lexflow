@@ -52,9 +52,10 @@ export default async function SociedadeSubmetida({
   }
 
   const { onboarding, org } = linha;
-  const logotipoUrl = org.logotipoDados
-    ? `/api/sociedade/logotipo?sociedadeId=${org.id}&t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
-    : null;
+  const logotipoUrl =
+    org.logotipoDados && org.logotipoMime
+      ? `data:${org.logotipoMime};base64,${org.logotipoDados}`
+      : null;
 
   // Ainda em rascunho: quem chegou aqui à mão não submeteu nada, e dizer-lhe
   // que está submetido era mentir-lhe sobre o estado do próprio registo.

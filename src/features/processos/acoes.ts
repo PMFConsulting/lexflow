@@ -932,6 +932,16 @@ export async function atualizarSeccaoProcesso(
     return { ok: false, erro: "Processo aprovado — já não é editável." };
   }
 
+  let ip: string | null = null;
+  let userAgent: string | null = null;
+  try {
+    const h = await headers();
+    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    userAgent = h.get("user-agent") ?? null;
+  } catch {
+    // Headers might fail outside request context
+  }
+
   const insere = <T>(extra: Record<string, unknown>) => ({ processoId: processo.id, ...extra }) as T;
 
   switch (passo) {
@@ -1251,6 +1261,8 @@ export async function atualizarSeccaoProcesso(
           });
       }
 
+      const eraElevado = processo.nivelRisco === "elevado";
+
       if (ePpe) {
         await base
           .update(processoOnboarding)
@@ -1266,6 +1278,50 @@ export async function atualizarSeccaoProcesso(
             atualizadoEm: new Date(),
           })
           .where(eq(processoOnboarding.id, processo.id));
+
+        if (!eraElevado) {
+          try {
+            await registarEvento({
+              organizacaoId: processo.organizacaoId,
+              processoId: processo.id,
+              atorId: eu.id,
+              acao: "risco.elevado",
+              entidade: "processo_onboarding",
+              entidadeId: processo.id,
+              valorNovo: { nivelRisco: "elevado", motivo: "ppe" },
+              ip,
+              userAgent,
+            });
+          } catch (e) {
+            console.error(`[processo] ${processo.referencia}: falhou auditoria de risco`, e);
+          }
+        }
+      } else if (eraElevado) {
+        await base
+          .update(processoOnboarding)
+          .set({
+            nivelRisco: "baixo",
+            fatoresRisco: [],
+            atualizadoEm: new Date(),
+          })
+          .where(eq(processoOnboarding.id, processo.id));
+
+        try {
+          await registarEvento({
+            organizacaoId: processo.organizacaoId,
+            processoId: processo.id,
+            atorId: eu.id,
+            acao: "risco.reposto",
+            entidade: "processo_onboarding",
+            entidadeId: processo.id,
+            valorAnterior: { nivelRisco: "elevado", motivo: "ppe" },
+            valorNovo: { nivelRisco: "baixo", motivo: "ppe_retirada" },
+            ip,
+            userAgent,
+          });
+        } catch (e) {
+          console.error(`[processo] ${processo.referencia}: falhou auditoria de risco reposto`, e);
+        }
       }
       break;
     }
@@ -1434,16 +1490,6 @@ export async function atualizarSeccaoProcesso(
     .set({ atualizadoEm: new Date() })
     .where(eq(processoOnboarding.id, processo.id));
 
-  let ip: string | null = null;
-  let userAgent: string | null = null;
-  try {
-    const h = await headers();
-    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-    userAgent = h.get("user-agent") ?? null;
-  } catch {
-    // Headers might fail outside request context
-  }
-
   try {
     await registarEvento({
       organizacaoId: processo.organizacaoId,
@@ -1472,73 +1518,3 @@ export async function atualizarSeccaoProcesso(
   return { ok: true };
 }
 
-/**
- * Atualiza o estado de um processo diretamente (ex: marcar como verificado, rascunho, etc.).
- */
-export async function atualizarEstadoProcesso(
-  processoId: string,
-  novoEstado:
-    | "rascunho"
-    | "pendente_cliente"
-    | "submetido"
-    | "em_revisao"
-    | "aguardar_aprovacao"
-    | "aprovado"
-    | "rejeitado",
-): Promise<ResultadoEdicao> {
-  const { eu } = await exigirEquipaOuSuperAdmin();
-  const base = db();
-
-  const [processo] = await base
-    .select()
-    .from(processoOnboarding)
-    .where(and(eq(processoOnboarding.id, processoId), isNull(processoOnboarding.apagadoEm)))
-    .limit(1);
-
-  if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
-    return { ok: false, erro: "Processo não encontrado." };
-  }
-
-  await base
-    .update(processoOnboarding)
-    .set({ estado: novoEstado, atualizadoEm: new Date() })
-    .where(eq(processoOnboarding.id, processo.id));
-
-  let ip: string | null = null;
-  let userAgent: string | null = null;
-  try {
-    const h = await headers();
-    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-    userAgent = h.get("user-agent") ?? null;
-  } catch {
-    // Headers outside request context
-  }
-
-  try {
-    await registarEvento({
-      organizacaoId: processo.organizacaoId,
-      processoId: processo.id,
-      atorId: eu.id,
-      acao: "processo.estado_atualizado",
-      entidade: "processo_onboarding",
-      entidadeId: processo.id,
-      valorAnterior: { estado: processo.estado },
-      valorNovo: { estado: novoEstado, papel: eu.papel },
-      ip,
-      userAgent,
-    });
-  } catch (e) {
-    console.error(`[processo] ${processo.referencia}: falhou auditoria de estado`, e);
-  }
-
-  try {
-    revalidatePath("/processos");
-    revalidatePath(`/processos/${processo.id}`);
-    revalidatePath(`/admin/sociedades/${processo.organizacaoId}/processos/${processo.id}`);
-    revalidatePath(`/admin/sociedades/${processo.organizacaoId}`);
-  } catch {
-    // revalidatePath outside request context
-  }
-
-  return { ok: true };
-}

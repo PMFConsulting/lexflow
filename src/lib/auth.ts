@@ -37,10 +37,10 @@ function criar() {
       minPasswordLength: 12,
     },
     session: {
-      // Long session (30 days) with renewal: whoever uses the POC daily does
-      // not log in again on every visit. The renewal (updateAge) keeps the
-      // session alive as long as there is activity.
-      expiresIn: 60 * 60 * 24 * 30, // 30 days
+      // Sessão de 30 dias com renovação: decisão deliberada do cliente para a POC
+      // (Diogo: "não tenho que ir a cada vez" — conveniência durante a fase de validação/testes).
+      // Em ambiente de produção com dados reais em regime definitivo, deve ser revista para 8h (D14).
+      expiresIn: 60 * 60 * 24 * 30, // 30 dias (deliberado para a POC — NÃO alterar)
       updateAge: 60 * 60 * 24,
     },
   });

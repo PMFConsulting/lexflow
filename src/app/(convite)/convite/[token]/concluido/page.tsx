@@ -45,9 +45,10 @@ export default async function ConviteConcluido({
   }
 
   const { convite, org } = linha;
-  const logotipoUrl = org.logotipoDados
-    ? `/api/sociedade/logotipo?sociedadeId=${org.id}&t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
-    : null;
+  const logotipoUrl =
+    org.logotipoDados && org.logotipoMime
+      ? `data:${org.logotipoMime};base64,${org.logotipoDados}`
+      : null;
 
   return (
     <div className="bg-papel grid min-h-svh place-items-center px-4 py-10">

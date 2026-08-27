@@ -29,9 +29,10 @@ export default async function LayoutOnboarding({
   ]);
   const gravados = passosGravados(seccoes, processo.tipoCliente);
 
-  const logotipoUrl = org?.logotipoDados
-    ? `/api/sociedade/logotipo?sociedadeId=${org.id}&t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
-    : null;
+  const logotipoUrl =
+    org?.logotipoDados && org?.logotipoMime
+      ? `data:${org.logotipoMime};base64,${org.logotipoDados}`
+      : null;
 
   return (
     <div className="bg-papel min-h-svh">

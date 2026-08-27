@@ -795,7 +795,7 @@ this** — it changes what is built around it.
 | D11 | `env()` and `db()` are lazy, not module constants — `next build` does not need a database, and failing the build for want of a runtime secret is a bad deal | `src/env.ts` |
 | D12 | `prepare: false` on the Postgres connection — Supabase's pooler in transaction mode is pgBouncer and does not support prepared statements | `src/db/index.ts` |
 | D13 | Full-text search by trigger and not by generated column: `unaccent` is not immutable and the sources (name, tax number) are in other tables | migration `0001` |
-| D14 | 8-hour sessions — a working day, not a month | `src/lib/auth.ts` |
+| D14 | 30-day sessions for POC (deliberate client decision for convenience: "não tenho que ir a cada vez"; review to 8h for production) | `src/lib/auth.ts` |
 | D15 | The `id`s are generated in the application (`uuidv7`), not by the database — Postgres only has native `uuidv7()` in v18. Practical consequence: any raw SQL INSERT has to supply the `id` | `src/db/schema/_comum.ts` |
 | D16 | Hosting on our own VPS with Coolify, instead of Vercel — the Hobby plan forbids commercial use and Pro is €20/month. A fixed cost for unlimited POCs | `docs/DEPLOY.md` |
 | D16b | Provider: Hostinger (Hetzner required a VAT ID). An EU company with an EU datacenter — for a system holding identification documents and PEP declarations, a US provider would bring Cloud Act exposure even with a European datacenter | `docs/DEPLOY.md` |

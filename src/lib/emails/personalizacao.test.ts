@@ -3,6 +3,7 @@ import {
   aplicarPlaceholders,
   escaparHtml,
   PLACEHOLDERS_DISPONIVEIS,
+  sanitizarHtmlEmail,
   TEMPLATES_EDITAVEIS,
   TEMPLATES_NAO_EDITAVEIS,
 } from "./personalizacao";
@@ -160,5 +161,43 @@ describe("resolverEmailCliente (fallback vs personalizado)", () => {
     expect(res.personalizado).toBe(false);
     expect(res.assunto).toBe(ASSUNTO_REJEICAO);
     expect(res.html).toContain("Inês Ramos");
+  });
+});
+
+describe("sanitizarHtmlEmail — Prevenção de XSS Stored e Preview", () => {
+  it("remove blocos de <script> e eventos maliciosos", () => {
+    const perigoso = `<p>Olá</p><script>alert('XSS')</script><p>Mundo</p>`;
+    const limpo = sanitizarHtmlEmail(perigoso);
+    expect(limpo).not.toContain("<script>");
+    expect(limpo).not.toContain("alert");
+    expect(limpo).toContain("<p>Olá</p>");
+    expect(limpo).toContain("<p>Mundo</p>");
+  });
+
+  it("remove tags perigosas não permitidas como <img>, <iframe>, <object>", () => {
+    const perigoso = `<p>Texto</p><img src="x" onerror="alert(1)" /><iframe src="https://evil.com"></iframe>`;
+    const limpo = sanitizarHtmlEmail(perigoso);
+    expect(limpo).not.toContain("<img");
+    expect(limpo).not.toContain("onerror");
+    expect(limpo).not.toContain("<iframe");
+    expect(limpo).toContain("<p>Texto</p>");
+  });
+
+  it("bloqueia links perigosos com protocolo javascript: ou data:", () => {
+    const perigoso = `<a href="javascript:alert(1)">Clique aqui</a><a href="data:text/html,<script>alert(1)</script>">Perigo</a>`;
+    const limpo = sanitizarHtmlEmail(perigoso);
+    expect(limpo).not.toContain("javascript:");
+    expect(limpo).not.toContain("data:");
+    expect(limpo).not.toContain("alert");
+    expect(limpo).toContain("<a>Clique aqui</a>");
+  });
+
+  it("preserva tags formatadas válidas e links seguros", () => {
+    const valido = `<p>Caro(a) <strong>{{nome_cliente}}</strong>,</p><p>Consulte o link: <a href="https://exemplo.pt/processo">Aceder</a></p><ul><li>Item 1</li><li>Item 2</li></ul><br />`;
+    const limpo = sanitizarHtmlEmail(valido);
+    expect(limpo).toContain("<p>Caro(a) <strong>{{nome_cliente}}</strong>,</p>");
+    expect(limpo).toContain('<a href="https://exemplo.pt/processo">Aceder</a>');
+    expect(limpo).toContain("<ul><li>Item 1</li><li>Item 2</li></ul>");
+    expect(limpo).toContain("<br />");
   });
 });

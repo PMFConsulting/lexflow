@@ -36,11 +36,23 @@ function saudacao(de: string): string {
   return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(dominio) ? dominio : "localhost";
 }
 
+/**
+ * Sanitiza valores de cabeçalhos de email removendo quebras de linha (\r, \n) e byte NUL (\0)
+ * para prevenir injeção CRLF (cabeçalhos SMTP falsificados, como Bcc injetado).
+ */
+export function sanitizarCabecalho(valor: string): string {
+  return (valor ?? "").replace(/[\r\n\0]/g, " ").trim();
+}
+
 function codificarMensagem(m: MensagemSmtp): string {
+  const de = sanitizarCabecalho(m.de);
+  const para = sanitizarCabecalho(m.para);
+  const assunto = sanitizarCabecalho(m.assunto);
+
   const cabecalhos = [
-    `From: JMASSANO <${m.de}>`,
-    `To: <${m.para}>`,
-    `Subject: ${m.assunto}`,
+    `From: JMASSANO <${de}>`,
+    `To: <${para}>`,
+    `Subject: ${assunto}`,
     "MIME-Version: 1.0",
   ];
 
@@ -52,9 +64,9 @@ function codificarMensagem(m: MensagemSmtp): string {
       const tipo = a.nome.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
       partes.push(
         `--${BOUNDARY}`,
-        `Content-Type: ${tipo}; name="${a.nome}"`,
+        `Content-Type: ${tipo}; name="${sanitizarCabecalho(a.nome)}"`,
         "Content-Transfer-Encoding: base64",
-        `Content-Disposition: attachment; filename="${a.nome}"`,
+        `Content-Disposition: attachment; filename="${sanitizarCabecalho(a.nome)}"`,
         "",
         a.conteudoBase64,
       );
@@ -71,6 +83,8 @@ function codificarMensagem(m: MensagemSmtp): string {
 /** Opens the socket, exchanges the SMTP lines and resolves with the final state. */
 export function enviarSmtp(anfitriao: string, porta: number, mensagem: MensagemSmtp): Promise<{ ok: boolean; erro?: string }> {
   return new Promise((resolver) => {
+    const deSeguro = sanitizarCabecalho(mensagem.de);
+    const paraSeguro = sanitizarCabecalho(mensagem.para);
     const socket = createConnection({ host: anfitriao, port: porta });
     const corpo = codificarMensagem(mensagem);
     let pausa = false;
@@ -85,7 +99,7 @@ export function enviarSmtp(anfitriao: string, porta: number, mensagem: MensagemS
 
     const temporizador = setTimeout(() => terminar(false, `O servidor SMTP ${anfitriao}:${porta} não respondeu em ${TIMEOUT_MS / 1000}s.`), TIMEOUT_MS);
 
-    socket.on("connect", () => socket.write(`EHLO ${saudacao(mensagem.de)}\r\n`));
+    socket.on("connect", () => socket.write(`EHLO ${saudacao(deSeguro)}\r\n`));
 
     let linha = "";
     const comandos = [
@@ -111,11 +125,11 @@ export function enviarSmtp(anfitriao: string, porta: number, mensagem: MensagemS
           if (codigo === "220") continue;
           if (codigo !== "250") return terminar(false, `SMTP: EHLO recusado (${codigo}) — ${resposta}`);
           indiceComando = 1;
-          socket.write(`MAIL FROM:<${mensagem.de}>\r\n`);
+          socket.write(`MAIL FROM:<${deSeguro}>\r\n`);
         } else if (indiceComando === 1) {
           if (codigo !== "250") return terminar(false, `SMTP: remetente recusado (${codigo}) — ${resposta}`);
           indiceComando = 2;
-          socket.write(`RCPT TO:<${mensagem.para}>\r\n`);
+          socket.write(`RCPT TO:<${paraSeguro}>\r\n`);
         } else if (indiceComando === 2) {
           if (codigo !== "250") return terminar(false, `SMTP: destinatário recusado (${codigo}) — ${resposta}`);
           indiceComando = 3;

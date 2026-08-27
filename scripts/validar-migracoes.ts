@@ -345,11 +345,19 @@ async function main() {
   await db.exec("update evento_auditoria set acao = 'adulterado';");
   await db.exec("delete from evento_auditoria;");
 
+  const falhas: string[] = [];
+
+  try {
+    await db.exec("truncate evento_auditoria;");
+    falhas.push("TRUNCATE passou sem erro — a auditoria não está protegida contra truncagem");
+  } catch {
+    // Esperado: trigger trigger_impedir_truncate_evento_auditoria aborta o TRUNCATE
+  }
+
   const restantes = await db.query<{ acao: string }>("select acao from evento_auditoria;");
 
-  const falhas: string[] = [];
   if (restantes.rows.length !== 1) {
-    falhas.push(`DELETE passou — restaram ${restantes.rows.length} linhas em vez de 1`);
+    falhas.push(`DELETE ou TRUNCATE passou — restaram ${restantes.rows.length} linhas em vez de 1`);
   }
   if (restantes.rows[0]?.acao !== "teste.criado") {
     falhas.push(`UPDATE passou — a ação ficou "${restantes.rows[0]?.acao}"`);
@@ -357,7 +365,7 @@ async function main() {
 
   console.log(
     falhas.length === 0
-      ? "\nAuditoria: UPDATE e DELETE bloqueados, INSERT preservado."
+      ? "\nAuditoria: UPDATE, DELETE e TRUNCATE bloqueados, INSERT preservado."
       : `\nAuditoria NÃO é imutável:\n  · ${falhas.join("\n  · ")}`,
   );
 

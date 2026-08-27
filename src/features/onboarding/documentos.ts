@@ -164,6 +164,10 @@ export async function removerDocumento(bruto: string, id: string) {
   }
 
   const { processo, token } = acesso;
+  if (processo.estado !== "rascunho" && processo.estado !== "pendente_cliente") {
+    return { ok: false as const, erro: "Este processo já foi submetido." };
+  }
+
   const base = db();
   const [alvo] = await base
     .select()

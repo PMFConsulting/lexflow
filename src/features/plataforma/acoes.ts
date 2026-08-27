@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { account, user } from "@/db/schema/auth";
 import { organizacao, utilizador } from "@/db/schema/organizacao";
 import { registarEvento } from "@/features/auditoria/registar";
+import { ORGANIZACAO_PLATAFORMA_ID } from "@/features/auditoria/constantes";
 import {
   exigirGestorDeUtilizadores,
   exigirSuperAdmin,
@@ -476,17 +477,20 @@ export async function criarAdministradorDePlataforma(dados: unknown): Promise<Re
 
     const { ip, userAgent } = await ambiente();
 
-    /**
-     * A auditoria é por organização (D6) e esta conta não tem nenhuma. Regista-se
-     * na sociedade de... nenhuma — e como `registarEvento` exige uma, o evento
-     * fica **sem** cadeia própria: escolhe-se não o registar em vez de o
-     * pendurar numa sociedade a que ele não pertence, o que corromperia a
-     * leitura de qualquer auditoria dessa sociedade. Fica o registo no console,
-     * que é onde as operações de plataforma já vivem.
-     */
-    console.warn(
-      `[plataforma] criada conta de administrador da plataforma: ${conta.email} (por ${eu.email}, ip ${ip ?? "?"}, ${userAgent ?? "?"})`,
-    );
+    await auditar({
+      organizacaoId: ORGANIZACAO_PLATAFORMA_ID,
+      atorId: eu.id,
+      acao: "utilizador.criado",
+      entidade: "utilizador",
+      entidadeId: conta.utilizadorId,
+      valorNovo: {
+        email: conta.email,
+        papel: "super_admin",
+        credenciaisEnviadas: conta.emailEnviado,
+      },
+      ip,
+      userAgent,
+    });
 
     revalidatePath("/admin/utilizadores");
     return { ok: true, conta };
@@ -679,19 +683,17 @@ export async function alterarEstadoDaConta(
 
   const { ip, userAgent } = await ambiente();
 
-  if (alvo.organizacaoId) {
-    await auditar({
-      organizacaoId: alvo.organizacaoId,
-      atorId: eu.id,
-      acao: ativo ? "utilizador.reativado" : "utilizador.desativado",
-      entidade: "utilizador",
-      entidadeId: alvo.id,
-      valorAnterior: { ativo: alvo.ativo },
-      valorNovo: { ativo },
-      ip,
-      userAgent,
-    });
-  }
+  await auditar({
+    organizacaoId: alvo.organizacaoId ?? ORGANIZACAO_PLATAFORMA_ID,
+    atorId: eu.id,
+    acao: ativo ? "utilizador.reativado" : "utilizador.desativado",
+    entidade: "utilizador",
+    entidadeId: alvo.id,
+    valorAnterior: { ativo: alvo.ativo },
+    valorNovo: { ativo },
+    ip,
+    userAgent,
+  });
 
   revalidatePath("/admin");
   if (alvo.organizacaoId) revalidatePath(`/admin/sociedades/${alvo.organizacaoId}`);

@@ -8,7 +8,11 @@ import { z } from "zod";
 import { db } from "@/db";
 import { emailModelo } from "@/db/schema/email";
 import { registarEvento } from "@/features/auditoria/registar";
-import { TEMPLATES_EDITAVEIS, type TemplateEditavel } from "@/lib/emails/personalizacao";
+import {
+  sanitizarHtmlEmail,
+  TEMPLATES_EDITAVEIS,
+  type TemplateEditavel,
+} from "@/lib/emails/personalizacao";
 import { exigirSocietyAdmin } from "@/lib/sessao";
 
 async function contexto() {
@@ -57,6 +61,7 @@ export async function guardarModeloEmail(dados: unknown): Promise<ResultadoGuard
   }
 
   const { template, assunto, corpoHtml } = r.data;
+  const corpoHtmlSanitizado = sanitizarHtmlEmail(corpoHtml);
   const base = db();
 
   const [anterior] = await base
@@ -78,7 +83,7 @@ export async function guardarModeloEmail(dados: unknown): Promise<ResultadoGuard
       .update(emailModelo)
       .set({
         assunto,
-        corpoHtml,
+        corpoHtml: corpoHtmlSanitizado,
         atualizadoEm: new Date(),
         atualizadoPor: eu.id,
       })
@@ -90,7 +95,7 @@ export async function guardarModeloEmail(dados: unknown): Promise<ResultadoGuard
       organizacaoId: eu.organizacaoId,
       template,
       assunto,
-      corpoHtml,
+      corpoHtml: corpoHtmlSanitizado,
       atualizadoEm: new Date(),
       atualizadoPor: eu.id,
     });
@@ -107,7 +112,7 @@ export async function guardarModeloEmail(dados: unknown): Promise<ResultadoGuard
       valorAnterior: anterior
         ? { assunto: anterior.assunto, corpoHtml: anterior.corpoHtml }
         : null,
-      valorNovo: { template, assunto, corpoHtml },
+      valorNovo: { template, assunto, corpoHtml: corpoHtmlSanitizado },
       ip,
       userAgent,
     });

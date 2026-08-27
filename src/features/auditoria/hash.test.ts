@@ -54,4 +54,13 @@ describe("calcularHash", () => {
   it("devolve um SHA-256 em hexadecimal", () => {
     expect(calcularHash(base, null)).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it("calcula hash para eventos de auditoria de plataforma (organizacaoId nil)", () => {
+    const plataforma: EntradaAuditoria = {
+      ...base,
+      organizacaoId: "00000000-0000-0000-0000-000000000000",
+      acao: "utilizador.criado",
+    };
+    expect(calcularHash(plataforma, null)).toMatch(/^[0-9a-f]{64}$/);
+  });
 });

@@ -102,6 +102,107 @@ export function aplicarPlaceholders(
   });
 }
 
+/**
+ * Sanitizador de HTML baseado em lista branca de tags para corpos de email.
+ *
+ * Aproximação por expressões regulares para o ambiente da POC sem introduzir
+ * novas dependências.
+ * TODO: Substituir por DOMPurify / sanitize-html server-side quando houver
+ * orçamento de dependências.
+ *
+ * Tags permitidas (whitelist): p, br, strong, b, em, i, u, a[href], ul, ol, li, h1, h2, h3, h4, span.
+ * Atributos permitidos:
+ *   - 'a': apenas 'href' seguro (http:, https:, mailto:, tel: ou {{placeholder}})
+ *   - 'style' inline geral sanitizado
+ */
+export function sanitizarHtmlEmail(htmlBruto: string | null | undefined): string {
+  if (!htmlBruto || typeof htmlBruto !== "string") return "";
+
+  // 1. Remover blocos perigosos inteiros: script, style, iframe, object, embed, svg, math, form, input, button, textarea
+  let limpo = htmlBruto
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?>/gi, "")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, "")
+    .replace(/<math[\s\S]*?<\/math>/gi, "")
+    .replace(/<form[\s\S]*?<\/form>/gi, "");
+
+  const TAGS_PERMITIDAS = new Set([
+    "p",
+    "br",
+    "strong",
+    "b",
+    "em",
+    "i",
+    "u",
+    "a",
+    "ul",
+    "ol",
+    "li",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "span",
+  ]);
+
+  // 2. Substituir cada tag pelo seu equivalente seguro ou remover se não permitida
+  limpo = limpo.replace(/<(\/)?([a-zA-Z0-9]+)([^>]*)>/g, (_match, barra, nomeTag, atributos) => {
+    const tag = String(nomeTag).toLowerCase();
+    if (!TAGS_PERMITIDAS.has(tag)) {
+      return "";
+    }
+
+    if (barra) {
+      return `</${tag}>`;
+    }
+
+    if (tag === "br") {
+      return "<br />";
+    }
+
+    const atributosPermitidos: string[] = [];
+
+    // Para <a>: permitir apenas href seguro
+    if (tag === "a") {
+      const matchHref = String(atributos).match(/href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      if (matchHref) {
+        const hrefValor = (matchHref[1] ?? matchHref[2] ?? matchHref[3] ?? "").trim();
+        const ehSeguro =
+          /^https?:\/\//i.test(hrefValor) ||
+          /^mailto:/i.test(hrefValor) ||
+          /^tel:/i.test(hrefValor) ||
+          /^{{\s*[a-zA-Z0-9_-]+\s*}}$/.test(hrefValor) ||
+          hrefValor.startsWith("/");
+
+        const ehPerigoso = /^(javascript|data|vbscript):/i.test(hrefValor.replace(/\s+/g, ""));
+
+        if (ehSeguro && !ehPerigoso) {
+          atributosPermitidos.push(`href="${escaparHtml(hrefValor)}"`);
+        }
+      }
+    }
+
+    // Para style inline: permitir apenas CSS seguro (sem javascript/expression/url/behaviors)
+    const matchStyle = String(atributos).match(/style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    if (matchStyle) {
+      const estiloValor = (matchStyle[1] ?? matchStyle[2] ?? matchStyle[3] ?? "").trim();
+      const contemAtaque = /(javascript|expression|url\(|behavior|binding|<|>|alert)/i.test(estiloValor);
+      if (!contemAtaque) {
+        atributosPermitidos.push(`style="${escaparHtml(estiloValor)}"`);
+      }
+    }
+
+    const attrsStr = atributosPermitidos.length > 0 ? ` ${atributosPermitidos.join(" ")}` : "";
+    return `<${tag}${attrsStr}>`;
+  });
+
+  return limpo;
+}
+
 export interface DetalheTemplate {
   template: TemplateEditavel;
   titulo: string;
