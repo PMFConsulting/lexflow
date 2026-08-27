@@ -9,6 +9,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { id, softDelete, timestamps } from "./_comum";
 import { papelUtilizador } from "./enums";
@@ -227,6 +228,27 @@ export const utilizador = pgTable(
      * plataforma inteira.
      */
     papel: papelUtilizador("papel").notNull().default("utilizador"),
+    /**
+     * O gestor a quem esta pessoa está associada — só para o papel
+     * `utilizador`, e garantido pela `utilizador_gestor_papel` mais abaixo.
+     *
+     * A anotação `AnyPgColumn` é o que a auto-referência exige: sem ela o
+     * TypeScript não consegue inferir o tipo de uma tabela que se refere a si
+     * própria enquanto ainda a está a construir. É o tipo que o Drizzle publica
+     * para este caso, e não um `any` — que compilava na mesma e desligava a
+     * verificação de que o alvo da chave é mesmo uma coluna.
+     *
+     * `on delete set null` e não `cascade`: um gestor que sai da sociedade não
+     * pode levar consigo as contas de quem coordenava.
+     */
+    gestorId: uuid("gestor_id").references((): AnyPgColumn => utilizador.id, {
+      onDelete: "set null",
+    }),
+    /**
+     * Data em que a conta foi aprovada pelo super_admin da plataforma.
+     * NULL = pendente de aprovação; preenchido = aprovado.
+     */
+    aprovadoEm: timestamp("aprovado_em", { withTimezone: true }),
     ativo: boolean("ativo").notNull().default(true),
     /**
      * A pessoa tem de definir uma palavra-passe nova antes de usar a
@@ -273,6 +295,7 @@ export const utilizador = pgTable(
       .on(t.email)
       .where(sql`${t.organizacaoId} is null`),
     index("utilizador_org").on(t.organizacaoId),
+    index("utilizador_gestor_id_idx").on(t.gestorId),
     /**
      * A regra de negócio escrita onde não se pode contornar.
      *
@@ -289,6 +312,10 @@ export const utilizador = pgTable(
       "utilizador_org_por_papel",
       sql`(${t.papel} = 'super_admin' and ${t.organizacaoId} is null)
           or (${t.papel} <> 'super_admin' and ${t.organizacaoId} is not null)`,
+    ),
+    check(
+      "utilizador_gestor_papel",
+      sql`${t.gestorId} is null or ${t.papel} = 'utilizador'`,
     ),
   ],
 );

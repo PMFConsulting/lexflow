@@ -47,8 +47,15 @@ vi.mock("drizzle-orm", () => ({
 
 vi.mock("@/db/schema/auth", () => ({ user: "user", account: "account" }));
 vi.mock("@/db/schema/organizacao", () => ({
-  utilizador: "utilizador",
-  organizacao: "organizacao",
+  utilizador: {
+    id: "col_id",
+    email: "col_email",
+    papel: "col_papel",
+    organizacaoId: "col_org",
+    apagadoEm: "col_apagado",
+    authUserId: "col_auth",
+  },
+  organizacao: { id: "col_org_id", nome: "col_nome" },
 }));
 
 vi.mock("@/lib/email", () => ({
@@ -67,18 +74,31 @@ vi.mock("@/lib/origem", () => ({
 const transacao = {
   select: () => ({
     from: (t: unknown) => ({
-      where: () => ({ limit: async () => linhas[String(t)] ?? [] }),
+      where: (cond: unknown) => ({
+        limit: async () => {
+          const list = linhas[typeof t === "object" ? "utilizador" : String(t)] ?? [];
+          if (Array.isArray(cond)) {
+            const idClause = cond.find((c: any) => Array.isArray(c) && c[0] === "col_id");
+            if (idClause) return list.filter((r) => r.id === idClause[1]);
+            const emailClause = cond.find((c: any) => Array.isArray(c) && c[0] === "col_email");
+            if (emailClause) return list.filter((r) => !r.email || r.email === emailClause[1]);
+          }
+          return list;
+        },
+      }),
     }),
   }),
   insert: (t: unknown) => ({
     values: async (v: Linha) => {
-      inseridos.push({ tabela: String(t), valores: v });
+      const nomeTabela = typeof t === "object" ? "utilizador" : String(t);
+      inseridos.push({ tabela: nomeTabela, valores: v });
     },
   }),
   update: (t: unknown) => ({
     set: (v: Linha) => ({
       where: async () => {
-        atualizados.push({ tabela: String(t), valores: v });
+        const nomeTabela = typeof t === "object" ? "utilizador" : String(t);
+        atualizados.push({ tabela: nomeTabela, valores: v });
       },
     }),
   }),
@@ -87,10 +107,20 @@ const transacao = {
 vi.mock("@/db", () => ({
   db: () => ({
     transaction: async (f: (t: unknown) => Promise<unknown>) => f(transacao),
-    // `nomeDaSociedade` consulta fora da transação, com o mesmo encadeamento.
     select: () => ({
       from: (t: unknown) => ({
-        where: () => ({ limit: async () => linhas[String(t)] ?? [] }),
+        where: (cond: unknown) => ({
+          limit: async () => {
+            const list = linhas[typeof t === "object" ? "utilizador" : String(t)] ?? [];
+            if (Array.isArray(cond)) {
+              const idClause = cond.find((c: any) => Array.isArray(c) && c[0] === "col_id");
+              if (idClause) return list.filter((r) => r.id === idClause[1]);
+              const emailClause = cond.find((c: any) => Array.isArray(c) && c[0] === "col_email");
+              if (emailClause) return list.filter((r) => !r.email || r.email === emailClause[1]);
+            }
+            return list;
+          },
+        }),
       }),
     }),
   }),
@@ -309,6 +339,101 @@ describe("criarConta", () => {
   it("recusa um nome vazio — a coluna é NOT NULL", async () => {
     await expect(criarConta({ ...PEDIDO, nome: "   " })).rejects.toThrow(/nome/);
     expect(inseridos).toHaveLength(0);
+  });
+
+  /* --- fluxo de aprovação e gestor ---------------------------------------- */
+
+  it("cria a conta como pendente (aprovadoEm = null) sem enviar credenciais", async () => {
+    const conta = await criarConta({ ...PEDIDO, aprovadoEm: null });
+    expect(conta.aprovadoEm).toBeNull();
+    expect(conta.emailEnviado).toBeNull();
+    expect(emails).toHaveLength(0);
+    expect(inseridoEm("utilizador")).toMatchObject({
+      aprovadoEm: null,
+      deveRedefinirPassword: true,
+    });
+  });
+
+  it("cria a conta como aprovada por omissão e envia as credenciais", async () => {
+    const conta = await criarConta(PEDIDO);
+    expect(conta.aprovadoEm).toBeInstanceOf(Date);
+    expect(conta.emailEnviado).toBe(true);
+    expect(emails).toHaveLength(1);
+    expect(inseridoEm("utilizador")!.aprovadoEm).toBeInstanceOf(Date);
+  });
+
+  it("associa um gestor válido a um utilizador", async () => {
+    linhas.utilizador = [
+      {
+        id: "gestor-1",
+        email: "gestor@exemplo.pt",
+        papel: "gestor",
+        organizacaoId: "org-1",
+        apagadoEm: null,
+      },
+    ];
+
+    const conta = await criarConta({
+      ...PEDIDO,
+      papel: "utilizador",
+      gestorId: "gestor-1",
+    });
+
+    expect(conta.gestorId).toBe("gestor-1");
+    expect(inseridoEm("utilizador")).toMatchObject({
+      gestorId: "gestor-1",
+      papel: "utilizador",
+    });
+  });
+
+  it("recusa associar um gestor a uma conta que não seja utilizador", async () => {
+    await expect(
+      criarConta({
+        ...PEDIDO,
+        papel: "society_admin",
+        gestorId: "gestor-1",
+      }),
+    ).rejects.toThrow(/Apenas utilizadores com papel 'utilizador'/);
+  });
+
+  it("recusa associar um gestor que não tenha papel de gestor", async () => {
+    linhas.utilizador = [
+      {
+        id: "user-outro",
+        email: "outro@exemplo.pt",
+        papel: "utilizador",
+        organizacaoId: "org-1",
+        apagadoEm: null,
+      },
+    ];
+
+    await expect(
+      criarConta({
+        ...PEDIDO,
+        papel: "utilizador",
+        gestorId: "user-outro",
+      }),
+    ).rejects.toThrow(/papel de gestor/);
+  });
+
+  it("recusa associar um gestor de outra sociedade", async () => {
+    linhas.utilizador = [
+      {
+        id: "gestor-outra-org",
+        email: "gestor-outro@exemplo.pt",
+        papel: "gestor",
+        organizacaoId: "org-outra",
+        apagadoEm: null,
+      },
+    ];
+
+    await expect(
+      criarConta({
+        ...PEDIDO,
+        papel: "utilizador",
+        gestorId: "gestor-outra-org",
+      }),
+    ).rejects.toThrow(/mesma sociedade/);
   });
 });
 

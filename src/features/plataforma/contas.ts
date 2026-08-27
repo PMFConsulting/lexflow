@@ -78,6 +78,14 @@ export type PedidoDeConta = {
   papel: Papel;
   /** `null` para o `super_admin`, que não pertence a sociedade nenhuma. */
   organizacaoId: string | null;
+  /** Opcional, só para papel 'utilizador'. */
+  gestorId?: string | null;
+  /**
+   * Data de aprovação da conta.
+   * Se omitido (undefined), por omissão é now() (aprovado).
+   * Se null, conta nasce pendente de aprovação e sem envio de credenciais.
+   */
+  aprovadoEm?: Date | null;
 };
 
 /**
@@ -100,11 +108,11 @@ export type ContaCriada = {
   email: string;
   nome: string;
   papel: Papel;
+  aprovadoEm: Date | null;
+  gestorId: string | null;
   /**
    * `true` — as credenciais saíram; `false` — não saíram, e `erroEmail` diz
-   * porquê; `null` — o envio foi adiado e ainda não aconteceu (é o caso da
-   * importação em lote, em que o envio só arranca depois de a transação
-   * fechar). Um `null` que sobreviva até ao ecrã é um defeito, não um estado.
+   * porquê; `null` — o envio foi adiado, ainda não aconteceu ou a conta está pendente de aprovação.
    */
   emailEnviado: boolean | null;
   erroEmail: string | null;
@@ -168,24 +176,13 @@ export function validarPapelESociedade(papel: Papel, organizacaoId: string | nul
 }
 
 /**
- * Cria (ou repõe) a conta e manda as credenciais **para a pessoa**.
+ * Cria (ou repõe) a conta e manda as credenciais **para a pessoa** (se aprovada).
  *
  * A palavra-passe é sempre gerada aqui e nunca vem de fora: quem administra não
- * a escolhe, não a lê e não a entrega. Deixou de haver um parâmetro para ela
- * porque um parâmetro opcional é uma porta — bastava um formulário voltar a
- * mandá-lo para o processo antigo estar de volta sem ninguém decidir nada.
+ * a escolhe, não a lê e não a entrega.
  *
- * **O envio faz parte da criação**, e não é um passo que quem chama decide dar.
- * É a mesma disciplina do `template` obrigatório do `enviarEmail` (D34): uma
- * conta criada sem que a palavra-passe chegue a alguém é uma conta a que
- * ninguém pode entrar, e um caminho de criação que se esqueça do envio produz
- * exactamente isso, em silêncio. Falhar o envio **não desfaz a conta** (D46) —
- * o desfecho vem na resposta, para o ecrã o poder dizer.
- *
- * `tx` é opcional para o caso de haver de correr dentro de uma transação maior
- * — é o que a importação em lote faz, para que um ficheiro de trinta linhas não
- * deixe quinze contas criadas e quinze por criar. Nesse caso, `porEnviar`
- * recebe o envio em vez de ele acontecer aqui: ver `CredencialPorEnviar`.
+ * Se a conta nascer pendente de aprovação (`aprovadoEm = null`), o envio de
+ * credenciais não ocorre neste momento.
  */
 export type Transacao = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
 
@@ -197,23 +194,49 @@ export async function criarConta(
   const email = normalizarEmail(pedido.email);
   const nome = pedido.nome.trim();
   const palavraPasse = gerarPalavraPasse();
+  const aprovadoEm = pedido.aprovadoEm !== undefined ? pedido.aprovadoEm : new Date();
 
   const problema = validarPapelESociedade(pedido.papel, pedido.organizacaoId);
   if (problema) throw new ErroDeConta(problema);
+
+  if (pedido.gestorId && pedido.papel !== "utilizador") {
+    throw new ErroDeConta("Apenas utilizadores com papel 'utilizador' podem ter um gestor associado.");
+  }
 
   if (!nome) throw new ErroDeConta("Indique o nome.");
 
   const hash = await hashPassword(palavraPasse);
 
   const executar = async (t: Transacao): Promise<ContaCriada> => {
+    if (pedido.gestorId) {
+      const [gestorLinha] = await t
+        .select({
+          id: utilizador.id,
+          papel: utilizador.papel,
+          organizacaoId: utilizador.organizacaoId,
+        })
+        .from(utilizador)
+        .where(
+          and(
+            eq(utilizador.id, pedido.gestorId),
+            isNull(utilizador.apagadoEm),
+          ),
+        )
+        .limit(1);
+
+      if (!gestorLinha) {
+        throw new ErroDeConta("O gestor selecionado não existe ou foi removido.");
+      }
+      if (gestorLinha.papel !== "gestor") {
+        throw new ErroDeConta("O utilizador selecionado como gestor não tem o papel de gestor.");
+      }
+      if (gestorLinha.organizacaoId !== pedido.organizacaoId) {
+        throw new ErroDeConta("O gestor tem de pertencer à mesma sociedade.");
+      }
+    }
+
     /* --- a conta do Better Auth ------------------------------------------ */
 
-    // `user.email` é único **global**, e o `utilizador` é único por sociedade.
-    // Os dois níveis não coincidem: a mesma pessoa em duas sociedades teria dois
-    // `utilizador` e uma só conta de acesso. É por isso que a conta é
-    // reaproveitada quando já existe, em vez de se tentar criar outra — o
-    // insert rebentava no índice único e a mensagem falava de uma tabela que
-    // quem está no ecrã não sabe que existe.
     const [contaExistente] = await t
       .select({ id: user.id })
       .from(user)
@@ -262,9 +285,6 @@ export async function criarConta(
 
     /* --- o utilizador de domínio ------------------------------------------ */
 
-    // Sem sociedade, a procura é por `is null` e não por `= null` — que em SQL
-    // não é falso, é desconhecido, e não encontrava nunca o `super_admin` que
-    // já lá estivesse. É a mesma distinção que obrigou ao índice único parcial.
     const [jaExiste] = await t
       .select({ id: utilizador.id, apagadoEm: utilizador.apagadoEm })
       .from(utilizador)
@@ -283,31 +303,24 @@ export async function criarConta(
     }
 
     const utilizadorId = jaExiste?.id ?? uuidv7();
+    const gestorIdFinal = pedido.papel === "utilizador" ? (pedido.gestorId ?? null) : null;
 
     if (jaExiste) {
-      // Estava apagado: repõe-se em vez de recusar. O email é único por
-      // sociedade e um insert novo batia no índice — e "já existe" sobre uma
-      // conta que ninguém vê em lado nenhum é a pior resposta possível.
       await t
         .update(utilizador)
         .set({
           nome,
           papel: pedido.papel,
+          gestorId: gestorIdFinal,
+          aprovadoEm,
           authUserId,
           ativo: true,
           apagadoEm: null,
-          // A conta reposta recebe uma palavra-passe nova, gerada agora e
-          // enviada agora: é uma conta acabada de criar como qualquer outra, e
-          // tem de passar pela mesma redefinição. Sem esta linha, uma conta que
-          // já tivesse redefinido antes de ser apagada voltava com a marca a
-          // `false` — e a palavra-passe temporária que acabou de sair por email
-          // ficava a ser a palavra-passe definitiva de alguém.
           deveRedefinirPassword: true,
           atualizadoEm: new Date(),
         })
         .where(eq(utilizador.id, utilizadorId));
     } else {
-      // `id` gerado na aplicação e não pela base de dados (decisão D15).
       await t.insert(utilizador).values({
         id: utilizadorId,
         organizacaoId: pedido.organizacaoId,
@@ -315,12 +328,9 @@ export async function criarConta(
         nome,
         email,
         papel: pedido.papel,
+        gestorId: gestorIdFinal,
+        aprovadoEm,
         ativo: true,
-        // Explícito, e não a contar com o valor por omissão da coluna: o
-        // `default` é `false` porque a migração é aditiva e não pode obrigar as
-        // contas que já lá estavam a redefinir nada. Quem nasce com uma
-        // palavra-passe gerada por nós é marcado aqui, no sítio onde ela é
-        // gerada.
         deveRedefinirPassword: true,
       });
     }
@@ -330,27 +340,28 @@ export async function criarConta(
       email,
       nome,
       papel: pedido.papel,
+      aprovadoEm,
+      gestorId: gestorIdFinal,
       emailEnviado: null,
       erroEmail: null,
     };
   };
 
-  // Com `tx` já estamos dentro de uma; abrir outra por dentro não é possível.
   const conta = tx ? await executar(tx) : await db().transaction(executar);
 
-  const envio: CredencialPorEnviar = {
-    nome,
-    email,
-    palavraPasse,
-    organizacaoId: pedido.organizacaoId,
-    conta,
-  };
+  // Se a conta nasce aprovada, envia as credenciais de acesso
+  if (aprovadoEm !== null) {
+    const envio: CredencialPorEnviar = {
+      nome,
+      email,
+      palavraPasse,
+      organizacaoId: pedido.organizacaoId,
+      conta,
+    };
 
-  // Dentro de uma transação de outrem, o envio espera por ela — ver
-  // `CredencialPorEnviar`. Sem lista onde o pousar, sai agora: a transação
-  // desta chamada já fechou.
-  if (porEnviar) porEnviar.push(envio);
-  else await enviarCredenciais(envio);
+    if (porEnviar) porEnviar.push(envio);
+    else await enviarCredenciais(envio);
+  }
 
   return conta;
 }

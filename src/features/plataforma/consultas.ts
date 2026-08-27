@@ -1,5 +1,17 @@
 import "server-only";
-import { and, asc, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import {
+  aliasedTable,
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/db";
 import { organizacao, utilizador } from "@/db/schema/organizacao";
 import { processoOnboarding } from "@/db/schema/processo";
@@ -122,6 +134,21 @@ export async function sociedadePorId(id: string) {
   return linha ?? null;
 }
 
+const gestor = aliasedTable(utilizador, "gestor");
+
+export type LinhaDeUtilizador = {
+  id: string;
+  nome: string;
+  email: string;
+  papel: "super_admin" | "society_admin" | "gestor" | "utilizador";
+  ativo: boolean;
+  ligado: string | null;
+  criadoEm: Date;
+  aprovadoEm: Date | null;
+  gestorId: string | null;
+  gestorNome: string | null;
+};
+
 /**
  * As contas de uma sociedade — ou, com `organizacaoId` a `null`, as da
  * plataforma.
@@ -131,8 +158,10 @@ export async function sociedadePorId(id: string) {
  * cujo argumento também pode ser legitimamente nulo era uma armadilha à espera
  * — por isso a lista global tem função própria, abaixo.
  */
-export async function utilizadoresDaSociedade(organizacaoId: string | null) {
-  return db()
+export async function utilizadoresDaSociedade(
+  organizacaoId: string | null,
+): Promise<LinhaDeUtilizador[]> {
+  const linhas = await db()
     .select({
       id: utilizador.id,
       nome: utilizador.nome,
@@ -141,8 +170,12 @@ export async function utilizadoresDaSociedade(organizacaoId: string | null) {
       ativo: utilizador.ativo,
       ligado: utilizador.authUserId,
       criadoEm: utilizador.criadoEm,
+      aprovadoEm: utilizador.aprovadoEm,
+      gestorId: utilizador.gestorId,
+      gestorNome: gestor.nome,
     })
     .from(utilizador)
+    .leftJoin(gestor, eq(gestor.id, utilizador.gestorId))
     .where(
       and(
         isNull(utilizador.apagadoEm),
@@ -152,6 +185,8 @@ export async function utilizadoresDaSociedade(organizacaoId: string | null) {
       ),
     )
     .orderBy(asc(utilizador.papel), asc(utilizador.nome));
+
+  return linhas as LinhaDeUtilizador[];
 }
 
 /** Só os emails, para a importação saber com o que é que o ficheiro colide. */
@@ -171,8 +206,23 @@ export async function emailsDaSociedade(organizacaoId: string | null) {
   return linhas.map((l) => l.email);
 }
 
+export type LinhaUtilizadorGlobal = {
+  id: string;
+  nome: string;
+  email: string;
+  papel: "super_admin" | "society_admin" | "gestor" | "utilizador";
+  ativo: boolean;
+  ligado: string | null;
+  criadoEm: Date;
+  aprovadoEm: Date | null;
+  gestorId: string | null;
+  gestorNome: string | null;
+  organizacaoId: string | null;
+  sociedade: string | null;
+};
+
 /** Todas as contas da plataforma, com a sociedade de cada uma. */
-export async function listarUtilizadores(procura?: string) {
+export async function listarUtilizadores(procura?: string): Promise<LinhaUtilizadorGlobal[]> {
   const termo = procura?.trim();
   const vivos = isNull(utilizador.apagadoEm);
 
@@ -186,7 +236,7 @@ export async function listarUtilizadores(procura?: string) {
       )
     : vivos;
 
-  return db()
+  const linhas = await db()
     .select({
       id: utilizador.id,
       nome: utilizador.nome,
@@ -195,20 +245,118 @@ export async function listarUtilizadores(procura?: string) {
       ativo: utilizador.ativo,
       ligado: utilizador.authUserId,
       criadoEm: utilizador.criadoEm,
+      aprovadoEm: utilizador.aprovadoEm,
+      gestorId: utilizador.gestorId,
+      gestorNome: gestor.nome,
       organizacaoId: utilizador.organizacaoId,
       sociedade: organizacao.nome,
     })
     .from(utilizador)
     .leftJoin(organizacao, eq(organizacao.id, utilizador.organizacaoId))
+    .leftJoin(gestor, eq(gestor.id, utilizador.gestorId))
     .where(onde)
     .orderBy(asc(utilizador.papel), asc(organizacao.nome), asc(utilizador.nome));
+
+  return linhas as LinhaUtilizadorGlobal[];
+}
+
+export type LinhaUtilizadorPendente = {
+  id: string;
+  nome: string;
+  email: string;
+  papel: string;
+  ativo: boolean;
+  criadoEm: Date;
+  aprovadoEm: Date | null;
+  gestorId: string | null;
+  gestorNome: string | null;
+  organizacaoId: string | null;
+  sociedadeNome: string | null;
+};
+
+/** Utilizadores propostos pelas sociedades que aguardam aprovação do super_admin. */
+export async function listarUtilizadoresPendentes(
+  organizacaoId?: string,
+): Promise<LinhaUtilizadorPendente[]> {
+  const condicoes = [
+    isNull(utilizador.apagadoEm),
+    isNull(utilizador.aprovadoEm),
+    ne(utilizador.papel, "super_admin"),
+  ];
+
+  if (organizacaoId) {
+    condicoes.push(eq(utilizador.organizacaoId, organizacaoId));
+  }
+
+  return db()
+    .select({
+      id: utilizador.id,
+      nome: utilizador.nome,
+      email: utilizador.email,
+      papel: utilizador.papel,
+      ativo: utilizador.ativo,
+      criadoEm: utilizador.criadoEm,
+      aprovadoEm: utilizador.aprovadoEm,
+      gestorId: utilizador.gestorId,
+      gestorNome: gestor.nome,
+      organizacaoId: utilizador.organizacaoId,
+      sociedadeNome: organizacao.nome,
+    })
+    .from(utilizador)
+    .leftJoin(organizacao, eq(organizacao.id, utilizador.organizacaoId))
+    .leftJoin(gestor, eq(gestor.id, utilizador.gestorId))
+    .where(and(...condicoes))
+    .orderBy(desc(utilizador.criadoEm));
+}
+
+/** Contagem de utilizadores pendentes de aprovação. */
+export async function contarUtilizadoresPendentes(organizacaoId?: string): Promise<number> {
+  const condicoes = [
+    isNull(utilizador.apagadoEm),
+    isNull(utilizador.aprovadoEm),
+    ne(utilizador.papel, "super_admin"),
+  ];
+
+  if (organizacaoId) {
+    condicoes.push(eq(utilizador.organizacaoId, organizacaoId));
+  }
+
+  const [r] = await db()
+    .select({ n: count() })
+    .from(utilizador)
+    .where(and(...condicoes));
+
+  return r?.n ?? 0;
+}
+
+/** Utilizadores associados a um gestor numa sociedade (área do gestor). */
+export async function listarUtilizadoresDoGestor(gestorId: string, organizacaoId: string) {
+  return db()
+    .select({
+      id: utilizador.id,
+      nome: utilizador.nome,
+      email: utilizador.email,
+      papel: utilizador.papel,
+      ativo: utilizador.ativo,
+      aprovadoEm: utilizador.aprovadoEm,
+      criadoEm: utilizador.criadoEm,
+    })
+    .from(utilizador)
+    .where(
+      and(
+        eq(utilizador.gestorId, gestorId),
+        eq(utilizador.organizacaoId, organizacaoId),
+        isNull(utilizador.apagadoEm),
+      ),
+    )
+    .orderBy(asc(utilizador.nome));
 }
 
 /** Os números do painel da plataforma. */
 export async function numerosDaPlataforma() {
   const base = db();
 
-  const [[sociedades], [contas], [processos], [semAdmin]] = await Promise.all([
+  const [[sociedades], [contas], [processos], [semAdmin], [pendentes]] = await Promise.all([
     base.select({ n: count() }).from(organizacao).where(isNull(organizacao.apagadoEm)),
     base.select({ n: count() }).from(utilizador).where(isNull(utilizador.apagadoEm)),
     base
@@ -242,6 +390,16 @@ export async function numerosDaPlataforma() {
           )`,
         ),
       ),
+    base
+      .select({ n: count() })
+      .from(utilizador)
+      .where(
+        and(
+          isNull(utilizador.apagadoEm),
+          isNull(utilizador.aprovadoEm),
+          ne(utilizador.papel, "super_admin"),
+        ),
+      ),
   ]);
 
   return {
@@ -249,6 +407,7 @@ export async function numerosDaPlataforma() {
     contas: contas?.n ?? 0,
     processos: processos?.n ?? 0,
     semAdmin: semAdmin?.n ?? 0,
+    pendentesAprovacao: pendentes?.n ?? 0,
   };
 }
 

@@ -206,6 +206,99 @@ async function validarPapeis(falhas: string[]) {
   );
 }
 
+/**
+ * A `0021` sobre uma base existente:
+ * - O papel 'gestor' é aceite.
+ * - 'gestor_id' é aceite em 'utilizador' e recusado nos outros papéis pela constraint.
+ * - Todas as contas existentes ganham 'aprovado_em'.
+ */
+async function validarGestorEAprovacao(falhas: string[]) {
+  const db = new PGlite({ extensions: { unaccent } });
+  await db.waitReady;
+
+  // Aplica até à 0020
+  await aplicar(db, { ate: 20 });
+
+  await db.exec(`
+    insert into organizacao (id, nome, nif, prefixo_referencia)
+    values ('fe6c269c-5358-43f9-8a7e-ccade4778940', 'PMF Consulting', '500000000', 'PMF');
+
+    insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel)
+    values
+      ('01920000-0000-7000-8000-000000000401', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'u1', 'Admin', 'admin@pmf.pt', 'society_admin'),
+      ('01920000-0000-7000-8000-000000000402', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'u2', 'Advogado', 'adv@pmf.pt', 'utilizador');
+  `);
+
+  // Aplica a 0021 duas vezes para testar idempotência
+  for (const passagem of [1, 2]) {
+    for (const bloco of instrucoes("0021_gestor_e_aprovacao")) {
+      try {
+        await db.exec(bloco);
+      } catch (e) {
+        falhas.push(
+          `a 0021 falhou na passagem ${passagem} (não é idempotente): ${(e as Error).message}`,
+        );
+        await db.close();
+        return;
+      }
+    }
+  }
+
+  // Verifica se as contas anteriores ganharam aprovado_em
+  const semAprovacao = await db.query<{ n: number }>(
+    "select count(*)::int as n from utilizador where aprovado_em is null",
+  );
+  if (Number(semAprovacao.rows[0]?.n ?? 0) !== 0) {
+    falhas.push("Backfill 0021: existem contas antigas sem aprovado_em preenchido");
+  }
+
+  // Insere um gestor
+  await db.exec(`
+    insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, aprovado_em)
+    values ('01920000-0000-7000-8000-000000000403', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'u3', 'Gestor 1', 'gestor@pmf.pt', 'gestor', now());
+  `);
+
+  // Insere um utilizador associado ao gestor
+  await db.exec(`
+    insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, gestor_id, aprovado_em)
+    values ('01920000-0000-7000-8000-000000000404', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'u4', 'Membro Equipa', 'membro@pmf.pt', 'utilizador', '01920000-0000-7000-8000-000000000403', now());
+  `);
+
+  const recusa = async (descricao: string, sql: string) => {
+    try {
+      await db.exec(sql);
+      falhas.push(`${descricao} — devia ter sido recusado e passou`);
+    } catch {
+      /* recusado, esperado */
+    }
+  };
+
+  // Recusa gestor_id num society_admin
+  await recusa(
+    "gestor_id num society_admin",
+    `insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, gestor_id)
+     values ('01920000-0000-7000-8000-000000000405', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'u5', 'Admin Invalido', 'admin2@pmf.pt', 'society_admin', '01920000-0000-7000-8000-000000000403')`,
+  );
+
+  // Recusa gestor_id num gestor
+  await recusa(
+    "gestor_id num gestor",
+    `insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, gestor_id)
+     values ('01920000-0000-7000-8000-000000000406', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'u6', 'Gestor Invalido', 'gestor2@pmf.pt', 'gestor', '01920000-0000-7000-8000-000000000403')`,
+  );
+
+  // Recusa gestor sem organização
+  await recusa(
+    "gestor sem organização",
+    `insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel)
+     values ('01920000-0000-7000-8000-000000000407', null, 'u7', 'Gestor Sem Org', 'gestor_sem_org@pmf.pt', 'gestor')`,
+  );
+
+  await db.close();
+
+  console.log("Gestor e aprovação: papel gestor aceite; gestor_id restrito a utilizador; backfill de aprovado_em garantido.");
+}
+
 async function main() {
   // `unaccent` não vem no build base do PGlite — no Supabase é `CREATE EXTENSION`.
   const db = new PGlite({ extensions: { unaccent } });
@@ -326,6 +419,10 @@ async function main() {
   /* ---------------------------------- a 0017 mexe em dados que já existiam -- */
 
   await validarPapeis(falhas);
+
+  /* ---------------------------------- a 0021 adiciona gestor e aprovacao ---- */
+
+  await validarGestorEAprovacao(falhas);
 
   if (falhas.length > 0) {
     console.error(`\n${falhas.length} problema(s):`);

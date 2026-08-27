@@ -1,4 +1,4 @@
-import { Building2, FolderKanban, LayoutDashboard, ShieldUser } from "lucide-react";
+import { Building2, FolderKanban, LayoutDashboard, ShieldUser, UserCheck } from "lucide-react";
 import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
 import { exigirSuperAdmin } from "@/lib/sessao";
 
@@ -20,6 +20,7 @@ const NAVEGACAO: EntradaDeMenu[] = [
   { titulo: "Sociedades", href: "/admin/sociedades", icone: Building2 },
   { titulo: "Processos", href: "/admin/processos", icone: FolderKanban },
   { titulo: "Utilizadores", href: "/admin/utilizadores", icone: ShieldUser },
+  { titulo: "Aprovações", href: "/admin/aprovacoes", icone: UserCheck },
 ];
 
 export const dynamic = "force-dynamic";

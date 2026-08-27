@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, Mail, TriangleAlert } from "lucide-react";
+import { CircleCheck, Clock, Mail, TriangleAlert } from "lucide-react";
 import { Ref } from "@/components/ref-processo";
 import type { ContaCriada } from "../contas";
 
@@ -26,6 +26,11 @@ import type { ContaCriada } from "../contas";
  * O que fica no ecrã de quem administra é a única pergunta que lhe diz respeito
  * — **o email saiu?**. Uma conta criada cuja mensagem não saiu é uma pessoa que
  * não entra, e sem esta linha isso descobria-se por telefone, dias depois.
+ *
+ * Desde a `0021` há uma segunda resposta possível: **ainda não saiu, e não é um
+ * defeito** — a conta foi proposta pela sociedade e aguarda aprovação da
+ * plataforma. Distingue-se da falha de envio de propósito: uma resolve-se
+ * esperando, a outra indo ao fornecedor de email.
  */
 export function ContasCriadas({
   contas,
@@ -37,6 +42,8 @@ export function ContasCriadas({
   if (contas.length === 0) return null;
 
   const falhadas = contas.filter((c) => c.emailEnviado === false);
+  const temPendentes = contas.some((c) => c.aprovadoEm === null);
+  const todasPendentes = contas.every((c) => c.aprovadoEm === null);
 
   return (
     <div className="border-arquivo/40 bg-arquivo/5 flex flex-col gap-3 rounded-sm border p-4">
@@ -48,9 +55,11 @@ export function ContasCriadas({
             {contas.length > 1 ? ` — ${contas.length} contas` : ""}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            As credenciais seguiram por email para cada pessoa. A palavra-passe é temporária e
-            gerada pela plataforma — quem administra não a define nem a vê, e quem a recebe tem de
-            escolher outra no primeiro início de sessão.
+            {todasPendentes
+              ? "A conta aguarda aprovação da administração da plataforma. As credenciais de acesso temporárias serão enviadas por email assim que for aprovada."
+              : temPendentes
+                ? "As contas aprovadas receberam as credenciais por email. As contas pendentes aguardam aprovação da administração da plataforma."
+                : "As credenciais seguiram por email para cada pessoa. A palavra-passe é temporária e gerada pela plataforma — quem administra não a define nem a vê, e quem a recebe tem de escolher outra no primeiro início de sessão."}
           </p>
         </div>
       </div>
@@ -60,7 +69,11 @@ export function ContasCriadas({
           <li key={c.utilizadorId} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-2.5">
             <span className="min-w-0 flex-1 truncate text-sm">{c.nome}</span>
             <Ref className="text-xs text-muted-foreground">{c.email}</Ref>
-            {c.emailEnviado === false ? (
+            {c.aprovadoEm === null ? (
+              <span className="text-2xs border-latao/40 bg-latao/10 text-latao inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5">
+                <Clock className="size-3" strokeWidth={2} /> Aguarda aprovação
+              </span>
+            ) : c.emailEnviado === false ? (
               <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5">
                 <TriangleAlert className="size-3" strokeWidth={2} /> Email não saiu
               </span>

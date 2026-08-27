@@ -33,6 +33,7 @@ type Papel = (typeof papelUtilizador.enumValues)[number];
 const ROTULOS_PAPEL: Record<Papel, string> = {
   super_admin: "Administrador da plataforma",
   society_admin: "Administrador da sociedade",
+  gestor: "Gestor",
   utilizador: "Utilizador",
 };
 

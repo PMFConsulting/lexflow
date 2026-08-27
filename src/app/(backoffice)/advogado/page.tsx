@@ -15,6 +15,10 @@ export const dynamic = "force-dynamic";
 const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
 
 const ROTULOS_PAPEL: Record<string, string> = {
+  super_admin: "Administrador da plataforma",
+  society_admin: "Administrador da sociedade",
+  gestor: "Gestor",
+  utilizador: "Utilizador",
   admin: "Administrador",
   socio: "Sócio",
   advogado: "Advogado",

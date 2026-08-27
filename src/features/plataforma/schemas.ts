@@ -155,6 +155,10 @@ export const contaSchema = z.object({
     error: "Escolha o papel desta conta.",
   }),
   organizacaoId: z.uuid("Escolha a sociedade a que esta conta pertence."),
+  gestorId: z
+    .union([z.literal(""), z.uuid("Gestor inválido."), z.null()])
+    .optional()
+    .transform((v) => (v === "" || v === undefined || v === null ? null : v)),
 });
 
 /**

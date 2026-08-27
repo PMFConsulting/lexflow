@@ -148,6 +148,13 @@
       "when": 1787860000000,
       "tag": "0020_credenciais_por_email",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787900000000,
+      "tag": "0021_gestor_e_aprovacao",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Building2, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Ref } from "@/components/ref-processo";
+import { cn } from "@/lib/utils";
 import { NovaSociedade } from "@/features/plataforma/componentes/NovaSociedade";
 import { listarSociedades, numerosDaPlataforma } from "@/features/plataforma/consultas";
 
@@ -23,6 +24,13 @@ export default async function PainelDaPlataforma() {
     { rotulo: "Sociedades", valor: n.sociedades, nota: "inquilinos da plataforma", href: "/admin/sociedades" },
     { rotulo: "Contas", valor: n.contas, nota: "em todas as sociedades", href: "/admin/utilizadores" },
     { rotulo: "Processos", valor: n.processos, nota: "no total", href: "/admin/processos" },
+    {
+      rotulo: "Aprovações",
+      valor: n.pendentesAprovacao,
+      nota: n.pendentesAprovacao > 0 ? "aguardam aprovação" : "tudo em dia",
+      href: "/admin/aprovacoes",
+      alerta: n.pendentesAprovacao > 0,
+    },
   ];
 
   return (
@@ -37,17 +45,34 @@ export default async function PainelDaPlataforma() {
         <NovaSociedade />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {tiles.map((t) => (
           <Link key={t.rotulo} href={t.href} className="group">
-            <Card className="gap-2 transition-colors group-hover:border-marca/50">
+            <Card
+              className={cn(
+                "gap-2 transition-colors group-hover:border-marca/50",
+                t.alerta && "border-latao/40 bg-latao/5",
+              )}
+            >
               <CardHeader className="pb-0">
-                <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase group-hover:text-marca">
+                <CardTitle
+                  className={cn(
+                    "text-xs font-medium tracking-wide text-muted-foreground uppercase group-hover:text-marca",
+                    t.alerta && "text-latao",
+                  )}
+                >
                   {t.rotulo}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="font-mono text-3xl leading-none tabular-nums">{t.valor}</div>
+                <div
+                  className={cn(
+                    "font-mono text-3xl leading-none tabular-nums",
+                    t.alerta && "text-latao",
+                  )}
+                >
+                  {t.valor}
+                </div>
                 <p className="mt-2 text-xs text-muted-foreground">{t.nota}</p>
               </CardContent>
             </Card>

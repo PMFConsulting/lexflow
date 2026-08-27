@@ -91,9 +91,10 @@ export const ASSUNTO_CONVITE_UTILIZADOR = "LexFlow | Convite para criar a sua co
  * no enum parte a compilação aqui, que é onde falta a tradução, em vez de sair
  * `socio` em cru dentro de um email para uma pessoa.
  */
-const PAPEIS: Record<"super_admin" | "society_admin" | "utilizador", string> = {
+const PAPEIS: Record<"super_admin" | "society_admin" | "utilizador" | "gestor", string> = {
   super_admin: "Administração da plataforma",
   society_admin: "Administração da sociedade",
+  gestor: "Gestor",
   utilizador: "Utilizador",
 };
 

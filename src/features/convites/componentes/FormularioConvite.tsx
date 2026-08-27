@@ -29,7 +29,7 @@ type Anexo = { id: string; nome: string; tipo: string; bytes: number };
 export type DadosConvite = {
   email: string;
   nome: string;
-  papel: "super_admin" | "society_admin" | "utilizador";
+  papel: "super_admin" | "society_admin" | "gestor" | "utilizador";
   exerce: boolean;
   sociedade: string;
   perfil: {

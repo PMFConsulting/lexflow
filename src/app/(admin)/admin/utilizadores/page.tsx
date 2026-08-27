@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const ROTULOS: Record<string, string> = {
   super_admin: "Administrador da plataforma",
   society_admin: "Administrador da sociedade",
+  gestor: "Gestor",
   utilizador: "Utilizador",
 };
 
@@ -74,6 +75,22 @@ export default async function Utilizadores({
               <span className="text-2xs border-linha rounded-xs border px-2 py-0.5">
                 {ROTULOS[c.papel] ?? c.papel}
               </span>
+              {c.papel === "utilizador" && c.gestorNome && (
+                <span
+                  className="text-2xs border-linha text-muted-foreground rounded-xs border px-2 py-0.5"
+                  title={`Gestor: ${c.gestorNome}`}
+                >
+                  Gestor: {c.gestorNome}
+                </span>
+              )}
+              {c.aprovadoEm === null && c.papel !== "super_admin" && (
+                <span
+                  className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-xs border px-2 py-0.5"
+                  title="A aguardar aprovação da administração da plataforma"
+                >
+                  Pendente
+                </span>
+              )}
               {c.organizacaoId ? (
                 <Link
                   href={`/admin/sociedades/${c.organizacaoId}`}

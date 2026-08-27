@@ -18,8 +18,10 @@ import { sociedadeDe } from "@/features/administracao/consultas";
  */
 
 type Entrada = EntradaDeMenu & {
-  /** Entradas sem nenhum dos dois são para toda a equipa da sociedade. */
+  /** Entradas só para o administrador da sociedade. */
   soAdmin?: boolean;
+  /** Entradas só para o papel de gestor. */
+  soGestor?: boolean;
 };
 
 /**
@@ -38,6 +40,7 @@ const NAVEGACAO: Entrada[] = [
     icone: LayoutDashboard,
   },
   { titulo: "Processos", href: "/processos", icone: FileText },
+  { titulo: "A minha equipa", href: "/equipa", icone: Users, soGestor: true },
   { titulo: "Clientes", href: "/clientes", icone: Users },
   { titulo: "Emails", href: "/emails", icone: Mail, soAdmin: true },
   { titulo: "Configuração", href: "/configuracao", icone: Settings },
@@ -77,11 +80,18 @@ export default async function LayoutBackoffice({
   const { eu } = await exigirEquipaDaSociedade();
   const org = await sociedadeDe(eu.organizacaoId);
 
+  const isGestor = eu.papel === "gestor";
   const admin = podeVerEmails(eu.papel);
-  const entradas = NAVEGACAO.filter((item) => !item.soAdmin || admin);
-  const entradasSociedade = NAVEGACAO_SOCIEDADE.filter(
-    (item) => !item.soAdmin || admin,
-  );
+  const entradas = NAVEGACAO.filter((item) => {
+    if (item.soAdmin && !admin) return false;
+    if (item.soGestor && !isGestor) return false;
+    return true;
+  });
+  const entradasSociedade = NAVEGACAO_SOCIEDADE.filter((item) => {
+    if (item.soAdmin && !admin) return false;
+    if (item.soGestor && !isGestor) return false;
+    return true;
+  });
 
   const logotipoUrl = org?.logotipoDados
     ? `/api/sociedade/logotipo?t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
