@@ -208,14 +208,23 @@ export const estadoEmail = pgEnum("estado_email", [
 ]);
 
 /**
- * Qual dos dois fornecedores aceitou a mensagem.
+ * Qual dos fornecedores aceitou a mensagem.
  *
  * Não é diagnóstico de luxo: é o que decide a **quem** se pergunta se a
  * mensagem chegou. O id que o Brevo devolve não existe no Resend, e a consulta
  * de entrega de cada um tem endereço, header e formato de resposta próprios —
  * sem esta coluna, um `mensagem_id` guardado sozinho não se sabe interpretar.
+ *
+ * `twilio_sendgrid` acrescentado no fim (migração 0022) seguindo o padrão
+ * `ALTER TYPE ADD VALUE`.
  */
-export const canalEmail = pgEnum("canal_email", ["brevo", "resend", "mailjet", "smtp"]);
+export const canalEmail = pgEnum("canal_email", [
+  "brevo",
+  "resend",
+  "mailjet",
+  "smtp",
+  "twilio_sendgrid",
+]);
 
 /** Regime de IVA — percurso Empresa. Por validar contra imagem (A18). */
 export const regimeIva = pgEnum("regime_iva", [

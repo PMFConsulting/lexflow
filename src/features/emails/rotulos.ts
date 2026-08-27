@@ -82,4 +82,5 @@ export const ROTULOS_CANAL: Record<CanalEmail, string> = {
   resend: "Resend",
   mailjet: "Mailjet",
   smtp: "SMTP próprio",
+  twilio_sendgrid: "Twilio SendGrid",
 };

@@ -318,6 +318,10 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     const chave = ambiente.BREVO_API_KEY;
     canais.push({ nome: "Brevo", enviar: () => tentarEnviarBrevo(msg, chave) });
   }
+  if (ambiente.TWILIO_SENDGRID_API_KEY) {
+    const chave = ambiente.TWILIO_SENDGRID_API_KEY;
+    canais.push({ nome: "Twilio SendGrid", enviar: () => tentarEnviarTwilio(msg, chave) });
+  }
   // Our own SMTP (postfix on the client's server) is the last resort: it has no
   // third-party quota, but delivery is less closely watched (no domain DKIM),
   // so it only comes in when every provider has failed.
@@ -333,7 +337,7 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     return {
       ok: false,
       erro:
-        "Nenhuma chave de email configurada (RESEND_API_KEY, MAILJET_API_KEY+MAILJET_SECRET_KEY, BREVO_API_KEY ou SMTP_HOST)",
+        "Nenhuma chave de email configurada (RESEND_API_KEY, MAILJET_API_KEY+MAILJET_SECRET_KEY, BREVO_API_KEY, TWILIO_SENDGRID_API_KEY ou SMTP_HOST)",
     };
   }
 
@@ -607,6 +611,67 @@ async function tentarEnviarMailjet(
 }
 
 /**
+ * Sending via Twilio SendGrid: `Authorization: Bearer`, message ID returned in
+ * `X-Message-Id` header.
+ */
+async function tentarEnviarTwilio(
+  { de, para, assunto, html, anexos }: Mensagem,
+  chave: string,
+): Promise<ResultadoEnvio> {
+  try {
+    const resposta = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+      headers: {
+        Authorization: `Bearer ${chave}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: para }] }],
+        from: { email: de },
+        subject: assunto,
+        content: [{ type: "text/html", value: html }],
+        ...(anexos?.length
+          ? {
+              attachments: anexos.map((a) => ({
+                filename: a.nome,
+                content: a.conteudo.toString("base64"),
+                type: a.nome.toLowerCase().endsWith(".pdf")
+                  ? "application/pdf"
+                  : "application/octet-stream",
+                disposition: "attachment",
+              })),
+            }
+          : {}),
+      }),
+    });
+
+    if (!resposta.ok) {
+      const corpo = await resposta.text();
+      return {
+        ok: false,
+        erro: `Twilio SendGrid devolveu ${resposta.status} (de=${de}): ${corpo}`,
+      };
+    }
+
+    const mensagemId = resposta.headers.get("x-message-id") || resposta.headers.get("X-Message-Id");
+    return {
+      ok: true,
+      canal: "twilio_sendgrid",
+      mensagemId: mensagemId && mensagemId.length > 0 ? mensagemId : null,
+    };
+  } catch (erro) {
+    if (erro instanceof Error && erro.name === "TimeoutError") {
+      return {
+        ok: false,
+        erro: `A api.sendgrid.com não respondeu em ${TEMPO_LIMITE_MS / 1000}s — verifique a saída para a Internet do servidor.`,
+      };
+    }
+    return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
+  }
+}
+
+/**
  * Sending through our own SMTP (postfix on the server). No provider id: postfix
  * has no API — accepted is accepted, and delivery itself is left without a
  * trace (`mensagemId` `null`, and `confirmarEntrega` skips these rows).
@@ -702,6 +767,16 @@ export async function verificarEntrega(
       ambiente.MAILJET_API_KEY,
       ambiente.MAILJET_SECRET_KEY,
     );
+  }
+
+  if (canal === "twilio_sendgrid") {
+    if (!ambiente.TWILIO_SENDGRID_API_KEY) {
+      return {
+        ok: false,
+        erro: "TWILIO_SENDGRID_API_KEY não está no ambiente — a entrega não se confirma.",
+      };
+    }
+    return verificarEntregaTwilio(mensagemId, ambiente.TWILIO_SENDGRID_API_KEY);
   }
 
   if (!ambiente.BREVO_API_KEY) {
@@ -910,6 +985,90 @@ async function verificarEntregaMailjet(
     }
     return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
   }
+}
+
+/**
+ * Twilio SendGrid: `GET /v3/messages/{id}` returns the message status and events.
+ */
+async function verificarEntregaTwilio(
+  mensagemId: string,
+  chave: string,
+): Promise<ResultadoVerificacao> {
+  try {
+    const resposta = await fetch(
+      `https://api.sendgrid.com/v3/messages/${encodeURIComponent(mensagemId)}`,
+      {
+        method: "GET",
+        signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+        headers: { Authorization: `Bearer ${chave}` },
+      },
+    );
+
+    if (resposta.status === 404) {
+      return { ok: true, evento: "pendente", motivo: "ainda sem eventos no SendGrid" };
+    }
+
+    if (!resposta.ok) {
+      const corpo = await resposta.text();
+      return {
+        ok: false,
+        erro: `Twilio SendGrid devolveu ${resposta.status} ao consultar ${mensagemId}: ${corpo}`,
+      };
+    }
+
+    const corpo = (await resposta.json()) as {
+      status?: string;
+      events?: { event_name?: string; reason?: string }[];
+    };
+    const eventos = corpo.events ?? [];
+
+    if (eventos.length > 0) {
+      let melhor: EventoEntrega = "pendente";
+      let motivo: string | undefined;
+      for (const e of eventos) {
+        const nome = (e.event_name ?? "").toLowerCase();
+        const evento = eventoSendGrid(nome);
+        if (GRAVIDADE[evento] <= GRAVIDADE[melhor]) continue;
+        melhor = evento;
+        motivo = evento === "entregue" ? undefined : e.reason || nome;
+      }
+      if (melhor !== "pendente" || !corpo.status) {
+        return { ok: true, evento: melhor, motivo };
+      }
+    }
+
+    const estado = (corpo.status ?? "").toLowerCase();
+    const evento = eventoSendGrid(estado);
+    if (evento === "devolvido") {
+      return { ok: true, evento: "devolvido", motivo: corpo.status || "devolvido" };
+    }
+    if (evento === "queixa") {
+      return { ok: true, evento: "queixa", motivo: "o destinatário marcou a mensagem como spam" };
+    }
+    if (evento === "entregue") {
+      return { ok: true, evento: "entregue" };
+    }
+    return { ok: true, evento: "pendente", motivo: corpo.status || "sem eventos no SendGrid" };
+  } catch (erro) {
+    if (erro instanceof Error && erro.name === "TimeoutError") {
+      return { ok: false, erro: `A api.sendgrid.com não respondeu em ${TEMPO_LIMITE_MS / 1000}s.` };
+    }
+    return { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
+  }
+}
+
+function eventoSendGrid(nome: string): EventoEntrega {
+  const n = nome.toLowerCase();
+  if (n.includes("bounce") || n === "dropped" || n === "blocked" || n === "error" || n === "not_delivered") {
+    return "devolvido";
+  }
+  if (n.includes("spam") || n === "complaint" || n === "spamreport") {
+    return "queixa";
+  }
+  if (n === "delivered" || n === "open" || n === "click") {
+    return "entregue";
+  }
+  return "pendente";
 }
 
 /**

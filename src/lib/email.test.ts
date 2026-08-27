@@ -181,10 +181,11 @@ describe("enviarEmail", () => {
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    // Both variables in the reason, and not just one: whoever reads this in
-    // `/emails` has to know there are two possible places to configure it.
-    expect(r.erro).toContain("BREVO_API_KEY");
     expect(r.erro).toContain("RESEND_API_KEY");
+    expect(r.erro).toContain("MAILJET_API_KEY+MAILJET_SECRET_KEY");
+    expect(r.erro).toContain("BREVO_API_KEY");
+    expect(r.erro).toContain("TWILIO_SENDGRID_API_KEY");
+    expect(r.erro).toContain("SMTP_HOST");
     expect(linhas[0]).toMatchObject({ estado: "erro" });
   });
 
@@ -647,6 +648,200 @@ describe("enviarEmail", () => {
     const chamadasResend = espia.mock.calls.filter(([url]) => String(url).includes("resend"));
     expect(chamadasResend).toHaveLength(2);
   });
+
+  it("usa Bearer auth e lê o x-message-id dos cabeçalhos no Twilio SendGrid", async () => {
+    ambiente = {
+      TWILIO_SENDGRID_API_KEY: "sg_chave_teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url, _opcoes) => {
+      if (url.includes("sendgrid")) {
+        return new Response("", {
+          status: 202,
+          headers: { "x-message-id": "sg-msg-123" },
+        });
+      }
+      return new Response("{}", { status: 500 });
+    });
+
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "twilio_sendgrid",
+      mensagemId: "sg-msg-123",
+    });
+
+    const chamada = espia.mock.calls.find(([url]) => String(url).includes("sendgrid"));
+    expect(chamada).toBeDefined();
+    const [url, opcoes] = chamada as [string, RequestInit];
+    expect(url).toBe("https://api.sendgrid.com/v3/mail/send");
+    const headers = opcoes.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer sg_chave_teste");
+    const corpo = JSON.parse(opcoes.body as string);
+    expect(corpo.from.email).toBe("POC@jmassano.pt");
+    expect(corpo.personalizations).toEqual([{ to: [{ email: "cliente@exemplo.pt" }] }]);
+    expect(corpo.content).toEqual([{ type: "text/html", value: "<p>olá</p>" }]);
+    expect(linhas[0]).toMatchObject({
+      estado: "enviado",
+      canal: "twilio_sendgrid",
+      mensagemId: "sg-msg-123",
+    });
+  });
+
+  it("formata anexos em base64 no formato do Twilio SendGrid", async () => {
+    ambiente = {
+      TWILIO_SENDGRID_API_KEY: "sg_chave_teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url) => {
+      if (url.includes("sendgrid")) {
+        return new Response("", {
+          status: 202,
+          headers: { "X-Message-Id": "sg-msg-456" },
+        });
+      }
+      return new Response("{}", { status: 500 });
+    });
+
+    await enviarEmail({
+      ...base,
+      anexos: [{ nome: "Dossier.pdf", conteudo: Buffer.from("PDF_CONTEUDO") }],
+    });
+
+    const chamada = espia.mock.calls.find(([url]) => String(url).includes("sendgrid"));
+    const corpo = JSON.parse((chamada as [string, RequestInit])[1].body as string);
+    expect(corpo.attachments).toEqual([
+      {
+        filename: "Dossier.pdf",
+        content: Buffer.from("PDF_CONTEUDO").toString("base64"),
+        type: "application/pdf",
+        disposition: "attachment",
+      },
+    ]);
+  });
+
+  it("respeita a ordem da cadeia: Resend -> Mailjet -> Brevo -> Twilio SendGrid", async () => {
+    ambiente = {
+      RESEND_API_KEY: "re_teste",
+      MAILJET_API_KEY: "mj_chave",
+      MAILJET_SECRET_KEY: "mj_segredo",
+      BREVO_API_KEY: "br_chave",
+      TWILIO_SENDGRID_API_KEY: "sg_chave",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const chamados: string[] = [];
+    espiarFetch(async (url) => {
+      if (url.includes("resend")) {
+        chamados.push("resend");
+        return new Response("erro", { status: 500 });
+      }
+      if (url.includes("mailjet")) {
+        chamados.push("mailjet");
+        return new Response("erro", { status: 500 });
+      }
+      if (url.includes("brevo")) {
+        chamados.push("brevo");
+        return new Response("erro", { status: 500 });
+      }
+      if (url.includes("sendgrid")) {
+        chamados.push("sendgrid");
+        return new Response("", { status: 202, headers: { "x-message-id": "sg-ordem" } });
+      }
+      return new Response("{}", { status: 500 });
+    });
+
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "twilio_sendgrid",
+      mensagemId: "sg-ordem",
+    });
+
+    expect(chamados).toEqual(["resend", "mailjet", "brevo", "sendgrid"]);
+  });
+
+  it("devolve os erros acumulados se todos os canais falharem", async () => {
+    ambiente = {
+      RESEND_API_KEY: "re_teste",
+      BREVO_API_KEY: "br_chave",
+      TWILIO_SENDGRID_API_KEY: "sg_chave",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    espiarFetch(async (url) => {
+      if (url.includes("resend")) return new Response("resend fail", { status: 500 });
+      if (url.includes("brevo")) return new Response("brevo fail", { status: 500 });
+      if (url.includes("sendgrid")) return new Response("sendgrid fail", { status: 500 });
+      return new Response("{}", { status: 500 });
+    });
+
+    const r = await enviarEmail(base);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.erro).toContain("Resend");
+      expect(r.erro).toContain("Brevo");
+      expect(r.erro).toContain("Twilio SendGrid");
+    }
+  });
+
+  it("nomeia a api.sendgrid.com quando o Twilio SendGrid esgota o tempo", async () => {
+    ambiente = {
+      TWILIO_SENDGRID_API_KEY: "sg_chave",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    espiarFetch(async () => {
+      const e = new Error("The operation was aborted due to timeout");
+      e.name = "TimeoutError";
+      throw e;
+    });
+
+    const r = await enviarEmail(base);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.erro).toContain("api.sendgrid.com");
+    }
+    expect(linhas[0]).toMatchObject({ estado: "erro" });
+  });
+
+  it("um 429 do Twilio SendGrid põe o canal em pausa e salta-o no envio seguinte", async () => {
+    ambiente = {
+      TWILIO_SENDGRID_API_KEY: "sg_chave",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async () => {
+      return new Response('{"errors":[{"message":"Too many requests (429)"}]}', { status: 429 });
+    });
+
+    const r1 = await enviarEmail(base);
+    expect(r1.ok).toBe(false);
+    if (!r1.ok) expect(r1.erro).toContain("429");
+
+    const r2 = await enviarEmail(base);
+    expect(r2.ok).toBe(false);
+    if (!r2.ok) expect(r2.erro).toContain("em pausa");
+
+    expect(espia).toHaveBeenCalledTimes(1);
+    expect(consolaAviso).toHaveBeenCalledWith(
+      expect.stringContaining("paused on quota"),
+    );
+  });
+
+  it("quando o SendGrid aceita mas não devolve x-message-id, mensagemId fica null", async () => {
+    ambiente = {
+      TWILIO_SENDGRID_API_KEY: "sg_chave",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    espiarFetch(async () => new Response("", { status: 202 }));
+
+    await expect(enviarEmail(base)).resolves.toEqual({
+      ok: true,
+      canal: "twilio_sendgrid",
+      mensagemId: null,
+    });
+
+    expect(linhas[0]).toMatchObject({
+      estado: "enviado",
+      canal: "twilio_sendgrid",
+      mensagemId: null,
+    });
+  });
 });
 
 describe("verificarEntrega", () => {
@@ -816,6 +1011,103 @@ describe("verificarEntrega", () => {
     expect(await verificarEntrega("brevo", "<1@brevo>")).toMatchObject({
       ok: true,
       evento: "pendente",
+    });
+  });
+
+  describe("Twilio SendGrid", () => {
+    const sendgrid = (corpo: unknown, status = 200) => {
+      ambiente = { TWILIO_SENDGRID_API_KEY: "sg_chave_teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
+      return espiarFetch(async () => new Response(JSON.stringify(corpo), { status }));
+    };
+
+    it("lê a confirmação de entrega do SendGrid com Bearer e mensagemId no caminho", async () => {
+      const espia = sendgrid({ status: "delivered" });
+
+      await expect(verificarEntrega("twilio_sendgrid", "sg-id-1")).resolves.toEqual({
+        ok: true,
+        evento: "entregue",
+      });
+
+      const [url, opcoes] = espia.mock.calls[0] ?? [];
+      expect(url).toBe("https://api.sendgrid.com/v3/messages/sg-id-1");
+      expect(opcoes?.method).toBe("GET");
+      expect((opcoes?.headers as Record<string, string>).Authorization).toBe("Bearer sg_chave_teste");
+    });
+
+    it("lê evento delivered da lista de eventos do SendGrid", async () => {
+      sendgrid({ events: [{ event_name: "processed" }, { event_name: "delivered" }] });
+
+      await expect(verificarEntrega("twilio_sendgrid", "sg-id-1")).resolves.toEqual({
+        ok: true,
+        evento: "entregue",
+      });
+    });
+
+    it("lê bounce e motivo do SendGrid", async () => {
+      sendgrid({
+        status: "bounce",
+        events: [{ event_name: "bounce", reason: "550 User unknown" }],
+      });
+
+      await expect(verificarEntrega("twilio_sendgrid", "sg-id-1")).resolves.toEqual({
+        ok: true,
+        evento: "devolvido",
+        motivo: "550 User unknown",
+      });
+    });
+
+    it("lê spamreport do SendGrid como queixa", async () => {
+      sendgrid({ status: "spamreport" });
+
+      await expect(verificarEntrega("twilio_sendgrid", "sg-id-1")).resolves.toMatchObject({
+        ok: true,
+        evento: "queixa",
+      });
+    });
+
+    it("trata 404 do SendGrid como pendente", async () => {
+      ambiente = { TWILIO_SENDGRID_API_KEY: "sg_chave_teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
+      espiarFetch(async () => new Response("Not Found", { status: 404 }));
+
+      await expect(verificarEntrega("twilio_sendgrid", "sg-id-1")).resolves.toMatchObject({
+        ok: true,
+        evento: "pendente",
+      });
+    });
+
+    it("lê processing do SendGrid como pendente", async () => {
+      sendgrid({ status: "processing" });
+
+      await expect(verificarEntrega("twilio_sendgrid", "sg-id-1")).resolves.toMatchObject({
+        ok: true,
+        evento: "pendente",
+      });
+    });
+
+    it("sem TWILIO_SENDGRID_API_KEY no ambiente, avisa que a entrega não se confirma", async () => {
+      ambiente = { EMAIL_REMETENTE: "POC@jmassano.pt" };
+
+      const r = await verificarEntrega("twilio_sendgrid", "sg-id-1");
+
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.erro).toContain("TWILIO_SENDGRID_API_KEY");
+      }
+    });
+
+    it("nomeia a api.sendgrid.com no timeout ao verificar entrega", async () => {
+      ambiente = { TWILIO_SENDGRID_API_KEY: "sg_chave_teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
+      espiarFetch(async () => {
+        const e = new Error("The operation was aborted due to timeout");
+        e.name = "TimeoutError";
+        throw e;
+      });
+
+      const r = await verificarEntrega("twilio_sendgrid", "sg-id-1");
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.erro).toContain("api.sendgrid.com");
+      }
     });
   });
 });

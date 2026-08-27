@@ -19,6 +19,8 @@ const esquema = z.object({
    */
   MAILJET_API_KEY: z.string().optional(),
   MAILJET_SECRET_KEY: z.string().optional(),
+  /** Twilio SendGrid (opcional; produção futura via Twilio). */
+  TWILIO_SENDGRID_API_KEY: z.string().optional(),
   /**
    * Last resort: our own SMTP (postfix on the client's server). No third-party
    * quota, but delivery is less closely watched — so it sits at the end of the

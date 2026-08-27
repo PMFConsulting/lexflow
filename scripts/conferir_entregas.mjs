@@ -36,7 +36,11 @@ const argumentos = process.argv.slice(2);
 const simular = argumentos.includes("--simular");
 const dias = Number(argumentos[argumentos.indexOf("--dias") + 1]) || 7;
 
-const chaves = { brevo: process.env.BREVO_API_KEY, resend: process.env.RESEND_API_KEY };
+const chaves = {
+  brevo: process.env.BREVO_API_KEY,
+  resend: process.env.RESEND_API_KEY,
+  twilio_sendgrid: process.env.TWILIO_SENDGRID_API_KEY,
+};
 const urlBd = process.env.DATABASE_URL;
 
 if (!urlBd) {
@@ -77,7 +81,9 @@ try {
     const r =
       l.canal === "resend"
         ? await verificarResend(l.mensagem_id, chave)
-        : await verificarBrevo(l.mensagem_id, chave);
+        : l.canal === "twilio_sendgrid"
+          ? await verificarTwilio(l.mensagem_id, chave)
+          : await verificarBrevo(l.mensagem_id, chave);
 
     if (!r.ok) {
       console.error(`  ✗ ${l.para} — ${r.erro}`);
@@ -193,5 +199,65 @@ function eventoBrevo(nome) {
   }
   if (n === "spam" || n === "complaint") return "queixa";
   if (n === "delivered") return "entregue";
+  return "pendente";
+}
+
+async function verificarTwilio(mensagemId, chave) {
+  try {
+    const resposta = await fetch(`https://api.sendgrid.com/v3/messages/${encodeURIComponent(mensagemId)}`, {
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+      headers: { Authorization: `Bearer ${chave}` },
+    });
+    if (resposta.status === 404) {
+      return { ok: true, evento: "pendente", motivo: "ainda sem eventos no SendGrid" };
+    }
+    if (!resposta.ok) {
+      return { ok: false, erro: `Twilio SendGrid devolveu ${resposta.status}: ${await resposta.text()}` };
+    }
+    const corpo = await resposta.json();
+    const eventos = corpo.events ?? [];
+    if (eventos.length > 0) {
+      const gravidade = { pendente: 0, entregue: 1, queixa: 2, devolvido: 3 };
+      let melhor = "pendente";
+      let motivo;
+      for (const e of eventos) {
+        const nome = String(e.event_name ?? "");
+        const evento = eventoSendGrid(nome);
+        if (gravidade[evento] <= gravidade[melhor]) continue;
+        melhor = evento;
+        motivo = evento === "entregue" ? undefined : e.reason || nome;
+      }
+      if (melhor !== "pendente" || !corpo.status) {
+        return { ok: true, evento: melhor, motivo };
+      }
+    }
+    const status = String(corpo.status ?? "").toLowerCase();
+    const evento = eventoSendGrid(status);
+    if (evento === "devolvido") {
+      return { ok: true, evento: "devolvido", motivo: corpo.status || "devolvido" };
+    }
+    if (evento === "queixa") {
+      return { ok: true, evento: "queixa", motivo: "o destinatário marcou a mensagem como spam" };
+    }
+    if (evento === "entregue") {
+      return { ok: true, evento: "entregue" };
+    }
+    return { ok: true, evento: "pendente", motivo: corpo.status || "sem eventos no SendGrid" };
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+function eventoSendGrid(nome) {
+  const n = nome.toLowerCase();
+  if (n.includes("bounce") || n === "dropped" || n === "blocked" || n === "error" || n === "not_delivered") {
+    return "devolvido";
+  }
+  if (n.includes("spam") || n === "complaint" || n === "spamreport") {
+    return "queixa";
+  }
+  if (n === "delivered" || n === "open" || n === "click") {
+    return "entregue";
+  }
   return "pendente";
 }

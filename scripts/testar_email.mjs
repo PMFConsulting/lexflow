@@ -60,6 +60,7 @@ const chaveBrevo = process.env.BREVO_API_KEY;
 const chaveMailjet = process.env.MAILJET_API_KEY;
 const segredoMailjet = process.env.MAILJET_SECRET_KEY;
 const chaveResend = process.env.RESEND_API_KEY;
+const chaveTwilio = process.env.TWILIO_SENDGRID_API_KEY;
 const anfitriaoSmtp = process.env.SMTP_HOST;
 const portaSmtp = Number(process.env.SMTP_PORT || 25);
 const remetente = process.env.EMAIL_REMETENTE || "POC@jmassano.pt";
@@ -70,6 +71,7 @@ console.log(`  BREVO_API_KEY     ${mascarar(chaveBrevo)}`);
 console.log(`  MAILJET_API_KEY   ${mascarar(chaveMailjet)}`);
 console.log(`  MAILJET_SECRET_KEY ${mascarar(segredoMailjet)}`);
 console.log(`  RESEND_API_KEY    ${mascarar(chaveResend)}`);
+console.log(`  TWILIO_SENDGRID_API_KEY ${mascarar(chaveTwilio)}`);
 console.log(`  SMTP_HOST         ${anfitriaoSmtp || "(vazia — o canal próprio fica desligado)"}${anfitriaoSmtp ? `:${portaSmtp}` : ""}`);
 console.log(`  EMAIL_REMETENTE   ${remetente}${process.env.EMAIL_REMETENTE ? "" : "  (por omissão — não está no ambiente)"}`);
 console.log(`  EMAIL_NOTIFICACOES ${process.env.EMAIL_NOTIFICACOES || "(vazia — o aviso interno não sai)"}`);
@@ -161,6 +163,25 @@ async function enviar() {
       corpo: { from: remetente, to: [destino], subject: assunto, html },
     });
   }
+  if (chaveTwilio) {
+    canais.push({
+      nome: "Twilio SendGrid",
+      chave: "twilio_sendgrid",
+      campoId: "x-message-id",
+      anfitriao: "api.sendgrid.com",
+      url: "https://api.sendgrid.com/v3/mail/send",
+      cabecalhos: {
+        Authorization: "Bearer " + chaveTwilio,
+        "Content-Type": "application/json",
+      },
+      corpo: {
+        personalizations: [{ to: [{ email: destino }] }],
+        from: { email: remetente },
+        subject: assunto,
+        content: [{ type: "text/html", value: html }],
+      },
+    });
+  }
   // O SMTP próprio fecha a cadeia na mesma ordem que a app: último recurso.
   if (anfitriaoSmtp) {
     canais.push({ nome: "SMTP próprio", tipo: "smtp", anfitriao: anfitriaoSmtp, porta: portaSmtp, chave: "smtp" });
@@ -169,7 +190,7 @@ async function enviar() {
   if (canais.length === 0) {
     return {
       ok: false,
-      erro: "Nem BREVO_API_KEY nem RESEND_API_KEY chegam ao ambiente deste processo (o painel do Coolify pode tê-las sem o contentor a ver).",
+      erro: "Nenhuma chave de email chega ao ambiente deste processo (RESEND_API_KEY, MAILJET_API_KEY+MAILJET_SECRET_KEY, BREVO_API_KEY, TWILIO_SENDGRID_API_KEY ou SMTP_HOST).",
     };
   }
 
