@@ -46,7 +46,7 @@ export const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
  * ficheiro tem de continuar a montar-se num teste sem ambiente nenhum.
  */
 const logotipo = () =>
-  `${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/lexflow.png`;
+  `${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/lexflow.svg`;
 
 export function urlLogotipoSociedade(org?: {
   id: string;

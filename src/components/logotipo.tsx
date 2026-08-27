@@ -25,7 +25,7 @@ export function Logotipo({
   sobreEscuro?: boolean;
   logotipoUrl?: string | null;
 }) {
-  const fonte = logotipoUrl || (sobreEscuro ? "/lexflow-clara.png" : "/lexflow.png");
+  const fonte = logotipoUrl || (sobreEscuro ? "/lexflow-clara.png" : "/lexflow.svg");
   return (
     /* eslint-disable-next-line @next/next/no-img-element -- a app não usa `next/image`; um <img> simples com alt honesto é o que cabe aqui. */
     <img
