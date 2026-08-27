@@ -20,8 +20,6 @@ export type PropostaAnexada = {
   url: string;
 };
 
-const kb = (b: number) =>
-  b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 
 /**
  * A proposta de honorários, e a porta que ela fecha.
@@ -103,38 +101,31 @@ function ModalAnexada({
   const [abriu, setAbriu] = useState(lido);
 
   return (
-    <DialogContent className="max-w-lg" aria-describedby={undefined}>
+    <DialogContent className="max-w-2xl" aria-describedby={undefined}>
       <DialogHeader className="pr-8">
         <DialogTitle>Proposta de Honorários</DialogTitle>
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 py-5">
         <p className="text-sm text-muted-foreground">
-          Esta é a proposta que a sociedade preparou para si. Abra-a e leia-a com
-          atenção antes de a aceitar — é o documento que fixa os serviços e os
-          honorários acordados.
+          Leia a proposta com atenção antes de a aceitar — é o documento que
+          fixa os serviços e os honorários acordados.
         </p>
 
-        <div className="border-linha bg-papel-alto flex items-center gap-3 rounded-sm border p-3">
-          <FileText className="text-tinta-suave size-5 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm">{proposta.nome}</p>
-            <p className="text-xs text-muted-foreground">PDF · {kb(proposta.bytes)}</p>
-          </div>
-        </div>
+        <iframe
+          src={proposta.url}
+          title={`Proposta de honorários — ${proposta.nome}`}
+          onLoad={() => {
+            setAbriu(true);
+            aoAbrir();
+          }}
+          className="border-linha h-[60vh] w-full rounded-sm border bg-white"
+        />
 
-        <Button asChild variant={abriu ? "outline" : "default"} className="w-fit">
-          <a
-            href={proposta.url}
-            target="_blank"
-            rel="noopener"
-            onClick={() => {
-              setAbriu(true);
-              aoAbrir();
-            }}
-          >
+        <Button asChild variant="outline" className="w-fit">
+          <a href={proposta.url} target="_blank" rel="noopener">
             <Maximize2 className="size-3.5" />
-            {abriu ? "Abrir outra vez" : "Abrir a proposta (PDF)"}
+            Abrir em janela própria
           </a>
         </Button>
       </div>
