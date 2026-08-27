@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { id } from "./_comum";
 import { canalEmail, estadoEmail, templateEmail } from "./enums";
 import { organizacao } from "./organizacao";
@@ -94,3 +94,35 @@ export const emailLog = pgTable(
     index("email_log_mensagem").on(t.mensagemId),
   ],
 );
+
+/**
+ * Modelos de email personalizáveis por sociedade (Frente J).
+ *
+ * Guarda os textos personalizados de assunto e corpo HTML para os templates
+ * dirigidos aos clientes (confirmacao_rececao, boas_vindas, rejeicao, reabertura).
+ *
+ * Uma linha por combinação única (organizacaoId, template). Se não existir linha,
+ * o envio usa o modelo padrão do sistema.
+ */
+export const emailModelo = pgTable(
+  "email_modelo",
+  {
+    id: id(),
+    organizacaoId: uuid("organizacao_id")
+      .notNull()
+      .references(() => organizacao.id, { onDelete: "cascade" }),
+    template: templateEmail("template").notNull(),
+    assunto: text("assunto").notNull(),
+    corpoHtml: text("corpo_html").notNull(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    atualizadoPor: uuid("atualizado_por"),
+  },
+  (t) => [
+    uniqueIndex("email_modelo_org_template_unique").on(t.organizacaoId, t.template),
+    index("email_modelo_org_idx").on(t.organizacaoId),
+  ],
+);
+

@@ -304,3 +304,33 @@ export function emailRejeicao({
     logotipoUrl,
   );
 }
+
+/* ----------------------------------------------------------- 6. reopening */
+
+export const ASSUNTO_REABERTURA = "LexFlow | Reabertura do Processo";
+
+export function emailReabertura({
+  nome,
+  referencia,
+  logotipoUrl,
+}: { nome?: string | null; referencia?: string | null; logotipoUrl?: string | null } = {}): string {
+  return moldura(
+    `
+    ${refProcesso(referencia)}
+    ${saudacao(nome)}
+    ${p(
+      "Informamos que o seu processo junto da LexFlow foi reaberto para retificação de informações ou junção de documentos adicionais.",
+    )}
+    ${p(
+      "Poderá aceder à plataforma através do link disponibilizado para proceder às correções necessárias.",
+    )}
+    ${p(
+      "Caso necessite de algum esclarecimento, não hesite em contactar a nossa equipa.",
+    )}
+    ${despedida()}
+  `,
+    LATAO,
+    logotipoUrl,
+  );
+}
+

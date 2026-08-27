@@ -199,3 +199,79 @@ export async function facetasEmails(organizacaoId: string, filtros: FiltrosEmail
 
   return { porEstado, porTemplate };
 }
+
+/* ------------------------------------------- modelos de email da sociedade */
+
+export type ModeloEmailItem = {
+  template: TemplateEditavel;
+  titulo: string;
+  descricao: string;
+  personalizado: boolean;
+  assunto: string;
+  corpoHtml: string;
+  assuntoPadrao: string;
+  corpoHtmlPadrao: string;
+  corAcento: string;
+  atualizadoEm: Date | string | null;
+  atualizadoPor: string | null;
+};
+
+import { emailModelo } from "@/db/schema/email";
+import {
+  METADADOS_TEMPLATES,
+  TEMPLATES_EDITAVEIS,
+  type TemplateEditavel,
+} from "@/lib/emails/personalizacao";
+
+/**
+ * Consulta o estado de todos os templates editáveis para a sociedade indicada.
+ * Devolve a lista ordenada com indicação de quais estão personalizados ou em padrão.
+ */
+export async function consultarModelosEmail(
+  organizacaoId: string,
+): Promise<ModeloEmailItem[]> {
+  const modelosGuardados = await db()
+    .select()
+    .from(emailModelo)
+    .where(eq(emailModelo.organizacaoId, organizacaoId));
+
+  const mapaGuardados = new Map(
+    modelosGuardados.map((m) => [m.template as TemplateEditavel, m]),
+  );
+
+  return TEMPLATES_EDITAVEIS.map((template) => {
+    const meta = METADADOS_TEMPLATES[template];
+    const guardado = mapaGuardados.get(template);
+
+    if (guardado) {
+      return {
+        template,
+        titulo: meta.titulo,
+        descricao: meta.descricao,
+        personalizado: true,
+        assunto: guardado.assunto,
+        corpoHtml: guardado.corpoHtml,
+        assuntoPadrao: meta.assuntoPadrao,
+        corpoHtmlPadrao: meta.corpoHtmlPadrao,
+        corAcento: meta.corAcento,
+        atualizadoEm: guardado.atualizadoEm,
+        atualizadoPor: guardado.atualizadoPor,
+      };
+    }
+
+    return {
+      template,
+      titulo: meta.titulo,
+      descricao: meta.descricao,
+      personalizado: false,
+      assunto: meta.assuntoPadrao,
+      corpoHtml: meta.corpoHtmlPadrao,
+      assuntoPadrao: meta.assuntoPadrao,
+      corpoHtmlPadrao: meta.corpoHtmlPadrao,
+      corAcento: meta.corAcento,
+      atualizadoEm: null,
+      atualizadoPor: null,
+    };
+  });
+}
+

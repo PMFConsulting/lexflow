@@ -30,6 +30,7 @@ import {
   emailRejeicao,
 } from "@/lib/emails/jmassano";
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
+import { resolverEmailCliente } from "@/lib/emails/obter-modelo";
 import { origemPublica } from "@/lib/origem";
 import {
   exigirEquipaOuSuperAdmin,
@@ -685,6 +686,7 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
       const [org] = await db()
         .select({
           id: organizacao.id,
+          nome: organizacao.nome,
           logotipoDados: organizacao.logotipoDados,
           logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
         })
@@ -692,14 +694,22 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
         .where(eq(organizacao.id, processo.organizacaoId))
         .limit(1);
 
+      const emailResolvido = await resolverEmailCliente({
+        organizacaoId: processo.organizacaoId,
+        template: "rejeicao",
+        variaveis: {
+          nome_cliente: nome,
+          referencia: processo.referencia,
+          nome_sociedade: org?.nome,
+          motivo,
+        },
+        logotipoUrl: urlLogotipoSociedade(org),
+      });
+
       await enviarEmail({
         para: email,
-        assunto: ASSUNTO_REJEICAO,
-        html: emailRejeicao({
-          nome,
-          referencia: processo.referencia,
-          logotipoUrl: urlLogotipoSociedade(org),
-        }),
+        assunto: emailResolvido.assunto,
+        html: emailResolvido.html,
         template: "rejeicao",
         organizacaoId: processo.organizacaoId,
         processoId: processo.id,

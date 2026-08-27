@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { organizacao } from "@/db/schema/organizacao";
 import { enviarEmail, type AnexoEmail } from "@/lib/email";
-import { ASSUNTO_BOAS_VINDAS, emailBoasVindas } from "./jmassano";
 import { urlLogotipoSociedade } from "./moldura";
+import { resolverEmailCliente } from "./obter-modelo";
 import type { processoOnboarding } from "@/db/schema/processo";
 
 /**
@@ -77,6 +77,7 @@ export async function enviarBoasVindas(
   const [org] = await db()
     .select({
       id: organizacao.id,
+      nome: organizacao.nome,
       logotipoDados: organizacao.logotipoDados,
       logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
     })
@@ -86,18 +87,26 @@ export async function enviarBoasVindas(
 
   const logotipoUrl = urlLogotipoSociedade(org);
 
+  const emailResolvido = await resolverEmailCliente({
+    organizacaoId: processo.organizacaoId,
+    template: "boas_vindas",
+    variaveis: {
+      nome_cliente: nome,
+      referencia: processo.referencia,
+      nome_sociedade: org?.nome,
+    },
+    logotipoUrl,
+    anexosLista: rotulos,
+  });
+
   return enviarEmail({
     para,
-    assunto: ASSUNTO_BOAS_VINDAS,
-    html: emailBoasVindas({
-      nome,
-      referencia: processo.referencia,
-      anexos: rotulos,
-      logotipoUrl,
-    }),
+    assunto: emailResolvido.assunto,
+    html: emailResolvido.html,
     anexos,
     template: "boas_vindas",
     organizacaoId: processo.organizacaoId,
     processoId: processo.id,
   });
 }
+

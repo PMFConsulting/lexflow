@@ -15,6 +15,7 @@ import {
   emailConfirmacaoRececao,
 } from "@/lib/emails/jmassano";
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
+import { resolverEmailCliente } from "@/lib/emails/obter-modelo";
 import { origemPublica } from "@/lib/origem";
 import { termosEmVigor } from "@/lib/termos-sociedade";
 import { assinatura, documento } from "@/db/schema/documentos";
@@ -1284,6 +1285,7 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
   const [org] = await db()
     .select({
       id: organizacao.id,
+      nome: organizacao.nome,
       logotipoDados: organizacao.logotipoDados,
       logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
     })
@@ -1292,15 +1294,22 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
     .limit(1);
 
   if (emailCliente) {
+    const emailResolvido = await resolverEmailCliente({
+      organizacaoId: processo.organizacaoId,
+      template: "confirmacao_rececao",
+      variaveis: {
+        nome_cliente: identificacao?.nome,
+        referencia: processo.referencia,
+        nome_sociedade: org?.nome,
+      },
+      logotipoUrl: urlLogotipoSociedade(org),
+    });
+
     envios.push(
       enviarEmail({
         para: emailCliente,
-        assunto: ASSUNTO_CONFIRMACAO,
-        html: emailConfirmacaoRececao({
-          nome: identificacao?.nome,
-          referencia: processo.referencia,
-          logotipoUrl: urlLogotipoSociedade(org),
-        }),
+        assunto: emailResolvido.assunto,
+        html: emailResolvido.html,
         template: "confirmacao_rececao",
         organizacaoId: processo.organizacaoId,
         processoId: processo.id,

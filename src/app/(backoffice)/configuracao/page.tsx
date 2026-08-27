@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { papelUtilizador } from "@/db/schema/enums";
@@ -115,6 +116,23 @@ export default async function Configuracao() {
           mono
         />
       </Bloco>
+
+      <section className="border-linha bg-papel-alto rounded-sm border p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg">Modelos de Email</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Personalize o assunto e os textos dos emails enviados aos clientes (boas-vindas, confirmação de receção, rejeição e reabertura).
+            </p>
+          </div>
+          <Link
+            href="/configuracao/emails"
+            className="border-linha bg-papel hover:border-tinta-suave inline-flex shrink-0 items-center justify-center rounded-sm border px-3.5 py-2 text-sm font-medium transition-colors"
+          >
+            Gerir modelos de email
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

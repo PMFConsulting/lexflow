@@ -424,6 +424,10 @@ async function main() {
 
   await validarGestorEAprovacao(falhas);
 
+  /* ---------------------------------- a 0023 adiciona email_modelo ---------- */
+
+  await validarEmailModelos(falhas);
+
   if (falhas.length > 0) {
     console.error(`\n${falhas.length} problema(s):`);
     for (const f of falhas) console.error(`  · ${f}`);
@@ -431,6 +435,84 @@ async function main() {
   }
 
   console.log("\nMigrações válidas.");
+}
+
+/**
+ * A `0023` sobre uma base existente:
+ * - A tabela `email_modelo` é criada.
+ * - Suporta templates de email client-facing.
+ * - Restrição UNIQUE(organizacao_id, template) impede duplicados.
+ * - Idempotência garantida na reaplicação.
+ */
+async function validarEmailModelos(falhas: string[]) {
+  const db = new PGlite({ extensions: { unaccent } });
+  await db.waitReady;
+
+  // Aplica até à 0022
+  await aplicar(db, { ate: 22 });
+
+  await db.exec(`
+    insert into organizacao (id, nome, nif, prefixo_referencia)
+    values ('fe6c269c-5358-43f9-8a7e-ccade4778940', 'PMF Consulting', '500000000', 'PMF');
+
+    insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, aprovado_em)
+    values
+      ('01920000-0000-7000-8000-000000000501', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'u1', 'Admin', 'admin@pmf.pt', 'society_admin', now());
+  `);
+
+  // Aplica a 0023 duas vezes para testar idempotência
+  for (const passagem of [1, 2]) {
+    for (const bloco of instrucoes("0023_email_modelos")) {
+      try {
+        await db.exec(bloco);
+      } catch (e) {
+        falhas.push(
+          `a 0023 falhou na passagem ${passagem} (não é idempotente): ${(e as Error).message}`,
+        );
+        await db.close();
+        return;
+      }
+    }
+  }
+
+  // Insere modelos personalizados válidos
+  await db.exec(`
+    insert into email_modelo (id, organizacao_id, template, assunto, corpo_html, atualizado_por)
+    values (
+      '01920000-0000-7000-8000-000000000502',
+      'fe6c269c-5358-43f9-8a7e-ccade4778940',
+      'confirmacao_rececao',
+      'PMF | Recebemos os seus dados {{referencia}}',
+      '<p>Olá {{nome_cliente}}, recebemos os seus dados na {{nome_sociedade}}.</p>',
+      '01920000-0000-7000-8000-000000000501'
+    );
+  `);
+
+  const recusa = async (descricao: string, sql: string) => {
+    try {
+      await db.exec(sql);
+      falhas.push(`${descricao} — devia ter sido recusado e passou`);
+    } catch {
+      /* recusado, esperado */
+    }
+  };
+
+  // Recusa inserção duplicada do mesmo template na mesma sociedade
+  await recusa(
+    "duplicado de template na mesma sociedade",
+    `insert into email_modelo (id, organizacao_id, template, assunto, corpo_html)
+     values (
+       '01920000-0000-7000-8000-000000000503',
+       'fe6c269c-5358-43f9-8a7e-ccade4778940',
+       'confirmacao_rececao',
+       'Outro assunto',
+       '<p>Outro corpo</p>'
+     )`,
+  );
+
+  await db.close();
+
+  console.log("Modelos de email: tabela email_modelo criada com sucesso; unicidade (org, template) e idempotência garantidas.");
 }
 
 main().catch((e) => {
