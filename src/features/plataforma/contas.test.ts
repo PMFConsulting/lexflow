@@ -71,34 +71,58 @@ vi.mock("@/lib/origem", () => ({
   origemPublica: async () => "https://exemplo.pt",
 }));
 
+/**
+ * A tabela que uma consulta está a usar.
+ *
+ * O `vi.mock` de `@/db/schema/organizacao` dá à `utilizador` um objeto com os
+ * nomes das colunas (é o que permite distinguir uma procura por id de uma por
+ * email); as outras continuam a ser strings. `String(objeto)` daria
+ * `"[object Object]"` para todas, que é o mesmo balde para tabelas diferentes.
+ */
+const tabelaDe = (t: unknown) => (typeof t === "object" ? "utilizador" : String(t));
+
+/**
+ * O `drizzle-orm` simulado devolve cada comparação como `[coluna, valor]` e o
+ * `and(...)` como um array delas. Isto lê de lá o que a consulta está mesmo a
+ * pedir — sem isso, qualquer `where` devolvia a lista inteira e a validação do
+ * gestor encontrava sempre a primeira linha, fosse ela qual fosse.
+ */
+type Condicao = [coluna: string, valor: string];
+
+const clausulaSobre = (cond: unknown, coluna: string): Condicao | undefined =>
+  Array.isArray(cond)
+    ? cond.find((c): c is Condicao => Array.isArray(c) && c[0] === coluna)
+    : undefined;
+
+const consultar = (t: unknown, cond: unknown): Linha[] => {
+  const list = linhas[tabelaDe(t)] ?? [];
+
+  const porId = clausulaSobre(cond, "col_id");
+  if (porId) return list.filter((r) => r.id === porId[1]);
+
+  const porEmail = clausulaSobre(cond, "col_email");
+  if (porEmail) return list.filter((r) => !r.email || r.email === porEmail[1]);
+
+  return list;
+};
+
 const transacao = {
   select: () => ({
     from: (t: unknown) => ({
       where: (cond: unknown) => ({
-        limit: async () => {
-          const list = linhas[typeof t === "object" ? "utilizador" : String(t)] ?? [];
-          if (Array.isArray(cond)) {
-            const idClause = cond.find((c: any) => Array.isArray(c) && c[0] === "col_id");
-            if (idClause) return list.filter((r) => r.id === idClause[1]);
-            const emailClause = cond.find((c: any) => Array.isArray(c) && c[0] === "col_email");
-            if (emailClause) return list.filter((r) => !r.email || r.email === emailClause[1]);
-          }
-          return list;
-        },
+        limit: async () => consultar(t, cond),
       }),
     }),
   }),
   insert: (t: unknown) => ({
     values: async (v: Linha) => {
-      const nomeTabela = typeof t === "object" ? "utilizador" : String(t);
-      inseridos.push({ tabela: nomeTabela, valores: v });
+      inseridos.push({ tabela: tabelaDe(t), valores: v });
     },
   }),
   update: (t: unknown) => ({
     set: (v: Linha) => ({
       where: async () => {
-        const nomeTabela = typeof t === "object" ? "utilizador" : String(t);
-        atualizados.push({ tabela: nomeTabela, valores: v });
+        atualizados.push({ tabela: tabelaDe(t), valores: v });
       },
     }),
   }),
@@ -110,16 +134,7 @@ vi.mock("@/db", () => ({
     select: () => ({
       from: (t: unknown) => ({
         where: (cond: unknown) => ({
-          limit: async () => {
-            const list = linhas[typeof t === "object" ? "utilizador" : String(t)] ?? [];
-            if (Array.isArray(cond)) {
-              const idClause = cond.find((c: any) => Array.isArray(c) && c[0] === "col_id");
-              if (idClause) return list.filter((r) => r.id === idClause[1]);
-              const emailClause = cond.find((c: any) => Array.isArray(c) && c[0] === "col_email");
-              if (emailClause) return list.filter((r) => !r.email || r.email === emailClause[1]);
-            }
-            return list;
-          },
+          limit: async () => consultar(t, cond),
         }),
       }),
     }),

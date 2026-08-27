@@ -71,32 +71,54 @@ vi.mock("@/lib/origem", () => ({
   origemPublica: async () => "https://exemplo.pt",
 }));
 
+/**
+ * O `drizzle-orm` simulado lá em cima devolve cada comparação como
+ * `[coluna, valor]` e o `and(...)` como um array delas. Estas duas funções leem
+ * de lá o que a consulta está mesmo a pedir.
+ *
+ * Sem elas, qualquer `where` devolvia a tabela inteira — e um teste que espera
+ * "esta conta não existe" passava por acidente, porque a primeira linha da lista
+ * respondia a todas as perguntas.
+ */
+type Condicao = [coluna: string, valor: string];
+
+function condicoesSobre(cond: unknown, tabela: string): Condicao[] {
+  if (!Array.isArray(cond)) return [];
+  return cond.filter(
+    (c): c is Condicao =>
+      Array.isArray(c) && c[0] === tabela && typeof c[1] === "string",
+  );
+}
+
+/**
+ * As linhas de `utilizador` que a condição seleciona.
+ *
+ * O id e o email distinguem-se pelo `@`: é grosseiro, e chega — nenhum
+ * identificador desta simulação o contém, e a alternativa era ensinar o mock a
+ * distinguir colunas que o `vi.mock` do drizzle reduz todas ao nome da tabela.
+ */
+function utilizadoresQueSatisfazem(list: Linha[], cond: unknown): Linha[] {
+  const sobre = condicoesSobre(cond, "utilizador");
+
+  const porId = sobre.find((c) => !c[1].includes("@"));
+  if (porId) return list.filter((r) => r.id === porId[1]);
+
+  const porEmail = sobre.find((c) => c[1].includes("@"));
+  if (porEmail) return list.filter((r) => r.email === porEmail[1]);
+
+  return list;
+}
+
+const consultar = (t: unknown, cond: unknown): Linha[] => {
+  const list = linhas[String(t)] ?? [];
+  return String(t) === "utilizador" ? utilizadoresQueSatisfazem(list, cond) : list;
+};
+
 const transacao = {
   select: () => ({
     from: (t: unknown) => ({
       where: (cond: unknown) => ({
-        limit: async () => {
-          const list = linhas[String(t)] ?? [];
-          if (String(t) === "utilizador" && Array.isArray(cond)) {
-            const idClause = cond.find(
-              (c: any) =>
-                Array.isArray(c) &&
-                c[0] === "utilizador" &&
-                typeof c[1] === "string" &&
-                !c[1].includes("@"),
-            );
-            if (idClause) return list.filter((r) => r.id === idClause[1]);
-            const emailClause = cond.find(
-              (c: any) =>
-                Array.isArray(c) &&
-                c[0] === "utilizador" &&
-                typeof c[1] === "string" &&
-                c[1].includes("@"),
-            );
-            if (emailClause) return list.filter((r) => r.email === emailClause[1]);
-          }
-          return list;
-        },
+        limit: async () => consultar(t, cond),
       }),
     }),
   }),
@@ -120,28 +142,7 @@ vi.mock("@/db", () => ({
     select: () => ({
       from: (t: unknown) => ({
         where: (cond: unknown) => ({
-          limit: async () => {
-            const list = linhas[String(t)] ?? [];
-            if (String(t) === "utilizador" && Array.isArray(cond)) {
-              const idClause = cond.find(
-                (c: any) =>
-                  Array.isArray(c) &&
-                  c[0] === "utilizador" &&
-                  typeof c[1] === "string" &&
-                  !c[1].includes("@"),
-              );
-              if (idClause) return list.filter((r) => r.id === idClause[1]);
-              const emailClause = cond.find(
-                (c: any) =>
-                  Array.isArray(c) &&
-                  c[0] === "utilizador" &&
-                  typeof c[1] === "string" &&
-                  c[1].includes("@"),
-              );
-              if (emailClause) return list.filter((r) => r.email === emailClause[1]);
-            }
-            return list;
-          },
+          limit: async () => consultar(t, cond),
         }),
       }),
     }),
@@ -262,6 +263,7 @@ describe("fluxo de aprovação e criação de utilizadores", () => {
         gestorId: null,
       },
     ];
+    linhas.user = [{ id: "auth-joana" }];
     linhas.account = [
       {
         id: "acc-joana",
@@ -386,6 +388,83 @@ describe("fluxo de aprovação e criação de utilizadores", () => {
     if (!res.ok) expect(res.erro).toMatch(/não está ligada/i);
     expect(emailsEnviados).toHaveLength(0);
     expect(atualizados).toHaveLength(0);
+  });
+
+  /**
+   * `auth_user_id` preenchido não prova que a conta do Better Auth exista: a
+   * coluna não tem chave estrangeira, e `account` apaga em cascata com o `user`.
+   * Apagada a linha do outro lado, fica aqui um identificador pendurado que
+   * passa a verificação do `null` — e a aprovação seguia até bater na chave
+   * estrangeira e responder «Tente de novo», sobre algo que nenhuma repetição
+   * resolve.
+   */
+  it("recusa aprovar uma conta cujo auth_user_id já não existe", async () => {
+    linhas.utilizador = [
+      {
+        id: USER_ID,
+        nome: "Conta Pendurada",
+        email: "pendurada@sociedade.pt",
+        papel: "utilizador",
+        organizacaoId: ORG_ID,
+        authUserId: "auth-desaparecido",
+        aprovadoEm: null,
+        apagadoEm: null,
+        gestorId: null,
+      },
+    ];
+    linhas.user = [];
+
+    const res = await aprovarUtilizador(USER_ID);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.erro).toMatch(/perdeu a ligação/i);
+    expect(emailsEnviados).toHaveLength(0);
+    expect(atualizados).toHaveLength(0);
+    expect(inseridos).toHaveLength(0);
+    expect(eventosAuditados).toHaveLength(0);
+  });
+
+  /**
+   * A credencial em falta recupera-se — recusar trancava para sempre uma conta
+   * que se resolve escrevendo a linha que falta. O que não pode é passar sem
+   * rasto: a auditoria tem de distinguir «trocou-se a palavra-passe» de «não
+   * havia nenhuma para trocar».
+   */
+  it("recria a credencial em falta e regista-o na auditoria", async () => {
+    linhas.utilizador = [
+      {
+        id: USER_ID,
+        nome: "Joana Colaboradora",
+        email: "joana@sociedade.pt",
+        papel: "utilizador",
+        organizacaoId: ORG_ID,
+        authUserId: "auth-joana",
+        aprovadoEm: null,
+        apagadoEm: null,
+        gestorId: null,
+      },
+    ];
+    linhas.user = [{ id: "auth-joana" }];
+    linhas.account = [];
+
+    const res = await aprovarUtilizador(USER_ID);
+
+    expect(res.ok).toBe(true);
+    expect(inseridos).toContainEqual(
+      expect.objectContaining({
+        tabela: "account",
+        valores: expect.objectContaining({
+          userId: "auth-joana",
+          providerId: "credential",
+        }),
+      }),
+    );
+    expect(eventosAuditados).toContainEqual(
+      expect.objectContaining({
+        acao: "utilizador.aprovado",
+        valorNovo: expect.objectContaining({ credencialCriada: true }),
+      }),
+    );
   });
 
   /**

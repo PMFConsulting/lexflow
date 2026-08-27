@@ -7,7 +7,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import { uuidv7 } from "uuidv7";
 import { db } from "@/db";
-import { account } from "@/db/schema/auth";
+import { account, user } from "@/db/schema/auth";
 import { organizacao, utilizador } from "@/db/schema/organizacao";
 import { registarEvento } from "@/features/auditoria/registar";
 import {
@@ -683,9 +683,55 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
   }
 
   const authUserId = alvo.authUserId;
+
+  /**
+   * `auth_user_id` preenchido não garante que a conta do outro lado exista.
+   *
+   * A coluna é `text().unique()` e **não tem chave estrangeira** para `user.id`
+   * (`schema/organizacao.ts`), enquanto `account.userId` apaga em cascata com o
+   * `user`. Apagada a linha do Better Auth, as credenciais vão atrás dela e aqui
+   * fica um identificador pendurado que passa a verificação de cima como se
+   * estivesse tudo bem.
+   *
+   * Sem esta consulta o que acontecia a seguir era: a procura da credencial não
+   * encontrava nada, o `INSERT` de recuperação batia na chave estrangeira de
+   * `account.userId`, e o `catch` da transação respondia «Tente de novo» — um
+   * convite a repetir uma operação que não pode funcionar nenhuma das vezes,
+   * sobre uma conta que ninguém percebe porque não aprova. É o mesmo silêncio da
+   * D46 noutra roupa: a falha é real, e a mensagem manda procurar no sítio
+   * errado.
+   */
+  const [linhaAuth] = await db()
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.id, authUserId))
+    .limit(1);
+
+  if (!linhaAuth) {
+    console.error(
+      `[plataforma] utilizador ${alvo.id} aponta para auth_user_id ${authUserId}, que não existe`,
+    );
+    return {
+      ok: false,
+      erro: "Esta conta perdeu a ligação ao início de sessão e não pode ser aprovada. Recrie-a a partir da sociedade.",
+    };
+  }
+
   const palavraPasse = gerarPalavraPasse();
   const hash = await hashPassword(palavraPasse);
   const agora = new Date();
+
+  /**
+   * A credencial em falta **recupera-se**, e a recuperação fica escrita.
+   *
+   * Recusar aqui seria trancar para sempre uma conta que se resolve escrevendo
+   * a linha que falta — e a linha só falta em contas que nunca chegaram a ter
+   * palavra-passe, que é exactamente o que esta aprovação existe para dar.
+   * O que não pode é acontecer sem deixar rasto: a auditoria leva
+   * `credencialCriada`, para a diferença entre «trocou-se a palavra-passe» e
+   * «não havia nenhuma para trocar» sobreviver a esta chamada.
+   */
+  let credencialCriada = false;
 
   /**
    * As duas escritas são uma transação, pela mesma razão da D63: entre elas não
@@ -711,6 +757,7 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
         // A linha `account` é onde o Better Auth procura a palavra-passe (D23).
         // Falta ela, o login passa a não ter com que comparar — e a conta ficava
         // aprovada com credenciais que não abrem nada.
+        credencialCriada = true;
         await tx.insert(account).values({
           id: randomBytes(16).toString("hex"),
           accountId: authUserId,
@@ -769,6 +816,7 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
         papel: alvo.papel,
         aprovadoEm: agora,
         credenciaisEnviadas: contaParaEnvio.emailEnviado,
+        credencialCriada,
       },
       ip,
       userAgent,

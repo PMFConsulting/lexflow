@@ -66,14 +66,37 @@ export const ROTA_AGUARDA_APROVACAO = "/aguarda-aprovacao";
  * identification documents cannot have a single page left open by oversight.
  *
  * ─────────────────────────────────────────────────────────────────────────
- * A aprovação da plataforma e a redefinição obrigatória
+ * Dois desvios, e porque são aqui
  *
- * 1. Uma conta criada pelo administrador da sociedade nasce com `aprovado_em = null`.
- *    Enquanto não for aprovada pelo super_admin da plataforma, o guard desvia para
- *    `/aguarda-aprovacao`. O super_admin nunca passa por aprovação.
+ * 1. **A aprovação da plataforma** (`0021`). Uma conta proposta pelo
+ *    administrador de uma sociedade nasce com `aprovado_em = null`, e enquanto
+ *    o `super_admin` não a aprovar não passa daqui: vai para
+ *    `/aguarda-aprovacao`, que lhe diz o que está a acontecer. O `super_admin`
+ *    nunca passa por isto — é ele quem aprova, e um dono da plataforma à espera
+ *    de si próprio era uma instalação trancada por dentro.
  *
- * 2. Uma conta com `deve_redefinir_password` a `true` é desviada para
- *    `/definir-palavra-passe`.
+ * 2. **A redefinição obrigatória.** Uma conta criada por um administrador nasce
+ *    com uma palavra-passe gerada e enviada por email — um segredo que viajou
+ *    por um canal que não é secreto. Enquanto `deve_redefinir_password` estiver
+ *    a `true`, esta função não deixa passar: manda para o ecrã de definição, e
+ *    mais nada.
+ *
+ * A ordem entre os dois não é indiferente: a aprovação vem primeiro porque é a
+ * mais externa das duas. Mandar definir a palavra-passe alguém que ainda não
+ * sabe se vai ter conta era pedir-lhe trabalho a contar com uma decisão que
+ * pode ser "não".
+ *
+ * **Os guards são estes e não o `middleware`.** O middleware desta instalação
+ * só corre sobre `/api/auth/sign-in` de propósito (ver a nota lá) e não tem
+ * acesso à base de dados de onde estas duas marcas vêm — a sessão do Better
+ * Auth diz quem é a pessoa, não o que falta a essa pessoa. Pôr a decisão aqui é
+ * pô-la no mesmo sítio por onde já passam todas as páginas e todos os Server
+ * Actions autenticados: os guards de papel chamam esta função, e uma página nova
+ * que se esqueça do desvio não existe — teria de se esquecer também da sessão.
+ *
+ * As exceções óbvias — a página de definição de palavra-passe, a ação que a
+ * fecha, e o ecrã de espera pela aprovação — usam `sessaoAtual()` diretamente. É
+ * a única forma de não ficarem a redirecionar para si próprias.
  */
 export async function exigirSessao() {
   const s = await sessaoAtual();
@@ -127,7 +150,15 @@ export function eSuperAdmin(papel: string) {
 /**
  * Quem vê as declarações de PPE e a origem dos fundos.
  *
- * O super_admin da plataforma e a equipa da sociedade (society_admin, gestor, utilizador).
+ * Era o `assistente` que ficava de fora (§6 do brief), e o `assistente`
+ * desapareceu: quem trabalha processos passou a ver o processo todo — e o
+ * `gestor` da `0021` entra pela mesma razão, porque coordena quem os trabalha.
+ *
+ * Que o `super_admin` esteja aqui pode ler-se como uma contradição com a nota
+ * do `podeVerEmails` logo abaixo: não é. O acesso transversal dele aos dados das
+ * sociedades foi uma decisão tomada à parte, e o que fica de fora é o diário de
+ * emails, que é operação corrente de uma sociedade e não supervisão da
+ * plataforma.
  */
 export function podeVerPpe(papel: string) {
   return (
