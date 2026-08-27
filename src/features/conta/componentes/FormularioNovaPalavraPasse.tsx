@@ -69,7 +69,7 @@ export function FormularioNovaPalavraPasse({ email }: { email: string }) {
             mexer, e dá ao gestor de palavras-passe do browser o par que ele
             precisa de guardar. */}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${base}-email`}>Conta</Label>
+          <Label htmlFor={`${base}-email`} className="text-tinta-suave">Conta</Label>
           <Input
             id={`${base}-email`}
             name="email"
@@ -82,7 +82,7 @@ export function FormularioNovaPalavraPasse({ email }: { email: string }) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${base}-nova`}>Palavra-passe nova</Label>
+          <Label htmlFor={`${base}-nova`} className="text-tinta-suave">Palavra-passe nova</Label>
           <Input
             id={`${base}-nova`}
             name="palavraPasse"
@@ -103,7 +103,7 @@ export function FormularioNovaPalavraPasse({ email }: { email: string }) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${base}-confirmacao`}>Repita a palavra-passe</Label>
+          <Label htmlFor={`${base}-confirmacao`} className="text-tinta-suave">Repita a palavra-passe</Label>
           <Input
             id={`${base}-confirmacao`}
             name="confirmacao"

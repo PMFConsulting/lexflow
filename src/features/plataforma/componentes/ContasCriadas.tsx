@@ -64,21 +64,21 @@ export function ContasCriadas({
         </div>
       </div>
 
-      <ul className="border-linha divide-linha divide-y rounded-xs border bg-papel-alto">
+      <ul className="border-linha divide-linha divide-y rounded-sm border bg-papel-alto">
         {contas.map((c) => (
           <li key={c.utilizadorId} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-2.5">
             <span className="min-w-0 flex-1 truncate text-sm">{c.nome}</span>
             <Ref className="text-xs text-muted-foreground">{c.email}</Ref>
             {c.aprovadoEm === null ? (
-              <span className="text-2xs border-latao/40 bg-latao/10 text-latao inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5">
+              <span className="text-2xs border-latao/40 bg-latao/10 text-latao inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5">
                 <Clock className="size-3" strokeWidth={2} /> Aguarda aprovação
               </span>
             ) : c.emailEnviado === false ? (
-              <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5">
+              <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5">
                 <TriangleAlert className="size-3" strokeWidth={2} /> Email não saiu
               </span>
             ) : (
-              <span className="text-2xs border-linha inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5 text-muted-foreground">
+              <span className="text-2xs border-linha inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-muted-foreground">
                 <Mail className="size-3" strokeWidth={2} /> Credenciais enviadas
               </span>
             )}

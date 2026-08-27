@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { classeSelect } from "@/features/onboarding/componentes/Campo";
 import { atualizarSeccaoProcesso } from "../acoes";
 import type { Seccoes } from "@/features/onboarding/dados";
 import type { TipoCliente } from "@/features/onboarding/passos";
@@ -402,7 +403,7 @@ export function ModalEditarSeccao({
                 <select
                   value={docTipo}
                   onChange={(e) => setDocTipo(e.target.value as typeof docTipo)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs"
+                  className={classeSelect}
                 >
                   <option value="cartao_cidadao">Cartão de Cidadão</option>
                   <option value="passaporte">Passaporte</option>
@@ -429,7 +430,7 @@ export function ModalEditarSeccao({
                     <select
                       value={regimeIva}
                       onChange={(e) => setRegimeIva(e.target.value as typeof regimeIva)}
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs"
+                      className={classeSelect}
                     >
                       <option value="">(Não especificado)</option>
                       <option value="normal">Normal</option>
@@ -617,7 +618,7 @@ export function ModalEditarSeccao({
                 <select
                   value={origemContacto}
                   onChange={(e) => setOrigemContacto(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs"
+                  className={classeSelect}
                 >
                   <option value="">(Não especificado)</option>
                   <option value="evento_conferencia">Evento / Conferência</option>

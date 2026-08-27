@@ -128,7 +128,7 @@ export default async function PainelDaPlataforma() {
                     <Ref className="text-muted-foreground">{s.prefixoReferencia}</Ref>
                     <span className="min-w-0 flex-1 truncate text-sm">{s.nome}</span>
                     {s.administradores === 0 && (
-                      <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5">
+                      <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5">
                         <TriangleAlert className="size-3" /> sem administrador
                       </span>
                     )}

@@ -100,7 +100,7 @@ export function NovoAdminPlataforma() {
             </div>
           </div>
 
-          <p className="text-2xs border-linha rounded-xs border border-dashed p-2.5 text-muted-foreground">
+          <p className="text-2xs border-linha rounded-sm border border-dashed p-2.5 text-muted-foreground">
             A palavra-passe é gerada pela plataforma e enviada por email para a pessoa. É
             temporária: ela terá de definir uma sua no primeiro início de sessão.
           </p>

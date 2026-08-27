@@ -28,7 +28,7 @@ const RISCOS: Record<Risco, { rotulo: string; classe: string }> = {
 };
 
 const base =
-  "inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5 text-xs font-medium whitespace-nowrap";
+  "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-xs font-medium whitespace-nowrap";
 
 export function EstadoBadge({ estado, className }: { estado: Estado; className?: string }) {
   const { rotulo, classe } = ESTADOS[estado];

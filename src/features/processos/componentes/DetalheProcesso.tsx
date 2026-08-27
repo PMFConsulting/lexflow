@@ -542,7 +542,7 @@ export function DetalheProcesso({
                     {m.erro && <p className="text-selo text-xs">{m.erro}</p>}
                   </div>
                   <span
-                    className={`text-2xs shrink-0 rounded-xs border px-2 py-0.5 ${
+                    className={`text-2xs shrink-0 rounded-sm border px-2 py-0.5 ${
                       TOM_ESTADO[m.estado] ?? "border-linha bg-papel text-muted-foreground"
                     }`}
                   >

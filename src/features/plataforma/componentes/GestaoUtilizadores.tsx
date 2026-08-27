@@ -204,7 +204,7 @@ export function GestaoUtilizadores({
                   {c.nome}
                 </span>
                 <Ref className="text-xs text-muted-foreground">{c.email}</Ref>
-                <span className="text-2xs border-linha rounded-xs border px-2 py-0.5">
+                <span className="text-2xs border-linha rounded-sm border px-2 py-0.5">
                   {ROTULOS[c.papel] ?? c.papel}
                 </span>
                 {c.papel === "utilizador" && podeGerirGestores && (
@@ -228,7 +228,7 @@ export function GestaoUtilizadores({
                 )}
                 {c.papel === "utilizador" && !podeGerirGestores && c.gestorNome && (
                   <span
-                    className="text-2xs border-linha text-muted-foreground rounded-xs border px-2 py-0.5"
+                    className="text-2xs border-linha text-muted-foreground rounded-sm border px-2 py-0.5"
                     title={`Gestor: ${c.gestorNome}`}
                   >
                     Gestor: {c.gestorNome}
@@ -236,14 +236,14 @@ export function GestaoUtilizadores({
                 )}
                 {c.aprovadoEm === null && c.papel !== "super_admin" && (
                   <span
-                    className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-xs border px-2 py-0.5"
+                    className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-sm border px-2 py-0.5"
                     title="A aguardar aprovação da administração da plataforma"
                   >
                     Pendente de aprovação
                   </span>
                 )}
                 {!c.ativo && (
-                  <span className="text-2xs border-selo/40 bg-selo/10 text-selo rounded-xs border px-2 py-0.5">
+                  <span className="text-2xs border-selo/40 bg-selo/10 text-selo rounded-sm border px-2 py-0.5">
                     Desativada
                   </span>
                 )}
@@ -252,7 +252,7 @@ export function GestaoUtilizadores({
                     na lista é o que o torna diagnosticável. */}
                 {!c.ligado && (
                   <span
-                    className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-xs border px-2 py-0.5"
+                    className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-sm border px-2 py-0.5"
                     title="Sem credenciais de acesso — o início de sessão não resolve."
                   >
                     Sem acesso
@@ -264,7 +264,7 @@ export function GestaoUtilizadores({
                     type="button"
                     onClick={() => alternar(c.id, !c.ativo)}
                     disabled={aGravar}
-                    className="border-linha hover:border-tinta inline-flex items-center gap-1.5 rounded-xs border px-2 py-1 text-xs disabled:opacity-50"
+                    className="border-linha hover:border-tinta inline-flex items-center gap-1.5 rounded-sm border px-2 py-1 text-xs disabled:opacity-50"
                   >
                     <Power className="size-3.5" />
                     {c.ativo ? "Desativar" : "Reativar"}
@@ -337,7 +337,7 @@ export function GestaoUtilizadores({
 
             {/* Não há campo de palavra-passe, e o ecrã diz porquê: sem esta
                 linha, a ausência lê-se como um campo que falta. */}
-            <p className="text-2xs border-linha rounded-xs border border-dashed p-2.5 text-muted-foreground">
+            <p className="text-2xs border-linha rounded-sm border border-dashed p-2.5 text-muted-foreground">
               A palavra-passe temporária é gerada pela plataforma e enviada por email. As contas
               criadas pela sociedade aguardam aprovação da administração da plataforma antes de
               receberem as credenciais.
@@ -368,7 +368,7 @@ export function GestaoUtilizadores({
           <a
             href={modelo}
             download="modelo_utilizadores.csv"
-            className="border-linha hover:border-tinta mt-3 inline-flex items-center gap-1.5 rounded-xs border px-2.5 py-1 text-xs"
+            className="border-linha hover:border-tinta mt-3 inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs"
           >
             <Download className="size-3.5" /> Descarregar o modelo
           </a>

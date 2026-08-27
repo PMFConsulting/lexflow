@@ -45,12 +45,12 @@ export default function Entrar() {
 
         <form onSubmit={submeter} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-tinta-suave">Email</Label>
             <Input id="email" name="email" type="email" autoComplete="username" required />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Palavra-passe</Label>
+            <Label htmlFor="password" className="text-tinta-suave">Palavra-passe</Label>
             <Input
               id="password"
               name="password"

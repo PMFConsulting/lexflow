@@ -28,14 +28,14 @@ export default async function AguardaAprovacaoPage() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <h1 className="text-xl font-semibold">Conta a aguardar aprovação</h1>
+        <h1 className="text-xl">Conta a aguardar aprovação</h1>
         <p className="text-sm text-muted-foreground">
           A sua conta foi registada pelo administrador da sua sociedade e está a aguardar validação
           e aprovação por parte da administração da plataforma.
         </p>
       </div>
 
-      <div className="border-linha/80 bg-papel flex flex-col gap-1.5 rounded-xs border p-3 text-left text-xs">
+      <div className="border-linha/80 bg-papel flex flex-col gap-1.5 rounded-sm border p-3 text-left text-xs">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Utilizador:</span>
           <span className="font-medium">{sessao.eu.nome}</span>

@@ -113,29 +113,29 @@ export function AprovacoesUtilizadores({
       </div>
 
       {mensagemSucesso && (
-        <div className="border-arquivo/40 bg-arquivo/10 text-arquivo flex items-center gap-2 rounded-xs border p-3 text-sm">
+        <div className="border-arquivo/40 bg-arquivo/10 text-arquivo flex items-center gap-2 rounded-sm border p-3 text-sm">
           <CheckCircle2 className="size-4 shrink-0" />
           <span>{mensagemSucesso}</span>
         </div>
       )}
 
       {erro && (
-        <div className="border-selo/40 bg-selo/10 text-selo flex items-center gap-2 rounded-xs border p-3 text-sm">
+        <div className="border-selo/40 bg-selo/10 text-selo flex items-center gap-2 rounded-sm border p-3 text-sm">
           <TriangleAlert className="size-4 shrink-0" />
           <span>{erro}</span>
         </div>
       )}
 
       {pendentes.length === 0 ? (
-        <div className="border-linha/60 flex flex-col items-center justify-center rounded-xs border border-dashed p-8 text-center">
-          <Clock className="text-muted-foreground mb-2 size-8 stroke-1" />
+        <div className="border-linha/60 flex flex-col items-center justify-center rounded-sm border border-dashed p-8 text-center">
+          <Clock className="text-tinta-suave mb-2 size-6" strokeWidth={1.5} />
           <p className="text-sm font-medium">Sem pedidos pendentes</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Todas as contas propostas pelas sociedades já foram aprovadas ou tratadas.
           </p>
         </div>
       ) : (
-        <ul className="border-linha divide-linha divide-y rounded-xs border">
+        <ul className="border-linha divide-linha divide-y rounded-sm border">
           {pendentes.map((u) => {
             const estaAProcessar = isPending && aProcessarId === u.id;
             const estaARejeitar = rejeitandoId === u.id;
@@ -147,11 +147,11 @@ export function AprovacoesUtilizadores({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{u.nome}</span>
                       <Ref className="text-xs text-muted-foreground">{u.email}</Ref>
-                      <span className="text-2xs border-linha bg-papel rounded-xs border px-2 py-0.5">
+                      <span className="text-2xs border-linha bg-papel rounded-sm border px-2 py-0.5">
                         {ROTULOS[u.papel] ?? u.papel}
                       </span>
                       {u.gestorNome && (
-                        <span className="text-2xs border-linha text-muted-foreground rounded-xs border px-2 py-0.5">
+                        <span className="text-2xs border-linha text-muted-foreground rounded-sm border px-2 py-0.5">
                           Gestor: {u.gestorNome}
                         </span>
                       )}
@@ -206,7 +206,7 @@ export function AprovacoesUtilizadores({
                 </div>
 
                 {estaARejeitar && (
-                  <div className="border-linha/80 bg-papel mt-2 flex flex-col gap-2 rounded-xs border p-3">
+                  <div className="border-linha/80 bg-papel mt-2 flex flex-col gap-2 rounded-sm border p-3">
                     <p className="text-xs font-medium">Rejeitar conta de {u.nome}</p>
                     <p className="text-2xs text-muted-foreground">
                       A conta será desativada e arquivada. Pode indicar um motivo para registo de auditoria.

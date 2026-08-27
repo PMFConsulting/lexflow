@@ -71,7 +71,7 @@ export default async function Sociedades({
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.nome}</span>
                 <Ref className="text-xs text-muted-foreground">{s.nif}</Ref>
                 {s.administradores === 0 && (
-                  <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5">
+                  <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5">
                     <TriangleAlert className="size-3" /> sem administrador
                   </span>
                 )}

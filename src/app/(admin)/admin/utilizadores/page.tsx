@@ -71,12 +71,12 @@ export default async function Utilizadores({
                 {c.nome}
               </span>
               <Ref className="text-xs text-muted-foreground">{c.email}</Ref>
-              <span className="text-2xs border-linha rounded-xs border px-2 py-0.5">
+              <span className="text-2xs border-linha rounded-sm border px-2 py-0.5">
                 {ROTULOS[c.papel] ?? c.papel}
               </span>
               {c.papel === "utilizador" && c.gestorNome && (
                 <span
-                  className="text-2xs border-linha text-muted-foreground rounded-xs border px-2 py-0.5"
+                  className="text-2xs border-linha text-muted-foreground rounded-sm border px-2 py-0.5"
                   title={`Gestor: ${c.gestorNome}`}
                 >
                   Gestor: {c.gestorNome}
@@ -84,7 +84,7 @@ export default async function Utilizadores({
               )}
               {c.aprovadoEm === null && c.papel !== "super_admin" && (
                 <span
-                  className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-xs border px-2 py-0.5"
+                  className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-sm border px-2 py-0.5"
                   title="A aguardar aprovação da administração da plataforma"
                 >
                   Pendente
@@ -101,13 +101,13 @@ export default async function Utilizadores({
                 <span className="text-xs text-muted-foreground">plataforma</span>
               )}
               {!c.ativo && (
-                <span className="text-2xs border-selo/40 bg-selo/10 text-selo rounded-xs border px-2 py-0.5">
+                <span className="text-2xs border-selo/40 bg-selo/10 text-selo rounded-sm border px-2 py-0.5">
                   Desativada
                 </span>
               )}
               {!c.ligado && (
                 <span
-                  className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-xs border px-2 py-0.5"
+                  className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-sm border px-2 py-0.5"
                   title="Sem credenciais de acesso — o início de sessão não resolve."
                 >
                   Sem acesso

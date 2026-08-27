@@ -50,8 +50,8 @@ export default async function EquipaDoGestorPage() {
         </div>
 
         {membros.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <UserCheck className="text-muted-foreground mb-2 size-8 stroke-1" />
+          <div className="border-linha m-4 flex flex-col items-center justify-center rounded-sm border border-dashed py-8 text-center">
+            <UserCheck className="text-tinta-suave mb-2 size-6" strokeWidth={1.5} />
             <p className="text-sm font-medium">Sem utilizadores associados</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Ainda não tem utilizadores associados à sua coordenação. O administrador da sociedade
@@ -66,19 +66,19 @@ export default async function EquipaDoGestorPage() {
                   {m.nome}
                 </span>
                 <Ref className="text-xs text-muted-foreground">{m.email}</Ref>
-                <span className="text-2xs border-linha rounded-xs border px-2 py-0.5">
+                <span className="text-2xs border-linha rounded-sm border px-2 py-0.5">
                   Utilizador
                 </span>
                 {m.aprovadoEm === null && (
                   <span
-                    className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-xs border px-2 py-0.5"
+                    className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-sm border px-2 py-0.5"
                     title="A aguardar aprovação da plataforma"
                   >
                     A aguardar aprovação
                   </span>
                 )}
                 {!m.ativo && (
-                  <span className="text-2xs border-selo/40 bg-selo/10 text-selo rounded-xs border px-2 py-0.5">
+                  <span className="text-2xs border-selo/40 bg-selo/10 text-selo rounded-sm border px-2 py-0.5">
                     Desativada
                   </span>
                 )}
