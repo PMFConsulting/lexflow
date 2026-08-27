@@ -365,7 +365,7 @@ export function EditorModelosEmail({
               </p>
             </div>
 
-            <div className="border-linha overflow-hidden rounded-sm border bg-[#edefea] p-4">
+            <div className="border-linha overflow-hidden rounded-sm border bg-papel p-4">
               <div
                 className="email-preview-container max-w-full"
                 dangerouslySetInnerHTML={{ __html: corpoPrevisualizacao }}
@@ -396,7 +396,6 @@ export function EditorModelosEmail({
               type="button"
               onClick={handleGuardar}
               disabled={isPending}
-              className="bg-tinta text-papel-alto hover:bg-tinta/90"
             >
               <Save className="size-4" />
               {isPending ? "A guardar…" : "Guardar modelo"}

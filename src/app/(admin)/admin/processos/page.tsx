@@ -92,7 +92,7 @@ export default async function ProcessosPlataforma({
               <option value="rejeitado">Rejeitado</option>
             </select>
 
-            <Button type="submit" className="text-xs">
+            <Button type="submit" size="sm" className="text-xs">
               Filtrar
             </Button>
           </form>

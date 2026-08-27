@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Carimbos } from "@/components/carimbo";
 import { EstadoBadge } from "@/components/estado-badge";
@@ -170,14 +171,18 @@ export default async function Processos({
           </span>
           <div className="flex gap-2">
             {pagina > 1 && (
-              <Link href={comPagina(pagina - 1)} className="border-linha rounded-sm border px-3 py-1.5">
-                Anterior
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link href={comPagina(pagina - 1)}>
+                  Anterior
+                </Link>
+              </Button>
             )}
             {pagina < paginas && (
-              <Link href={comPagina(pagina + 1)} className="border-linha rounded-sm border px-3 py-1.5">
-                Seguinte
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link href={comPagina(pagina + 1)}>
+                  Seguinte
+                </Link>
+              </Button>
             )}
           </div>
         </nav>

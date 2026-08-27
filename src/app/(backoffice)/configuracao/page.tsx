@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
+import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { papelUtilizador } from "@/db/schema/enums";
 import { organizacao } from "@/db/schema/organizacao";
@@ -125,12 +126,11 @@ export default async function Configuracao() {
               Personalize o assunto e os textos dos emails enviados aos clientes (boas-vindas, confirmação de receção, rejeição e reabertura).
             </p>
           </div>
-          <Link
-            href="/configuracao/emails"
-            className="border-linha bg-papel hover:border-tinta-suave inline-flex shrink-0 items-center justify-center rounded-sm border px-3.5 py-2 text-sm font-medium transition-colors"
-          >
-            Gerir modelos de email
-          </Link>
+          <Button asChild variant="outline" className="shrink-0">
+            <Link href="/configuracao/emails">
+              Gerir modelos de email
+            </Link>
+          </Button>
         </div>
       </section>
     </div>

@@ -289,7 +289,7 @@ export function ModalEditarSeccao({
 
         <DialogBody className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
           {erro && (
-            <div className="flex items-center gap-2 rounded-md bg-selo/10 p-3 text-xs text-selo border border-selo/20">
+            <div className="border-selo/40 bg-selo/10 text-selo flex items-center gap-2 rounded-sm border p-3 text-xs" role="alert">
               <TriangleAlert className="size-4 shrink-0" />
               <span>{erro}</span>
             </div>

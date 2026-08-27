@@ -97,7 +97,7 @@ export function LogotipoSociedade({
         {temLogotipo && urlLogotipo ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="border-linha bg-fundo-sidebar flex h-14 w-36 shrink-0 items-center justify-center rounded-sm border p-2">
+              <div className="border-linha bg-sidebar flex h-14 w-36 shrink-0 items-center justify-center rounded-sm border p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={urlLogotipo}

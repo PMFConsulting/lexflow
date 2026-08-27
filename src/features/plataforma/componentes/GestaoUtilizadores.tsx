@@ -365,13 +365,11 @@ export function GestaoUtilizadores({
             fica nenhuma conta a meio.
           </p>
 
-          <a
-            href={modelo}
-            download="modelo_utilizadores.csv"
-            className="border-linha hover:border-tinta mt-3 inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs"
-          >
-            <Download className="size-3.5" /> Descarregar o modelo
-          </a>
+          <Button asChild variant="outline" size="sm" className="mt-3">
+            <a href={modelo} download="modelo_utilizadores.csv">
+              <Download className="size-3.5" /> Descarregar o modelo
+            </a>
+          </Button>
 
           <div className="mt-4 flex flex-col gap-1.5">
             <Label htmlFor={`${base}-ficheiro`}>Ficheiro</Label>
