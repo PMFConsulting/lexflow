@@ -1,4 +1,4 @@
-import { Building2, FileText, LayoutDashboard, Mail, Settings, UserRound, Users } from "lucide-react";
+import { Building2, FileText, LayoutDashboard, Settings, UserRound, Users } from "lucide-react";
 import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
 import { exigirEquipaDaSociedade, podeVerEmails } from "@/lib/sessao";
 import { sociedadeDe } from "@/features/administracao/consultas";
@@ -42,7 +42,6 @@ const NAVEGACAO: Entrada[] = [
   { titulo: "Processos", href: "/processos", icone: FileText },
   { titulo: "A minha equipa", href: "/equipa", icone: Users, soGestor: true },
   { titulo: "Clientes", href: "/clientes", icone: Users },
-  { titulo: "Emails", href: "/emails", icone: Mail, soAdmin: true },
   { titulo: "Configuração", href: "/configuracao", icone: Settings },
 ];
 
