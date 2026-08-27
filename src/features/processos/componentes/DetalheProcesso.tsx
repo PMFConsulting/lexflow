@@ -6,6 +6,14 @@ import { Carimbos } from "@/components/carimbo";
 import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { ACOES } from "@/features/auditoria/consultas";
+import type { LinhaEmailDoProcesso } from "@/features/emails/consultas";
+import {
+  ESTADOS_FALHADOS,
+  ROTULOS_CANAL,
+  ROTULOS_ESTADO,
+  ROTULOS_TEMPLATE,
+  TOM_ESTADO,
+} from "@/features/emails/rotulos";
 import {
   passosAntesDe,
   passosDoProcesso,
@@ -18,6 +26,17 @@ import { passosGravados, type Seccoes } from "@/features/onboarding/dados";
 
 const dt = (d: Date | null | undefined) =>
   d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d) : "—";
+
+/**
+ * `criadoEm` do `email_log` chega como `Date` ou como texto, consoante o
+ * caminho por onde a linha veio. O `dt` acima só sabe `Date`, e um `string`
+ * silenciosamente formatado como "—" é uma mensagem sem data no meio de uma
+ * cronologia.
+ */
+const dtm = (d: Date | string) => {
+  const data = d instanceof Date ? d : new Date(d);
+  return Number.isNaN(data.getTime()) ? "—" : dt(data);
+};
 
 const kb = (b: number) =>
   b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
@@ -126,6 +145,7 @@ export type DetalheProcessoProps = {
     ip: string | null;
     hash: string;
   }>;
+  emails: LinhaEmailDoProcesso[];
   assinatura: {
     imagemDados: string | null;
     assinadoEm: Date | null;
@@ -148,6 +168,7 @@ export function DetalheProcesso({
   seccoes: s,
   documentos: docs,
   eventos,
+  emails,
   assinatura,
   proposta,
   vePpe,
@@ -157,6 +178,8 @@ export function DetalheProcesso({
   textoVoltar = "Voltar",
   papelAtual,
 }: DetalheProcessoProps) {
+  const naoChegaram = emails.filter((m) => ESTADOS_FALHADOS.includes(m.estado)).length;
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
       <Link
@@ -471,6 +494,63 @@ export function DetalheProcesso({
           <p className="mt-3 text-xs text-muted-foreground">
             O download no painel vem da base de dados, com sessão exigida, e fica registado na
             auditoria.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ── emails ────────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex flex-wrap items-baseline gap-x-3 text-base">
+            Emails
+            {/* Um dossier sem link é um cliente à espera, e é esta contagem que
+                o anuncia sem obrigar a ler a lista linha a linha. */}
+            {naoChegaram > 0 && (
+              <span className="text-selo text-xs font-normal">
+                {naoChegaram === 1 ? "1 não chegou" : `${naoChegaram} não chegaram`}
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {emails.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Ainda não saiu nenhuma mensagem no âmbito deste processo.
+            </p>
+          ) : (
+            <ul className="border-linha divide-linha divide-y border-t">
+              {emails.map((m) => (
+                <li key={m.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{m.assunto}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <Ref>{m.para}</Ref> · {ROTULOS_TEMPLATE[m.template] ?? m.template}
+                      {m.canal && ` · ${ROTULOS_CANAL[m.canal]}`}
+                    </p>
+                    {/* O motivo por baixo do assunto que o causou: um estado a
+                        carmim sem a razão manda quem lê para os registos do
+                        contentor à procura do que a linha já sabe. */}
+                    {m.erro && <p className="text-selo text-xs">{m.erro}</p>}
+                  </div>
+                  <span
+                    className={`text-2xs shrink-0 rounded-xs border px-2 py-0.5 ${
+                      TOM_ESTADO[m.estado] ?? "border-linha bg-papel text-muted-foreground"
+                    }`}
+                  >
+                    {ROTULOS_ESTADO[m.estado]}
+                  </span>
+                  <Ref className="shrink-0 text-xs text-muted-foreground">{dtm(m.criadoEm)}</Ref>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            {/* A mesma distinção do `/emails`, repetida aqui porque é aqui que
+                ela decide se alguém vai atrás de um cliente que não recebeu
+                nada — e a D50 nasceu precisamente de as duas se confundirem. */}
+            <strong className="font-medium">Aceite</strong> quer dizer que o fornecedor ficou com
+            a mensagem; <strong className="font-medium">Entregue</strong> quer dizer que o
+            servidor do destinatário a aceitou.
           </p>
         </CardContent>
       </Card>

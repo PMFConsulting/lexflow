@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { auditoriaDoProcesso } from "@/features/auditoria/consultas";
+import { emailsDoProcesso } from "@/features/emails/consultas";
 import {
   documentosDoProcesso,
   processoPorId,
@@ -26,10 +27,11 @@ export default async function Processo({
   const processo = await processoPorId(id);
   if (!processo || processo.organizacaoId !== eu.organizacaoId) notFound();
 
-  const [s, docs, eventos, assinatura, proposta] = await Promise.all([
+  const [s, docs, eventos, emails, assinatura, proposta] = await Promise.all([
     seccoesDoProcesso(processo.id),
     documentosDoProcesso(processo.id),
     auditoriaDoProcesso(processo.id),
+    emailsDoProcesso(processo.id, processo.organizacaoId),
     assinaturaDoProcesso(processo.id),
     propostaDoProcesso(processo.id),
   ]);
@@ -53,6 +55,7 @@ export default async function Processo({
       seccoes={s}
       documentos={docs}
       eventos={eventos}
+      emails={emails}
       assinatura={assinatura}
       proposta={proposta}
       vePpe={vePpe}

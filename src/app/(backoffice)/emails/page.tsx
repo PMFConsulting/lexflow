@@ -14,6 +14,7 @@ import {
   ROTULOS_CANAL,
   ROTULOS_ESTADO,
   ROTULOS_TEMPLATE,
+  TOM_ESTADO,
   type EstadoEmail,
   type TemplateEmail,
 } from "@/features/emails/rotulos";
@@ -23,22 +24,6 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Emails" };
 export const dynamic = "force-dynamic";
-
-/**
- * A cor de cada estado, na paleta do §3.
- *
- * O carmim (`selo`) é para o que não chegou — o erro de envio e o devolvido são
- * o mesmo problema visto de dois sítios. O verde-arquivo é a única confirmação
- * a sério que esta tabela tem. O latão fica para a queixa de spam, que não é
- * falha de entrega mas exige atenção. O «Aceite» fica cinzento de propósito:
- * não é bom nem mau, é o estado em que ainda não se sabe.
- */
-const TOM_ESTADO: Partial<Record<EstadoEmail, string>> = {
-  erro: "border-selo/40 bg-selo/10 text-selo",
-  devolvido: "border-selo/40 bg-selo/10 text-selo",
-  queixa: "border-latao/40 bg-latao/10 text-latao",
-  entregue: "border-arquivo/40 bg-arquivo/10 text-arquivo",
-};
 
 const quando = (d: Date | string) => {
   const data = d instanceof Date ? d : new Date(d);

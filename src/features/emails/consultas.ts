@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { emailLog } from "@/db/schema/email";
 import { processoOnboarding } from "@/db/schema/processo";
@@ -103,6 +103,67 @@ export async function listarEmails(
     .leftJoin(processoOnboarding, eq(processoOnboarding.id, emailLog.processoId))
     .where(onde.length ? and(...onde) : undefined)
     .orderBy(desc(emailLog.criadoEm))
+    .limit(LIMITE);
+}
+
+/* ------------------------------------------- o que saiu no âmbito de um processo */
+
+/**
+ * As mensagens de um processo, para a secção ao lado da auditoria.
+ *
+ * Menos colunas do que a `LinhaEmail`: aqui já se sabe de que processo se trata,
+ * e a referência e o `processoId` seriam a mesma informação repetida em todas as
+ * linhas.
+ */
+export type LinhaEmailDoProcesso = {
+  id: string;
+  para: string;
+  assunto: string;
+  template: TemplateEmail;
+  estado: EstadoEmail;
+  erro: string | null;
+  canal: CanalEmail | null;
+  criadoEm: Date | string;
+};
+
+/**
+ * O que a plataforma escreveu ao cliente no âmbito deste processo.
+ *
+ * **Por ordem crescente**, ao contrário de `/emails`: esta lista fica encostada
+ * à auditoria, que é uma linha do tempo do mais antigo para o mais recente, e
+ * duas cronologias lado a lado a correrem em sentidos opostos leem-se mal. São
+ * meia dúzia de linhas por processo — não há aqui o problema que faz o diário
+ * geral começar pelo fim.
+ *
+ * A `organizacaoId` é exigida e não inferida do processo, pela mesma razão que
+ * `listarEmails` a exige: esta tabela guarda endereços de clientes, e um
+ * identificador de processo vindo do URL não prova de quem ele é. As páginas que
+ * chamam isto já confirmaram o par — passá-lo outra vez é o que garante que a
+ * consulta não devolve nada se algum dia alguma delas se esquecer.
+ */
+export async function emailsDoProcesso(
+  processoId: string,
+  organizacaoId: string,
+): Promise<LinhaEmailDoProcesso[]> {
+  return db()
+    .select({
+      id: emailLog.id,
+      para: emailLog.para,
+      assunto: emailLog.assunto,
+      template: emailLog.template,
+      estado: emailLog.estado,
+      erro: emailLog.erro,
+      canal: emailLog.canal,
+      criadoEm: emailLog.criadoEm,
+    })
+    .from(emailLog)
+    .where(
+      and(
+        eq(emailLog.processoId, processoId),
+        eq(emailLog.organizacaoId, organizacaoId),
+      ),
+    )
+    .orderBy(asc(emailLog.criadoEm))
     .limit(LIMITE);
 }
 

@@ -5,6 +5,7 @@ import {
   assinaturaDoProcesso,
   seccoesDoProcesso,
 } from "@/features/onboarding/dados";
+import { emailsDoProcesso } from "@/features/emails/consultas";
 import { DetalheProcesso } from "@/features/processos/componentes/DetalheProcesso";
 import {
   documentosDoProcesso,
@@ -40,10 +41,14 @@ export default async function DetalheProcessoSociedadeAdmin({
   const processo = await processoPorId(processoId);
   if (!processo || processo.organizacaoId !== id) notFound();
 
-  const [s, docs, eventos, assinatura, proposta] = await Promise.all([
+  const [s, docs, eventos, emails, assinatura, proposta] = await Promise.all([
     seccoesDoProcesso(processo.id),
     documentosDoProcesso(processo.id),
     auditoriaDoProcesso(processo.id),
+    // A sociedade vem do processo já confirmado contra o `id` do URL, três
+    // linhas acima — não de quem lê, que aqui é o `super_admin` e não pertence
+    // a nenhuma.
+    emailsDoProcesso(processo.id, processo.organizacaoId),
     assinaturaDoProcesso(processo.id),
     propostaDoProcesso(processo.id),
   ]);
@@ -67,6 +72,7 @@ export default async function DetalheProcessoSociedadeAdmin({
       seccoes={s}
       documentos={docs}
       eventos={eventos}
+      emails={emails}
       assinatura={assinatura}
       proposta={proposta}
       vePpe={vePpe}
