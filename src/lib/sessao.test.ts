@@ -111,20 +111,18 @@ describe("as capacidades de cada papel", () => {
 
   /**
    * Aprovação de processos:
-   *
-   * O dono da plataforma (`super_admin`) tem acesso transversal para aprovar/rejeitar
-   * e editar dados, e a equipa da sociedade (`society_admin`, `gestor`, `utilizador`)
-   * mantém a sua aprovação.
+   * A equipa da sociedade (society_admin, gestor, utilizador) pode aprovar.
+   * O super_admin NÃO pode aprovar processos.
    */
-  it("a aprovação e edição de processos é permitida aos quatro papéis", () => {
+  it("a aprovação e edição de processos é permitida à equipa da sociedade, mas não ao super_admin", () => {
     expect(podeAprovarProcesso("utilizador")).toBe(true);
     expect(podeAprovarProcesso("gestor")).toBe(true);
     expect(podeAprovarProcesso("society_admin")).toBe(true);
-    expect(podeAprovarProcesso("super_admin")).toBe(true);
+    expect(podeAprovarProcesso("super_admin")).toBe(false);
   });
 
-  it("o dono da plataforma e a equipa da sociedade veem PPE", () => {
-    expect(podeVerPpe("super_admin")).toBe(true);
+  it("apenas a equipa da sociedade vê PPE, super_admin não vê", () => {
+    expect(podeVerPpe("super_admin")).toBe(false);
     expect(podeVerPpe("society_admin")).toBe(true);
     expect(podeVerPpe("gestor")).toBe(true);
     expect(podeVerPpe("utilizador")).toBe(true);

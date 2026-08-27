@@ -411,7 +411,7 @@ export async function numerosDaPlataforma() {
   };
 }
 
-/** Os processos de quem só vê os da sua sociedade — o portal do `utilizador` e a visão da sociedade no `/admin`. */
+/** Os processos da sociedade para o portal do utilizador (`/meus-processos`). */
 export async function processosDaSociedade(organizacaoId: string, limite = 100) {
   return db()
     .select({
@@ -427,6 +427,30 @@ export async function processosDaSociedade(organizacaoId: string, limite = 100) 
     .from(processoOnboarding)
     .leftJoin(dadosIdentificacao, eq(dadosIdentificacao.processoId, processoOnboarding.id))
     .leftJoin(dadosFiscais, eq(dadosFiscais.processoId, processoOnboarding.id))
+    .where(
+      and(
+        eq(processoOnboarding.organizacaoId, organizacaoId),
+        isNull(processoOnboarding.apagadoEm),
+      ),
+    )
+    .orderBy(desc(processoOnboarding.atualizadoEm))
+    .limit(limite);
+}
+
+/** Os metadados de processos da sociedade para a visão do super_admin em `/admin/sociedades/[id]`. */
+export async function metadadosProcessosDaSociedade(organizacaoId: string, limite = 100) {
+  return db()
+    .select({
+      id: processoOnboarding.id,
+      referencia: processoOnboarding.referencia,
+      estado: processoOnboarding.estado,
+      tipoCliente: processoOnboarding.tipoCliente,
+      passoAtual: processoOnboarding.passoAtual,
+      atualizadoEm: processoOnboarding.atualizadoEm,
+      responsavel: utilizador.nome,
+    })
+    .from(processoOnboarding)
+    .leftJoin(utilizador, eq(utilizador.id, processoOnboarding.responsavelId))
     .where(
       and(
         eq(processoOnboarding.organizacaoId, organizacaoId),

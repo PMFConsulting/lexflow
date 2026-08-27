@@ -1,10 +1,9 @@
-import Link from "next/link";
-import { ArrowRight, FolderKanban } from "lucide-react";
+import { FolderKanban } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
-import { processosDaSociedade } from "@/features/plataforma/consultas";
+import { metadadosProcessosDaSociedade } from "@/features/plataforma/consultas";
 
 const dt = (d: Date | null | undefined) =>
   d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d) : "—";
@@ -16,7 +15,7 @@ export async function ProcessosDaSociedade({
   organizacaoId: string;
   prefixo: string;
 }) {
-  const processos = await processosDaSociedade(organizacaoId);
+  const processos = await metadadosProcessosDaSociedade(organizacaoId);
 
   return (
     <Card>
@@ -24,7 +23,7 @@ export async function ProcessosDaSociedade({
         <div>
           <CardTitle className="text-base">Processos de Onboarding</CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Dossiers de clientes e KYC desta sociedade. O super_admin tem acesso total de leitura e edição.
+            Metadados dos processos desta sociedade. Os dados confidenciais de clientes pertencem exclusivamente à sociedade.
           </p>
         </div>
         <BotaoNovoProcesso tamanho="sm" organizacaoId={organizacaoId} />
@@ -45,30 +44,21 @@ export async function ProcessosDaSociedade({
               <thead className="text-2xs font-mono tracking-wider text-muted-foreground uppercase">
                 <tr className="border-linha border-b text-left">
                   <th className="pb-2.5 font-medium">Referência</th>
-                  <th className="pb-2.5 font-medium">Cliente</th>
+                  <th className="pb-2.5 font-medium">Responsável</th>
                   <th className="pb-2.5 font-medium">Tipo</th>
                   <th className="pb-2.5 font-medium">Estado</th>
                   <th className="pb-2.5 font-medium">Passo</th>
                   <th className="pb-2.5 font-medium">Atualizado</th>
-                  <th className="pb-2.5 font-medium text-right">Ação</th>
                 </tr>
               </thead>
               <tbody className="divide-linha divide-y">
                 {processos.map((p) => (
                   <tr key={p.id} className="group hover:bg-muted transition-colors">
                     <td className="py-2.5 font-mono text-xs font-medium">
-                      <Link
-                        href={`/admin/sociedades/${organizacaoId}/processos/${p.id}`}
-                        className="text-marca hover:underline"
-                      >
-                        {p.referencia}
-                      </Link>
+                      <Ref className="font-medium text-xs text-tinta">{p.referencia}</Ref>
                     </td>
-                    <td className="py-2.5">
-                      <div className="font-medium text-sm">
-                        {p.nomeCliente || <span className="text-muted-foreground font-normal italic">Sem nome</span>}
-                      </div>
-                      {p.nifCliente && <Ref className="text-xs text-muted-foreground">{p.nifCliente}</Ref>}
+                    <td className="py-2.5 text-xs text-muted-foreground">
+                      {p.responsavel ?? "—"}
                     </td>
                     <td className="py-2.5 text-xs text-muted-foreground">
                       {p.tipoCliente === "empresa" ? "Empresa" : "Particular"}
@@ -80,16 +70,7 @@ export async function ProcessosDaSociedade({
                       Passo {p.passoAtual} de 7
                     </td>
                     <td className="py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                      {dt(p.atualizadoEm)}
-                    </td>
-                    <td className="py-2.5 text-right">
-                      <Link
-                        href={`/admin/sociedades/${organizacaoId}/processos/${p.id}`}
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-tinta font-medium"
-                      >
-                        Ver / Editar
-                        <ArrowRight className="size-3" />
-                      </Link>
+                      <Ref className="text-xs text-muted-foreground">{dt(p.atualizadoEm)}</Ref>
                     </td>
                   </tr>
                 ))}

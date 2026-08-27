@@ -162,7 +162,6 @@ export function eSuperAdmin(papel: string) {
  */
 export function podeVerPpe(papel: string) {
   return (
-    papel === "super_admin" ||
     papel === "society_admin" ||
     papel === "gestor" ||
     papel === "utilizador"
@@ -171,13 +170,11 @@ export function podeVerPpe(papel: string) {
 
 /**
  * Quem pode aprovar ou rejeitar um processo.
- *
- * O dono da plataforma (`super_admin`) e a equipa da sociedade (`society_admin`,
- * `gestor`, `utilizador`) podem ambos aprovar ou rejeitar processos e alterar dados.
+ * Apenas a equipa da sociedade (society_admin, gestor, utilizador).
+ * O super_admin NÃO pode aprovar processos.
  */
 export function podeAprovarProcesso(papel: string) {
   return (
-    papel === "super_admin" ||
     papel === "society_admin" ||
     papel === "gestor" ||
     papel === "utilizador"

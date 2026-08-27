@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, FolderKanban, Search } from "lucide-react";
+import { FolderKanban, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,14 +42,14 @@ export default async function ProcessosPlataforma({
       <div>
         <h1 className="text-2xl">Processos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Visão transversal de todos os processos de onboarding de todas as sociedades.
+          Visão global dos metadados de processos de onboarding em todas as sociedades.
         </p>
       </div>
 
       <Card>
         <CardHeader className="flex-col gap-3 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">
-            Todos os Processos{" "}
+            Metadados de Processos{" "}
             <span className="text-xs font-normal text-muted-foreground">({total})</span>
           </CardTitle>
 
@@ -59,7 +59,7 @@ export default async function ProcessosPlataforma({
               <Input
                 name="q"
                 defaultValue={q}
-                placeholder="Pesquisar cliente, NIF, ref…"
+                placeholder="Pesquisar referência…"
                 className="h-8 w-48 pl-8 text-xs"
               />
             </div>
@@ -114,24 +114,18 @@ export default async function ProcessosPlataforma({
                   <tr className="border-linha border-b text-left">
                     <th className="pb-2.5 font-medium">Referência</th>
                     <th className="pb-2.5 font-medium">Sociedade</th>
-                    <th className="pb-2.5 font-medium">Cliente</th>
+                    <th className="pb-2.5 font-medium">Responsável</th>
                     <th className="pb-2.5 font-medium">Tipo</th>
                     <th className="pb-2.5 font-medium">Estado</th>
                     <th className="pb-2.5 font-medium">Passo</th>
                     <th className="pb-2.5 font-medium">Atualizado</th>
-                    <th className="pb-2.5 font-medium text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-linha divide-y">
                   {processos.map((p) => (
                     <tr key={p.id} className="group hover:bg-muted transition-colors">
                       <td className="py-2.5 font-mono text-xs font-medium">
-                        <Link
-                          href={`/admin/sociedades/${p.organizacaoId}/processos/${p.id}`}
-                          className="text-marca hover:underline"
-                        >
-                          {p.referencia}
-                        </Link>
+                        <Ref className="font-medium text-xs text-tinta">{p.referencia}</Ref>
                       </td>
                       <td className="py-2.5">
                         <Link
@@ -141,11 +135,8 @@ export default async function ProcessosPlataforma({
                           {p.sociedade ?? "—"}
                         </Link>
                       </td>
-                      <td className="py-2.5">
-                        <div className="font-medium text-sm">
-                          {p.nome || <span className="text-muted-foreground font-normal italic">Sem nome</span>}
-                        </div>
-                        {p.nif && <Ref className="text-xs text-muted-foreground">{p.nif}</Ref>}
+                      <td className="py-2.5 text-xs text-muted-foreground">
+                        {p.responsavel ?? "—"}
                       </td>
                       <td className="py-2.5 text-xs text-muted-foreground">
                         {p.tipoCliente === "empresa" ? "Empresa" : "Particular"}
@@ -157,16 +148,7 @@ export default async function ProcessosPlataforma({
                         Passo {p.passoAtual} de 7
                       </td>
                       <td className="py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {dt(p.atualizadoEm)}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <Link
-                          href={`/admin/sociedades/${p.organizacaoId}/processos/${p.id}`}
-                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-tinta font-medium"
-                        >
-                          Ver / Editar
-                          <ArrowRight className="size-3" />
-                        </Link>
+                        <Ref className="text-xs text-muted-foreground">{dt(p.atualizadoEm)}</Ref>
                       </td>
                     </tr>
                   ))}

@@ -114,7 +114,7 @@ export async function listarProcessos(
 
 /**
  * Consulta global de processos para o dono da plataforma (`super_admin`).
- * Atravessa todas as sociedades com filtros, busca e paginação.
+ * Apenas metadados (referência, estado, datas, sociedade, responsável) sem dados de clientes.
  */
 export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: string) {
   const base = db();
@@ -125,18 +125,13 @@ export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: stri
   if (organizacaoId) partes.push(daOrganizacao(organizacaoId));
   if (f.estado?.length) partes.push(inArray(processoOnboarding.estado, f.estado as never[]));
   if (f.tipo?.length) partes.push(inArray(processoOnboarding.tipoCliente, f.tipo as never[]));
-  if (f.ppe) {
-    partes.push(
-      sql`exists (select 1 from ${declaracaoPpe} where ${declaracaoPpe.processoId} = ${processoOnboarding.id} and ${declaracaoPpe.ePpe} = ${f.ppe === "sim"})`,
-    );
-  }
   if (f.q?.trim()) {
     const termo = `%${f.q.trim()}%`;
     partes.push(
       or(
         ilike(processoOnboarding.referencia, termo),
-        sql`exists (select 1 from ${dadosIdentificacao} where ${dadosIdentificacao.processoId} = ${processoOnboarding.id} and unaccent(${dadosIdentificacao.nome}) ilike unaccent(${termo}))`,
-        sql`exists (select 1 from ${dadosFiscais} where ${dadosFiscais.processoId} = ${processoOnboarding.id} and ${dadosFiscais.nif} ilike ${termo})`,
+        ilike(organizacao.nome, termo),
+        ilike(organizacao.prefixoReferencia, termo),
       )!,
     );
   }
@@ -153,16 +148,12 @@ export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: stri
         passoAtual: processoOnboarding.passoAtual,
         submetidoEm: processoOnboarding.submetidoEm,
         atualizadoEm: processoOnboarding.atualizadoEm,
-        nome: sql<string>`coalesce(${dadosIdentificacao.nome}, ${processoOnboarding.nomeCliente})`,
-        nif: sql<string>`coalesce(${dadosFiscais.nif}, ${processoOnboarding.nifCliente})`,
         sociedade: organizacao.nome,
         prefixo: organizacao.prefixoReferencia,
         responsavel: utilizador.nome,
       })
       .from(processoOnboarding)
       .leftJoin(organizacao, eq(organizacao.id, processoOnboarding.organizacaoId))
-      .leftJoin(dadosIdentificacao, eq(dadosIdentificacao.processoId, processoOnboarding.id))
-      .leftJoin(dadosFiscais, eq(dadosFiscais.processoId, processoOnboarding.id))
       .leftJoin(utilizador, eq(utilizador.id, processoOnboarding.responsavelId))
       .where(onde)
       .orderBy(desc(processoOnboarding.atualizadoEm))
