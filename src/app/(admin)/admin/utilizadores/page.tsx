@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Ref } from "@/components/ref-processo";
 import { NovoAdminPlataforma } from "@/features/plataforma/componentes/NovoAdminPlataforma";
 import { listarUtilizadores } from "@/features/plataforma/consultas";
@@ -9,6 +11,7 @@ export const dynamic = "force-dynamic";
 const ROTULOS: Record<string, string> = {
   super_admin: "Administrador da plataforma",
   society_admin: "Administrador da sociedade",
+  gestor: "Gestor",
   utilizador: "Utilizador",
 };
 
@@ -43,20 +46,17 @@ export default async function Utilizadores({
       <NovoAdminPlataforma />
 
       <form className="border-linha bg-papel-alto flex flex-wrap items-center gap-3 rounded-sm border p-3">
-        <input
+        <Input
           type="search"
           name="q"
           defaultValue={q ?? ""}
           placeholder="Nome ou email"
           aria-label="Procurar contas"
-          className="border-input bg-papel-alto focus-visible:border-ring focus-visible:ring-ring/50 h-8 min-w-0 flex-1 rounded-lg border px-2.5 text-sm focus-visible:ring-3"
+          className="bg-papel-alto flex-1"
         />
-        <button
-          type="submit"
-          className="border-linha hover:border-tinta rounded-xs border px-3 py-1 text-sm"
-        >
+        <Button type="submit" variant="outline">
           Procurar
-        </button>
+        </Button>
       </form>
 
       {contas.length === 0 ? (
@@ -71,9 +71,25 @@ export default async function Utilizadores({
                 {c.nome}
               </span>
               <Ref className="text-xs text-muted-foreground">{c.email}</Ref>
-              <span className="text-2xs border-linha rounded-xs border px-2 py-0.5">
+              <span className="text-2xs border-linha rounded-sm border px-2 py-0.5">
                 {ROTULOS[c.papel] ?? c.papel}
               </span>
+              {c.papel === "utilizador" && c.gestorNome && (
+                <span
+                  className="text-2xs border-linha text-muted-foreground rounded-sm border px-2 py-0.5"
+                  title={`Gestor: ${c.gestorNome}`}
+                >
+                  Gestor: {c.gestorNome}
+                </span>
+              )}
+              {c.aprovadoEm === null && c.papel !== "super_admin" && (
+                <span
+                  className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-sm border px-2 py-0.5"
+                  title="A aguardar aprovação da administração da plataforma"
+                >
+                  Pendente
+                </span>
+              )}
               {c.organizacaoId ? (
                 <Link
                   href={`/admin/sociedades/${c.organizacaoId}`}
@@ -85,13 +101,13 @@ export default async function Utilizadores({
                 <span className="text-xs text-muted-foreground">plataforma</span>
               )}
               {!c.ativo && (
-                <span className="text-2xs border-selo/40 bg-selo/10 text-selo rounded-xs border px-2 py-0.5">
+                <span className="text-2xs border-selo/40 bg-selo/10 text-selo rounded-sm border px-2 py-0.5">
                   Desativada
                 </span>
               )}
               {!c.ligado && (
                 <span
-                  className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-xs border px-2 py-0.5"
+                  className="text-2xs border-latao/40 bg-latao/10 text-latao rounded-sm border px-2 py-0.5"
                   title="Sem credenciais de acesso — o início de sessão não resolve."
                 >
                   Sem acesso

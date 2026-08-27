@@ -144,5 +144,6 @@ export function PortalShell({
 export const ROTULO_DO_PAPEL: Record<string, string> = {
   super_admin: "Administração da plataforma",
   society_admin: "Administração da sociedade",
+  gestor: "Gestor",
   utilizador: "Utilizador",
 };

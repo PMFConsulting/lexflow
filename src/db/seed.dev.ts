@@ -42,28 +42,63 @@ async function main() {
     })
     .returning();
 
-  // Os três níveis da migração `0016`. O `super_admin` fica **sem** sociedade —
-  // é a restrição `utilizador_org_por_papel`, e é também o que faz com que ele
-  // não apareça em consulta nenhuma do back-office desta organização.
+  // Os níveis da migração `0016`, mais o `gestor` da `0021`. O `super_admin`
+  // fica **sem** sociedade — é a restrição `utilizador_org_por_papel`, e é
+  // também o que faz com que ele não apareça em consulta nenhuma do back-office
+  // desta organização.
+  //
+  // Todas nascem com `aprovadoEm` preenchido: a aprovação da plataforma (`0021`)
+  // é para contas propostas por uma sociedade, e uma seed sem esta coluna dava
+  // um ambiente de desenvolvimento onde ninguém passa dos guards.
+  const aprovadoEm = new Date();
+
+  const equipa = await db
+    .insert(utilizador)
+    .values([
+      {
+        organizacaoId: null,
+        nome: "Administrador da plataforma",
+        email: "plataforma@terlicalabs.local",
+        papel: "super_admin",
+        aprovadoEm,
+      },
+      {
+        organizacaoId: org.id,
+        nome: "Sócia responsável",
+        email: "socio@pmf.local",
+        papel: "society_admin",
+        aprovadoEm,
+      },
+      {
+        organizacaoId: org.id,
+        nome: "Gestora de equipa",
+        email: "gestora@pmf.local",
+        papel: "gestor",
+        aprovadoEm,
+      },
+    ])
+    .returning({ id: utilizador.id, papel: utilizador.papel });
+
+  const gestora = equipa.find((u) => u.papel === "gestor");
+
+  // Os dois utilizadores ficam associados à gestora: sem uma linha com
+  // `gestor_id` preenchido, `/equipa` só se consegue ver criando contas à mão.
   await db.insert(utilizador).values([
     {
-      organizacaoId: null,
-      nome: "Administrador da plataforma",
-      email: "plataforma@terlicalabs.local",
-      papel: "super_admin",
-    },
-    {
       organizacaoId: org.id,
-      nome: "Sócia responsável",
-      email: "socio@pmf.local",
-      papel: "society_admin",
+      nome: "Advogado",
+      email: "advogado@pmf.local",
+      papel: "utilizador",
+      gestorId: gestora?.id ?? null,
+      aprovadoEm,
     },
-    { organizacaoId: org.id, nome: "Advogado", email: "advogado@pmf.local", papel: "utilizador" },
     {
       organizacaoId: org.id,
       nome: "Assistente",
       email: "assistente@pmf.local",
       papel: "utilizador",
+      gestorId: gestora?.id ?? null,
+      aprovadoEm,
     },
   ]);
 

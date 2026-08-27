@@ -14,7 +14,7 @@ import { lerFolhaDeCalculo, type LinhaDaFolha } from "./folha";
  */
 
 /** Os papéis que uma sociedade pode ter. `super_admin` não é de sociedade. */
-export const PAPEIS_DE_SOCIEDADE = ["society_admin", "utilizador"] as const;
+export const PAPEIS_DE_SOCIEDADE = ["society_admin", "gestor", "utilizador"] as const;
 
 export type PapelDeSociedade = (typeof PAPEIS_DE_SOCIEDADE)[number];
 
@@ -65,7 +65,9 @@ const PAPEIS_ESCRITOS: Record<string, PapelDeSociedade> = {
   admin: "society_admin",
   administrador: "society_admin",
   "administrador da sociedade": "society_admin",
-  gestor: "society_admin",
+  gestor: "gestor",
+  gestora: "gestor",
+  gerente: "gestor",
   utilizador: "utilizador",
   user: "utilizador",
   advogado: "utilizador",

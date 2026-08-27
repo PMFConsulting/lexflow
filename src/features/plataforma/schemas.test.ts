@@ -146,10 +146,31 @@ describe("contaSchema", () => {
     expect(r.data.email).toBe("maria@exemplo.pt");
   });
 
-  it("aceita os dois papéis de sociedade", () => {
-    for (const papel of ["society_admin", "utilizador"]) {
+  it("aceita os três papéis de sociedade", () => {
+    for (const papel of ["society_admin", "gestor", "utilizador"]) {
       expect(contaSchema.safeParse({ ...VALIDA, papel }).success).toBe(true);
     }
+  });
+
+  it("aceita gestorId opcional e normaliza string vazia para null", () => {
+    const semGestor = contaSchema.safeParse({ ...VALIDA, gestorId: "" });
+    expect(semGestor.success).toBe(true);
+    if (semGestor.success) expect(semGestor.data.gestorId).toBeNull();
+
+    const comGestor = contaSchema.safeParse({
+      ...VALIDA,
+      gestorId: "0197a1c0-0000-7000-8000-0000000000bb",
+    });
+    expect(comGestor.success).toBe(true);
+    if (comGestor.success) {
+      expect(comGestor.data.gestorId).toBe("0197a1c0-0000-7000-8000-0000000000bb");
+    }
+
+    const gestorInvalido = contaSchema.safeParse({
+      ...VALIDA,
+      gestorId: "invalido",
+    });
+    expect(gestorInvalido.success).toBe(false);
   });
 
   /**

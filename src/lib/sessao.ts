@@ -57,6 +57,7 @@ export async function sessaoAtual() {
  * `redirect` para uma página que deixou de existir no dia em que a rota mudar.
  */
 export const ROTA_DEFINIR_PALAVRA_PASSE = "/definir-palavra-passe";
+export const ROTA_AGUARDA_APROVACAO = "/aguarda-aprovacao";
 
 /**
  * Requires a session. Without one, it goes to the login screen.
@@ -65,28 +66,44 @@ export const ROTA_DEFINIR_PALAVRA_PASSE = "/definir-palavra-passe";
  * identification documents cannot have a single page left open by oversight.
  *
  * ─────────────────────────────────────────────────────────────────────────
- * A redefinição obrigatória, e porque é aqui
+ * Dois desvios, e porque são aqui
  *
- * Uma conta criada por um administrador nasce com uma palavra-passe gerada e
- * enviada por email — um segredo que viajou por um canal que não é secreto.
- * Enquanto `deve_redefinir_password` estiver a `true`, esta função não deixa
- * passar: manda para o ecrã de definição, e mais nada.
+ * 1. **A aprovação da plataforma** (`0021`). Uma conta proposta pelo
+ *    administrador de uma sociedade nasce com `aprovado_em = null`, e enquanto
+ *    o `super_admin` não a aprovar não passa daqui: vai para
+ *    `/aguarda-aprovacao`, que lhe diz o que está a acontecer. O `super_admin`
+ *    nunca passa por isto — é ele quem aprova, e um dono da plataforma à espera
+ *    de si próprio era uma instalação trancada por dentro.
  *
- * **O guard é este e não o `middleware`.** O middleware desta instalação só
- * corre sobre `/api/auth/sign-in` de propósito (ver a nota lá) e não tem acesso
- * à base de dados de onde esta marca vem — a sessão do Better Auth diz quem é a
- * pessoa, não o que falta a essa pessoa. Pôr a decisão aqui é pô-la no mesmo
- * sítio por onde já passam todas as páginas e todos os Server Actions
- * autenticados: os guards de papel chamam esta função, e uma página nova que se
- * esqueça do desvio não existe — teria de se esquecer também da sessão.
+ * 2. **A redefinição obrigatória.** Uma conta criada por um administrador nasce
+ *    com uma palavra-passe gerada e enviada por email — um segredo que viajou
+ *    por um canal que não é secreto. Enquanto `deve_redefinir_password` estiver
+ *    a `true`, esta função não deixa passar: manda para o ecrã de definição, e
+ *    mais nada.
  *
- * As duas exceções óbvias — a página de definição e a ação que a fecha — usam
- * `sessaoAtual()` diretamente. É a única forma de não ficarem a redirecionar
- * para si próprias.
+ * A ordem entre os dois não é indiferente: a aprovação vem primeiro porque é a
+ * mais externa das duas. Mandar definir a palavra-passe alguém que ainda não
+ * sabe se vai ter conta era pedir-lhe trabalho a contar com uma decisão que
+ * pode ser "não".
+ *
+ * **Os guards são estes e não o `middleware`.** O middleware desta instalação
+ * só corre sobre `/api/auth/sign-in` de propósito (ver a nota lá) e não tem
+ * acesso à base de dados de onde estas duas marcas vêm — a sessão do Better
+ * Auth diz quem é a pessoa, não o que falta a essa pessoa. Pôr a decisão aqui é
+ * pô-la no mesmo sítio por onde já passam todas as páginas e todos os Server
+ * Actions autenticados: os guards de papel chamam esta função, e uma página nova
+ * que se esqueça do desvio não existe — teria de se esquecer também da sessão.
+ *
+ * As exceções óbvias — a página de definição de palavra-passe, a ação que a
+ * fecha, e o ecrã de espera pela aprovação — usam `sessaoAtual()` diretamente. É
+ * a única forma de não ficarem a redirecionar para si próprias.
  */
 export async function exigirSessao() {
   const s = await sessaoAtual();
   if (!s) redirect("/entrar");
+  if (s.eu.papel !== "super_admin" && !s.eu.aprovadoEm) {
+    redirect(ROTA_AGUARDA_APROVACAO);
+  }
   if (s.eu.deveRedefinirPassword) redirect(ROTA_DEFINIR_PALAVRA_PASSE);
   return s;
 }
@@ -97,7 +114,7 @@ export async function exigirSessao() {
  * Onde é que cada papel vive.
  *
  * Um `Record<Papel, string>` e não um `switch` com `default`: o dia em que
- * nascer um quarto nível, isto parte a compilação aqui — que é onde falta a
+ * nascer outro nível, isto parte a compilação aqui — que é onde falta a
  * decisão — em vez de o mandar calado para o portal errado.
  *
  * É também o destino a seguir ao início de sessão. O ecrã de entrada manda
@@ -108,6 +125,7 @@ export async function exigirSessao() {
 const PORTAL_DO_PAPEL: Record<Papel, string> = {
   super_admin: "/admin",
   society_admin: "/",
+  gestor: "/processos",
   utilizador: "/meus-processos",
 };
 
@@ -133,30 +151,34 @@ export function eSuperAdmin(papel: string) {
  * Quem vê as declarações de PPE e a origem dos fundos.
  *
  * Era o `assistente` que ficava de fora (§6 do brief), e o `assistente`
- * desapareceu: quem trabalha processos passou a ver o processo todo. O corte
- * mudou de sítio, não desapareceu — quem fica de fora agora é o `super_admin`.
+ * desapareceu: quem trabalha processos passou a ver o processo todo — e o
+ * `gestor` da `0021` entra pela mesma razão, porque coordena quem os trabalha.
  *
- * Isso pode ler-se como uma contradição com o "vê tudo" que ele tem: não é. O
- * que ele vê é a **plataforma** — que sociedades existem, que contas têm, quem
- * as criou. Uma declaração de pessoa politicamente exposta é o dado mais
- * sensível que aqui há, é de um cliente de uma sociedade concreta, e o dono da
- * infraestrutura não tem razão nenhuma de negócio para lhe pôr os olhos em
- * cima. Na prática nem chega lá — o detalhe de processo compara organizações e
- * a dele é NULL —, e isto é a mesma regra dita à frente, em vez de ficar a
- * depender de um efeito lateral.
+ * Que o `super_admin` esteja aqui pode ler-se como uma contradição com a nota
+ * do `podeVerEmails` logo abaixo: não é. O acesso transversal dele aos dados das
+ * sociedades foi uma decisão tomada à parte, e o que fica de fora é o diário de
+ * emails, que é operação corrente de uma sociedade e não supervisão da
+ * plataforma.
  */
 export function podeVerPpe(papel: string) {
-  return papel === "super_admin" || papel === "society_admin" || papel === "utilizador";
+  return (
+    papel === "society_admin" ||
+    papel === "gestor" ||
+    papel === "utilizador"
+  );
 }
 
 /**
  * Quem pode aprovar ou rejeitar um processo.
- *
- * O dono da plataforma (`super_admin`) e a equipa da sociedade (`society_admin`,
- * `utilizador`) podem ambos aprovar ou rejeitar processos e alterar dados.
+ * Apenas a equipa da sociedade (society_admin, gestor, utilizador).
+ * O super_admin NÃO pode aprovar processos.
  */
 export function podeAprovarProcesso(papel: string) {
-  return papel === "super_admin" || papel === "society_admin" || papel === "utilizador";
+  return (
+    papel === "society_admin" ||
+    papel === "gestor" ||
+    papel === "utilizador"
+  );
 }
 
 /**
@@ -177,18 +199,26 @@ export function podeVerEmails(papel: string) {
  * Quem cria contas dentro de uma sociedade.
  *
  * O `super_admin` cria em qualquer uma (é ele quem abre a sociedade e lhe dá o
- * primeiro administrador); o `society_admin` cria na sua. O `utilizador` não
- * cria nenhuma — dar acesso a um sistema de KYC é uma decisão de administração.
+ * primeiro administrador); o `society_admin` cria na sua. O `gestor` e o `utilizador`
+ * não criam nenhuma — dar acesso a um sistema de KYC é uma decisão de administração.
  */
 export function podeGerirUtilizadores(papel: string) {
   return papel === "super_admin" || papel === "society_admin";
 }
 
 /**
+ * Quem pode aprovar utilizadores propostos pelas sociedades.
+ * Só o super_admin da plataforma.
+ */
+export function podeAprovarUtilizadores(papel: string) {
+  return papel === "super_admin";
+}
+
+/**
  * Verifica se quem está autenticado tem permissão de acesso a uma dada sociedade.
  *
  * O `super_admin` tem acesso transversal a todas as sociedades.
- * Os utilizadores com sociedade (`society_admin`, `utilizador`) só podem
+ * Os utilizadores com sociedade (`society_admin`, `gestor`, `utilizador`) só podem
  * aceder à sociedade a que pertencem.
  */
 export function podeAcederSociedade(
@@ -262,20 +292,19 @@ export async function exigirSocietyAdmin() {
 /**
  * A área de trabalho partilhada: processos e clientes.
  *
- * O `society_admin` e o `utilizador` entram os dois — é o mesmo trabalho, e a
- * separação entre eles é de administração (emails, configuração, contas) e não
- * de processos. O `super_admin` não entra: os processos são de uma sociedade.
+ * O `society_admin`, o `gestor` e o `utilizador` entram — é a equipa da sociedade.
+ * O `super_admin` não entra: os processos são de uma sociedade.
  */
 export async function exigirEquipaDaSociedade() {
-  return exigirPapelComSociedade(["society_admin", "utilizador"]);
+  return exigirPapelComSociedade(["society_admin", "gestor", "utilizador"]);
 }
 
 /**
  * Acesso a processos e dados: o dono da plataforma (`super_admin`) ou a equipa
- * da sociedade (`society_admin`, `utilizador`).
+ * da sociedade (`society_admin`, `gestor`, `utilizador`).
  */
 export async function exigirEquipaOuSuperAdmin() {
-  return exigirPapel(["super_admin", "society_admin", "utilizador"]);
+  return exigirPapel(["super_admin", "society_admin", "gestor", "utilizador"]);
 }
 
 /**

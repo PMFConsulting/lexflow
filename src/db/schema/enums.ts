@@ -58,6 +58,7 @@ export const papelUtilizador = pgEnum("papel_utilizador", [
   "super_admin",
   "society_admin",
   "utilizador",
+  "gestor",
 ]);
 
 /** Types seen at step 2 of the real form. */

@@ -6,6 +6,14 @@ import { Carimbos } from "@/components/carimbo";
 import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { ACOES } from "@/features/auditoria/consultas";
+import type { LinhaEmailDoProcesso } from "@/features/emails/consultas";
+import {
+  ESTADOS_FALHADOS,
+  ROTULOS_CANAL,
+  ROTULOS_ESTADO,
+  ROTULOS_TEMPLATE,
+  TOM_ESTADO,
+} from "@/features/emails/rotulos";
 import {
   passosAntesDe,
   passosDoProcesso,
@@ -13,11 +21,23 @@ import {
 } from "@/features/onboarding/passos";
 import { AcoesAprovacao } from "@/features/processos/componentes/AcoesAprovacao";
 import { PropostaComercial } from "@/features/processos/componentes/PropostaComercial";
+import { BotaoExportarPdf } from "@/features/processos/componentes/BotaoExportarPdf";
 import { ModalEditarSeccao } from "./ModalEditarSeccao";
 import { passosGravados, type Seccoes } from "@/features/onboarding/dados";
 
 const dt = (d: Date | null | undefined) =>
   d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d) : "—";
+
+/**
+ * `criadoEm` do `email_log` chega como `Date` ou como texto, consoante o
+ * caminho por onde a linha veio. O `dt` acima só sabe `Date`, e um `string`
+ * silenciosamente formatado como "—" é uma mensagem sem data no meio de uma
+ * cronologia.
+ */
+const dtm = (d: Date | string) => {
+  const data = d instanceof Date ? d : new Date(d);
+  return Number.isNaN(data.getTime()) ? "—" : dt(data);
+};
 
 const kb = (b: number) =>
   b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
@@ -126,6 +146,7 @@ export type DetalheProcessoProps = {
     ip: string | null;
     hash: string;
   }>;
+  emails: LinhaEmailDoProcesso[];
   assinatura: {
     imagemDados: string | null;
     assinadoEm: Date | null;
@@ -148,6 +169,7 @@ export function DetalheProcesso({
   seccoes: s,
   documentos: docs,
   eventos,
+  emails,
   assinatura,
   proposta,
   vePpe,
@@ -157,6 +179,10 @@ export function DetalheProcesso({
   textoVoltar = "Voltar",
   papelAtual,
 }: DetalheProcessoProps) {
+  const podeEditarEfetivo =
+    podeEditar && processo.estado !== "aprovado" && processo.estado !== "arquivado";
+  const naoChegaram = emails.filter((m) => ESTADOS_FALHADOS.includes(m.estado)).length;
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
       <Link
@@ -170,7 +196,7 @@ export function DetalheProcesso({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Ref className="text-sm text-muted-foreground">{processo.referencia}</Ref>
-          <h1 className="mt-1 text-2xl font-serif">
+          <h1 className="mt-1 text-2xl">
             {s.identificacao?.nome ?? processo.nomeCliente ?? (
               <span className="text-muted-foreground">Sem nome ainda</span>
             )}
@@ -182,6 +208,9 @@ export function DetalheProcesso({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <EstadoBadge estado={processo.estado} />
+          {papelAtual === "society_admin" && (
+            <BotaoExportarPdf processoId={processo.id} referencia={processo.referencia} />
+          )}
         </div>
       </header>
 
@@ -193,11 +222,13 @@ export function DetalheProcesso({
             total={passosDoProcesso(processo.tipoCliente).length}
           />
         </span>
-        <span className="text-muted-foreground">
-          Submetido <Ref>{dt(processo.submetidoEm)}</Ref>
+        <span className="flex items-center gap-2">
+          <span className="text-muted-foreground">Submetido</span>
+          <Ref>{dt(processo.submetidoEm)}</Ref>
         </span>
-        <span className="text-muted-foreground">
-          Atualizado <Ref>{dt(processo.atualizadoEm)}</Ref>
+        <span className="flex items-center gap-2">
+          <span className="text-muted-foreground">Atualizado</span>
+          <Ref>{dt(processo.atualizadoEm)}</Ref>
         </span>
       </div>
 
@@ -208,8 +239,9 @@ export function DetalheProcesso({
         <AcoesAprovacao processoId={processo.id} />
       )}
 
+      {/* ── alerta de rejeição ─────────────────────────────────────────── */}
       {processo.estado === "rejeitado" && processo.motivoRejeicao && (
-        <Card>
+        <Card className="border-selo/40 bg-selo/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Motivo da rejeição</CardTitle>
           </CardHeader>
@@ -228,7 +260,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.identificacao)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha k="Nome" v={s.identificacao?.nome} />
           <Linha k="Profissão" v={s.identificacao?.profissao} />
@@ -254,7 +286,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.fiscais)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha k="NIF / NIPC" v={<Ref>{s.fiscais?.nif}</Ref>} />
           <Linha k="NIF português" v={s.fiscais ? (s.fiscais.nifPortugues ? "Sim" : "Não") : null} />
@@ -273,7 +305,7 @@ export function DetalheProcesso({
             preenchido={Boolean(s.representante)}
             processoId={processo.id}
             seccoes={s}
-            podeEditar={podeEditar}
+            podeEditar={podeEditarEfetivo}
           >
             <Linha
               k="Quem preencheu é o representante legal"
@@ -308,7 +340,7 @@ export function DetalheProcesso({
             preenchido={Boolean(s.ppe ?? s.negocio)}
             processoId={processo.id}
             seccoes={s}
-            podeEditar={podeEditar}
+            podeEditar={podeEditarEfetivo}
           >
             <Linha k="Pessoa politicamente exposta" v={s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null} />
             <Linha k="Cargo" v={s.ppe?.ppeCargo} />
@@ -350,7 +382,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.faturacao)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha k="Nome ou empresa" v={s.faturacao?.nome} />
           <Linha k="NIF" v={<Ref>{s.faturacao?.nif}</Ref>} />
@@ -365,7 +397,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.preferencias)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha k="Como chegou até nós" v={ORIGEM_CONTACTO_TEXTO[s.preferencias?.origemContacto ?? ""]} />
           <Linha
@@ -391,7 +423,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.fecho ?? assinatura)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha
             k="Termos e condições e proposta"
@@ -471,6 +503,63 @@ export function DetalheProcesso({
           <p className="mt-3 text-xs text-muted-foreground">
             O download no painel vem da base de dados, com sessão exigida, e fica registado na
             auditoria.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ── emails ────────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex flex-wrap items-baseline gap-x-3 text-base">
+            Emails
+            {/* Um dossier sem link é um cliente à espera, e é esta contagem que
+                o anuncia sem obrigar a ler a lista linha a linha. */}
+            {naoChegaram > 0 && (
+              <span className="text-selo text-xs font-normal">
+                {naoChegaram === 1 ? "1 não chegou" : `${naoChegaram} não chegaram`}
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {emails.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Ainda não saiu nenhuma mensagem no âmbito deste processo.
+            </p>
+          ) : (
+            <ul className="border-linha divide-linha divide-y border-t">
+              {emails.map((m) => (
+                <li key={m.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{m.assunto}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <Ref>{m.para}</Ref> · {ROTULOS_TEMPLATE[m.template] ?? m.template}
+                      {m.canal && ` · ${ROTULOS_CANAL[m.canal]}`}
+                    </p>
+                    {/* O motivo por baixo do assunto que o causou: um estado a
+                        carmim sem a razão manda quem lê para os registos do
+                        contentor à procura do que a linha já sabe. */}
+                    {m.erro && <p className="text-selo text-xs">{m.erro}</p>}
+                  </div>
+                  <span
+                    className={`text-2xs shrink-0 rounded-sm border px-2 py-0.5 ${
+                      TOM_ESTADO[m.estado] ?? "border-linha bg-papel text-muted-foreground"
+                    }`}
+                  >
+                    {ROTULOS_ESTADO[m.estado]}
+                  </span>
+                  <Ref className="shrink-0 text-xs text-muted-foreground">{dtm(m.criadoEm)}</Ref>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            {/* A mesma distinção do `/emails`, repetida aqui porque é aqui que
+                ela decide se alguém vai atrás de um cliente que não recebeu
+                nada — e a D50 nasceu precisamente de as duas se confundirem. */}
+            <strong className="font-medium">Aceite</strong> quer dizer que o fornecedor ficou com
+            a mensagem; <strong className="font-medium">Entregue</strong> quer dizer que o
+            servidor do destinatário a aceitou.
           </p>
         </CardContent>
       </Card>

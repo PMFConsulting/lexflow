@@ -168,7 +168,7 @@ export function EmailsDaSociedade({
         <span className="text-xs text-muted-foreground">Remetente efetivo</span>
         <Ref className="text-sm">{efetivo}</Ref>
         {remetente === null && (
-          <span className="text-2xs border-linha rounded-xs border px-2 py-0.5 text-muted-foreground">
+          <span className="text-2xs border-linha rounded-sm border px-2 py-0.5 text-muted-foreground">
             o global da instalação
           </span>
         )}
@@ -230,12 +230,12 @@ export function EmailsDaSociedade({
         <h3 className="flex items-center gap-2 text-sm">
           <Globe className="size-4" strokeWidth={1.75} /> Domínio de envio
           {estado && (
-            <span className={cn("text-2xs rounded-xs border px-2 py-0.5", estado.classe)}>
+            <span className={cn("text-2xs rounded-sm border px-2 py-0.5", estado.classe)}>
               {estado.rotulo}
             </span>
           )}
           {!estado && dominio.dominioEstado && (
-            <span className="text-2xs border-linha rounded-xs border px-2 py-0.5 text-muted-foreground">
+            <span className="text-2xs border-linha rounded-sm border px-2 py-0.5 text-muted-foreground">
               {dominio.dominioEstado}
             </span>
           )}
@@ -327,7 +327,7 @@ function TabelaDns({ registos, dominio }: { registos: RegistoDns[]; dominio: str
         {registos.map((r, i) => (
           <li key={`${r.tipo}-${r.nome}-${i}`} className="flex flex-col gap-1.5 p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-2xs border-linha rounded-xs border px-2 py-0.5 font-mono">
+              <span className="text-2xs border-linha rounded-sm border px-2 py-0.5 font-mono">
                 {r.tipo}
               </span>
               <Ref className="text-xs">{r.nome || "@"}</Ref>
@@ -344,7 +344,7 @@ function TabelaDns({ registos, dominio }: { registos: RegistoDns[]; dominio: str
               {r.estado && (
                 <span
                   className={cn(
-                    "text-2xs rounded-xs border px-2 py-0.5",
+                    "text-2xs rounded-sm border px-2 py-0.5",
                     r.estado === "verified"
                       ? "border-arquivo/40 bg-arquivo/10 text-arquivo"
                       : "border-linha text-muted-foreground",
@@ -355,7 +355,7 @@ function TabelaDns({ registos, dominio }: { registos: RegistoDns[]; dominio: str
               )}
             </div>
             <div className="flex items-start gap-2">
-              <code className="text-2xs bg-papel border-linha min-w-0 flex-1 rounded-xs border p-2 break-all">
+              <code className="text-2xs bg-papel border-linha min-w-0 flex-1 rounded-sm border p-2 break-all">
                 {r.valor}
               </code>
               <BotaoCopiar valor={r.valor} />
@@ -386,7 +386,7 @@ function BotaoCopiar({ valor }: { valor: string }) {
           .catch(() => setCopiado(false));
       }}
       title="Copiar o valor"
-      className="border-linha hover:border-tinta inline-flex shrink-0 items-center gap-1.5 rounded-xs border px-2 py-1.5 text-xs"
+      className="border-linha hover:border-tinta inline-flex shrink-0 items-center gap-1.5 rounded-sm border px-2 py-1.5 text-xs"
     >
       {copiado ? <Check className="text-arquivo size-3.5" /> : <Copy className="size-3.5" />}
       <span className="sr-only">Copiar o valor</span>

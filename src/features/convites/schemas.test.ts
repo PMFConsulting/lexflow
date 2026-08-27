@@ -31,10 +31,11 @@ const PASSO_1 = {
 
 describe("quem exerce advocacia", () => {
   it("quem trabalha na sociedade sim, o dono da plataforma não", () => {
-    // Quem trabalha na sociedade (utilizador, administração da sociedade)
+    // Quem trabalha na sociedade (utilizador, gestor, administração da sociedade)
     // precisa da cédula profissional; o super_admin não trabalha processos de
     // nenhuma sociedade e não está sujeito a esse requisito.
     expect(exerceAdvocacia("utilizador")).toBe(true);
+    expect(exerceAdvocacia("gestor")).toBe(true);
     expect(exerceAdvocacia("society_admin")).toBe(true);
     expect(exerceAdvocacia("super_admin")).toBe(false);
   });

@@ -73,6 +73,7 @@ export async function carregarPropostaComercial(
       id: processoOnboarding.id,
       organizacaoId: processoOnboarding.organizacaoId,
       referencia: processoOnboarding.referencia,
+      estado: processoOnboarding.estado,
     })
     .from(processoOnboarding)
     .where(and(eq(processoOnboarding.id, processoId), isNull(processoOnboarding.apagadoEm)))
@@ -83,6 +84,10 @@ export async function carregarPropostaComercial(
   // O super_admin tem acesso transversal.
   if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
     return { ok: false, erro: "Processo não encontrado." };
+  }
+
+  if (processo.estado === "aprovado" || processo.estado === "arquivado") {
+    return { ok: false, erro: "Processo aprovado — já não é editável." };
   }
 
   const bytes = Buffer.from(await ficheiro.arrayBuffer());

@@ -5,6 +5,7 @@ import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { listarClientes } from "@/features/clientes/consultas";
 import { PesquisaClientes } from "@/features/clientes/componentes/PesquisaClientes";
+import { BotaoExportarClientes } from "@/features/clientes/componentes/BotaoExportarClientes";
 import { exigirEquipaDaSociedade } from "@/lib/sessao";
 
 export const metadata = { title: "Clientes" };
@@ -43,6 +44,9 @@ export default async function Clientes({
             {q && ` para “${q}”`}
           </p>
         </div>
+        {eu.papel === "society_admin" && (
+          <BotaoExportarClientes termoPesquisa={q} />
+        )}
       </div>
 
       <PesquisaClientes />

@@ -59,14 +59,16 @@ const {
   exigirSuperAdmin,
   podeAcederSociedade,
   podeAprovarProcesso,
+  podeAprovarUtilizadores,
   podeGerirUtilizadores,
   podeVerEmails,
   podeVerPpe,
   portalDoPapel,
   sessaoAtual,
+  ROTA_AGUARDA_APROVACAO,
 } = await import("./sessao");
 
-const PAPEIS = ["super_admin", "society_admin", "utilizador"] as const;
+const PAPEIS = ["super_admin", "society_admin", "gestor", "utilizador"] as const;
 
 /** Entra em sessão como um papel. O `super_admin` nunca tem sociedade. */
 function entrarComo(papel: (typeof PAPEIS)[number], extra: Record<string, unknown> = {}) {
@@ -78,6 +80,7 @@ function entrarComo(papel: (typeof PAPEIS)[number], extra: Record<string, unknow
       email: "x@exemplo.pt",
       papel,
       organizacaoId: papel === "super_admin" ? null : "org-1",
+      aprovadoEm: new Date(),
       ativo: true,
       apagadoEm: null,
       ...extra,
@@ -99,6 +102,7 @@ afterEach(() => {
 describe("as capacidades de cada papel", () => {
   it("os emails são do administrador da sociedade, e só dele", () => {
     expect(podeVerEmails("society_admin")).toBe(true);
+    expect(podeVerEmails("gestor")).toBe(false);
     expect(podeVerEmails("utilizador")).toBe(false);
     // O dono da plataforma também não: os emails são de uma sociedade, e ele
     // não está em nenhuma.
@@ -107,40 +111,51 @@ describe("as capacidades de cada papel", () => {
 
   /**
    * Aprovação de processos:
-   *
-   * O dono da plataforma (`super_admin`) tem acesso transversal para aprovar/rejeitar
-   * e editar dados, e a equipa da sociedade (`society_admin`, `utilizador`) mantém a
-   * sua aprovação.
+   * A equipa da sociedade (society_admin, gestor, utilizador) pode aprovar.
+   * O super_admin NÃO pode aprovar processos.
    */
-  it("a aprovação e edição de processos é permitida aos três papéis", () => {
+  it("a aprovação e edição de processos é permitida à equipa da sociedade, mas não ao super_admin", () => {
     expect(podeAprovarProcesso("utilizador")).toBe(true);
+    expect(podeAprovarProcesso("gestor")).toBe(true);
     expect(podeAprovarProcesso("society_admin")).toBe(true);
-    expect(podeAprovarProcesso("super_admin")).toBe(true);
+    expect(podeAprovarProcesso("super_admin")).toBe(false);
   });
 
-  it("o dono da plataforma e a equipa da sociedade veem PPE", () => {
-    expect(podeVerPpe("super_admin")).toBe(true);
-    expect(podeVerPpe("utilizador")).toBe(true);
+  it("apenas a equipa da sociedade vê PPE, super_admin não vê", () => {
+    expect(podeVerPpe("super_admin")).toBe(false);
     expect(podeVerPpe("society_admin")).toBe(true);
+    expect(podeVerPpe("gestor")).toBe(true);
+    expect(podeVerPpe("utilizador")).toBe(true);
   });
 
   it("podeAcederSociedade confere acesso transversal ao super_admin e restrito aos restantes", () => {
     expect(podeAcederSociedade({ papel: "super_admin", organizacaoId: null }, "org-qualquer")).toBe(true);
     expect(podeAcederSociedade({ papel: "society_admin", organizacaoId: "org-1" }, "org-1")).toBe(true);
     expect(podeAcederSociedade({ papel: "society_admin", organizacaoId: "org-1" }, "org-2")).toBe(false);
+    expect(podeAcederSociedade({ papel: "gestor", organizacaoId: "org-1" }, "org-1")).toBe(true);
+    expect(podeAcederSociedade({ papel: "gestor", organizacaoId: "org-1" }, "org-2")).toBe(false);
     expect(podeAcederSociedade({ papel: "utilizador", organizacaoId: "org-1" }, "org-1")).toBe(true);
     expect(podeAcederSociedade({ papel: "utilizador", organizacaoId: "org-1" }, "org-2")).toBe(false);
   });
 
-  it("contas criam-se por administração, de um lado ou do outro", () => {
+  it("contas criam-se por administração (super_admin ou society_admin)", () => {
     expect(podeGerirUtilizadores("super_admin")).toBe(true);
     expect(podeGerirUtilizadores("society_admin")).toBe(true);
+    expect(podeGerirUtilizadores("gestor")).toBe(false);
     expect(podeGerirUtilizadores("utilizador")).toBe(false);
+  });
+
+  it("aprovar utilizadores é exclusivo do super_admin", () => {
+    expect(podeAprovarUtilizadores("super_admin")).toBe(true);
+    expect(podeAprovarUtilizadores("society_admin")).toBe(false);
+    expect(podeAprovarUtilizadores("gestor")).toBe(false);
+    expect(podeAprovarUtilizadores("utilizador")).toBe(false);
   });
 
   it("eSuperAdmin distingue só o nível de plataforma", () => {
     expect(eSuperAdmin("super_admin")).toBe(true);
     expect(eSuperAdmin("society_admin")).toBe(false);
+    expect(eSuperAdmin("gestor")).toBe(false);
     expect(eSuperAdmin("utilizador")).toBe(false);
   });
 });
@@ -148,9 +163,10 @@ describe("as capacidades de cada papel", () => {
 /* ----------------------------------------------------------------- portais */
 
 describe("portalDoPapel", () => {
-  it("cada papel tem um portal, e são três diferentes", () => {
+  it("cada papel tem um portal, e são quatro diferentes", () => {
     expect(portalDoPapel("super_admin")).toBe("/admin");
     expect(portalDoPapel("society_admin")).toBe("/");
+    expect(portalDoPapel("gestor")).toBe("/processos");
     expect(portalDoPapel("utilizador")).toBe("/meus-processos");
 
     const destinos = PAPEIS.map(portalDoPapel);
@@ -199,6 +215,10 @@ describe("os guards", () => {
     expect(await destinoDe(exigirSuperAdmin)).toBe("/meus-processos");
     expect(await destinoDe(exigirSocietyAdmin)).toBe("/meus-processos");
 
+    entrarComo("gestor");
+    expect(await destinoDe(exigirSuperAdmin)).toBe("/processos");
+    expect(await destinoDe(exigirSocietyAdmin)).toBe("/processos");
+
     entrarComo("super_admin");
     expect(await destinoDe(exigirSocietyAdmin)).toBe("/admin");
     expect(await destinoDe(exigirEquipaDaSociedade)).toBe("/admin");
@@ -215,12 +235,15 @@ describe("os guards", () => {
     expect(await destinoDe(exigirSocietyAdmin)).toBeNull();
     expect(await destinoDe(exigirEquipaDaSociedade)).toBeNull();
 
+    entrarComo("gestor");
+    expect(await destinoDe(exigirEquipaDaSociedade)).toBeNull();
+
     entrarComo("utilizador");
     expect(await destinoDe(exigirEquipaDaSociedade)).toBeNull();
   });
 
-  it("a área de trabalho é dos dois papéis da sociedade", async () => {
-    for (const papel of ["society_admin", "utilizador"] as const) {
+  it("a área de trabalho é dos três papéis da sociedade", async () => {
+    for (const papel of ["society_admin", "gestor", "utilizador"] as const) {
       entrarComo(papel);
       expect(await destinoDe(exigirEquipaDaSociedade)).toBeNull();
     }
@@ -231,15 +254,32 @@ describe("os guards", () => {
       entrarComo(papel);
       expect(await destinoDe(exigirGestorDeUtilizadores)).toBeNull();
     }
+    entrarComo("gestor");
+    expect(await destinoDe(exigirGestorDeUtilizadores)).toBe("/processos");
     entrarComo("utilizador");
     expect(await destinoDe(exigirGestorDeUtilizadores)).toBe("/meus-processos");
   });
 
-  it("exigirEquipaOuSuperAdmin deixa passar os três papéis", async () => {
+  it("exigirEquipaOuSuperAdmin deixa passar os quatro papéis", async () => {
     for (const papel of PAPEIS) {
       entrarComo(papel);
       expect(await destinoDe(exigirEquipaOuSuperAdmin)).toBeNull();
     }
+  });
+
+  it("utilizadores não aprovados são desviados para aguarda-aprovacao", async () => {
+    entrarComo("utilizador", { aprovadoEm: null });
+    expect(await destinoDe(exigirEquipaDaSociedade)).toBe(ROTA_AGUARDA_APROVACAO);
+
+    entrarComo("gestor", { aprovadoEm: null });
+    expect(await destinoDe(exigirEquipaDaSociedade)).toBe(ROTA_AGUARDA_APROVACAO);
+
+    entrarComo("society_admin", { aprovadoEm: null });
+    expect(await destinoDe(exigirSocietyAdmin)).toBe(ROTA_AGUARDA_APROVACAO);
+
+    // O super_admin nunca aguarda aprovação
+    entrarComo("super_admin", { aprovadoEm: null });
+    expect(await destinoDe(exigirSuperAdmin)).toBeNull();
   });
 });
 

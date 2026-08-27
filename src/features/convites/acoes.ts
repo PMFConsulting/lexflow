@@ -486,6 +486,14 @@ export async function concluirConvite(
             // a exigir a redefinição de uma palavra-passe que ela mesma acabou
             // de definir.
             deveRedefinirPassword: false,
+            // Quem chega por convite não passa pela aprovação da plataforma: o
+            // convite **é** o ato de admissão, e as seis etapas anteriores são a
+            // identificação que a aprovação existe para exigir. Explícito, e não
+            // deixado ao valor da coluna: `aprovado_em` é anulável, e uma linha
+            // que volte por aqui depois de ter sido rejeitada traria o `null`
+            // consigo — a pessoa acabava de escolher a palavra-passe e ficava
+            // presa em `/aguarda-aprovacao`, sem nada no ecrã a dizer porquê.
+            aprovadoEm: new Date(),
             atualizadoEm: new Date(),
           })
           .where(eq(utilizador.id, id));
@@ -501,6 +509,12 @@ export async function concluirConvite(
           email,
           papel: convite.papel,
           ativo: true,
+          // Ver acima: o convite é a admissão, e sem esta linha a conta nascia
+          // pendente de uma aprovação que ninguém pediu. Vale sobretudo para o
+          // primeiro administrador de uma sociedade nova, que entra por aqui —
+          // uma sociedade acabada de registar ficaria sem ninguém que consegue
+          // entrar nela.
+          aprovadoEm: new Date(),
         });
       }
 

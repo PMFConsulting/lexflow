@@ -78,6 +78,8 @@ describe("prepararImportacao", () => {
           "B;b@x.pt;assistente",
           "C;c@x.pt;Sócia",
           "D;d@x.pt;Administrador",
+          "E;e@x.pt;Gestor",
+          "F;f@x.pt;Gestora",
         ].join("\n"),
       ),
     );
@@ -89,6 +91,8 @@ describe("prepararImportacao", () => {
       "utilizador",
       "utilizador",
       "society_admin",
+      "gestor",
+      "gestor",
     ]);
   });
 

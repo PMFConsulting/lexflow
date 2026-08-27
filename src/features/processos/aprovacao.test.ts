@@ -149,7 +149,8 @@ vi.mock("@/lib/sessao", () => ({
   }),
   podeAcederSociedade: (eu: { papel: string; organizacaoId: string | null }, orgAlvo: string) =>
     eu.papel === "super_admin" || eu.organizacaoId === orgAlvo,
-  podeAprovarProcesso: (papel: string) => papel !== "desconhecido",
+  podeAprovarProcesso: (papel: string) =>
+    papel !== "desconhecido" && papel !== "super_admin",
 }));
 
 const { aprovarProcesso, rejeitarProcesso } = await import("./acoes");
@@ -237,14 +238,14 @@ describe("aprovarProcesso", () => {
     expect(atualizacoes).toHaveLength(0);
   });
 
-  it("o super_admin pode aprovar processos transversalmente", async () => {
+  it("o super_admin não pode aprovar processos", async () => {
     papelAtual = "super_admin";
     linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
 
     const r = await aprovarProcesso("proc-1");
 
-    expect(r).toEqual({ ok: true });
-    expect(atualizacoes.some((a) => a.valores.estado === "aprovado")).toBe(true);
+    expect(r.ok).toBe(false);
+    expect(atualizacoes).toHaveLength(0);
   });
 
   it("um utilizador de outra organização não encontra o processo", async () => {
@@ -333,13 +334,13 @@ describe("rejeitarProcesso", () => {
     expect(atualizacoes).toHaveLength(0);
   });
 
-  it("o super_admin pode rejeitar processos transversalmente", async () => {
+  it("o super_admin não pode rejeitar processos", async () => {
     papelAtual = "super_admin";
     linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
 
     const r = await rejeitarProcesso("proc-1", "Documentação incompleta");
 
-    expect(r).toEqual({ ok: true });
-    expect(atualizacoes.some((a) => a.valores.estado === "rejeitado")).toBe(true);
+    expect(r.ok).toBe(false);
+    expect(atualizacoes).toHaveLength(0);
   });
 });

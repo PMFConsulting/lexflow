@@ -39,7 +39,7 @@ async function contexto() {
   };
 }
 
-const PAPEIS = ["society_admin", "utilizador"] as const;
+const PAPEIS = ["society_admin", "gestor", "utilizador"] as const;
 
 /* ------------------------------------------------------------- convidar */
 

@@ -2,11 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Ref } from "@/components/ref-processo";
+import { AprovacoesUtilizadores } from "@/features/plataforma/componentes/AprovacoesUtilizadores";
 import { EditarSociedade } from "@/features/plataforma/componentes/EditarSociedade";
 import { EmailsDaSociedade } from "@/features/plataforma/componentes/EmailsDaSociedade";
 import { GestaoUtilizadores } from "@/features/plataforma/componentes/GestaoUtilizadores";
 import { ProcessosDaSociedade } from "@/features/plataforma/componentes/ProcessosDaSociedade";
-import { sociedadePorId, utilizadoresDaSociedade } from "@/features/plataforma/consultas";
+import {
+  listarUtilizadoresPendentes,
+  sociedadePorId,
+  utilizadoresDaSociedade,
+} from "@/features/plataforma/consultas";
 import { env } from "@/env";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +33,10 @@ export default async function Sociedade({ params }: { params: Promise<{ id: stri
   const sociedade = await sociedadePorId(id);
   if (!sociedade) notFound();
 
-  const contas = await utilizadoresDaSociedade(id);
+  const [contas, pendentes] = await Promise.all([
+    utilizadoresDaSociedade(id),
+    listarUtilizadoresPendentes(id),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
@@ -80,7 +88,19 @@ export default async function Sociedade({ params }: { params: Promise<{ id: stri
         remetenteGlobal={env().EMAIL_REMETENTE}
       />
 
-      <GestaoUtilizadores organizacaoId={sociedade.id} contas={contas} />
+      {pendentes.length > 0 && (
+        <AprovacoesUtilizadores
+          pendentes={pendentes}
+          titulo="Contas a aguardar aprovação"
+          mostrarSociedade={false}
+        />
+      )}
+
+      <GestaoUtilizadores
+        organizacaoId={sociedade.id}
+        contas={contas}
+        podeGerirGestores={false}
+      />
     </div>
   );
 }

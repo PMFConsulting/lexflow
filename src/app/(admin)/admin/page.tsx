@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Building2, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Ref } from "@/components/ref-processo";
+import { cn } from "@/lib/utils";
 import { NovaSociedade } from "@/features/plataforma/componentes/NovaSociedade";
 import { listarSociedades, numerosDaPlataforma } from "@/features/plataforma/consultas";
 
@@ -23,13 +24,20 @@ export default async function PainelDaPlataforma() {
     { rotulo: "Sociedades", valor: n.sociedades, nota: "inquilinos da plataforma", href: "/admin/sociedades" },
     { rotulo: "Contas", valor: n.contas, nota: "em todas as sociedades", href: "/admin/utilizadores" },
     { rotulo: "Processos", valor: n.processos, nota: "no total", href: "/admin/processos" },
+    {
+      rotulo: "Aprovações",
+      valor: n.pendentesAprovacao,
+      nota: n.pendentesAprovacao > 0 ? "aguardam aprovação" : "tudo em dia",
+      href: "/admin/aprovacoes",
+      alerta: n.pendentesAprovacao > 0,
+    },
   ];
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-serif">Plataforma</h1>
+          <h1 className="text-2xl">Plataforma</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             As sociedades que usam o sistema, processos e contas de cada uma.
           </p>
@@ -37,24 +45,41 @@ export default async function PainelDaPlataforma() {
         <NovaSociedade />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {tiles.map((t) => (
           <Link key={t.rotulo} href={t.href} className="group">
-            <Card className="gap-2 transition-colors group-hover:border-marca/50">
+            <Card
+              className={cn(
+                "gap-2 transition-colors group-hover:border-marca/50",
+                t.alerta && "border-latao/40 bg-latao/5",
+              )}
+            >
               <CardHeader className="pb-0">
-                <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase group-hover:text-marca">
+                <CardTitle
+                  className={cn(
+                    "text-xs font-medium tracking-wide text-muted-foreground uppercase group-hover:text-marca",
+                    t.alerta && "text-latao",
+                  )}
+                >
                   {t.rotulo}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="font-mono text-3xl leading-none tabular-nums">{t.valor}</div>
+                <div
+                  className={cn(
+                    "font-mono text-3xl leading-none tabular-nums",
+                    t.alerta && "text-latao",
+                  )}
+                >
+                  {t.valor}
+                </div>
                 <p className="mt-2 text-xs text-muted-foreground">{t.nota}</p>
               </CardContent>
             </Card>
           </Link>
         ))}
 
-        <Card className={n.semAdmin > 0 ? "border-selo/40 bg-selo/5 gap-2" : "gap-2"}>
+        <Card className={cn("gap-2", n.semAdmin > 0 && "border-selo/40 bg-selo/5")}>
           <CardHeader className="pb-0">
             <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Sem administrador
@@ -62,7 +87,7 @@ export default async function PainelDaPlataforma() {
           </CardHeader>
           <CardContent>
             <div
-              className={`font-mono text-3xl leading-none tabular-nums ${n.semAdmin > 0 ? "text-selo" : ""}`}
+              className={cn("font-mono text-3xl leading-none tabular-nums", n.semAdmin > 0 && "text-selo")}
             >
               {n.semAdmin}
             </div>
@@ -82,7 +107,7 @@ export default async function PainelDaPlataforma() {
         </CardHeader>
         <CardContent>
           {sociedades.length === 0 ? (
-            <div className="border-linha flex flex-col items-center gap-3 border border-dashed py-12 text-center">
+            <div className="border-linha flex flex-col items-center gap-3 rounded-sm border border-dashed py-12 text-center">
               <Building2 className="text-tinta-suave size-6" strokeWidth={1.5} />
               <div>
                 <p className="text-sm font-medium">Ainda não há sociedades.</p>
@@ -103,7 +128,7 @@ export default async function PainelDaPlataforma() {
                     <Ref className="text-muted-foreground">{s.prefixoReferencia}</Ref>
                     <span className="min-w-0 flex-1 truncate text-sm">{s.nome}</span>
                     {s.administradores === 0 && (
-                      <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1 rounded-xs border px-2 py-0.5">
+                      <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5">
                         <TriangleAlert className="size-3" /> sem administrador
                       </span>
                     )}

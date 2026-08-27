@@ -29,12 +29,14 @@ import type { LinhaConvite, LinhaEquipa } from "../consultas";
 
 const PAPEIS = [
   { valor: "utilizador", texto: "Utilizador" },
+  { valor: "gestor", texto: "Gestor" },
   { valor: "society_admin", texto: "Administração da sociedade" },
 ];
 
 const ROTULOS_PAPEL: Record<string, string> = {
   super_admin: "Administração da plataforma",
   society_admin: "Administração da sociedade",
+  gestor: "Gestor",
   utilizador: "Utilizador",
 };
 

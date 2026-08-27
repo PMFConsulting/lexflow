@@ -34,8 +34,18 @@ export type Filtros = {
 const daOrganizacao = (organizacaoId: string) =>
   eq(processoOnboarding.organizacaoId, organizacaoId);
 
-function condicoes(f: Filtros, organizacaoId: string) {
+function condicoes(f: Filtros, organizacaoId: string, gestorId?: string) {
   const partes = [daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm)];
+
+  if (gestorId) {
+    partes.push(
+      sql`exists (
+        select 1 from ${utilizador}
+        where ${utilizador.id} = ${processoOnboarding.responsavelId}
+          and (${utilizador.gestorId} = ${gestorId} or ${utilizador.id} = ${gestorId})
+      )`,
+    );
+  }
 
   if (f.estado?.length) {
     partes.push(inArray(processoOnboarding.estado, f.estado as never[]));
@@ -64,11 +74,15 @@ function condicoes(f: Filtros, organizacaoId: string) {
   return and(...partes);
 }
 
-export async function listarProcessos(f: Filtros, organizacaoId: string) {
+export async function listarProcessos(
+  f: Filtros,
+  organizacaoId: string,
+  opcoes?: { gestorId?: string },
+) {
   const base = db();
   const pagina = Math.max(1, f.pagina ?? 1);
   const porPagina = Math.min(100, f.porPagina ?? 25);
-  const onde = condicoes(f, organizacaoId);
+  const onde = condicoes(f, organizacaoId, opcoes?.gestorId);
 
   const [linhas, [total]] = await Promise.all([
     base
@@ -100,7 +114,7 @@ export async function listarProcessos(f: Filtros, organizacaoId: string) {
 
 /**
  * Consulta global de processos para o dono da plataforma (`super_admin`).
- * Atravessa todas as sociedades com filtros, busca e paginação.
+ * Apenas metadados (referência, estado, datas, sociedade, responsável) sem dados de clientes.
  */
 export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: string) {
   const base = db();
@@ -111,18 +125,13 @@ export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: stri
   if (organizacaoId) partes.push(daOrganizacao(organizacaoId));
   if (f.estado?.length) partes.push(inArray(processoOnboarding.estado, f.estado as never[]));
   if (f.tipo?.length) partes.push(inArray(processoOnboarding.tipoCliente, f.tipo as never[]));
-  if (f.ppe) {
-    partes.push(
-      sql`exists (select 1 from ${declaracaoPpe} where ${declaracaoPpe.processoId} = ${processoOnboarding.id} and ${declaracaoPpe.ePpe} = ${f.ppe === "sim"})`,
-    );
-  }
   if (f.q?.trim()) {
     const termo = `%${f.q.trim()}%`;
     partes.push(
       or(
         ilike(processoOnboarding.referencia, termo),
-        sql`exists (select 1 from ${dadosIdentificacao} where ${dadosIdentificacao.processoId} = ${processoOnboarding.id} and unaccent(${dadosIdentificacao.nome}) ilike unaccent(${termo}))`,
-        sql`exists (select 1 from ${dadosFiscais} where ${dadosFiscais.processoId} = ${processoOnboarding.id} and ${dadosFiscais.nif} ilike ${termo})`,
+        ilike(organizacao.nome, termo),
+        ilike(organizacao.prefixoReferencia, termo),
       )!,
     );
   }
@@ -139,16 +148,12 @@ export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: stri
         passoAtual: processoOnboarding.passoAtual,
         submetidoEm: processoOnboarding.submetidoEm,
         atualizadoEm: processoOnboarding.atualizadoEm,
-        nome: sql<string>`coalesce(${dadosIdentificacao.nome}, ${processoOnboarding.nomeCliente})`,
-        nif: sql<string>`coalesce(${dadosFiscais.nif}, ${processoOnboarding.nifCliente})`,
         sociedade: organizacao.nome,
         prefixo: organizacao.prefixoReferencia,
         responsavel: utilizador.nome,
       })
       .from(processoOnboarding)
       .leftJoin(organizacao, eq(organizacao.id, processoOnboarding.organizacaoId))
-      .leftJoin(dadosIdentificacao, eq(dadosIdentificacao.processoId, processoOnboarding.id))
-      .leftJoin(dadosFiscais, eq(dadosFiscais.processoId, processoOnboarding.id))
       .leftJoin(utilizador, eq(utilizador.id, processoOnboarding.responsavelId))
       .where(onde)
       .orderBy(desc(processoOnboarding.atualizadoEm))
@@ -161,9 +166,19 @@ export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: stri
 }
 
 /** Contagens por estado e tipo — os filtros facetados do §6. */
-export async function facetas(organizacaoId: string) {
+export async function facetas(organizacaoId: string, gestorId?: string) {
   const base = db();
-  const vivos = and(daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm));
+  const partes = [daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm)];
+  if (gestorId) {
+    partes.push(
+      sql`exists (
+        select 1 from ${utilizador}
+        where ${utilizador.id} = ${processoOnboarding.responsavelId}
+          and (${utilizador.gestorId} = ${gestorId} or ${utilizador.id} = ${gestorId})
+      )`,
+    );
+  }
+  const vivos = and(...partes);
 
   const [porEstado, porTipo] = await Promise.all([
     base
@@ -179,6 +194,33 @@ export async function facetas(organizacaoId: string) {
   ]);
 
   return { porEstado, porTipo };
+}
+
+/**
+ * Verifica se um gestor tem permissão para aceder a um dado processo.
+ * Um gestor pode ver apenas processos cujo responsável seja ele próprio
+ * ou um utilizador associado a ele (gestor_id = gestorId).
+ */
+export async function gestorPodeVerProcesso(
+  processoId: string,
+  gestorId: string,
+  organizacaoId: string,
+): Promise<boolean> {
+  const [linha] = await db()
+    .select({ id: processoOnboarding.id })
+    .from(processoOnboarding)
+    .innerJoin(utilizador, eq(utilizador.id, processoOnboarding.responsavelId))
+    .where(
+      and(
+        eq(processoOnboarding.id, processoId),
+        eq(processoOnboarding.organizacaoId, organizacaoId),
+        isNull(processoOnboarding.apagadoEm),
+        or(eq(utilizador.gestorId, gestorId), eq(utilizador.id, gestorId)),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(linha);
 }
 
 /** Os números do painel. Só o que faz agir — nada de gráficos decorativos. */

@@ -56,6 +56,27 @@ export const ROTULOS_ESTADO: Record<EstadoEmail, string> = {
  */
 export const ESTADOS_FALHADOS: readonly EstadoEmail[] = ["erro", "devolvido", "queixa"];
 
+/**
+ * A cor de cada estado, na paleta do §3.
+ *
+ * O carmim (`selo`) é para o que não chegou — o erro de envio e o devolvido são
+ * o mesmo problema visto de dois sítios. O verde-arquivo é a única confirmação
+ * a sério que esta tabela tem. O latão fica para a queixa de spam, que não é
+ * falha de entrega mas exige atenção. O «Aceite» fica cinzento de propósito:
+ * não é bom nem mau, é o estado em que ainda não se sabe.
+ *
+ * Vive aqui, ao lado dos rótulos, e não na página que primeiro precisou dele:
+ * o mesmo estado aparece agora em dois sítios — o diário em `/emails` e a
+ * secção do dossier — e duas tabelas de cores com o mesmo significado divergem
+ * na primeira vez que alguém acrescenta um valor ao enum a partir de um deles.
+ */
+export const TOM_ESTADO: Partial<Record<EstadoEmail, string>> = {
+  erro: "border-selo/40 bg-selo/10 text-selo",
+  devolvido: "border-selo/40 bg-selo/10 text-selo",
+  queixa: "border-latao/40 bg-latao/10 text-latao",
+  entregue: "border-arquivo/40 bg-arquivo/10 text-arquivo",
+};
+
 export const ROTULOS_CANAL: Record<CanalEmail, string> = {
   brevo: "Brevo",
   resend: "Resend",

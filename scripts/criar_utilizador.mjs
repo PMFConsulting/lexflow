@@ -247,6 +247,7 @@ async function criar({ email, nome, papel, password, organizacaoId, reativar }) 
             papel = ${papel},
             auth_user_id = ${authUserId},
             ativo = true,
+            aprovado_em = now(),
             atualizado_em = now()
           where id = ${eu.id}
         `;
@@ -264,11 +265,17 @@ async function criar({ email, nome, papel, password, organizacaoId, reativar }) 
       } else {
         // `id` gerado na aplicação e não pela base de dados (decisão D15): o
         // Postgres só tem uuidv7() nativo na v18.
+        //
+        // `aprovado_em` a `now()`: uma conta criada no servidor não passa pela
+        // aprovação da plataforma — quem tem acesso à consola já é quem
+        // aprovaria. Sem esta coluna a conta nascia pendente e o guard
+        // desviava-a para `/aguarda-aprovacao`, o que no arranque de uma
+        // instalação é uma plataforma sem ninguém que consiga entrar.
         await tx`
           insert into utilizador
-            (id, organizacao_id, auth_user_id, nome, email, papel, ativo, criado_em, atualizado_em)
+            (id, organizacao_id, auth_user_id, nome, email, papel, ativo, aprovado_em, criado_em, atualizado_em)
           values
-            (${uuidv7()}, ${organizacaoId}, ${authUserId}, ${nome}, ${email}, ${papel}, true, now(), now())
+            (${uuidv7()}, ${organizacaoId}, ${authUserId}, ${nome}, ${email}, ${papel}, true, now(), now(), now())
         `;
         criouUtilizador = true;
       }

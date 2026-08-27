@@ -88,5 +88,5 @@ export function passoAnteriorConvite(atual: number): number | null {
  * é dentro do passo e não o passo inteiro.
  */
 export function exerceAdvocacia(papel: string): boolean {
-  return papel === "utilizador" || papel === "society_admin";
+  return papel === "utilizador" || papel === "gestor" || papel === "society_admin";
 }
