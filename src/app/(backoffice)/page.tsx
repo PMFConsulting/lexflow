@@ -100,7 +100,7 @@ export default async function Painel() {
         </CardHeader>
         <CardContent>
           {ultimos.length === 0 ? (
-            <div className="border-linha flex flex-col items-center gap-3 border border-dashed py-12 text-center">
+            <div className="border-linha flex flex-col items-center gap-3 rounded-sm border border-dashed py-12 text-center">
               <FileText className="text-tinta-suave size-6" strokeWidth={1.5} />
               <div>
                 <p className="text-sm font-medium">Ainda não há processos.</p>

@@ -193,7 +193,7 @@ export function DetalheProcesso({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Ref className="text-sm text-muted-foreground">{processo.referencia}</Ref>
-          <h1 className="mt-1 text-2xl font-serif">
+          <h1 className="mt-1 text-2xl">
             {s.identificacao?.nome ?? processo.nomeCliente ?? (
               <span className="text-muted-foreground">Sem nome ainda</span>
             )}

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Building2, TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Ref } from "@/components/ref-processo";
 import { NovaSociedade } from "@/features/plataforma/componentes/NovaSociedade";
 import { listarSociedades } from "@/features/plataforma/consultas";
@@ -37,20 +39,17 @@ export default async function Sociedades({
       </div>
 
       <form className="border-linha bg-papel-alto flex flex-wrap items-center gap-3 rounded-sm border p-3">
-        <input
+        <Input
           type="search"
           name="q"
           defaultValue={q ?? ""}
           placeholder="Nome, NIPC ou prefixo"
           aria-label="Procurar sociedades"
-          className="border-input bg-papel-alto focus-visible:border-ring focus-visible:ring-ring/50 h-8 min-w-0 flex-1 rounded-lg border px-2.5 text-sm focus-visible:ring-3"
+          className="bg-papel-alto flex-1"
         />
-        <button
-          type="submit"
-          className="border-linha hover:border-tinta rounded-xs border px-3 py-1 text-sm"
-        >
+        <Button type="submit" variant="outline">
           Procurar
-        </button>
+        </Button>
       </form>
 
       {sociedades.length === 0 ? (
@@ -72,7 +71,7 @@ export default async function Sociedades({
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.nome}</span>
                 <Ref className="text-xs text-muted-foreground">{s.nif}</Ref>
                 {s.administradores === 0 && (
-                  <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1 rounded-xs border px-2 py-0.5">
+                  <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5">
                     <TriangleAlert className="size-3" /> sem administrador
                   </span>
                 )}

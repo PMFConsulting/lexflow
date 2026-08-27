@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Ref } from "@/components/ref-processo";
 import { NovoAdminPlataforma } from "@/features/plataforma/componentes/NovoAdminPlataforma";
 import { listarUtilizadores } from "@/features/plataforma/consultas";
@@ -44,20 +46,17 @@ export default async function Utilizadores({
       <NovoAdminPlataforma />
 
       <form className="border-linha bg-papel-alto flex flex-wrap items-center gap-3 rounded-sm border p-3">
-        <input
+        <Input
           type="search"
           name="q"
           defaultValue={q ?? ""}
           placeholder="Nome ou email"
           aria-label="Procurar contas"
-          className="border-input bg-papel-alto focus-visible:border-ring focus-visible:ring-ring/50 h-8 min-w-0 flex-1 rounded-lg border px-2.5 text-sm focus-visible:ring-3"
+          className="bg-papel-alto flex-1"
         />
-        <button
-          type="submit"
-          className="border-linha hover:border-tinta rounded-xs border px-3 py-1 text-sm"
-        >
+        <Button type="submit" variant="outline">
           Procurar
-        </button>
+        </Button>
       </form>
 
       {contas.length === 0 ? (

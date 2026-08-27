@@ -37,7 +37,7 @@ export default async function PainelDaPlataforma() {
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-serif">Plataforma</h1>
+          <h1 className="text-2xl">Plataforma</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             As sociedades que usam o sistema, processos e contas de cada uma.
           </p>
@@ -79,7 +79,7 @@ export default async function PainelDaPlataforma() {
           </Link>
         ))}
 
-        <Card className={n.semAdmin > 0 ? "border-selo/40 bg-selo/5 gap-2" : "gap-2"}>
+        <Card className={cn("gap-2", n.semAdmin > 0 && "border-selo/40 bg-selo/5")}>
           <CardHeader className="pb-0">
             <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Sem administrador
@@ -87,7 +87,7 @@ export default async function PainelDaPlataforma() {
           </CardHeader>
           <CardContent>
             <div
-              className={`font-mono text-3xl leading-none tabular-nums ${n.semAdmin > 0 ? "text-selo" : ""}`}
+              className={cn("font-mono text-3xl leading-none tabular-nums", n.semAdmin > 0 && "text-selo")}
             >
               {n.semAdmin}
             </div>
@@ -107,7 +107,7 @@ export default async function PainelDaPlataforma() {
         </CardHeader>
         <CardContent>
           {sociedades.length === 0 ? (
-            <div className="border-linha flex flex-col items-center gap-3 border border-dashed py-12 text-center">
+            <div className="border-linha flex flex-col items-center gap-3 rounded-sm border border-dashed py-12 text-center">
               <Building2 className="text-tinta-suave size-6" strokeWidth={1.5} />
               <div>
                 <p className="text-sm font-medium">Ainda não há sociedades.</p>
@@ -128,7 +128,7 @@ export default async function PainelDaPlataforma() {
                     <Ref className="text-muted-foreground">{s.prefixoReferencia}</Ref>
                     <span className="min-w-0 flex-1 truncate text-sm">{s.nome}</span>
                     {s.administradores === 0 && (
-                      <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1 rounded-xs border px-2 py-0.5">
+                      <span className="text-2xs border-selo/40 bg-selo/10 text-selo inline-flex items-center gap-1.5 rounded-xs border px-2 py-0.5">
                         <TriangleAlert className="size-3" /> sem administrador
                       </span>
                     )}
