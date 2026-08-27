@@ -21,6 +21,7 @@ import {
 } from "@/features/onboarding/passos";
 import { AcoesAprovacao } from "@/features/processos/componentes/AcoesAprovacao";
 import { PropostaComercial } from "@/features/processos/componentes/PropostaComercial";
+import { BotaoExportarPdf } from "@/features/processos/componentes/BotaoExportarPdf";
 import { ModalEditarSeccao } from "./ModalEditarSeccao";
 import { passosGravados, type Seccoes } from "@/features/onboarding/dados";
 
@@ -205,6 +206,9 @@ export function DetalheProcesso({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <EstadoBadge estado={processo.estado} />
+          {papelAtual === "society_admin" && (
+            <BotaoExportarPdf processoId={processo.id} referencia={processo.referencia} />
+          )}
         </div>
       </header>
 
