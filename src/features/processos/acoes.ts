@@ -753,6 +753,10 @@ export async function atualizarSeccaoProcesso(
     return { ok: false, erro: "Processo não encontrado." };
   }
 
+  if (processo.estado === "aprovado" || processo.estado === "arquivado") {
+    return { ok: false, erro: "Processo aprovado — já não é editável." };
+  }
+
   const insere = <T>(extra: Record<string, unknown>) => ({ processoId: processo.id, ...extra }) as T;
 
   switch (passo) {

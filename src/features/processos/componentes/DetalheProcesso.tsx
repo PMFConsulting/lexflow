@@ -179,6 +179,8 @@ export function DetalheProcesso({
   textoVoltar = "Voltar",
   papelAtual,
 }: DetalheProcessoProps) {
+  const podeEditarEfetivo =
+    podeEditar && processo.estado !== "aprovado" && processo.estado !== "arquivado";
   const naoChegaram = emails.filter((m) => ESTADOS_FALHADOS.includes(m.estado)).length;
 
   return (
@@ -220,11 +222,13 @@ export function DetalheProcesso({
             total={passosDoProcesso(processo.tipoCliente).length}
           />
         </span>
-        <span className="text-muted-foreground">
-          Submetido <Ref>{dt(processo.submetidoEm)}</Ref>
+        <span className="flex items-center gap-2">
+          <span className="text-muted-foreground">Submetido</span>
+          <Ref>{dt(processo.submetidoEm)}</Ref>
         </span>
-        <span className="text-muted-foreground">
-          Atualizado <Ref>{dt(processo.atualizadoEm)}</Ref>
+        <span className="flex items-center gap-2">
+          <span className="text-muted-foreground">Atualizado</span>
+          <Ref>{dt(processo.atualizadoEm)}</Ref>
         </span>
       </div>
 
@@ -235,8 +239,9 @@ export function DetalheProcesso({
         <AcoesAprovacao processoId={processo.id} />
       )}
 
+      {/* ── alerta de rejeição ─────────────────────────────────────────── */}
       {processo.estado === "rejeitado" && processo.motivoRejeicao && (
-        <Card>
+        <Card className="border-selo/40 bg-selo/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Motivo da rejeição</CardTitle>
           </CardHeader>
@@ -255,7 +260,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.identificacao)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha k="Nome" v={s.identificacao?.nome} />
           <Linha k="Profissão" v={s.identificacao?.profissao} />
@@ -281,7 +286,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.fiscais)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha k="NIF / NIPC" v={<Ref>{s.fiscais?.nif}</Ref>} />
           <Linha k="NIF português" v={s.fiscais ? (s.fiscais.nifPortugues ? "Sim" : "Não") : null} />
@@ -300,7 +305,7 @@ export function DetalheProcesso({
             preenchido={Boolean(s.representante)}
             processoId={processo.id}
             seccoes={s}
-            podeEditar={podeEditar}
+            podeEditar={podeEditarEfetivo}
           >
             <Linha
               k="Quem preencheu é o representante legal"
@@ -335,7 +340,7 @@ export function DetalheProcesso({
             preenchido={Boolean(s.ppe ?? s.negocio)}
             processoId={processo.id}
             seccoes={s}
-            podeEditar={podeEditar}
+            podeEditar={podeEditarEfetivo}
           >
             <Linha k="Pessoa politicamente exposta" v={s.ppe ? (s.ppe.ePpe ? "Sim" : "Não") : null} />
             <Linha k="Cargo" v={s.ppe?.ppeCargo} />
@@ -377,7 +382,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.faturacao)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha k="Nome ou empresa" v={s.faturacao?.nome} />
           <Linha k="NIF" v={<Ref>{s.faturacao?.nif}</Ref>} />
@@ -392,7 +397,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.preferencias)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha k="Como chegou até nós" v={ORIGEM_CONTACTO_TEXTO[s.preferencias?.origemContacto ?? ""]} />
           <Linha
@@ -418,7 +423,7 @@ export function DetalheProcesso({
           preenchido={Boolean(s.fecho ?? assinatura)}
           processoId={processo.id}
           seccoes={s}
-          podeEditar={podeEditar}
+          podeEditar={podeEditarEfetivo}
         >
           <Linha
             k="Termos e condições e proposta"
