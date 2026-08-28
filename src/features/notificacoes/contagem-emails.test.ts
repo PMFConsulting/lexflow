@@ -74,6 +74,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
 
     await enviarEmail({
       para: "cliente@exemplo.pt",
+      html: "<p>x</p>",
       assunto: "JMASSANO | Acesso ao seu processo",
       template: "registo",
       organizacaoId: "org-1",
@@ -90,10 +91,12 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
     await registarNotificacao({
       organizacaoId: "org-1",
       titulo: "Novo processo submetido: PMF-2026-0042",
+      corpo: "Recebemos o processo.",
     });
 
     await enviarEmail({
       para: "cliente@exemplo.pt",
+      html: "<p>x</p>",
       assunto: "JMASSANO | Confirmação de receção",
       template: "confirmacao_rececao",
       organizacaoId: "org-1",
@@ -109,6 +112,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
     // 3. Decisão da sociedade: Aprovação do processo (boas-vindas ao cliente)
     await enviarEmail({
       para: "cliente@exemplo.pt",
+      html: "<p>x</p>",
       assunto: "JMASSANO | Processo aprovado — Boas-vindas",
       template: "boas_vindas",
       organizacaoId: "org-1",
@@ -126,6 +130,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
     // 4. Fecho com assinatura digital pelo cliente: Solicitação de código OTP
     await enviarEmail({
       para: "cliente@exemplo.pt",
+      html: "<p>x</p>",
       assunto: "JMASSANO | Código de verificação OTP",
       template: "otp",
       organizacaoId: "org-1",
@@ -186,6 +191,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
     // Credenciais de acesso temporárias continuam a ser enviadas por email por segurança
     await enviarEmail({
       para: "novo.admin@sociedade.pt",
+      html: "<p>x</p>",
       assunto: "LexFlow | As suas credenciais de acesso",
       template: "credenciais_acesso",
       organizacaoId: "soc-1",

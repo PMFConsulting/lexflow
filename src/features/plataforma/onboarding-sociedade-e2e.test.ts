@@ -578,7 +578,7 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
     });
 
     expect(resultado.ok).toBe(true);
-    expect(resultado.avisoAdmin).toBe("Não foi possível criar a conta do administrador.");
+    expect((resultado as { ok: true; avisoAdmin: string | null }).avisoAdmin).toBe("Não foi possível criar a conta do administrador.");
 
     // Frente P: Alerta in-app e na fila do resumo diário
     const notifAlerta = inseridos.find(
