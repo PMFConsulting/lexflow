@@ -52,7 +52,7 @@ vi.mock("@/lib/email", () => ({
   },
 }));
 
-vi.mock("@/features/notificacoes/acoes", () => ({
+vi.mock("@/features/notificacoes/servico", () => ({
   registarNotificacao: async (p: { titulo: string; organizacaoId?: string | null }) => {
     notificacoesInApp.push(p);
   },
@@ -86,7 +86,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
 
     // 2. Submissão do processo pelo cliente: Confirmação de receção ao cliente
     // (Aviso ao backoffice é in-app — 0 emails)
-    const { registarNotificacao } = await import("@/features/notificacoes/acoes");
+    const { registarNotificacao } = await import("@/features/notificacoes/servico");
 
     await registarNotificacao({
       organizacaoId: "org-1",

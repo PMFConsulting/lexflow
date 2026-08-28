@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { passo1, passo2, passo3, passo4, passo5, passo6, passo7 } from "./schemas";
 import { assinaturaConfere, mimeAceite } from "./formatos";
+import { gerarPngDataUrl } from "@/test/png";
 
 /**
  * O NIF de faturação tinha de aceitar números estrangeiros.
@@ -833,7 +834,7 @@ describe("passo 6 — RGPD", () => {
  * qualquer que tenha sido o caminho até ela.
  */
 describe("passo 7 — Fecho", () => {
-  const RUBRICA = `data:image/png;base64,${"iVBORw0KGgoAAAANSUhEUg".repeat(4)}`;
+  const RUBRICA = gerarPngDataUrl(300, 100);
 
   const fecho = {
     declaracaoVeracidade: true,
@@ -906,5 +907,31 @@ describe("passo 7 — Fecho", () => {
     expect(mensagens({ ...fecho, assinatura: enorme }, "assinatura")).toContain(
       "A assinatura ficou demasiado pesada.",
     );
+  });
+
+  /**
+   * BUG-024 (pentest ronda 2): o Norbert gravou um PNG 1x1 nunca desenhado —
+   * válido enquanto PNG, só que impossível de produzir no quadro de
+   * `Assinatura.tsx`, que nunca sai de umas centenas de píxeis de lado. A
+   * assinatura ficava registada e um evento de auditoria era gerado por cima
+   * dela, dando falsa garantia de integridade ao dossier.
+   */
+  it("BUG-024: um PNG 1x1 real mas nunca desenhado é recusado", () => {
+    const forjada1x1 = gerarPngDataUrl(1, 1);
+    expect(mensagens({ ...fecho, assinatura: forjada1x1 }, "assinatura")).toContain(
+      "A assinatura não parece ter sido desenhada no quadro. Limpe e assine de novo.",
+    );
+  });
+
+  it("BUG-024: uma rubrica PNG abaixo das dimensões mínimas é recusada mesmo com peso suficiente", () => {
+    const pequenaDemais = gerarPngDataUrl(100, 40);
+    expect(mensagens({ ...fecho, assinatura: pequenaDemais }, "assinatura")).toContain(
+      "A assinatura não parece ter sido desenhada no quadro. Limpe e assine de novo.",
+    );
+  });
+
+  it("BUG-024: uma rubrica real, do tamanho que o quadro produz, é aceite", () => {
+    const rubricaReal = gerarPngDataUrl(300, 100);
+    expect(campos({ ...fecho, assinatura: rubricaReal })).toEqual([]);
   });
 });

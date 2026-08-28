@@ -10,6 +10,7 @@ import {
   validarTelefone,
 } from "@/lib/validacao-pt";
 import { email, morada, obrigatorio, pais, telefone } from "@/lib/campos";
+import { assinaturaTemTracoReal } from "./assinatura";
 
 /**
  * Um schema por passo, partilhado entre cliente e servidor.
@@ -476,7 +477,14 @@ export const passo7 = z.object({
     )
     // ~1 MB de PNG é muito mais do que uma rubrica precisa; acima disso é
     // sinal de que algo está errado, e não vale a pena aceitar.
-    .refine((v) => v.length < 1_400_000, "A assinatura ficou demasiado pesada."),
+    .refine((v) => v.length < 1_400_000, "A assinatura ficou demasiado pesada.")
+    // BUG-024 (pentest ronda 2): um PNG 1x1 forjado no lugar do quadro passava
+    // nas duas verificações acima. Isto lê o cabeçalho PNG e recusa qualquer
+    // imagem abaixo do que o quadro consegue mesmo produzir.
+    .refine(
+      assinaturaTemTracoReal,
+      "A assinatura não parece ter sido desenhada no quadro. Limpe e assine de novo.",
+    ),
 });
 
 /* ── mapa por passo ───────────────────────────────────────────────────── */

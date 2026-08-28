@@ -66,6 +66,13 @@ const nextConfig: NextConfig = {
    */
   output: "standalone",
 
+  /**
+   * `X-Powered-By: Next.js` não abre porta nenhuma sozinho, mas diz a versão
+   * da framework a quem passar por aqui de graça — um passo que um atacante
+   * não devia ter de dar (R2-07, pentest ronda 2).
+   */
+  poweredByHeader: false,
+
   experimental: {
     /**
      * As Server Actions aceitam 1 MB por omissão, e um documento de

@@ -38,7 +38,7 @@ import {
 import { canonico } from "@/features/auditoria/hash";
 import { registarEvento } from "@/features/auditoria/registar";
 import { registarConsentimento } from "./consentimentos";
-import { registarNotificacao } from "@/features/notificacoes/acoes";
+import { registarNotificacao } from "@/features/notificacoes/servico";
 import {
   acessoPorToken,
   motivoDoAcesso,

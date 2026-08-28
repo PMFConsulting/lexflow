@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
-import { notificacao, notificacoesPendentes } from "@/db/schema/notificacao";
+import { notificacao } from "@/db/schema/notificacao";
 import { organizacao } from "@/db/schema/organizacao";
 import {
   eSuperAdmin,
@@ -22,59 +22,42 @@ async function contexto() {
 }
 
 /**
- * Cria uma notificação in-app (visível no badge/sino e na página /notificacoes).
- *
- * Nunca propaga exceção para não interromper a operação principal caso a escrita falhe.
+ * `registarNotificacao` e `enfileirarNotificacaoPendente` viviam aqui e eram as
+ * únicas 2 de 53 Server Actions sem `exigirSessao()` — qualquer visitante
+ * anónimo podia fazer `POST` diretamente à sua referência e escrever
+ * notificações in-app com `link` arbitrário (R2-01, pentest ronda 2). Não
+ * precisavam de sessão própria por serem chamadas de dentro de outra ação já
+ * autenticada — o que precisavam era de não ser Server Actions. Mudaram-se
+ * para `./servico.ts`, um módulo sem `"use server"`, que o Next não regista
+ * como endpoint nenhum.
  */
-export async function registarNotificacao({
-  organizacaoId,
-  paraPapel,
-  titulo,
-  corpo,
-  link,
-}: {
-  organizacaoId?: string | null;
-  paraPapel?: string | null;
-  titulo: string;
-  corpo: string;
-  link?: string | null;
-}): Promise<void> {
-  try {
-    await db().insert(notificacao).values({
-      organizacaoId: organizacaoId ?? null,
-      paraPapel: paraPapel ?? null,
-      titulo,
-      corpo,
-      link: link ?? null,
-    });
-  } catch (e) {
-    console.error("[notificacoes] falha ao registar notificação in-app:", e);
-  }
-}
 
 /**
- * Enfileira uma notificação pendente para o Resumo Diário do Dono da plataforma.
+ * A audiência de uma notificação, para quem não é `super_admin` — a mesma
+ * regra de `consultarNotificacoes` em `./consultas.ts`, e não uma nova: as
+ * duas decidem "isto é meu?" e tinham de decidir da mesma forma, ou marcar
+ * como lida deixava de significar o mesmo que ver na lista.
  *
- * Nunca propaga exceção para não interromper a operação principal.
+ * Sem esta segunda condição, uma notificação global (`organizacaoId IS NULL`)
+ * dirigida ao `paraPapel: "super_admin"` ficava marcável por qualquer conta de
+ * qualquer sociedade — bastava-lhe adivinhar ou iterar o id — e escondia
+ * avisos da administração da plataforma de quem os devia ver (R2-05, pentest
+ * ronda 2). Um `paraPapel` nulo ou `"sociedade"`, ou igual ao papel de quem
+ * pede, continua a contar como seu: são as difusões legítimas para toda a
+ * equipa.
  */
-export async function enfileirarNotificacaoPendente({
-  tipo,
-  organizacaoId,
-  dados,
-}: {
-  tipo: string;
-  organizacaoId?: string | null;
-  dados: Record<string, unknown>;
-}): Promise<void> {
-  try {
-    await db().insert(notificacoesPendentes).values({
-      tipo,
-      organizacaoId: organizacaoId ?? null,
-      dados,
-    });
-  } catch (e) {
-    console.error("[notificacoes] falha ao enfileirar notificação pendente:", e);
-  }
+function audienciaDaOrganizacao(eu: { papel: string; organizacaoId: string }) {
+  return and(
+    or(
+      eq(notificacao.organizacaoId, eu.organizacaoId),
+      isNull(notificacao.organizacaoId),
+    ),
+    or(
+      isNull(notificacao.paraPapel),
+      eq(notificacao.paraPapel, eu.papel),
+      eq(notificacao.paraPapel, "sociedade"),
+    ),
+  );
 }
 
 /**
@@ -98,10 +81,7 @@ export async function marcarNotificacaoComoLida(id: string): Promise<{ ok: boole
           and(
             eq(notificacao.id, id),
             isNull(notificacao.lidaEm),
-            or(
-              eq(notificacao.organizacaoId, eu.organizacaoId),
-              isNull(notificacao.organizacaoId),
-            ),
+            audienciaDaOrganizacao({ papel: eu.papel, organizacaoId: eu.organizacaoId }),
           ),
         );
     }
@@ -136,10 +116,7 @@ export async function marcarTodasComoLidas(): Promise<{ ok: boolean }> {
         .where(
           and(
             isNull(notificacao.lidaEm),
-            or(
-              eq(notificacao.organizacaoId, eu.organizacaoId),
-              isNull(notificacao.organizacaoId),
-            ),
+            audienciaDaOrganizacao({ papel: eu.papel, organizacaoId: eu.organizacaoId }),
           ),
         );
     }

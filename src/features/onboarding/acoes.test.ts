@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { limparLimites } from "@/lib/limites";
 import { VERSAO_TERMOS } from "@/lib/termos";
+import { gerarPngDataUrl } from "@/test/png";
 import type { AcessoOnboarding } from "./dados";
 
 /**
@@ -27,7 +28,7 @@ import type { AcessoOnboarding } from "./dados";
 
 const AGORA = new Date("2026-08-10T12:00:00.000Z");
 const TOKEN = "abcDEF123_-abcDEF123_-abcDEF123_-abcDEF123x";
-const RUBRICA = `data:image/png;base64,${"iVBORw0KGgoAAAANSUhEUg".repeat(4)}`;
+const RUBRICA = gerarPngDataUrl(300, 100);
 
 type Linha = Record<string, unknown>;
 

@@ -180,7 +180,7 @@ export function emailNotificacaoNovoUtilizador({
 import {
   registarNotificacao,
   enfileirarNotificacaoPendente,
-} from "@/features/notificacoes/acoes";
+} from "@/features/notificacoes/servico";
 
 /**
  * Notifica a criação de uma nova sociedade (Frente P):

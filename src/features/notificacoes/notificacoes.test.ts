@@ -107,6 +107,8 @@ import {
 import {
   registarNotificacao,
   enfileirarNotificacaoPendente,
+} from "./servico";
+import {
   marcarNotificacaoComoLida,
   marcarTodasComoLidas,
   alterarPreferenciaNotificacaoSubmissoes,
@@ -202,6 +204,28 @@ describe("Frente P: Notificações in-app e resumo diário", () => {
       expect(res.ok).toBe(true);
       expect(res.valor).toBe(true);
       expect(atualizados.find((a) => a.tabela === "organizacao")?.valores.notificarSubmissoesEmail).toBe(true);
+    });
+
+    it("R2-01: registarNotificacao e enfileirarNotificacaoPendente não são exportadas de './acoes' — não podem voltar a ser Server Actions", async () => {
+      /*
+       * `acoes.ts` tem `"use server"` no topo: o Next regista automaticamente
+       * como Server Action pública toda a função `async` que esse ficheiro
+       * exportar, com o próprio nome/id da função a servir de endpoint, sem
+       * qualquer guarda a menos que o código a escreva. Foi assim que um `POST`
+       * anónimo ao `Next-Action` de `registarNotificacao` e de
+       * `enfileirarNotificacaoPendente` conseguia escrever notificações in-app
+       * e entradas na fila sem sessão nenhuma (R2-01, pentest ronda 2) — eram
+       * as únicas 2 das 53 Server Actions sem `exigirSessao()`.
+       *
+       * O fix não foi acrescentar `exigirSessao()`: as duas só são chamadas de
+       * dentro de outra ação já autenticada, nunca precisaram de sessão
+       * própria. O que precisavam era de deixar de ser alcançáveis por fora —
+       * por isso mudaram-se para `./servico.ts`, um módulo sem `"use server"`.
+       * Este teste falha se alguém as voltar a exportar daqui.
+       */
+      const acoes = await import("./acoes");
+      expect((acoes as Record<string, unknown>).registarNotificacao).toBeUndefined();
+      expect((acoes as Record<string, unknown>).enfileirarNotificacaoPendente).toBeUndefined();
     });
   });
 
