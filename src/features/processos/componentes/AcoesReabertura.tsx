@@ -11,14 +11,12 @@ export function AcoesReabertura({
   estado,
 }: {
   processoId: string;
-  estado: "aprovado" | "arquivado" | "rejeitado";
+  estado: "arquivado" | "rejeitado";
 }) {
   const descricao =
     estado === "rejeitado"
       ? "Este processo foi rejeitado. Pode reabrir o caso para permitir ao cliente corrigir ou complementar a informação submetida."
-      : estado === "aprovado"
-        ? "Este processo foi aprovado. Pode reabrir o caso se for necessário retificar os dados ou solicitar novos documentos."
-        : "Este processo foi arquivado. Pode reabrir o caso para retomar a revisão dos dados.";
+      : "Este processo foi arquivado. Pode reabrir o caso para retomar a revisão dos dados.";
 
   return (
     <Card>

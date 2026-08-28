@@ -220,10 +220,9 @@ export function DetalheProcesso({
           {papelAtual === "society_admin" && (
             <BotaoExportarPdf processoId={processo.id} referencia={processo.referencia} />
           )}
+          {/* aprovado é terminal: sem botão de reabertura (imutabilidade definitiva). */}
           {podeReabrirEfetivo &&
-            (processo.estado === "aprovado" ||
-              processo.estado === "arquivado" ||
-              processo.estado === "rejeitado") && (
+            (processo.estado === "arquivado" || processo.estado === "rejeitado") && (
               <BotaoReabrirProcesso processoId={processo.id} />
             )}
         </div>
@@ -249,6 +248,24 @@ export function DetalheProcesso({
 
       <Separator />
 
+      {/* ── aviso de processo imutável ────────────────────────────────── */}
+      {(processo.estado === "aprovado" || processo.estado === "arquivado") && (
+        <Card className="border-arquivo/40 bg-arquivo/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              Processo fechado
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              {processo.estado === "aprovado"
+                ? "Processo aprovado — já não pode ser alterado. Os dados, documentos e a proposta comercial ficam trancados para sempre."
+                : "Processo arquivado — os dados e documentos ficam trancados."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── decisão ───────────────────────────────────────────────────── */}
       {processo.estado === "aguardar_aprovacao" && podeAprovar && (
         <AcoesAprovacao processoId={processo.id} />
@@ -267,10 +284,9 @@ export function DetalheProcesso({
       )}
 
       {/* ── reabertura ─────────────────────────────────────────────────── */}
+      {/* aprovado não reabre: um processo aprovado é definitivo. */}
       {podeReabrirEfetivo &&
-        (processo.estado === "aprovado" ||
-          processo.estado === "arquivado" ||
-          processo.estado === "rejeitado") && (
+        (processo.estado === "arquivado" || processo.estado === "rejeitado") && (
           <AcoesReabertura processoId={processo.id} estado={processo.estado} />
         )}
 

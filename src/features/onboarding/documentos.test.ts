@@ -96,6 +96,16 @@ beforeEach(() => {
 });
 
 describe("removerDocumento — Guardas de Estado (BUG-004)", () => {
+  it("recusa remoção de documento quando o processo está aprovado (imutabilidade definitiva)", async () => {
+    estadoProcesso = "aprovado";
+    documentos = [{ id: "doc-1", nomeOriginal: "cc.pdf", tipo: "identificacao" }];
+
+    const r = await removerDocumento("tok-1", "doc-1");
+
+    expect(r.ok).toBe(false);
+    expect(r.erro).toBe("Este processo já foi submetido.");
+  });
+
   it("recusa remoção de documento quando o processo já está submetido", async () => {
     estadoProcesso = "submetido";
     documentos = [{ id: "doc-1", nomeOriginal: "cc.pdf", tipo: "identificacao" }];

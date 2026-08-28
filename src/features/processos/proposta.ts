@@ -87,7 +87,24 @@ export async function carregarPropostaComercial(
   }
 
   if (processo.estado === "aprovado" || processo.estado === "arquivado") {
-    return { ok: false, erro: "Processo aprovado — já não é editável." };
+    // Mesma mensagem das restantes ações de imutabilidade. A tentativa já fica
+    // registada pela auditoria do detalhe? Não — esta ação é independente, e a
+    // recusa de um upload num dossier fechado também merece rasto.
+    try {
+      await registarEvento({
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+        atorId: eu.id,
+        acao: "processo.edicao_recusada",
+        entidade: "processo_onboarding",
+        entidadeId: processo.id,
+        valorAnterior: { estado: processo.estado },
+        valorNovo: { alvo: "proposta_comercial" },
+      });
+    } catch (e) {
+      console.error(`[processo] ${processo.referencia}: falhou auditoria de tentativa de upload da proposta`, e);
+    }
+    return { ok: false, erro: "Processo aprovado — já não pode ser alterado." };
   }
 
   const bytes = Buffer.from(await ficheiro.arrayBuffer());

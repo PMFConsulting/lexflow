@@ -117,9 +117,12 @@ export default async function Submetido({
       estado: "feita",
     },
     {
-      titulo: "Análise e aprovação pela equipa",
-      descricao: "Recebe um email assim que o processo for decidido.",
-      estado: "atual",
+      titulo: processo.estado === "aprovado" ? "Aprovação concluída" : "Análise e aprovação pela equipa",
+      descricao:
+        processo.estado === "aprovado"
+          ? "O processo foi aprovado — ficou concluído e já não pode ser alterado."
+          : "Recebe um email assim que o processo for decidido.",
+      estado: "feita" as EstadoEtapa,
     },
     {
       titulo: "Boas-vindas, se aprovado",

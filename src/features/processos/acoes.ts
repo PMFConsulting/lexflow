@@ -766,12 +766,17 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
  * Reabre um processo (Frente M): muda o estado, renova o acesso do cliente,
  * grava o motivo na auditoria e notifica o cliente por email com o modelo de reabertura.
  *
- * Apenas permitido para processos nos estados `aprovado`, `arquivado` ou `rejeitado`.
+ * Apenas permitido para processos nos estados `arquivado` ou `rejeitado`.
  *
  * Transições de estado:
- * - `aprovado` -> `em_revisao`
  * - `arquivado` -> `em_revisao`
  * - `rejeitado` -> `pendente_cliente`
+ *
+ * **`aprovado` não reabre** (imutabilidade definitiva): um processo aprovado é
+ * um dossier fechado — a aprovação é a decisão final da sociedade sobre a
+ * identificação do cliente, e um estado que se rebenta a pedido desfaz o que
+ * `aprovado_em`/`aprovado_por` dizem ter acontecido. A tentativa fica em
+ * auditoria e a ação responde com a mensagem de processo imutável.
  */
 export async function reabrirProcesso(
   id: string,
@@ -804,15 +809,49 @@ export async function reabrirProcesso(
     return falha("Processo não encontrado.");
   }
 
+  /*
+   * `aprovado` saiu do mapa de reabertura (imutabilidade definitiva): o
+   * processo aprovado não volta a `em_revisao`, nem por botão nem por chamada
+   * direta à ação. A tentativa fica registada em auditoria (D46) e a resposta
+   * é a mesma mensagem que as restantes ações recusam.
+   */
+  if (processo.estado === "aprovado") {
+    let ipTentativa: string | null = null;
+    let userAgentTentativa: string | null = null;
+    try {
+      const h = await headers();
+      ipTentativa = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+      userAgentTentativa = h.get("user-agent") ?? null;
+    } catch {
+      // Headers outside request context
+    }
+    try {
+      await registarEvento({
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+        atorId: eu.id,
+        acao: "processo.reabertura_recusada",
+        entidade: "processo_onboarding",
+        entidadeId: processo.id,
+        valorAnterior: { estado: processo.estado },
+        valorNovo: { motivo },
+        ip: ipTentativa,
+        userAgent: userAgentTentativa,
+      });
+    } catch (e) {
+      console.error(`[processo] ${processo.referencia}: falhou auditoria de tentativa de reabertura`, e);
+    }
+    return falha("Processo aprovado — já não pode ser alterado.");
+  }
+
   const ESTADOS_REABERTURA: Record<string, "em_revisao" | "pendente_cliente"> = {
-    aprovado: "em_revisao",
     arquivado: "em_revisao",
     rejeitado: "pendente_cliente",
   };
 
   const novoEstado = ESTADOS_REABERTURA[processo.estado];
   if (!novoEstado) {
-    return falha("Apenas processos aprovados, arquivados ou rejeitados podem ser reabertos.");
+    return falha("Apenas processos arquivados ou rejeitados podem ser reabertos.");
   }
 
   const { token, hash } = novoTokenAcesso();
@@ -953,7 +992,26 @@ export async function atualizarSeccaoProcesso(
   }
 
   if (processo.estado === "aprovado" || processo.estado === "arquivado") {
-    return { ok: false, erro: "Processo aprovado — já não é editável." };
+    /*
+     * A recusa não fica silenciosa: a tentativa de editar um dossier fechado
+     * fica em auditoria (D46), com o passo que se tentou gravar — é a prova de
+     * quem tentou, quando e por onde.
+     */
+    try {
+      await registarEvento({
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+        atorId: eu.id,
+        acao: "processo.edicao_recusada",
+        entidade: "processo_onboarding",
+        entidadeId: processo.id,
+        valorAnterior: { estado: processo.estado },
+        valorNovo: { passo },
+      });
+    } catch (e) {
+      console.error(`[processo] ${processo.referencia}: falhou auditoria de tentativa de edição`, e);
+    }
+    return { ok: false, erro: "Processo aprovado — já não pode ser alterado." };
   }
 
   let ip: string | null = null;

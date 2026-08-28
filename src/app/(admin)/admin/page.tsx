@@ -4,7 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Ref } from "@/components/ref-processo";
 import { cn } from "@/lib/utils";
 import { NovaSociedade } from "@/features/plataforma/componentes/NovaSociedade";
-import { listarSociedades, numerosDaPlataforma } from "@/features/plataforma/consultas";
+import {
+  listarSociedades,
+  numerosDaPlataforma,
+  reparticaoProcessosPorEstado,
+} from "@/features/plataforma/consultas";
 
 export const metadata = { title: "Plataforma" };
 
@@ -18,7 +22,27 @@ export const metadata = { title: "Plataforma" };
  * comodidade que só se pode dar tendo este contador.
  */
 export default async function PainelDaPlataforma() {
-  const [n, sociedades] = await Promise.all([numerosDaPlataforma(), listarSociedades()]);
+  const [n, sociedades, reparticao] = await Promise.all([
+    numerosDaPlataforma(),
+    listarSociedades(),
+    reparticaoProcessosPorEstado(),
+  ]);
+
+  /**
+   * Repartição dos processos por estado, na ordem do enum `estado_processo`.
+   * O rótulo é o mesmo do `EstadoBadge` para o painel e os processos dizerem
+   * sempre a mesma coisa com os mesmos nomes.
+   */
+  const porEstado = [
+    { estado: "rascunho", rotulo: "Rascunho", valor: reparticao.rascunho },
+    { estado: "pendente_cliente", rotulo: "Pendente cliente", valor: reparticao.pendente_cliente },
+    { estado: "submetido", rotulo: "Submetido", valor: reparticao.submetido },
+    { estado: "aguardar_aprovacao", rotulo: "Aguardar aprovação", valor: reparticao.aguardar_aprovacao },
+    { estado: "em_revisao", rotulo: "Em revisão", valor: reparticao.em_revisao },
+    { estado: "aprovado", rotulo: "Aprovado", valor: reparticao.aprovado },
+    { estado: "rejeitado", rotulo: "Rejeitado", valor: reparticao.rejeitado },
+    { estado: "arquivado", rotulo: "Arquivado", valor: reparticao.arquivado },
+  ];
 
   const tiles = [
     { rotulo: "Sociedades", valor: n.sociedades, nota: "inquilinos da plataforma", href: "/admin/sociedades" },
@@ -97,6 +121,31 @@ export default async function PainelDaPlataforma() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Processos por estado{" "}
+            <span className="text-xs font-normal text-muted-foreground">
+              ({n.processos} no total, {n.sociedades} sociedades, {n.contas} contas)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {porEstado.map((e) => (
+              <Link
+                key={e.estado}
+                href={`/admin/processos?estado=${e.estado}`}
+                className="border-linha hover:border-marca/50 flex items-baseline gap-2 rounded-sm border px-3 py-2 transition-colors"
+              >
+                <span className="font-mono text-lg leading-none tabular-nums">{e.valor}</span>
+                <span className="text-xs text-muted-foreground">{e.rotulo}</span>
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">

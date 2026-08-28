@@ -411,6 +411,37 @@ export async function numerosDaPlataforma() {
   };
 }
 
+/**
+ * Repartição de todos os processos da plataforma por estado.
+ *
+ * Uma contagem agrupada por `estado` — os valores vêm do enum `estado_processo`
+ * e o devolvido é um objeto com todas as chaves a zero por omissão, para o
+ * painel nunca renderizar `undefined` num estado que ainda não tem processos.
+ * Usa a mesma cláusula de vivos de `numerosDaPlataforma` (`apagado_em is null`).
+ */
+export async function reparticaoProcessosPorEstado() {
+  const linhas = await db()
+    .select({ estado: processoOnboarding.estado, n: count() })
+    .from(processoOnboarding)
+    .where(isNull(processoOnboarding.apagadoEm))
+    .groupBy(processoOnboarding.estado);
+
+  const reparticao: Record<(typeof processoOnboarding.estado.enumValues)[number], number> = {
+    rascunho: 0,
+    submetido: 0,
+    aguardar_aprovacao: 0,
+    em_revisao: 0,
+    pendente_cliente: 0,
+    aprovado: 0,
+    rejeitado: 0,
+    arquivado: 0,
+  };
+  for (const linha of linhas) {
+    reparticao[linha.estado] = linha.n;
+  }
+  return reparticao;
+}
+
 /** Os processos da sociedade para o portal do utilizador (`/meus-processos`). */
 export async function processosDaSociedade(organizacaoId: string, limite = 100) {
   return db()

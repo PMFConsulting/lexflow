@@ -180,32 +180,6 @@ describe("reabrirProcesso", () => {
     );
   });
 
-  it("reabre com sucesso um processo aprovado -> transita para em_revisao", async () => {
-    linhas["processo_onboarding"] = [PROCESSO({ estado: "aprovado" })];
-
-    const r = await reabrirProcesso("proc-1", "Necessário retificar dados fiscais.");
-
-    expect(r).toEqual({ ok: true });
-    expect(atualizacoes).toContainEqual({
-      tabela: "processo_onboarding",
-      valores: expect.objectContaining({
-        estado: "em_revisao",
-        tokenAcessoHash: "sha256-do-token-reaberto",
-        apagadoEm: null,
-      }),
-    });
-    expect(auditados).toContainEqual(
-      expect.objectContaining({
-        acao: "reabertura",
-        valorAnterior: { estado: "aprovado" },
-        valorNovo: {
-          estado: "em_revisao",
-          motivo: "Necessário retificar dados fiscais.",
-        },
-      }),
-    );
-  });
-
   it("reabre com sucesso um processo arquivado -> transita para em_revisao", async () => {
     linhas["processo_onboarding"] = [PROCESSO({ estado: "arquivado" })];
 
@@ -232,6 +206,26 @@ describe("reabrirProcesso", () => {
     );
   });
 
+  it("NÃO reabre um processo aprovado — aprovado é terminal (imutabilidade definitiva)", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "aprovado" })];
+
+    const r = await reabrirProcesso("proc-1", "Necessário retificar dados fiscais.");
+
+    expect(r).toEqual({
+      ok: false,
+      erro: "Processo aprovado — já não pode ser alterado.",
+    });
+    expect(atualizacoes).toHaveLength(0);
+    // A tentativa fica registada em auditoria (D46).
+    expect(auditados).toContainEqual(
+      expect.objectContaining({
+        acao: "processo.reabertura_recusada",
+        valorAnterior: { estado: "aprovado" },
+      }),
+    );
+    expect(enviados).toHaveLength(0);
+  });
+
   it.each([
     "rascunho",
     "submetido",
@@ -245,7 +239,7 @@ describe("reabrirProcesso", () => {
 
     expect(r).toEqual({
       ok: false,
-      erro: "Apenas processos aprovados, arquivados ou rejeitados podem ser reabertos.",
+      erro: "Apenas processos arquivados ou rejeitados podem ser reabertos.",
     });
     expect(atualizacoes).toHaveLength(0);
     expect(auditados).toHaveLength(0);

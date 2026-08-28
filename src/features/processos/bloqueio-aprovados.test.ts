@@ -98,7 +98,7 @@ describe("bloqueio de edição de processos aprovados ou arquivados (Frente D)",
 
     expect(res).toEqual({
       ok: false,
-      erro: "Processo aprovado — já não é editável.",
+      erro: "Processo aprovado — já não pode ser alterado.",
     });
   });
 
@@ -111,7 +111,7 @@ describe("bloqueio de edição de processos aprovados ou arquivados (Frente D)",
 
     expect(res).toEqual({
       ok: false,
-      erro: "Processo aprovado — já não é editável.",
+      erro: "Processo aprovado — já não pode ser alterado.",
     });
   });
 
@@ -138,7 +138,23 @@ describe("bloqueio de edição de processos aprovados ou arquivados (Frente D)",
 
     expect(res).toEqual({
       ok: false,
-      erro: "Processo aprovado — já não é editável.",
+      erro: "Processo aprovado — já não pode ser alterado.",
     });
+  });
+
+  it("registra em auditoria a tentativa de edição de um processo aprovado (D46)", async () => {
+    processoMock!.estado = "aprovado";
+
+    await atualizarSeccaoProcesso("proc-1", 3, { nome: "Representante" });
+
+    expect(auditados).toContainEqual(
+      expect.objectContaining({
+        acao: "processo.edicao_recusada",
+        entidade: "processo_onboarding",
+        entidadeId: "proc-1",
+        valorAnterior: { estado: "aprovado" },
+        valorNovo: { passo: 3 },
+      }),
+    );
   });
 });
