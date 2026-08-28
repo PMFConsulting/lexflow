@@ -27,7 +27,7 @@ export function SinoNotificacoes({
         >
           <Bell className="size-4.5" />
           {temNaoLidas && (
-            <span className="bg-selo absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[10px] font-bold text-white shadow-xs">
+            <span className="bg-selo absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-2xs font-bold text-papel-alto shadow-xs">
               {contagemNaoLidas > 99 ? "99+" : contagemNaoLidas}
             </span>
           )}

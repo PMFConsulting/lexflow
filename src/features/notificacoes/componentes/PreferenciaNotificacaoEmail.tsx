@@ -59,7 +59,7 @@ export function PreferenciaNotificacaoEmail({
       </div>
 
       {mensagemSucesso && (
-        <div className="mt-3 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+        <div className="mt-3 flex items-center gap-1.5 text-xs text-arquivo">
           <ShieldCheck className="size-3.5" />
           <span>{mensagemSucesso}</span>
         </div>

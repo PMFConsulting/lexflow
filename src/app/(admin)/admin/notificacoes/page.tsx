@@ -17,7 +17,7 @@ export default async function PaginaNotificacoesAdmin() {
           <Bell className="text-verdete size-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-serif">Notificações da Plataforma</h1>
+          <h1 className="text-2xl">Notificações da Plataforma</h1>
           <p className="text-tinta-suave text-xs">
             Visão transversal de eventos, criação de sociedades, utilizadores e submissões em todas as sociedades.
           </p>

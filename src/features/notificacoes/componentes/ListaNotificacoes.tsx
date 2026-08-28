@@ -157,12 +157,12 @@ export function ListaNotificacoes({
                         {item.titulo}
                       </p>
                       {naoLida && (
-                        <span className="bg-selo/15 text-selo inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-medium">
+                        <span className="bg-selo/15 text-selo inline-flex items-center rounded-full px-2 py-0.5 font-mono text-2xs font-medium">
                           Nova
                         </span>
                       )}
                       {superAdmin && item.organizacaoNome && (
-                        <span className="bg-papel text-tinta-suave border-linha inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px]">
+                        <span className="bg-papel text-tinta-suave border-linha inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-2xs">
                           {item.organizacaoNome}
                         </span>
                       )}
@@ -173,7 +173,7 @@ export function ListaNotificacoes({
                     </p>
 
                     <div className="mt-2 flex flex-wrap items-center gap-3">
-                      <span className="text-tinta-suave/80 font-mono text-[11px] tabular-nums">
+                      <span className="text-tinta-suave/80 font-mono text-xs tabular-nums">
                         {formatadorDataHora.format(new Date(item.criadoEm))}
                       </span>
 

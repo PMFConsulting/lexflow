@@ -17,7 +17,7 @@ export default async function PaginaNotificacoesBackoffice() {
           <Bell className="text-verdete size-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-serif">Notificações</h1>
+          <h1 className="text-2xl">Notificações</h1>
           <p className="text-tinta-suave text-xs">
             Avisos de submissão de processos, novos utilizadores e eventos da sociedade.
           </p>
