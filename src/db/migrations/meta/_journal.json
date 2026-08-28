@@ -176,6 +176,13 @@
       "when": 1788200000000,
       "tag": "0024_auditoria_bloqueio_truncate",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788300000000,
+      "tag": "0025_multi_sociedade_e_notificacoes",
+      "breakpoints": true
     }
   ]
 }

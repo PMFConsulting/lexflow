@@ -218,7 +218,7 @@ export const utilizador = pgTable(
     organizacaoId: uuid("organizacao_id").references(() => organizacao.id, {
       onDelete: "restrict",
     }),
-    authUserId: text("auth_user_id").unique(),
+    authUserId: text("auth_user_id"),
     nome: text("nome").notNull(),
     email: text("email").notNull(),
     /**
@@ -293,6 +293,15 @@ export const utilizador = pgTable(
      */
     uniqueIndex("utilizador_email_plataforma")
       .on(t.email)
+      .where(sql`${t.organizacaoId} is null`),
+    /**
+     * Unicidade de auth_user_id por organização (migração 0025):
+     * Permite que a mesma conta de autenticação (Better Auth) seja admin de
+     * múltiplas sociedades sem colidir globalmente.
+     */
+    uniqueIndex("utilizador_auth_org").on(t.organizacaoId, t.authUserId),
+    uniqueIndex("utilizador_auth_plataforma")
+      .on(t.authUserId)
       .where(sql`${t.organizacaoId} is null`),
     index("utilizador_org").on(t.organizacaoId),
     index("utilizador_gestor_id_idx").on(t.gestorId),

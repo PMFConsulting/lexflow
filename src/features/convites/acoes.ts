@@ -28,6 +28,7 @@ import {
   proximoPassoConvite,
   TOTAL_PASSOS_CONVITE,
 } from "./passos";
+import { notificarDonoNovoUtilizador } from "@/lib/emails/notificacoes-dono";
 
 /**
  * As Server Actions do registo de uma pessoa da equipa.
@@ -411,21 +412,23 @@ export async function concluirConvite(
 
   try {
     utilizadorId = await base.transaction(async (tx) => {
-      const [noutraOrg] = await tx
-        .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
-        .from(utilizador)
-        .where(
-          and(
-            eq(utilizador.email, email),
-            ne(utilizador.organizacaoId, org.id),
-          ),
-        )
-        .limit(1);
+      if (convite.papel !== "society_admin") {
+        const [noutraOrg] = await tx
+          .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
+          .from(utilizador)
+          .where(
+            and(
+              eq(utilizador.email, email),
+              ne(utilizador.organizacaoId, org.id),
+            ),
+          )
+          .limit(1);
 
-      if (noutraOrg) {
-        throw new Error(
-          "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
-        );
+        if (noutraOrg) {
+          throw new Error(
+            "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+          );
+        }
       }
 
       const [contaExistente] = await tx
@@ -436,21 +439,23 @@ export async function concluirConvite(
 
       let authUserId: string;
       if (contaExistente) {
-        const [noutraPorAuth] = await tx
-          .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
-          .from(utilizador)
-          .where(
-            and(
-              eq(utilizador.authUserId, contaExistente.id),
-              ne(utilizador.organizacaoId, org.id),
-            ),
-          )
-          .limit(1);
+        if (convite.papel !== "society_admin") {
+          const [noutraPorAuth] = await tx
+            .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
+            .from(utilizador)
+            .where(
+              and(
+                eq(utilizador.authUserId, contaExistente.id),
+                ne(utilizador.organizacaoId, org.id),
+              ),
+            )
+            .limit(1);
 
-        if (noutraPorAuth) {
-          throw new Error(
-            "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
-          );
+          if (noutraPorAuth) {
+            throw new Error(
+              "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+            );
+          }
         }
 
         authUserId = contaExistente.id;
@@ -605,6 +610,14 @@ export async function concluirConvite(
   }).catch((e) =>
     console.error("[convite] audit write failed on completion", { erro: String(e) }),
   );
+
+  await notificarDonoNovoUtilizador({
+    nome,
+    email,
+    sociedadeNome: org.nome,
+    papel: convite.papel,
+    organizacaoId: org.id,
+  });
 
   try {
     revalidatePath(`/convite/${token}`, "layout");

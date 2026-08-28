@@ -237,23 +237,25 @@ export async function criarConta(
 
     /* --- verificação de colisão global --------------------------------- */
 
-    const [noutraSociedade] = await t
-      .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
-      .from(utilizador)
-      .where(
-        pedido.organizacaoId
-          ? and(
-              eq(utilizador.email, email),
-              ne(utilizador.organizacaoId, pedido.organizacaoId),
-            )
-          : isNotNull(utilizador.organizacaoId),
-      )
-      .limit(1);
+    if (pedido.papel !== "society_admin") {
+      const [noutraSociedade] = await t
+        .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
+        .from(utilizador)
+        .where(
+          pedido.organizacaoId
+            ? and(
+                eq(utilizador.email, email),
+                ne(utilizador.organizacaoId, pedido.organizacaoId),
+              )
+            : isNotNull(utilizador.organizacaoId),
+        )
+        .limit(1);
 
-    if (noutraSociedade) {
-      throw new ErroDeConta(
-        "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
-      );
+      if (noutraSociedade) {
+        throw new ErroDeConta(
+          "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+        );
+      }
     }
 
     /* --- a conta do Better Auth ------------------------------------------ */
@@ -267,23 +269,25 @@ export async function criarConta(
     let authUserId: string;
 
     if (contaExistente) {
-      const [noutraPorAuth] = await t
-        .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
-        .from(utilizador)
-        .where(
-          pedido.organizacaoId
-            ? and(
-                eq(utilizador.authUserId, contaExistente.id),
-                ne(utilizador.organizacaoId, pedido.organizacaoId),
-              )
-            : isNotNull(utilizador.organizacaoId),
-        )
-        .limit(1);
+      if (pedido.papel !== "society_admin") {
+        const [noutraPorAuth] = await t
+          .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
+          .from(utilizador)
+          .where(
+            pedido.organizacaoId
+              ? and(
+                  eq(utilizador.authUserId, contaExistente.id),
+                  ne(utilizador.organizacaoId, pedido.organizacaoId),
+                )
+              : isNotNull(utilizador.organizacaoId),
+          )
+          .limit(1);
 
-      if (noutraPorAuth) {
-        throw new ErroDeConta(
-          "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
-        );
+        if (noutraPorAuth) {
+          throw new ErroDeConta(
+            "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+          );
+        }
       }
 
       authUserId = contaExistente.id;

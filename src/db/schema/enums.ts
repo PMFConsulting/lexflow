@@ -180,6 +180,13 @@ export const templateEmail = pgEnum("template_email", [
    * No fim do array porque é aí que o `ALTER TYPE ADD VALUE` o põe.
    */
   "credenciais_acesso",
+  /**
+   * Décimo primeiro e décimo segundo: notificações operacionais enviadas ao
+   * Dono da plataforma (EMAIL_NOTIFICACOES) aquando da criação de uma sociedade
+   * e da integração de um novo utilizador.
+   */
+  "notificacao_sociedade_criada",
+  "notificacao_novo_utilizador",
 ]);
 
 /**

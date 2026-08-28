@@ -436,6 +436,10 @@ async function main() {
 
   await validarEmailModelos(falhas);
 
+  /* ---------------------------------- a 0025 multi-sociedade e notificações - */
+
+  await validarMultiSociedadeENotificacoes(falhas);
+
   if (falhas.length > 0) {
     console.error(`\n${falhas.length} problema(s):`);
     for (const f of falhas) console.error(`  · ${f}`);
@@ -521,6 +525,92 @@ async function validarEmailModelos(falhas: string[]) {
   await db.close();
 
   console.log("Modelos de email: tabela email_modelo criada com sucesso; unicidade (org, template) e idempotência garantidas.");
+}
+
+/**
+ * A `0025` sobre uma base existente:
+ * - A constraint global `utilizador_auth_user_id_unique` é removida.
+ * - O mesmo `auth_user_id` passa a ser aceite em sociedades diferentes.
+ * - Restrição UNIQUE(organizacao_id, auth_user_id) impede duplicados na mesma sociedade.
+ * - Restrição parcial de super_admin impede múltiplos super_admin com o mesmo auth_user_id.
+ * - Novos valores de template_email são adicionados.
+ * - Idempotência garantida na reaplicação.
+ */
+async function validarMultiSociedadeENotificacoes(falhas: string[]) {
+  const db = new PGlite({ extensions: { unaccent } });
+  await db.waitReady;
+
+  // Aplica até à 0024
+  await aplicar(db, { ate: 24 });
+
+  await db.exec(`
+    insert into organizacao (id, nome, nif, prefixo_referencia)
+    values
+      ('fe6c269c-5358-43f9-8a7e-ccade4778940', 'PMF Consulting', '500000000', 'PMF'),
+      ('fe6c269c-5358-43f9-8a7e-ccade4778941', 'Outra Sociedade', '500000001', 'OUT');
+
+    insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, aprovado_em)
+    values
+      ('01920000-0000-7000-8000-000000000601', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'auth_multi', 'Admin PMF', 'admin@dono.pt', 'society_admin', now());
+  `);
+
+  // Aplica a 0025 duas vezes para testar idempotência
+  for (const passagem of [1, 2]) {
+    for (const bloco of instrucoes("0025_multi_sociedade_e_notificacoes")) {
+      try {
+        await db.exec(bloco);
+      } catch (e) {
+        falhas.push(
+          `a 0025 falhou na passagem ${passagem} (não é idempotente): ${(e as Error).message}`,
+        );
+        await db.close();
+        return;
+      }
+    }
+  }
+
+  // Agora deve ser permitido inserir o MESMO auth_user_id noutra organização (multi-sociedade)
+  try {
+    await db.exec(`
+      insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, aprovado_em)
+      values ('01920000-0000-7000-8000-000000000602', 'fe6c269c-5358-43f9-8a7e-ccade4778941', 'auth_multi', 'Admin Outra', 'admin@dono.pt', 'society_admin', now());
+    `);
+  } catch (e) {
+    falhas.push(`Multi-sociedade com mesmo auth_user_id falhou ao inserir em segunda organização: ${(e as Error).message}`);
+  }
+
+  const recusa = async (descricao: string, sql: string) => {
+    try {
+      await db.exec(sql);
+      falhas.push(`${descricao} — devia ter sido recusado e passou`);
+    } catch {
+      /* recusado, esperado */
+    }
+  };
+
+  // Recusa inserção duplicada do mesmo auth_user_id na MESMA organização
+  await recusa(
+    "duplicado de auth_user_id na mesma organização",
+    `insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, aprovado_em)
+     values ('01920000-0000-7000-8000-000000000603', 'fe6c269c-5358-43f9-8a7e-ccade4778940', 'auth_multi', 'Admin Duplicado', 'outro_email@dono.pt', 'society_admin', now())`,
+  );
+
+  // Insere um super_admin com auth_super
+  await db.exec(`
+    insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, aprovado_em)
+    values ('01920000-0000-7000-8000-000000000604', null, 'auth_super', 'Super Dono', 'super@plataforma.pt', 'super_admin', now());
+  `);
+
+  // Recusa segundo super_admin com o mesmo auth_user_id
+  await recusa(
+    "segundo super_admin com o mesmo auth_user_id",
+    `insert into utilizador (id, organizacao_id, auth_user_id, nome, email, papel, aprovado_em)
+     values ('01920000-0000-7000-8000-000000000605', null, 'auth_super', 'Outro Super', 'super2@plataforma.pt', 'super_admin', now())`,
+  );
+
+  await db.close();
+
+  console.log("Multi-sociedade e notificações: unicidade por (org, auth_user_id) e super_admin garantida; idempotência verificada.");
 }
 
 main().catch((e) => {

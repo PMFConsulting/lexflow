@@ -33,6 +33,10 @@ import {
   sociedadeComAdminSchema,
   sociedadeSchema,
 } from "./schemas";
+import {
+  notificarDonoNovoUtilizador,
+  notificarDonoSociedadeCriada,
+} from "@/lib/emails/notificacoes-dono";
 
 /**
  * As ações do portal da plataforma.
@@ -191,6 +195,16 @@ export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade
     }
   }
 
+  await notificarDonoSociedadeCriada({
+    sociedadeId: id,
+    nome: v.nome,
+    nif: v.nif,
+    prefixo: v.prefixoReferencia,
+    adminNome: v.adminNome ?? null,
+    adminEmail: v.adminEmail ?? null,
+    erroAdmin: avisoAdmin,
+  });
+
   revalidatePath("/admin");
   return { ok: true, id, admin, avisoAdmin };
 }
@@ -319,7 +333,7 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
   }
 
   const [sociedade] = await db()
-    .select({ id: organizacao.id })
+    .select({ id: organizacao.id, nome: organizacao.nome })
     .from(organizacao)
     .where(and(eq(organizacao.id, alvo), isNull(organizacao.apagadoEm)))
     .limit(1);
@@ -362,6 +376,14 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
       },
       ip,
       userAgent,
+    });
+
+    await notificarDonoNovoUtilizador({
+      nome: conta.nome,
+      email: conta.email,
+      sociedadeNome: sociedade.nome,
+      papel: conta.papel,
+      organizacaoId: alvo,
     });
 
     revalidatePath("/admin");
@@ -535,7 +557,7 @@ export async function importarUtilizadores(
   if (!alvo) return { ok: false, erro: "Escolha a sociedade onde importar as contas." };
 
   const [sociedade] = await db()
-    .select({ id: organizacao.id })
+    .select({ id: organizacao.id, nome: organizacao.nome })
     .from(organizacao)
     .where(and(eq(organizacao.id, alvo), isNull(organizacao.apagadoEm)))
     .limit(1);
@@ -633,6 +655,16 @@ export async function importarUtilizadores(
     ip,
     userAgent,
   });
+
+  for (const c of criadas) {
+    await notificarDonoNovoUtilizador({
+      nome: c.nome,
+      email: c.email,
+      sociedadeNome: sociedade.nome,
+      papel: c.papel,
+      organizacaoId: alvo,
+    });
+  }
 
   revalidatePath("/admin");
   revalidatePath("/admin/aprovacoes");

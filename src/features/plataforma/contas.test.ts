@@ -310,6 +310,23 @@ describe("criarConta", () => {
     expect(inseridoEm("utilizador")).toBeUndefined();
   });
 
+  it("permite criar conta society_admin quando o email já pertence a outra sociedade (multi-sociedade)", async () => {
+    linhas["user"] = [{ id: "auth-existente" }];
+    linhas["utilizador"] = [{ id: "u-outra-org", email: "maria@exemplo.pt", organizacaoId: "org-outra" }];
+
+    const conta = await criarConta({
+      nome: "Maria Admin",
+      email: "maria@exemplo.pt",
+      papel: "society_admin",
+      organizacaoId: "org-nova",
+    });
+
+    expect(conta.email).toBe("maria@exemplo.pt");
+    expect(conta.papel).toBe("society_admin");
+    expect(inseridoEm("utilizador")!.authUserId).toBe("auth-existente");
+    expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-nova");
+  });
+
   it("substitui a palavra-passe quando a credencial já existe", async () => {
     linhas["user"] = [{ id: "auth-1" }];
     linhas["account"] = [{ id: "cred-1" }];
