@@ -312,8 +312,20 @@ export const ASSUNTO_REABERTURA = "LexFlow | Reabertura do Processo";
 export function emailReabertura({
   nome,
   referencia,
+  link,
   logotipoUrl,
-}: { nome?: string | null; referencia?: string | null; logotipoUrl?: string | null } = {}): string {
+}: {
+  nome?: string | null;
+  referencia?: string | null;
+  /**
+   * O link de acesso ao processo — SEMPRE o token acabado de regenerar pela
+   * reabertura, nunca o anterior, que a reabertura invalidou. Sem ele, o
+   * cliente sabe que o processo reabriu mas não tem como voltar (BUG-021).
+   */
+  link?: string | null;
+  logotipoUrl?: string | null;
+} = {}): string {
+  const href = link ? escapar(link) : null;
   return moldura(
     `
     ${refProcesso(referencia)}
@@ -327,6 +339,8 @@ export function emailReabertura({
     ${p(
       "Caso necessite de algum esclarecimento, não hesite em contactar a nossa equipa.",
     )}
+    ${href ? botao(href, "Aceder ao processo") : ""}
+    ${href ? linkCopiavel(href) : ""}
     ${despedida()}
   `,
     LATAO,

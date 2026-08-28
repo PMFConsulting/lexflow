@@ -327,9 +327,68 @@ describe("criarConta", () => {
     expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-nova");
   });
 
-  it("substitui a palavra-passe quando a credencial já existe", async () => {
-    linhas["user"] = [{ id: "auth-1" }];
-    linhas["account"] = [{ id: "cred-1" }];
+  /**
+   * BUG-022. A pessoa já tem conta de acesso e conhece a palavra-passe dela:
+   * regenerá-la era substituir uma credencial que ela não pediu para trocar e
+   * enviá-la por email era repor o risco que o canal temporário minimiza. O
+   * que tem de sair é um AVISO de que passou a administrar uma sociedade a
+   * mais — sem palavra-passe nenhuma no corpo.
+   */
+  it("BUG-022: reutiliza a credencial e envia um aviso sem palavra-passe", async () => {
+    linhas["user"] = [{ id: "auth-existente" }];
+    linhas["account"] = [{ id: "cred-1", userId: "auth-existente" }];
+    linhas["utilizador"] = [{ id: "u-outra-org", email: "maria@exemplo.pt", organizacaoId: "org-outra" }];
+
+    const conta = await criarConta({
+      nome: "Maria Admin",
+      email: "maria@exemplo.pt",
+      papel: "society_admin",
+      organizacaoId: "org-nova",
+    });
+
+    // A credencial existente NÃO é substituída.
+    expect(atualizados.filter((a) => a.tabela === "account")).toHaveLength(0);
+    expect(inseridos.filter((i) => i.tabela === "account")).toHaveLength(0);
+
+    // A pessoa não é obrigada a redefinir nada — a palavra-passe dela vale.
+    // (Aqui o `utilizador` desta sociedade é um INSERT novo, sem linha anterior.)
+    const escritaUtilizador = inseridoEm("utilizador");
+    expect(escritaUtilizador?.deveRedefinirPassword).toBe(false);
+
+    expect(conta.reaproveitada).toBe(true);
+
+    // Um único email, e é o AVISO — sem caixa de credenciais nem palavra-passe
+    // temporária nenhuma no corpo (o `palavraPasseDoEmail()` aqui seria vazio:
+    // não há insert em `account`).
+    expect(emails).toHaveLength(1);
+    expect(emails[0].assunto).toBe("LexFlow | Foi adicionado como administrador de uma nova sociedade");
+    expect(emails[0].html).not.toContain("Palavra-passe temporária");
+    expect(emails[0].html).not.toContain("password");
+  });
+
+  it("BUG-022: conta NOVA continua a receber credenciais com palavra-passe temporária", async () => {
+    // Nada em `user` nem em `account`: é uma conta mesmo nova.
+    const conta = await criarConta({
+      nome: "Novo Admin",
+      email: "novo@exemplo.pt",
+      papel: "society_admin",
+      organizacaoId: "org-nova",
+    });
+
+    expect(conta.reaproveitada).toBe(false);
+    expect(emails).toHaveLength(1);
+    expect(emails[0].html).toContain(palavraPasseDoEmail());
+  });
+
+  /**
+   * BUG-022 alterou este caminho de propósito: quando a credencial já existe E
+   * a conta de acesso é reaproveitada (multi-sociedade), a palavra-passe já não
+   * é substituída — vê-se no teste acima. O que aqui fica fixo é o resto do
+   * caminho de conta nova com credencial órfã (ex.: `user` recriado), que
+   * continua a repôr a palavra-passe.
+   */
+  it("repõe a palavra-passe quando há credencial mas a conta de acesso é nova", async () => {
+    linhas["account"] = [{ id: "cred-1", userId: "auth-novo" }];
 
     await criarConta(PEDIDO);
 

@@ -7,7 +7,12 @@ import { db } from "@/db";
 import { account, user } from "@/db/schema/auth";
 import { organizacao, utilizador } from "@/db/schema/organizacao";
 import { enviarEmail } from "@/lib/email";
-import { ASSUNTO_CREDENCIAIS, emailCredenciais } from "@/lib/emails/credenciais";
+import {
+  ASSUNTO_AVISO_MULTI_SOCIEDADE,
+  ASSUNTO_CREDENCIAIS,
+  emailAvisoMultiSociedade,
+  emailCredenciais,
+} from "@/lib/emails/credenciais";
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import { origemPublica } from "@/lib/origem";
 import type { Papel } from "@/lib/sessao";
@@ -111,6 +116,13 @@ export type ContaCriada = {
   aprovadoEm: Date | null;
   gestorId: string | null;
   /**
+   * `true` quando a conta de acesso já existia e foi **reaproveitada** — o
+   * caminho da migração 0025: a mesma pessoa a administrar uma sociedade a
+   * mais. Neste caminho a palavra-passe não é tocada e o que sai por email é
+   * um aviso, não credenciais (BUG-022).
+   */
+  reaproveitada: boolean;
+  /**
    * `true` — as credenciais saíram; `false` — não saíram, e `erroEmail` diz
    * porquê; `null` — o envio foi adiado, ainda não aconteceu ou a conta está pendente de aprovação.
    */
@@ -137,6 +149,19 @@ export type CredencialPorEnviar = {
   nome: string;
   email: string;
   palavraPasse: string;
+  organizacaoId: string | null;
+  conta: ContaCriada;
+};
+
+/**
+ * O que `enviarAvisoMultiSociedade` precisa para dizer à pessoa que passou a ser
+ * administradora de uma sociedade a mais. Sem palavra-passe: a conta já existe,
+ * a credencial é a de sempre e quem está a falar já sabe entrar (BUG-022).
+ */
+type AvisoMultiSociedade = {
+  nome: string;
+  email: string;
+  sociedadeNome: string | null;
   organizacaoId: string | null;
   conta: ContaCriada;
 };
@@ -304,30 +329,7 @@ export async function criarConta(
       });
     }
 
-    const [credencial] = await t
-      .select({ id: account.id })
-      .from(account)
-      .where(and(eq(account.userId, authUserId), eq(account.providerId, "credential")))
-      .limit(1);
-
-    if (credencial) {
-      await t
-        .update(account)
-        .set({ password: hash, updatedAt: new Date() })
-        .where(eq(account.id, credencial.id));
-    } else {
-      await t.insert(account).values({
-        id: idAuth(),
-        accountId: authUserId,
-        providerId: "credential",
-        userId: authUserId,
-        password: hash,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-
-    /* --- o utilizador de domínio ------------------------------------------ */
+    /* --- o utilizador de domínio (ANTES da credencial: o caminho decide) --- */
 
     const [jaExiste] = await t
       .select({ id: utilizador.id, apagadoEm: utilizador.apagadoEm })
@@ -344,6 +346,93 @@ export async function criarConta(
 
     if (jaExiste && !jaExiste.apagadoEm) {
       throw new ErroDeConta("Já existe uma conta com este email nesta sociedade.");
+    }
+
+    /**
+     * Reaproveitar a credencial, não substituí-la.
+     *
+     * Quando a pessoa já tem conta de acesso (migração 0025, multi-sociedade),
+     * regenerar a palavra-passe era substituir uma credencial que ela conhece e
+     * usa por outra que ela não pediu — e meter essa nova no corpo de um email
+     * era exactamente o risco que o canal "palavra-passe temporária por email"
+     * foi desenhado para minimizar. A credencial que já lá está continua a
+     * valer; o que a pessoa recebe é um aviso de que passou a administrar uma
+     * sociedade a mais.
+     */
+    const reaproveitada = Boolean(contaExistente);
+
+    const [credencial] = await t
+      .select({ id: account.id })
+      .from(account)
+      .where(and(eq(account.userId, authUserId), eq(account.providerId, "credential")))
+      .limit(1);
+
+    if (credencial && reaproveitada) {
+      /* --- o caminho da migração 0025: a credencial que já lá está vale ----- */
+
+      const utilizadorId = jaExiste?.id ?? uuidv7();
+      const gestorIdFinal = pedido.papel === "utilizador" ? (pedido.gestorId ?? null) : null;
+
+      if (jaExiste) {
+        await t
+          .update(utilizador)
+          .set({
+            nome,
+            papel: pedido.papel,
+            gestorId: gestorIdFinal,
+            aprovadoEm,
+            authUserId,
+            ativo: true,
+            apagadoEm: null,
+            // Nada de redefinição obrigatória: a pessoa entra com a
+            // palavra-passe que já conhece e usa noutra sociedade.
+            deveRedefinirPassword: false,
+            atualizadoEm: new Date(),
+          })
+          .where(eq(utilizador.id, utilizadorId));
+      } else {
+        await t.insert(utilizador).values({
+          id: utilizadorId,
+          organizacaoId: pedido.organizacaoId,
+          authUserId,
+          nome,
+          email,
+          papel: pedido.papel,
+          gestorId: gestorIdFinal,
+          aprovadoEm,
+          ativo: true,
+          deveRedefinirPassword: false,
+        });
+      }
+
+      return {
+        utilizadorId,
+        email,
+        nome,
+        papel: pedido.papel,
+        aprovadoEm,
+        gestorId: gestorIdFinal,
+        reaproveitada: true,
+        emailEnviado: null,
+        erroEmail: null,
+      };
+    }
+
+    if (credencial) {
+      await t
+        .update(account)
+        .set({ password: hash, updatedAt: new Date() })
+        .where(eq(account.id, credencial.id));
+    } else {
+      await t.insert(account).values({
+        id: idAuth(),
+        accountId: authUserId,
+        providerId: "credential",
+        userId: authUserId,
+        password: hash,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     }
 
     const utilizadorId = jaExiste?.id ?? uuidv7();
@@ -386,6 +475,7 @@ export async function criarConta(
       papel: pedido.papel,
       aprovadoEm,
       gestorId: gestorIdFinal,
+      reaproveitada: false,
       emailEnviado: null,
       erroEmail: null,
     };
@@ -477,6 +567,32 @@ export async function enviarCredenciais(envio: CredencialPorEnviar): Promise<voi
       enderecoDeEntrada(),
       dadosDaSociedade(envio.organizacaoId),
     ]);
+
+    /**
+     * Dois caminhos com o mesmo payload (BUG-022):
+     * - conta NOVA: as credenciais com a palavra-passe temporária;
+     * - conta REAPROVEITADA (migração 0025): um aviso de que a pessoa passou a
+     *   administrar uma sociedade a mais — sem palavra-passe nenhuma no corpo,
+     *   porque a credencial dela não mudou.
+     */
+    if (envio.conta.reaproveitada) {
+      const resultado = await enviarEmail({
+        para: envio.email,
+        assunto: ASSUNTO_AVISO_MULTI_SOCIEDADE,
+        html: emailAvisoMultiSociedade({
+          nome: envio.nome,
+          sociedade: soc.nome,
+          link,
+          logotipoUrl: soc.logotipoUrl,
+        }),
+        template: "credenciais_acesso",
+        organizacaoId: envio.organizacaoId,
+      });
+
+      envio.conta.emailEnviado = resultado.ok;
+      envio.conta.erroEmail = resultado.ok ? null : resultado.erro;
+      return;
+    }
 
     const resultado = await enviarEmail({
       para: envio.email,

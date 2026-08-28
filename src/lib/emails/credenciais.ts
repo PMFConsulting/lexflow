@@ -119,3 +119,55 @@ export function emailCredenciais({
     logotipoUrl,
   );
 }
+
+/* --------------------- o aviso de multi-sociedade (BUG-022) ---------------- */
+
+export const ASSUNTO_AVISO_MULTI_SOCIEDADE =
+  "LexFlow | Foi adicionado como administrador de uma nova sociedade";
+
+/**
+ * Enviado a quem JÁ tinha conta e passou a administrar mais uma sociedade
+ * (migração 0025). A diferença para as credenciais é a que interessa: **não
+ * leva palavra-passe nenhuma** — a credencial da pessoa não mudou, e voltar a
+ * meter um segredo novo no email era repor o risco que o canal temporário
+ * minimiza. Diz o que aconteceu, a que sociedade, e como entrar.
+ */
+export function emailAvisoMultiSociedade({
+  nome,
+  sociedade,
+  link,
+  logotipoUrl,
+}: {
+  nome?: string | null;
+  /** A sociedade a que a pessoa foi agora adicionada como administrador. */
+  sociedade?: string | null;
+  /** O endereço de início de sessão desta instalação. */
+  link: string;
+  logotipoUrl?: string | null;
+}): string {
+  const href = escapar(link);
+
+  return moldura(
+    `
+    ${saudacao(nome)}
+    ${sociedade ? destaque("Nova sociedade ", sociedade) : ""}
+    ${p(
+      "A sua conta de acesso foi associada como <strong>administrador</strong> desta sociedade " +
+        "na plataforma LexFlow. Continua a entrar com o mesmo email e a mesma palavra-passe de " +
+        "sempre — não foi criada nenhuma credencial nova nem nenhuma palavra-passe a redefinir.",
+    )}
+    ${p(
+      "A partir de agora, ao iniciar sessão, terá acesso ao backoffice desta sociedade além " +
+        "daquelas que já administra.",
+    )}
+    ${botao(href, "Entrar na plataforma")}
+    ${linkCopiavel(href)}
+    ${p(
+      "Se não reconhece esta associação, contacte-nos de imediato — a sua conta mantém-se " +
+        "segura enquanto isso, porque nenhuma palavra-passe foi alterada.",
+    )}
+  `,
+    LATAO,
+    logotipoUrl,
+  );
+}

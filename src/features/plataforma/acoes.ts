@@ -908,6 +908,9 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
     papel: alvo.papel,
     aprovadoEm: agora,
     gestorId: alvo.gestorId,
+    // Conta que já existia e está a ser aprovada: a palavra-passe dela não
+    // mudou, portanto não é o caminho das credenciais novas.
+    reaproveitada: true,
     emailEnviado: null,
     erroEmail: null,
   };

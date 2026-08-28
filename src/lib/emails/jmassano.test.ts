@@ -8,6 +8,8 @@ import {
   emailConfirmacaoRececao,
   emailRegisto,
   emailRejeicao,
+  emailReabertura,
+  ASSUNTO_REABERTURA,
 } from "./jmassano";
 
 const LINK = "https://poc.terlicalabs.com/onboarding/abc123";
@@ -68,6 +70,43 @@ describe("1. LexFlow | Registro", () => {
 
     expect(saida).not.toContain('onmouseover="alert(1)"');
     expect(saida).toContain("&quot;");
+  });
+});
+
+/**
+ * BUG-021: a reabertura regenera o token de acesso do processo — o anterior
+ * deixa de valer. Um email de reabertura sem o link NOVO deixa o cliente a
+ * saber que o processo reabriu sem lhe dizer como voltar, o que anula o
+ * objectivo do FIX-004. O padrão é o do registo: botão + endereço copiável.
+ */
+describe("6. LexFlow | Reabertura do Processo", () => {
+  it("tem o assunto certo", () => {
+    expect(ASSUNTO_REABERTURA).toBe("LexFlow | Reabertura do Processo");
+  });
+
+  it("leva o link (novo) no botão e em texto copiável", () => {
+    const html = emailReabertura({ nome: "Maria Silva", referencia: "PMF-2026-0042", link: LINK });
+    expect(html).toContain(`href="${LINK}"`);
+    // Botão + endereço copiável, como no registo.
+    expect(html.split(LINK)).toHaveLength(3);
+    expect(texto(html)).toContain("Se o botão não funcionar");
+    expect(texto(html)).toContain("Aceder ao processo");
+  });
+
+  it("renderiza exactamente o link que recebe — nunca um antigo", () => {
+    // Guarda de regressão: o token vem regenerado da action; o template não
+    // transforma e não guarda estado entre chamadas.
+    const novo = "https://poc.terlicalabs.com/onboarding/token-novo-456";
+    const html = emailReabertura({ link: novo });
+    expect(html).toContain(novo);
+    expect(html).not.toContain("token-antigo");
+  });
+
+  it("mantém o texto do cliente e funciona sem link (retrocompatível)", () => {
+    const t = texto(emailReabertura({ nome: "Maria Silva" }));
+    expect(t).toContain("foi reaberto para retificação de informações");
+    expect(t).not.toContain("Aceder ao processo");
+    expect(t).toContain("Com os melhores cumprimentos");
   });
 });
 

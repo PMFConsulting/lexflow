@@ -151,6 +151,7 @@ export async function resolverEmailCliente(
         html: emailReabertura({
           nome: p.variaveis.nome_cliente,
           referencia: p.variaveis.referencia,
+          link: p.variaveis.link_processo,
           logotipoUrl: p.logotipoUrl,
         }),
       };
