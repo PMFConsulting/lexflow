@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes, randomInt } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import { uuidv7 } from "uuidv7";
 import { db } from "@/db";
@@ -235,6 +235,27 @@ export async function criarConta(
       }
     }
 
+    /* --- verificação de colisão global --------------------------------- */
+
+    const [noutraSociedade] = await t
+      .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
+      .from(utilizador)
+      .where(
+        pedido.organizacaoId
+          ? and(
+              eq(utilizador.email, email),
+              ne(utilizador.organizacaoId, pedido.organizacaoId),
+            )
+          : isNotNull(utilizador.organizacaoId),
+      )
+      .limit(1);
+
+    if (noutraSociedade) {
+      throw new ErroDeConta(
+        "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+      );
+    }
+
     /* --- a conta do Better Auth ------------------------------------------ */
 
     const [contaExistente] = await t
@@ -246,6 +267,25 @@ export async function criarConta(
     let authUserId: string;
 
     if (contaExistente) {
+      const [noutraPorAuth] = await t
+        .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
+        .from(utilizador)
+        .where(
+          pedido.organizacaoId
+            ? and(
+                eq(utilizador.authUserId, contaExistente.id),
+                ne(utilizador.organizacaoId, pedido.organizacaoId),
+              )
+            : isNotNull(utilizador.organizacaoId),
+        )
+        .limit(1);
+
+      if (noutraPorAuth) {
+        throw new ErroDeConta(
+          "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+        );
+      }
+
       authUserId = contaExistente.id;
       await t.update(user).set({ name: nome, updatedAt: new Date() }).where(eq(user.id, authUserId));
     } else {

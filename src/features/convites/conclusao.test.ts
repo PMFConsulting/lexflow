@@ -42,4 +42,10 @@ describe("a conta criada pelo convite nasce aprovada", () => {
       expect(corpo).toMatch(/aprovadoEm:/);
     }
   });
+
+  it("concluirConvite verifica colisão com utilizador de outra sociedade antes de criar conta", () => {
+    expect(fonte).toContain("Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.");
+    expect(fonte).toMatch(/select\(\{\s*id:\s*utilizador\.id/);
+    expect(fonte).toMatch(/ne\(utilizador\.organizacaoId,\s*org\.id\)/);
+  });
 });

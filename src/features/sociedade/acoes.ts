@@ -18,7 +18,9 @@ import { ASSUNTO_CONVITE_UTILIZADOR, emailConviteUtilizador } from "@/lib/emails
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import {
   acessoSociedadePorToken,
+  documentosDaSociedade,
   motivoDoAcessoSociedade,
+  passosSociedadeGravados,
   type AcessoSociedade,
 } from "./dados";
 import { SCHEMAS_SOCIEDADE } from "./schemas";
@@ -294,6 +296,19 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
 
   const { onboarding, org } = acesso;
   const base = db();
+
+  const docs = await documentosDaSociedade(org.id);
+  const tiposDocumento = docs.map((d) => d.tipo);
+  const passosFeitos = passosSociedadeGravados(org, onboarding, tiposDocumento);
+  const passosEmFalta = [1, 2, 3, 4, 5, 6].filter((p) => !passosFeitos.includes(p));
+
+  if (passosEmFalta.length > 0) {
+    const lista = passosEmFalta.map((p) => `Passo ${p}`).join(", ");
+    return {
+      ok: false,
+      mensagem: `Falta preencher os seguintes passos antes de submeter: ${lista}.`,
+    };
+  }
 
   if (!onboarding.declaracaoVinculo) {
     return {

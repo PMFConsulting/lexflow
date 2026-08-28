@@ -42,11 +42,9 @@
  * login passa e a sessão não resolve — `sessaoAtual()` procura por
  * `auth_user_id` e manda de volta para /entrar.
  */
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { hashPassword } from "better-auth/crypto";
 import postgres from "postgres";
-import { uuidv7 } from "uuidv7";
 
 /**
  * A organização das seeds de desenvolvimento — e só isso.
@@ -138,10 +136,27 @@ function validarPalavraPasse(password) {
 /** Id no formato do Better Auth: texto opaco, sem hífenes. */
 const idAuth = () => randomBytes(16).toString("hex");
 
+const SCRYPT_N = 16384;
+const SCRYPT_R = 16;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 64;
+const SCRYPT_MAXMEM = 128 * SCRYPT_N * SCRYPT_R * 2;
+
+function hashPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const chave = scryptSync(password.normalize("NFKC"), salt, SCRYPT_KEYLEN, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    maxmem: SCRYPT_MAXMEM,
+  });
+  return `${salt}:${chave.toString("hex")}`;
+}
+
 /* ------------------------------------------------------------------- modos */
 
 async function gerarHash(password) {
-  const hash = await hashPassword(password);
+  const hash = hashPassword(password);
   // Só o hash no stdout: assim `$(node scripts/criar_utilizador.mjs --gerar-hash …)`
   // devolve o valor limpo. As explicações vão para o stderr.
   console.error("Hash Better Auth (scrypt, formato salt:hash em hexadecimal):");
@@ -275,7 +290,7 @@ async function criar({ email, nome, papel, password, organizacaoId, reativar }) 
           insert into utilizador
             (id, organizacao_id, auth_user_id, nome, email, papel, ativo, aprovado_em, criado_em, atualizado_em)
           values
-            (${uuidv7()}, ${organizacaoId}, ${authUserId}, ${nome}, ${email}, ${papel}, true, now(), now(), now())
+            (${randomUUID()}, ${organizacaoId}, ${authUserId}, ${nome}, ${email}, ${papel}, true, now(), now(), now())
         `;
         criouUtilizador = true;
       }

@@ -128,6 +128,7 @@ export type ResultadoDaLeitura =
 export function prepararImportacao(
   bytes: Buffer,
   jaExistentes: Iterable<string> = [],
+  noutrasSociedades: Iterable<string> = [],
 ): ResultadoDaLeitura {
   let linhas: LinhaDaFolha[];
   try {
@@ -153,11 +154,12 @@ export function prepararImportacao(
   const validas: LinhaValida[] = [];
   const recusadas: LinhaRecusada[] = [];
 
-  // Dois conjuntos separados, e as mensagens são diferentes: um email repetido
-  // **dentro** do ficheiro corrige-se no ficheiro, um que já existe na
-  // sociedade não é um erro de quem o escreveu. Fundir os dois numa mensagem só
-  // mandava metade das pessoas procurar o problema no sítio errado.
+  // Três conjuntos separados:
+  // 1) repetido dentro do ficheiro
+  // 2) já existe nesta sociedade
+  // 3) já existe noutra sociedade (colisão global authUserId/email)
   const existentes = new Set([...jaExistentes].map((e) => e.trim().toLowerCase()));
+  const noutras = new Set([...noutrasSociedades].map((e) => e.trim().toLowerCase()));
   const noFicheiro = new Set<string>();
 
   for (let i = 1; i < linhas.length; i++) {
@@ -200,6 +202,10 @@ export function prepararImportacao(
     }
     if (existentes.has(email)) {
       recusar(`Já existe uma conta com o email ${email} nesta sociedade.`);
+      continue;
+    }
+    if (noutras.has(email)) {
+      recusar("Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.");
       continue;
     }
 

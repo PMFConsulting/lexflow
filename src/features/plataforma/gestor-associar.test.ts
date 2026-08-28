@@ -22,6 +22,8 @@ vi.mock("drizzle-orm", () => ({
   and: (...c: unknown[]) => c,
   eq: (a: unknown, b: unknown) => ({ col: a, val: b }),
   isNull: () => true,
+  isNotNull: () => true,
+  ne: () => true,
   sql: (...c: unknown[]) => c,
 }));
 

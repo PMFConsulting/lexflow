@@ -152,6 +152,33 @@ describe("prepararImportacao", () => {
     expect(r.previsao.recusadas[1].motivo).toContain("Já existe uma conta");
   });
 
+  it("recusa email que já existe noutra sociedade com mensagem explicativa", () => {
+    const r = prepararImportacao(
+      folha(
+        [
+          CABECALHO,
+          "Maria Silva;maria@x.pt;utilizador",
+          "Carlos Costa;carlos@outra.pt;utilizador",
+        ].join("\n"),
+      ),
+      [],
+      ["carlos@outra.pt"],
+    );
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.previsao.validas).toHaveLength(1);
+    expect(r.previsao.validas[0].email).toBe("maria@x.pt");
+    expect(r.previsao.recusadas).toEqual([
+      {
+        numero: 3,
+        bruto: "Carlos Costa · carlos@outra.pt · utilizador",
+        motivo:
+          "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+      },
+    ]);
+  });
+
   it("compara emails sem olhar a maiúsculas", () => {
     const r = prepararImportacao(folha(`${CABECALHO}\nMaria;MARIA@X.PT;utilizador`));
 

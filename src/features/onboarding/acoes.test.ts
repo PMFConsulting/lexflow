@@ -407,6 +407,15 @@ describe("guardarPasso — quem não pode gravar, não grava", () => {
     expect(operacoes).toHaveLength(0);
   });
 
+  it("um processo em em_revisao pode ser alterado (BUG-004)", async () => {
+    acesso = { estado: "ok", processo: processo({ estado: "em_revisao" }) as never, token: TOKEN };
+
+    const r = await guardarPasso(TOKEN, 1, PASSO_1);
+
+    expect(r.ok).toBe(true);
+    expect(operacoes.length).toBeGreaterThan(0);
+  });
+
   /**
    * O passo 3 não pertence ao percurso de uma pessoa singular (D28), e a página
    * nem lho mostra. A Server Action é um endpoint público como outro qualquer:
@@ -527,20 +536,34 @@ describe("guardarPasso — o passo 1 e o representante que deixa de fazer sentid
     expect(escritas("delete").filter((t) => t === "nacionalidade")).toHaveLength(2);
   });
 
-  it("ficando empresa, o representante mantém-se", async () => {
+  it("trocar para pessoa singular limpa cae, certidao e regimeIva em dados_fiscais (BUG-006)", async () => {
     acesso = { estado: "ok", processo: processo({ tipoCliente: "empresa" }) as never, token: TOKEN };
 
-    await guardarPasso(TOKEN, 1, {
-      ...PASSO_1,
-      tipoCliente: "empresa",
-      nome: "Silva & Costa, Lda.",
-      naturezaJuridica: "Sociedade por quotas",
-      profissao: undefined,
-      entidadePatronal: undefined,
-      dataNascimento: undefined,
-    });
+    await guardarPasso(TOKEN, 1, PASSO_1);
 
-    expect(escritas("delete")).not.toContain("representante_legal");
+    expect(operacoes).toContainEqual({
+      tipo: "update",
+      tabela: "dados_fiscais",
+      valores: { cae: null, codigoCertidaoPermanente: null, regimeIva: null },
+    });
+  });
+
+  it("guardar passo 2 como particular força null explícito em campos fiscais de empresa (BUG-006)", async () => {
+    acesso = { estado: "ok", processo: processo({ tipoCliente: "particular" }) as never, token: TOKEN };
+
+    await guardarPasso(TOKEN, 2, PASSO_2);
+
+    expect(operacoes).toContainEqual(
+      expect.objectContaining({
+        tipo: "insert",
+        tabela: "dados_fiscais",
+        valores: expect.objectContaining({
+          cae: null,
+          codigoCertidaoPermanente: null,
+          regimeIva: null,
+        }),
+      }),
+    );
   });
 });
 
@@ -1024,6 +1047,14 @@ describe("enviarCodigoOtp", () => {
     expect(operacoes).toHaveLength(0);
   });
 
+  it("um processo em em_revisao pode pedir códigos OTP (BUG-004)", async () => {
+    acesso = { estado: "ok", processo: processo({ estado: "em_revisao" }) as never, token: TOKEN };
+
+    const r = await enviarCodigoOtp(TOKEN);
+    expect(r.ok).toBe(true);
+    expect(enviados).toHaveLength(1);
+  });
+
   /**
    * O intervalo de 60 segundos limitava o **ritmo**, e nada mais.
    *
@@ -1256,6 +1287,21 @@ describe("submeter — com tudo no sítio", () => {
     });
     expect(auditados.map((e) => e.acao)).toEqual(["processo.submetido"]);
     expect(auditados[0]?.valorAnterior).toEqual({ estado: "rascunho" });
+    expect(auditados[0]?.valorNovo).toEqual({ estado: "aguardar_aprovacao" });
+  });
+
+  it("permite submeter um processo reaberto em em_revisao (BUG-004)", async () => {
+    acesso = { estado: "ok", processo: processo({ estado: "em_revisao" }) as never, token: TOKEN };
+
+    const r = await submeter(TOKEN);
+
+    expect(r).toEqual({ ok: true, proximo: null });
+    expect(valoresDe("update", "processo_onboarding")).toEqual({
+      estado: "aguardar_aprovacao",
+      submetidoEm: AGORA,
+    });
+    expect(auditados.map((e) => e.acao)).toEqual(["processo.submetido"]);
+    expect(auditados[0]?.valorAnterior).toEqual({ estado: "em_revisao" });
     expect(auditados[0]?.valorNovo).toEqual({ estado: "aguardar_aprovacao" });
   });
 

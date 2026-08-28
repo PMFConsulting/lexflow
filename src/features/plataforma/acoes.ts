@@ -550,14 +550,18 @@ export async function importarUtilizadores(
 
   const bytes = Buffer.from(await ficheiro.arrayBuffer());
 
-  const existentes = await db()
-    .select({ email: utilizador.email })
+  const todos = await db()
+    .select({ email: utilizador.email, organizacaoId: utilizador.organizacaoId })
     .from(utilizador)
-    .where(and(eq(utilizador.organizacaoId, alvo), isNull(utilizador.apagadoEm)));
+    .where(isNull(utilizador.apagadoEm));
+
+  const existentes = todos.filter((l) => l.organizacaoId === alvo).map((l) => l.email);
+  const noutras = todos.filter((l) => l.organizacaoId !== alvo).map((l) => l.email);
 
   const leitura = prepararImportacao(
     bytes,
-    existentes.map((l) => l.email),
+    existentes,
+    noutras,
   );
 
   if (!leitura.ok) return { ok: false, erro: leitura.erro };

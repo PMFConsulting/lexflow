@@ -17,19 +17,22 @@ import { calcularHash, type EntradaAuditoria } from "./hash";
  * `SELECT ... FOR UPDATE` sobre a última linha, ou com um advisory lock por
  * organização. Fica assinalado de propósito.
  */
-export async function registarEvento(entrada: {
-  organizacaoId: string;
-  processoId?: string | null;
-  atorId?: string | null;
-  acao: string;
-  entidade: string;
-  entidadeId?: string | null;
-  valorAnterior?: Record<string, unknown> | null;
-  valorNovo?: Record<string, unknown> | null;
-  ip?: string | null;
-  userAgent?: string | null;
-}) {
-  const base = db();
+export async function registarEvento(
+  entrada: {
+    organizacaoId: string;
+    processoId?: string | null;
+    atorId?: string | null;
+    acao: string;
+    entidade: string;
+    entidadeId?: string | null;
+    valorAnterior?: Record<string, unknown> | null;
+    valorNovo?: Record<string, unknown> | null;
+    ip?: string | null;
+    userAgent?: string | null;
+  },
+  executor?: unknown,
+) {
+  const base = (executor as ReturnType<typeof db>) ?? db();
 
   const [ultimo] = await base
     .select({ hash: eventoAuditoria.hash })

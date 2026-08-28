@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import { uuidv7 } from "uuidv7";
 import { db } from "@/db";
@@ -411,6 +411,23 @@ export async function concluirConvite(
 
   try {
     utilizadorId = await base.transaction(async (tx) => {
+      const [noutraOrg] = await tx
+        .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
+        .from(utilizador)
+        .where(
+          and(
+            eq(utilizador.email, email),
+            ne(utilizador.organizacaoId, org.id),
+          ),
+        )
+        .limit(1);
+
+      if (noutraOrg) {
+        throw new Error(
+          "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+        );
+      }
+
       const [contaExistente] = await tx
         .select({ id: user.id })
         .from(user)
@@ -419,9 +436,23 @@ export async function concluirConvite(
 
       let authUserId: string;
       if (contaExistente) {
-        // A conta do Better Auth já existir não é anormal: a mesma pessoa pode
-        // ter estado noutra organização. O que não pode é ficar com o nome
-        // desatualizado nem com a palavra-passe antiga a valer.
+        const [noutraPorAuth] = await tx
+          .select({ id: utilizador.id, organizacaoId: utilizador.organizacaoId })
+          .from(utilizador)
+          .where(
+            and(
+              eq(utilizador.authUserId, contaExistente.id),
+              ne(utilizador.organizacaoId, org.id),
+            ),
+          )
+          .limit(1);
+
+        if (noutraPorAuth) {
+          throw new Error(
+            "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+          );
+        }
+
         authUserId = contaExistente.id;
         await tx
           .update(user)
@@ -546,6 +577,14 @@ export async function concluirConvite(
     });
   } catch (e) {
     console.error("[convite] account creation failed", { email, erro: String(e) });
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("Esta pessoa já tem conta noutra sociedade")) {
+      return {
+        ok: false,
+        mensagem:
+          "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+      };
+    }
     return {
       ok: false,
       mensagem:

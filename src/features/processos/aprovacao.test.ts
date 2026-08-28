@@ -56,6 +56,8 @@ vi.mock("@/db/schema/seccoes", () => ({
   dadosFaturacao: "dados_faturacao",
 }));
 
+let auditoriaRebenta = false;
+
 /** Um SELECT por tabela (dispatchado pelo nome) e um diário de UPDATEs. */
 vi.mock("@/db", () => {
   const esperavel = <T extends object>(extra: T) => ({
@@ -63,26 +65,29 @@ vi.mock("@/db", () => {
     then: (aceitar: (v: unknown) => unknown) => Promise.resolve(undefined).then(aceitar),
   });
 
-  return {
-    db: () => ({
-      select: () => ({
-        from: (t: unknown) => ({
-          where: () => ({
-            limit: async () => linhas[String(t)] ?? [],
-          }),
-        }),
-      }),
-      update: (t: unknown) => ({
-        set: (v: Linha) => ({
-          where: () => {
-            atualizacoes.push({ tabela: String(t), valores: v });
-            return esperavel({
-              returning: async () => [{ ...(linhas[String(t)]?.[0] ?? {}), ...v }],
-            });
-          },
+  const api = {
+    select: () => ({
+      from: (t: unknown) => ({
+        where: () => ({
+          limit: async () => linhas[String(t)] ?? [],
         }),
       }),
     }),
+    update: (t: unknown) => ({
+      set: (v: Linha) => ({
+        where: () => {
+          atualizacoes.push({ tabela: String(t), valores: v });
+          return esperavel({
+            returning: async () => [{ ...(linhas[String(t)]?.[0] ?? {}), ...v }],
+          });
+        },
+      }),
+    }),
+    transaction: async (cb: (tx: unknown) => Promise<unknown>) => cb(api),
+  };
+
+  return {
+    db: () => api,
   };
 });
 
@@ -92,6 +97,7 @@ vi.mock("@/features/onboarding/dados", () => ({
 
 vi.mock("@/features/auditoria/registar", () => ({
   registarEvento: async (e: { acao: string; valorAnterior?: Linha; valorNovo?: Linha }) => {
+    if (auditoriaRebenta) throw new Error("a auditoria falhou");
     auditados.push(e);
   },
 }));
@@ -166,6 +172,7 @@ beforeEach(() => {
   papelAtual = "utilizador";
   boasVindasRebenta = false;
   emailRejeicaoRebenta = false;
+  auditoriaRebenta = false;
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -250,6 +257,16 @@ describe("aprovarProcesso", () => {
     expect(atualizacoes).toHaveLength(0);
   });
 
+  it("falha de registarEvento na transação reverte a aprovação e devolve erro (BUG-008)", async () => {
+    linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+    auditoriaRebenta = true;
+
+    const r = await aprovarProcesso("proc-1");
+
+    expect(r).toEqual({ ok: false, erro: "Não foi possível aprovar o processo." });
+    expect(boasVindasEnviadas).toHaveLength(0);
+  });
+
   it("um utilizador de outra organização não encontra o processo", async () => {
     papelAtual = "utilizador";
     linhas["processo_onboarding"] = [PROCESSO({ organizacaoId: "outra-org" })];
@@ -296,6 +313,16 @@ describe("rejeitarProcesso", () => {
         processoId: "proc-1",
       },
     ]);
+  });
+
+  it("falha de registarEvento na transação reverte a rejeição e devolve erro (BUG-008)", async () => {
+    linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+    auditoriaRebenta = true;
+
+    const r = await rejeitarProcesso("proc-1", "Documentação incompleta");
+
+    expect(r).toEqual({ ok: false, erro: "Não foi possível rejeitar o processo." });
+    expect(enviados).toHaveLength(0);
   });
 
   it("sem endereço de email, rejeita na mesma e não notifica ninguém", async () => {

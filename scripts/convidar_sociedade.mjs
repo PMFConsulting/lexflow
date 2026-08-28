@@ -18,10 +18,9 @@
  * O link é impresso **sempre**, com ou sem envio: um link que só existe dentro
  * de um email que pode não chegar é um registo que ninguém consegue destrancar.
  */
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
-import { uuidv7 } from "uuidv7";
 
 /* ----------------------------------------------------------------- entrada */
 
@@ -117,8 +116,8 @@ async function main() {
   const sql = postgres(url, { max: 1, prepare: false });
 
   try {
-    const organizacaoId = uuidv7();
-    const onboardingId = uuidv7();
+    const organizacaoId = randomUUID();
+    const onboardingId = randomUUID();
     const expira = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
 
     await sql.begin(async (tx) => {

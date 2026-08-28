@@ -22,6 +22,7 @@ vi.mock("drizzle-orm", () => ({
   and: (...c: unknown[]) => c,
   eq: (...c: unknown[]) => c,
   isNull: (...c: unknown[]) => c,
+  isNotNull: (...c: unknown[]) => c,
   ne: (...c: unknown[]) => c,
   or: (...c: unknown[]) => c,
   asc: (...c: unknown[]) => c,

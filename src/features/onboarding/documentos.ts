@@ -63,7 +63,11 @@ export async function carregarDocumento(
   }
 
   const { processo, token } = acesso;
-  if (processo.estado !== "rascunho" && processo.estado !== "pendente_cliente") {
+  if (
+    processo.estado !== "rascunho" &&
+    processo.estado !== "pendente_cliente" &&
+    processo.estado !== "em_revisao"
+  ) {
     return { ok: false, erro: "Este processo já foi submetido." };
   }
 
@@ -115,6 +119,7 @@ export async function carregarDocumento(
       and(
         eq(documento.processoId, processo.id),
         eq(documento.hashSha256, hash),
+        eq(documento.tipo, tipo),
         isNull(documento.apagadoEm),
       ),
     )
@@ -164,7 +169,11 @@ export async function removerDocumento(bruto: string, id: string) {
   }
 
   const { processo, token } = acesso;
-  if (processo.estado !== "rascunho" && processo.estado !== "pendente_cliente") {
+  if (
+    processo.estado !== "rascunho" &&
+    processo.estado !== "pendente_cliente" &&
+    processo.estado !== "em_revisao"
+  ) {
     return { ok: false as const, erro: "Este processo já foi submetido." };
   }
 
@@ -176,6 +185,13 @@ export async function removerDocumento(bruto: string, id: string) {
     .limit(1);
 
   if (!alvo) return { ok: false as const, erro: "Documento não encontrado." };
+
+  if (!(TIPOS_DO_CLIENTE as readonly string[]).includes(alvo.tipo)) {
+    return {
+      ok: false as const,
+      erro: "Não tem permissão para remover este tipo de documento.",
+    };
+  }
 
   await base
     .update(documento)

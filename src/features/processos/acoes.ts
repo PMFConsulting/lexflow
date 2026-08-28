@@ -614,22 +614,36 @@ export async function aprovarProcesso(id: string): Promise<ResultadoDecisao> {
   if (!verificacao.ok) return verificacao;
   const { processo, atorId } = verificacao;
 
-  const [atualizado] = await db()
-    .update(processoOnboarding)
-    .set({ estado: "aprovado", aprovadoEm: new Date(), aprovadoPor: atorId })
-    .where(eq(processoOnboarding.id, id))
-    .returning();
+  let atualizado: typeof processoOnboarding.$inferSelect | undefined;
 
-  await registarEvento({
-    organizacaoId: processo.organizacaoId,
-    processoId: processo.id,
-    atorId,
-    acao: "processo.aprovado",
-    entidade: "processo_onboarding",
-    entidadeId: processo.id,
-    valorAnterior: { estado: processo.estado },
-    valorNovo: { estado: "aprovado" },
-  });
+  try {
+    atualizado = await db().transaction(async (tx) => {
+      const [res] = await tx
+        .update(processoOnboarding)
+        .set({ estado: "aprovado", aprovadoEm: new Date(), aprovadoPor: atorId })
+        .where(eq(processoOnboarding.id, id))
+        .returning();
+
+      await registarEvento(
+        {
+          organizacaoId: processo.organizacaoId,
+          processoId: processo.id,
+          atorId,
+          acao: "processo.aprovado",
+          entidade: "processo_onboarding",
+          entidadeId: processo.id,
+          valorAnterior: { estado: processo.estado },
+          valorNovo: { estado: "aprovado" },
+        },
+        tx,
+      );
+
+      return res;
+    });
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: falhou a aprovação / auditoria:`, e);
+    return { ok: false, erro: "Não foi possível aprovar o processo." };
+  }
 
   try {
     const { email, nome } = await emailDoCliente(id);
@@ -669,21 +683,31 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
   if (!verificacao.ok) return verificacao;
   const { processo, atorId } = verificacao;
 
-  await db()
-    .update(processoOnboarding)
-    .set({ estado: "rejeitado", motivoRejeicao: motivo })
-    .where(eq(processoOnboarding.id, id));
+  try {
+    await db().transaction(async (tx) => {
+      await tx
+        .update(processoOnboarding)
+        .set({ estado: "rejeitado", motivoRejeicao: motivo })
+        .where(eq(processoOnboarding.id, id));
 
-  await registarEvento({
-    organizacaoId: processo.organizacaoId,
-    processoId: processo.id,
-    atorId,
-    acao: "processo.rejeitado",
-    entidade: "processo_onboarding",
-    entidadeId: processo.id,
-    valorAnterior: { estado: processo.estado },
-    valorNovo: { estado: "rejeitado", motivo },
-  });
+      await registarEvento(
+        {
+          organizacaoId: processo.organizacaoId,
+          processoId: processo.id,
+          atorId,
+          acao: "processo.rejeitado",
+          entidade: "processo_onboarding",
+          entidadeId: processo.id,
+          valorAnterior: { estado: processo.estado },
+          valorNovo: { estado: "rejeitado", motivo },
+        },
+        tx,
+      );
+    });
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: falhou a rejeição / auditoria:`, e);
+    return { ok: false, erro: "Não foi possível rejeitar o processo." };
+  }
 
   try {
     const { email, nome } = await emailDoCliente(id);

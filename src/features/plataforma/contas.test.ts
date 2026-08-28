@@ -41,8 +41,10 @@ vi.mock("better-auth/crypto", () => ({
 
 vi.mock("drizzle-orm", () => ({
   and: (...c: unknown[]) => c,
-  eq: (...c: unknown[]) => c,
-  isNull: (...c: unknown[]) => c,
+  eq: (coluna: unknown, valor: unknown) => [coluna, valor, "eq"],
+  ne: (coluna: unknown, valor: unknown) => [coluna, valor, "ne"],
+  isNull: (coluna: unknown) => [coluna, null, "isNull"],
+  isNotNull: (coluna: unknown) => [coluna, null, "isNotNull"],
 }));
 
 vi.mock("@/db/schema/auth", () => ({ user: "user", account: "account" }));
@@ -82,12 +84,10 @@ vi.mock("@/lib/origem", () => ({
 const tabelaDe = (t: unknown) => (typeof t === "object" ? "utilizador" : String(t));
 
 /**
- * O `drizzle-orm` simulado devolve cada comparação como `[coluna, valor]` e o
- * `and(...)` como um array delas. Isto lê de lá o que a consulta está mesmo a
- * pedir — sem isso, qualquer `where` devolvia a lista inteira e a validação do
- * gestor encontrava sempre a primeira linha, fosse ela qual fosse.
+ * O `drizzle-orm` simulado devolve cada comparação como `[coluna, valor, op]` e o
+ * `and(...)` como um array delas.
  */
-type Condicao = [coluna: string, valor: string];
+type Condicao = [coluna: string, valor: unknown, op?: string];
 
 const clausulaSobre = (cond: unknown, coluna: string): Condicao | undefined =>
   Array.isArray(cond)
@@ -96,14 +96,33 @@ const clausulaSobre = (cond: unknown, coluna: string): Condicao | undefined =>
 
 const consultar = (t: unknown, cond: unknown): Linha[] => {
   const list = linhas[tabelaDe(t)] ?? [];
+  if (!cond) return list;
+
+  let filtradas = [...list];
 
   const porId = clausulaSobre(cond, "col_id");
-  if (porId) return list.filter((r) => r.id === porId[1]);
+  if (porId) filtradas = filtradas.filter((r) => r.id === porId[1]);
+
+  const porAuth = clausulaSobre(cond, "col_auth");
+  if (porAuth) filtradas = filtradas.filter((r) => r.authUserId === porAuth[1]);
 
   const porEmail = clausulaSobre(cond, "col_email");
-  if (porEmail) return list.filter((r) => !r.email || r.email === porEmail[1]);
+  if (porEmail) filtradas = filtradas.filter((r) => !r.email || r.email === porEmail[1]);
 
-  return list;
+  const porOrg = clausulaSobre(cond, "col_org");
+  if (porOrg) {
+    if (porOrg[2] === "ne") {
+      filtradas = filtradas.filter((r) => r.organizacaoId !== porOrg[1]);
+    } else if (porOrg[2] === "isNotNull") {
+      filtradas = filtradas.filter((r) => r.organizacaoId != null);
+    } else if (porOrg[2] === "isNull") {
+      filtradas = filtradas.filter((r) => r.organizacaoId == null);
+    } else if (porOrg[2] === "eq") {
+      filtradas = filtradas.filter((r) => r.organizacaoId === porOrg[1]);
+    }
+  }
+
+  return filtradas;
 };
 
 const transacao = {
@@ -272,13 +291,23 @@ describe("criarConta", () => {
    * índice único e a mensagem falava de uma tabela que quem está no ecrã não
    * sabe que existe.
    */
-  it("reaproveita a conta de acesso quando o email já existe noutra sociedade", async () => {
+  it("reaproveita a conta de acesso auth quando o utilizador ainda não tem sociedade", async () => {
     linhas["user"] = [{ id: "auth-ja-existia" }];
 
     await criarConta(PEDIDO);
 
     expect(inseridos.map((i) => i.tabela)).toEqual(["account", "utilizador"]);
     expect(inseridoEm("utilizador")!.authUserId).toBe("auth-ja-existia");
+  });
+
+  it("recusa com mensagem explícita quando o email já pertence a utilizador de outra sociedade", async () => {
+    linhas["user"] = [{ id: "auth-existente" }];
+    linhas["utilizador"] = [{ id: "u-outra-org", email: "maria@exemplo.pt", organizacaoId: "org-outra" }];
+
+    await expect(criarConta(PEDIDO)).rejects.toThrow(
+      "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+    );
+    expect(inseridoEm("utilizador")).toBeUndefined();
   });
 
   it("substitui a palavra-passe quando a credencial já existe", async () => {
@@ -296,7 +325,7 @@ describe("criarConta", () => {
   });
 
   it("recusa quem já lá está na mesma sociedade", async () => {
-    linhas["utilizador"] = [{ id: "u-1", apagadoEm: null }];
+    linhas["utilizador"] = [{ id: "u-1", apagadoEm: null, organizacaoId: "org-1" }];
 
     await expect(criarConta(PEDIDO)).rejects.toBeInstanceOf(ErroDeConta);
     expect(inseridoEm("utilizador")).toBeUndefined();
@@ -308,23 +337,21 @@ describe("criarConta", () => {
    * apagada continua lá.
    */
   it("repõe uma conta apagada em vez de recusar", async () => {
-    linhas["utilizador"] = [{ id: "u-1", apagadoEm: new Date() }];
+    linhas["utilizador"] = [{ id: "u-1", apagadoEm: new Date(), organizacaoId: "org-1" }];
 
     const conta = await criarConta(PEDIDO);
 
     expect(conta.utilizadorId).toBe("u-1");
-    expect(atualizados).toContainEqual(
-      expect.objectContaining({
-        tabela: "utilizador",
-        valores: expect.objectContaining({
-          ativo: true,
-          apagadoEm: null,
-          // É uma conta acabada de criar como qualquer outra: a palavra-passe
-          // que acabou de sair por email é temporária também para ela.
-          deveRedefinirPassword: true,
-        }),
-      }),
-    );
+    // Insert em `user` e `account` (para ter palavra-passe nova), UPDATE em
+    // `utilizador` — sem o insert novo a tentar colidir.
+    expect(inseridos.map((i) => i.tabela)).toEqual(["user", "account"]);
+    expect(atualizados.map((a) => a.tabela)).toEqual(["utilizador"]);
+    expect(atualizados[0]?.valores.apagadoEm).toBeNull();
+    expect(atualizados[0]?.valores).toMatchObject({
+      // É uma conta acabada de criar como qualquer outra: a palavra-passe
+      // que acabou de sair por email é temporária também para ela.
+      deveRedefinirPassword: true,
+    });
   });
 
   /* --- o gate da organização, no sítio onde se escreve -------------------- */

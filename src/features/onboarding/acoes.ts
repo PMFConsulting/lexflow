@@ -106,7 +106,11 @@ export async function guardarPasso(
   if (acesso.estado !== "ok") return recusaDeAcesso(acesso);
 
   const { processo, token } = acesso;
-  if (processo.estado !== "rascunho" && processo.estado !== "pendente_cliente") {
+  if (
+    processo.estado !== "rascunho" &&
+    processo.estado !== "pendente_cliente" &&
+    processo.estado !== "em_revisao"
+  ) {
     return {
       ok: false,
       erros: {},
@@ -250,6 +254,10 @@ export async function guardarPasso(
               eq(nacionalidade.titular, "representante"),
             ),
           );
+        await base
+          .update(dadosFiscais)
+          .set({ cae: null, codigoCertidaoPermanente: null, regimeIva: null })
+          .where(eq(dadosFiscais.processoId, processo.id));
       }
       break;
     }
@@ -262,6 +270,12 @@ export async function guardarPasso(
       const fiscais = { ...v };
       delete fiscais.tipoCliente;
       delete fiscais.documentos;
+
+      if (tipoCliente !== "empresa") {
+        fiscais.cae = null;
+        fiscais.codigoCertidaoPermanente = null;
+        fiscais.regimeIva = null;
+      }
 
       await base
         .insert(dadosFiscais)
@@ -786,7 +800,11 @@ export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
   }
 
   const { processo } = acesso;
-  if (processo.estado !== "rascunho" && processo.estado !== "pendente_cliente") {
+  if (
+    processo.estado !== "rascunho" &&
+    processo.estado !== "pendente_cliente" &&
+    processo.estado !== "em_revisao"
+  ) {
     return { ok: false, erro: "Este processo já foi submetido." };
   }
 
@@ -1072,6 +1090,18 @@ export async function submeter(bruto: string): Promise<Resultado> {
   if (acesso.estado !== "ok") return recusaDeAcesso(acesso);
 
   const { processo, token } = acesso;
+
+  if (
+    processo.estado !== "rascunho" &&
+    processo.estado !== "pendente_cliente" &&
+    processo.estado !== "em_revisao"
+  ) {
+    return {
+      ok: false,
+      erros: {},
+      mensagem: "Este processo já foi submetido e não pode ser alterado.",
+    };
+  }
 
   const [fecho] = await db()
     .select()
