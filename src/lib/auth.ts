@@ -37,10 +37,10 @@ function criar() {
       minPasswordLength: 12,
     },
     session: {
-      // Sessão de 30 dias com renovação: decisão deliberada do cliente para a POC
-      // (Diogo: "não tenho que ir a cada vez" — conveniência durante a fase de validação/testes).
-      // Em ambiente de produção com dados reais em regime definitivo, deve ser revista para 8h (D14).
-      expiresIn: 60 * 60 * 24 * 30, // 30 dias (deliberado para a POC — NÃO alterar)
+      // 30-day session with renewal: deliberate client decision for the POC, trading
+      // security margin for convenience during the validation/testing phase.
+      // Review down to 8h before production with real data in a definitive regime (D14).
+      expiresIn: 60 * 60 * 24 * 30, // 30 days (deliberate for the POC — do not change)
       updateAge: 60 * 60 * 24,
     },
   });

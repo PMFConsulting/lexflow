@@ -1,4 +1,7 @@
+import { eq } from "drizzle-orm";
 import { Check, Clock, Mail, TriangleAlert } from "lucide-react";
+import { db } from "@/db";
+import { organizacao } from "@/db/schema/organizacao";
 import { acessoPorToken, assinaturaDoProcesso } from "@/features/onboarding/dados";
 import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndisponivel";
 import { Carimbo } from "@/components/carimbo";
@@ -110,6 +113,12 @@ export default async function Submetido({
   const assinatura = await assinaturaDoProcesso(processo.id);
   const submetidoEm = processo.submetidoEm ?? new Date();
 
+  const [org] = await db()
+    .select({ nome: organizacao.nome })
+    .from(organizacao)
+    .where(eq(organizacao.id, processo.organizacaoId))
+    .limit(1);
+
   const etapas: Etapa[] = [
     {
       titulo: "Submissão recebida",
@@ -140,7 +149,7 @@ export default async function Submetido({
         <h1 className="text-2xl">Recebemos o seu processo</h1>
         <p className="mt-2 max-w-prose text-sm text-muted-foreground">
           O processo está agora <strong className="text-latao font-medium">a aguardar aprovação</strong> da
-          equipa da JMASSANO Escritório de Advogado.
+          equipa da {org?.nome}.
         </p>
       </div>
 

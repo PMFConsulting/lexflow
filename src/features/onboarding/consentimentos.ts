@@ -158,9 +158,3 @@ export async function registarConsentimento(opts: {
     }
   }
 }
-
-/** O texto em vigor, para o mostrar ao lado da caixa que se está a aceitar. */
-export async function textoParaMostrar(finalidade: Finalidade) {
-  const t = await textoEmVigor(finalidade);
-  return t?.conteudo ?? TEXTOS[finalidade]?.conteudo ?? "";
-}

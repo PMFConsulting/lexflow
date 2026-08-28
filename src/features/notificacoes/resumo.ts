@@ -108,7 +108,7 @@ export function gerarResumoDiarioHtml({
       ? `
       <div style="margin-bottom: 24px;">
         <h3 style="font-family:${FONTE_CORPO};font-size:16px;font-weight:600;color:${TINTA};margin:0 0 10px;">
-          🏢 Novas Sociedades Integradas (${totalSociedades})
+          Novas Sociedades Integradas (${totalSociedades})
         </h3>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
                style="background:${PAPEL};border:1px solid ${LINHA};border-radius:6px;border-collapse:collapse;">
@@ -157,7 +157,7 @@ export function gerarResumoDiarioHtml({
       ? `
       <div style="margin-bottom: 24px;">
         <h3 style="font-family:${FONTE_CORPO};font-size:16px;font-weight:600;color:${TINTA};margin:0 0 10px;">
-          👥 Novos Utilizadores Integrados (${totalUtilizadores})
+          Novos Utilizadores Integrados (${totalUtilizadores})
         </h3>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
                style="background:${PAPEL};border:1px solid ${LINHA};border-radius:6px;border-collapse:collapse;">

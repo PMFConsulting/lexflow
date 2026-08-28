@@ -25,8 +25,8 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "LexFlow — Processos",
-    template: "%s · LexFlow",
+    default: "JMASSANO — Processos",
+    template: "%s · JMASSANO",
   },
   description: "Plataforma de processos jurídicos — onboarding de clientes.",
 };

@@ -343,7 +343,7 @@ export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
   }
 
   const aprovadoEm = eu.papel === "super_admin" ? new Date() : null;
-  // Diogo's rule: O super_admin NÃO escolhe gestores nem dependentes. Apenas society_admin.
+  // Regra de negócio: só o society_admin atribui gestor/dependente; o super_admin não escolhe.
   const gestorIdEfetivo =
     eu.papel === "society_admin" && lido.data.papel === "utilizador"
       ? lido.data.gestorId

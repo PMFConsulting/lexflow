@@ -338,18 +338,6 @@ export async function exigirGestorDeUtilizadores() {
 /**
  * Alias de compatibilidade para o código pré-RBAC.
  *
- * O `admin` da sociedade passou a `society_admin`; quem administra a sociedade
- * é exactamente quem tem esse papel. `podeAdministrar` continua a existir para
- * que os ecrãs de administração escritos antes do RBAC 3 níveis continuem a
- * funcionar sem reescrita — a resposta é a mesma, só o nome do papel mudou.
- */
-export function podeAdministrar(papel: string) {
-  return papel === "society_admin";
-}
-
-/**
- * Alias de compatibilidade para o código pré-RBAC.
- *
  * Equivalente a `exigirSocietyAdmin`. Mantido para as páginas e Server Actions
  * de administração que foram escritas contra o antigo nome do papel.
  */

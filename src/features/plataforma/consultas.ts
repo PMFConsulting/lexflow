@@ -189,23 +189,6 @@ export async function utilizadoresDaSociedade(
   return linhas as LinhaDeUtilizador[];
 }
 
-/** Só os emails, para a importação saber com o que é que o ficheiro colide. */
-export async function emailsDaSociedade(organizacaoId: string | null) {
-  const linhas = await db()
-    .select({ email: utilizador.email })
-    .from(utilizador)
-    .where(
-      and(
-        isNull(utilizador.apagadoEm),
-        organizacaoId
-          ? eq(utilizador.organizacaoId, organizacaoId)
-          : isNull(utilizador.organizacaoId),
-      ),
-    );
-
-  return linhas.map((l) => l.email);
-}
-
 export type LinhaUtilizadorGlobal = {
   id: string;
   nome: string;
@@ -307,26 +290,6 @@ export async function listarUtilizadoresPendentes(
     .leftJoin(gestor, eq(gestor.id, utilizador.gestorId))
     .where(and(...condicoes))
     .orderBy(desc(utilizador.criadoEm));
-}
-
-/** Contagem de utilizadores pendentes de aprovação. */
-export async function contarUtilizadoresPendentes(organizacaoId?: string): Promise<number> {
-  const condicoes = [
-    isNull(utilizador.apagadoEm),
-    isNull(utilizador.aprovadoEm),
-    ne(utilizador.papel, "super_admin"),
-  ];
-
-  if (organizacaoId) {
-    condicoes.push(eq(utilizador.organizacaoId, organizacaoId));
-  }
-
-  const [r] = await db()
-    .select({ n: count() })
-    .from(utilizador)
-    .where(and(...condicoes));
-
-  return r?.n ?? 0;
 }
 
 /** Utilizadores associados a um gestor numa sociedade (área do gestor). */

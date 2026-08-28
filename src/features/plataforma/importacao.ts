@@ -216,9 +216,6 @@ export function prepararImportacao(
   return { ok: true, previsao: { validas, recusadas } };
 }
 
-/** O que a coluna do papel aceita — para a interface o poder dizer sem repetir a lista. */
-export const PAPEIS_ACEITES_NO_FICHEIRO = Object.keys(PAPEIS_ESCRITOS);
-
 /** O modelo que a interface oferece para descarregar. */
 export const MODELO_CSV = [
   "nome;email;papel",
