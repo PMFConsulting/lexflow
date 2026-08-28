@@ -10,3 +10,4 @@ export * from "./armazenamento";
 export * from "./email";
 export * from "./otp";
 export * from "./sociedade";
+export * from "./notificacao";

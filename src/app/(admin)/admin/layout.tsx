@@ -1,6 +1,7 @@
-import { Building2, FolderKanban, LayoutDashboard, ShieldUser, UserCheck } from "lucide-react";
+import { Bell, Building2, FolderKanban, LayoutDashboard, ShieldUser, UserCheck } from "lucide-react";
 import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
 import { exigirSuperAdmin } from "@/lib/sessao";
+import { contarNotificacoesNaoLidas } from "@/features/notificacoes/consultas";
 
 /**
  * O portal da plataforma.
@@ -21,6 +22,7 @@ const NAVEGACAO: EntradaDeMenu[] = [
   { titulo: "Processos", href: "/admin/processos", icone: FolderKanban },
   { titulo: "Utilizadores", href: "/admin/utilizadores", icone: ShieldUser },
   { titulo: "Aprovações", href: "/admin/aprovacoes", icone: UserCheck },
+  { titulo: "Notificações", href: "/admin/notificacoes", icone: Bell },
 ];
 
 export const dynamic = "force-dynamic";
@@ -29,6 +31,7 @@ export default async function LayoutAdmin({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const { eu } = await exigirSuperAdmin();
+  const contagemNotificacoes = await contarNotificacoesNaoLidas(eu);
 
   return (
     <PortalShell
@@ -37,6 +40,8 @@ export default async function LayoutAdmin({
       cabecalho="Administração da plataforma"
       legendaDaMarca="Plataforma"
       utilizador={{ nome: eu.nome, papel: ROTULO_DO_PAPEL[eu.papel] ?? eu.papel }}
+      contagemNotificacoes={contagemNotificacoes}
+      hrefNotificacoes="/admin/notificacoes"
     >
       {children}
     </PortalShell>

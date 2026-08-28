@@ -166,6 +166,13 @@ export const organizacao = pgTable(
     logotipoNome: text("logotipo_nome"),
     logotipoAtualizadoEm: timestamp("logotipo_atualizado_em", { withTimezone: true }),
 
+    /**
+     * Preferência da sociedade para receber um email de aviso a cada novo processo
+     * submetido (template notificacao_backoffice). Por omissão é false (0 emails;
+     * substituído por notificação in-app).
+     */
+    notificarSubmissoesEmail: boolean("notificar_submissoes_email").notNull().default(false),
+
     ...timestamps(),
     ...softDelete(),
   },

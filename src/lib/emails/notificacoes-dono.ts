@@ -177,9 +177,15 @@ export function emailNotificacaoNovoUtilizador({
   );
 }
 
+import {
+  registarNotificacao,
+  enfileirarNotificacaoPendente,
+} from "@/features/notificacoes/acoes";
+
 /**
- * Envia notificação por email ao Dono da plataforma quando uma nova sociedade é criada.
- * Nunca propaga exceção para não interromper a criação da sociedade.
+ * Notifica a criação de uma nova sociedade (Frente P):
+ * 1. Regista notificação in-app (visível no painel da plataforma e no sino).
+ * 2. Enfileira em `notificacoes_pendentes` para o Resumo Diário às 9:00 (zero emails imediatos).
  */
 export async function notificarDonoSociedadeCriada({
   sociedadeId,
@@ -198,55 +204,41 @@ export async function notificarDonoSociedadeCriada({
   adminEmail?: string | null;
   erroAdmin?: string | null;
 }): Promise<void> {
-  let emailDono: string | undefined;
-  try {
-    emailDono = env().EMAIL_NOTIFICACOES;
-  } catch (e) {
-    console.warn("[notificacoes] env EMAIL_NOTIFICACOES não acessível:", e);
-    return;
-  }
+  const link = `/admin/sociedades/${sociedadeId}`;
 
-  if (!emailDono) {
-    console.info("[notificacoes] EMAIL_NOTIFICACOES não definido; notificação de sociedade omitida.");
-    return;
-  }
+  // 1. Notificação in-app
+  await registarNotificacao({
+    organizacaoId: sociedadeId,
+    paraPapel: "super_admin",
+    titulo: erroAdmin
+      ? `[Alerta] Sociedade criada com erro no admin: ${nome}`
+      : `Nova sociedade criada: ${nome}`,
+    corpo: `Foi criada a sociedade "${nome}" (NIPC: ${nif}, Prefixo: ${prefixo}).${
+      adminEmail ? ` Administrador inicial: ${adminNome ?? ""} (${adminEmail}).` : ""
+    }${erroAdmin ? ` Motivo do alerta: ${erroAdmin}` : ""}`,
+    link,
+  });
 
-  let link: string;
-  try {
-    link = `${await origemPublica()}/admin/sociedades/${sociedadeId}`;
-  } catch {
-    const base = (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-    link = `${base}/admin/sociedades/${sociedadeId}`;
-  }
-
-  const assunto = erroAdmin
-    ? `LexFlow | [Alerta] Sociedade criada com erro no admin: ${nome}`
-    : `LexFlow | Nova sociedade onboarded: ${nome}`;
-
-  try {
-    await enviarEmail({
-      para: emailDono,
-      assunto,
-      html: emailNotificacaoSociedadeCriada({
-        nome,
-        nif,
-        prefixo,
-        adminNome,
-        adminEmail,
-        link,
-        erroAdmin,
-      }),
-      template: "notificacao_sociedade_criada",
-      organizacaoId: sociedadeId,
-    });
-  } catch (e) {
-    console.error(`[notificacoes] falha ao notificar Dono sobre sociedade ${nome}:`, e);
-  }
+  // 2. Fila para o Resumo Diário único às 9:00 (zero emails imediatos)
+  await enfileirarNotificacaoPendente({
+    tipo: "sociedade_criada",
+    organizacaoId: sociedadeId,
+    dados: {
+      sociedadeId,
+      nome,
+      nif,
+      prefixo,
+      adminNome,
+      adminEmail,
+      erroAdmin,
+    },
+  });
 }
 
 /**
- * Envia notificação curta ao Dono da plataforma quando um utilizador é onboarded.
- * Nunca propaga exceção para não interromper a criação de utilizadores.
+ * Notifica a integração de um novo utilizador (Frente P):
+ * 1. Regista notificação in-app (visível no back-office da sociedade e na plataforma).
+ * 2. Enfileira em `notificacoes_pendentes` para o Resumo Diário às 9:00 (zero emails imediatos).
  */
 export async function notificarDonoNovoUtilizador({
   nome,
@@ -261,35 +253,38 @@ export async function notificarDonoNovoUtilizador({
   papel: string;
   organizacaoId?: string | null;
 }): Promise<void> {
-  let emailDono: string | undefined;
-  try {
-    emailDono = env().EMAIL_NOTIFICACOES;
-  } catch (e) {
-    console.warn("[notificacoes] env EMAIL_NOTIFICACOES não acessível:", e);
-    return;
-  }
+  const papelLegivel =
+    papel === "society_admin"
+      ? "Administrador da Sociedade"
+      : papel === "gestor"
+        ? "Gestor"
+        : papel === "super_admin"
+          ? "Administrador da Plataforma"
+          : "Utilizador";
 
-  if (!emailDono) {
-    console.info("[notificacoes] EMAIL_NOTIFICACOES não definido; notificação de novo utilizador omitida.");
-    return;
-  }
+  const link = organizacaoId ? `/admin/sociedades/${organizacaoId}` : "/admin/utilizadores";
 
-  const assunto = `LexFlow | Novo utilizador onboarded: ${nome}`;
+  // 1. Notificação in-app
+  await registarNotificacao({
+    organizacaoId: organizacaoId ?? null,
+    paraPapel: null,
+    titulo: `Novo utilizador integrado: ${nome}`,
+    corpo: `O utilizador ${nome} (${email}) foi registado com perfil de ${papelLegivel}${
+      sociedadeNome ? ` na sociedade ${sociedadeNome}` : ""
+    }.`,
+    link,
+  });
 
-  try {
-    await enviarEmail({
-      para: emailDono,
-      assunto,
-      html: emailNotificacaoNovoUtilizador({
-        nome,
-        email,
-        sociedade: sociedadeNome,
-        papel,
-      }),
-      template: "notificacao_novo_utilizador",
-      organizacaoId: organizacaoId ?? null,
-    });
-  } catch (e) {
-    console.error(`[notificacoes] falha ao notificar Dono sobre novo utilizador ${email}:`, e);
-  }
+  // 2. Fila para o Resumo Diário único às 9:00 (zero emails imediatos)
+  await enfileirarNotificacaoPendente({
+    tipo: "novo_utilizador",
+    organizacaoId: organizacaoId ?? null,
+    dados: {
+      nome,
+      email,
+      sociedadeNome,
+      papel,
+      organizacaoId,
+    },
+  });
 }

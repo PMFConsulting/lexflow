@@ -4,6 +4,7 @@ import { exigirSocietyAdmin } from "@/lib/sessao";
 import { sociedadeDe } from "@/features/administracao/consultas";
 import { consultarModelosEmail } from "@/features/emails/consultas";
 import { EditorModelosEmail } from "@/features/emails/componentes/EditorModelosEmail";
+import { PreferenciaNotificacaoEmail } from "@/features/notificacoes/componentes/PreferenciaNotificacaoEmail";
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 
 export const metadata = { title: "Modelos de Email — Configuração" };
@@ -41,6 +42,8 @@ export default async function PaginaModelosEmail() {
           </div>
         </div>
       </div>
+
+      <PreferenciaNotificacaoEmail ativadoInicial={org?.notificarSubmissoesEmail ?? false} />
 
       <EditorModelosEmail modelosIniciais={modelos} logotipoUrl={logotipoUrl} />
     </div>

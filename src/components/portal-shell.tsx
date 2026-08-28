@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
 import { Logotipo } from "@/components/logotipo";
+import { SinoNotificacoes } from "@/features/notificacoes/componentes/SinoNotificacoes";
 
 /**
  * A moldura dos três portais.
@@ -46,6 +47,8 @@ export function PortalShell({
   legendaDaMarca,
   utilizador,
   logotipoUrl,
+  contagemNotificacoes,
+  hrefNotificacoes,
   children,
 }: {
   entradas: EntradaDeMenu[];
@@ -54,6 +57,8 @@ export function PortalShell({
   legendaDaMarca: string;
   utilizador: { nome: string; papel: string };
   logotipoUrl?: string | null;
+  contagemNotificacoes?: number;
+  hrefNotificacoes?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -119,12 +124,20 @@ export function PortalShell({
         </Sidebar>
 
         <SidebarInset>
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-linha bg-papel-alto px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-1 h-4" />
-            <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
-              {cabecalho}
-            </span>
+          <header className="flex h-12 shrink-0 items-center justify-between border-b border-linha bg-papel-alto px-4">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-1 h-4" />
+              <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
+                {cabecalho}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <SinoNotificacoes
+                href={hrefNotificacoes ?? "/notificacoes"}
+                contagemNaoLidas={contagemNotificacoes ?? 0}
+              />
+            </div>
           </header>
           <main className="flex-1 p-4 md:p-6">{children}</main>
         </SidebarInset>

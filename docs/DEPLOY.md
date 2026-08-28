@@ -197,6 +197,23 @@ than to serve the application against a schema that is not the expected one.
 Each new POC: **New Resource** in Coolify, its repository, and whichever subdomain you want.
 DNS is already done.
 
+## 14. Cron Jobs (Resumo Diário ao Dono)
+
+Para reduzir os custos com fornecedores de email (Twilio SendGrid), as notificações internas de novas sociedades e utilizadores são agregadas num email diário único às 09:00 através do script `scripts/resumo_diario.mjs`.
+
+Configurar um cron job no servidor ou no Coolify:
+
+```bash
+# Executa diariamente às 09:00 e envia o Resumo Terlica para EMAIL_NOTIFICACOES:
+0 9 * * * cd /app && node scripts/resumo_diario.mjs >> /var/log/resumo_diario.log 2>&1
+```
+
+Em desenvolvimento ou para testes pontuais:
+```bash
+node scripts/resumo_diario.mjs --forcar   # Força o envio mesmo sem novos eventos
+node scripts/resumo_diario.mjs --dry-run  # Simula a agregação sem disparar email
+```
+
 ---
 
 ## Common problems

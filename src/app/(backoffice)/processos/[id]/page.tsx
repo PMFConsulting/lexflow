@@ -12,7 +12,7 @@ import {
   seccoesDoProcesso,
 } from "@/features/onboarding/dados";
 import {
-  exigirEquipaDaSociedade,
+  exigirEquipaOuSuperAdmin,
   podeAprovarProcesso,
   podeReabrirProcesso,
   podeVerPpe,
@@ -28,13 +28,23 @@ export default async function Processo({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { eu } = await exigirEquipaDaSociedade();
+  const { eu } = await exigirEquipaOuSuperAdmin();
+  const superAdmin = eu.papel === "super_admin";
 
   const processo = await processoPorId(id);
-  if (!processo || processo.organizacaoId !== eu.organizacaoId) notFound();
+  if (
+    !processo ||
+    (!superAdmin && processo.organizacaoId !== eu.organizacaoId)
+  ) {
+    notFound();
+  }
 
   if (eu.papel === "gestor") {
-    const podeVer = await gestorPodeVerProcesso(processo.id, eu.id, eu.organizacaoId);
+    const podeVer = await gestorPodeVerProcesso(
+      processo.id,
+      eu.id,
+      eu.organizacaoId ?? "",
+    );
     if (!podeVer) notFound();
   }
 

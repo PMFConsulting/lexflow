@@ -82,6 +82,8 @@ vi.mock("drizzle-orm", () => ({
 
 vi.mock("@/db/schema/processo", () => ({ processoOnboarding: "processo_onboarding" }));
 
+vi.mock("@/db/schema/organizacao", () => ({ organizacao: "organizacao" }));
+
 vi.mock("@/db/schema/documentos", () => ({
   assinatura: "assinatura",
   documento: "documento",
@@ -1306,37 +1308,36 @@ describe("submeter — com tudo no sítio", () => {
   });
 
   /**
-   * As boas-vindas já não saem aqui — passam a sair quando o processo é
-   * aprovado no back-office (`aprovarProcesso`, em `features/processos/acoes.ts`).
-   * Na submissão só saem a confirmação de receção ao cliente e o aviso interno.
+   * Frente P: Na submissão só sai a confirmação de receção ao cliente (exatamente 1 email).
+   * O aviso ao back-office passa a ser notificação in-app (zero emails por omissão).
    */
-  it("sai a confirmação ao cliente e o aviso ao back-office — sem boas-vindas", async () => {
+  it("sai a confirmação ao cliente e zero emails de back-office por omissão", async () => {
     await submeter(TOKEN);
 
-    expect(enviados.map((e) => e.template)).toEqual([
-      "confirmacao_rececao",
-      "notificacao_backoffice",
-    ]);
-    expect(enviados.map((e) => e.para)).toEqual(["maria@exemplo.pt", "equipa@jmassano.pt"]);
+    expect(enviados.map((e) => e.template)).toEqual(["confirmacao_rececao"]);
+    expect(enviados.map((e) => e.para)).toEqual(["maria@exemplo.pt"]);
   });
 
-  it("sem email na identificação, vale o da faturação", async () => {
+  it("sem email na identificação, vale o da faturação para o cliente", async () => {
     linhas["dados_identificacao"] = [];
     linhas["dados_faturacao"] = [{ email: "faturacao@exemplo.pt" }];
 
     await submeter(TOKEN);
 
-    expect(enviados.map((e) => e.para)).toEqual(["faturacao@exemplo.pt", "equipa@jmassano.pt"]);
+    expect(enviados.map((e) => e.para)).toEqual(["faturacao@exemplo.pt"]);
   });
 
-  it("sem endereço nenhum, o aviso interno sai à mesma", async () => {
-    linhas["dados_identificacao"] = [];
-    linhas["dados_faturacao"] = [];
+  it("quando a sociedade ativa notificarSubmissoesEmail, envia também o aviso por email", async () => {
+    linhas["organizacao"] = [{ id: "org-1", nome: "JMASSANO", notificarSubmissoesEmail: true }];
 
     const r = await submeter(TOKEN);
 
     expect(r.ok).toBe(true);
-    expect(enviados.map((e) => e.template)).toEqual(["notificacao_backoffice"]);
+    expect(enviados.map((e) => e.template)).toEqual([
+      "confirmacao_rececao",
+      "notificacao_backoffice",
+    ]);
+    expect(enviados.map((e) => e.para)).toEqual(["maria@exemplo.pt", "equipa@jmassano.pt"]);
   });
 
   it("a pasta do cliente é sincronizada com a linha já submetida", async () => {

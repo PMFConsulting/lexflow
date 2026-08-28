@@ -38,6 +38,7 @@ import {
 import { canonico } from "@/features/auditoria/hash";
 import { registarEvento } from "@/features/auditoria/registar";
 import { registarConsentimento } from "./consentimentos";
+import { registarNotificacao } from "@/features/notificacoes/acoes";
 import {
   acessoPorToken,
   motivoDoAcesso,
@@ -1318,10 +1319,22 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
       nome: organizacao.nome,
       logotipoDados: organizacao.logotipoDados,
       logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+      notificarSubmissoesEmail: organizacao.notificarSubmissoesEmail,
     })
     .from(organizacao)
     .where(eq(organizacao.id, processo.organizacaoId))
     .limit(1);
+
+  // Frente P: Notificação in-app no backoffice (badge/sino) — zero emails por omissão
+  await registarNotificacao({
+    organizacaoId: processo.organizacaoId,
+    paraPapel: null,
+    titulo: `Novo processo submetido: ${processo.referencia}`,
+    corpo: `Foi submetido um novo processo de onboarding (${
+      processo.tipoCliente === "empresa" ? "Empresa / Entidade Coletiva" : "Pessoa Singular"
+    }).`,
+    link: `/processos/${processo.id}`,
+  });
 
   if (emailCliente) {
     const emailResolvido = await resolverEmailCliente({
@@ -1347,12 +1360,8 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
     );
   }
 
-  if (emailBackoffice) {
-    // O anfitrião sai dos cabeçalhos do pedido, como o link do email de
-    // registo: estava aqui `https://poc.terlicalabs.com` escrito à mão, e numa
-    // segunda instalação o aviso mandava a equipa para o dossier da primeira.
-    // Falhar a lê-lo dá um link relativo no aviso interno, não um `allSettled`
-    // por correr com os dois emails do cliente já em voo e sem ninguém a ouvir.
+  // Só enviar email ao backoffice se a sociedade tiver ativamente pedido (default OFF)
+  if (org?.notificarSubmissoesEmail && emailBackoffice) {
     let endereco = "";
     try {
       endereco = await origemPublica();
@@ -1377,10 +1386,6 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
         <p><a href="${endereco}/processos/${processo.id}">Ver processo no back-office</a></p>
       `,
       }),
-    );
-  } else {
-    console.warn(
-      "[email] a sociedade não tem email geral e EMAIL_NOTIFICACOES não está configurada — o aviso ao back-office não foi enviado.",
     );
   }
 

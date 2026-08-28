@@ -127,6 +127,8 @@ const tabelaDe = (t: unknown) => {
     if ("prefixoReferencia" in t) return "organizacao";
     if ("providerId" in t) return "account";
     if ("email" in t && !("papel" in t)) return "user";
+    if ("paraPapel" in t) return "notificacao";
+    if ("processadoEm" in t) return "notificacoes_pendentes";
   }
   return String(t);
 };
@@ -241,6 +243,9 @@ const transacao = {
   insert: (t: unknown) => ({
     values: async (v: Linha) => {
       const tab = tabelaDe(t);
+      if (v?.email === "admin.falha@sociedade.pt" && (tab === "user" || tab === "utilizador")) {
+        throw new Error("Erro na base de dados ao criar utilizador");
+      }
       inseridos.push({ tabela: tab, valores: v });
       (linhas[tab] ??= []).push(v);
       return [v];
@@ -371,16 +376,23 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
     expect(matchSenha).toBeTruthy();
     const senhaTemporaria = matchSenha![1];
 
-    // b) Notificação de sociedade criada enviada ao Dono da plataforma
+    // b) Frente P: Zero emails imediatos ao Dono; enfileirado para o Resumo Diário e notificação in-app
     const emailDono = emailsEnviados.find(
       (e) => e.para === "dono@plataforma.pt" && e.template === "notificacao_sociedade_criada",
     );
-    expect(emailDono).toBeDefined();
-    expect(emailDono?.assunto).toContain("Nova sociedade onboarded: Teixeira & Associados");
-    expect(emailDono?.html).toContain("501999884");
-    expect(emailDono?.html).toContain("TXA");
-    expect(emailDono?.html).toContain("diogo.admin@sociedade.pt");
-    expect(emailDono?.html).toContain(`/admin/sociedades/${resultado.id}`);
+    expect(emailDono).toBeUndefined();
+
+    const notifInApp = inseridos.find(
+      (i) => i.tabela === "notificacao" && i.valores.titulo?.includes("Nova sociedade criada: Teixeira & Associados"),
+    );
+    expect(notifInApp).toBeDefined();
+
+    const notifPendente = inseridos.find(
+      (i) => i.tabela === "notificacoes_pendentes" && i.valores.tipo === "sociedade_criada",
+    );
+    expect(notifPendente).toBeDefined();
+    expect(notifPendente?.valores.dados?.nif).toBe("501999884");
+    expect(notifPendente?.valores.dados?.prefixo).toBe("TXA");
 
     // 3. Simular login do novo admin com a palavra-passe temporária
     const novoAdminId = resultado.admin!.utilizadorId;
@@ -488,13 +500,13 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
     expect(resultado2.avisoAdmin).toBeNull();
     expect(resultado2.admin?.email).toBe("admin.multi@sociedade.pt");
 
-    // Dono recebe notificação da segunda sociedade
-    const emailNotif = emailsEnviados.find(
-      (e) => e.template === "notificacao_sociedade_criada" && e.html.includes("Segunda Sociedade"),
+    // Frente P: Notificação in-app e fila do resumo diário para segunda sociedade
+    const notifSegunda = inseridos.find(
+      (i) => i.tabela === "notificacoes_pendentes" && i.valores.dados?.nome === "Segunda Sociedade",
     );
-    expect(emailNotif).toBeDefined();
-    expect(emailNotif?.html).toContain("500000000");
-    expect(emailNotif?.html).toContain("SEG");
+    expect(notifSegunda).toBeDefined();
+    expect(notifSegunda?.valores.dados?.nif).toBe("500000000");
+    expect(notifSegunda?.valores.dados?.prefixo).toBe("SEG");
   });
 
   it("notifica o Dono quando um novo utilizador é criado via criarUtilizador", async () => {
@@ -528,14 +540,13 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
 
     expect(resultado.ok).toBe(true);
 
-    const notifUtilizador = emailsEnviados.find(
-      (e) => e.template === "notificacao_novo_utilizador" && e.para === "dono@plataforma.pt",
+    // Frente P: Notificação in-app e fila do resumo diário para novo utilizador
+    const notifUtilizador = inseridos.find(
+      (i) => i.tabela === "notificacoes_pendentes" && i.valores.tipo === "novo_utilizador",
     );
     expect(notifUtilizador).toBeDefined();
-    expect(notifUtilizador?.assunto).toContain("Novo utilizador onboarded: Advogada Joana");
-    expect(notifUtilizador?.html).toContain("joana@sociedade.pt");
-    expect(notifUtilizador?.html).toContain("Sociedade Silva");
-    expect(notifUtilizador?.html).toContain("Utilizador");
+    expect(notifUtilizador?.valores.dados?.nome).toBe("Advogada Joana");
+    expect(notifUtilizador?.valores.dados?.email).toBe("joana@sociedade.pt");
   });
 
   it("envia alerta de erro ao Dono quando a criação da conta do administrador falha", async () => {
@@ -557,24 +568,23 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
       eu: superAdminUser,
     };
 
-    // Já existe uma conta ativa com o mesmo email na mesma sociedade (provocando colisão no admin)
-    // Para simular colisão no admin inicial, colocamos um utilizador existente na mesma futura org
-    // ou simulamos um erro no admin
+    // Simular falha na criação do admin inicial
     const resultado = await criarSociedade({
       nome: "Sociedade Alerta",
       nif: "501999884",
       prefixoReferencia: "ALT",
-      adminNome: "Admin",
-      adminEmail: "admin.repetido@sociedade.pt",
+      adminNome: "Admin Alerta",
+      adminEmail: "admin.falha@sociedade.pt",
     });
 
     expect(resultado.ok).toBe(true);
+    expect(resultado.avisoAdmin).toBe("Não foi possível criar a conta do administrador.");
 
-    // O Dono recebeu email de alerta
-    const emailAlerta = emailsEnviados.find(
-      (e) => e.template === "notificacao_sociedade_criada" && e.para === "dono@plataforma.pt",
+    // Frente P: Alerta in-app e na fila do resumo diário
+    const notifAlerta = inseridos.find(
+      (i) => i.tabela === "notificacao" && i.valores.titulo?.includes("[Alerta]"),
     );
-    expect(emailAlerta).toBeDefined();
-    expect(emailAlerta?.html).toContain("Sociedade Alerta");
+    expect(notifAlerta).toBeDefined();
+    expect(notifAlerta?.valores.corpo).toContain("Sociedade Alerta");
   });
 });

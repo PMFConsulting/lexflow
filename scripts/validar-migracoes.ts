@@ -440,6 +440,10 @@ async function main() {
 
   await validarMultiSociedadeENotificacoes(falhas);
 
+  /* ---------------------------------- a 0026 notificacoes e resumo diario --- */
+
+  await validarNotificacoesEResumoDiario(falhas);
+
   if (falhas.length > 0) {
     console.error(`\n${falhas.length} problema(s):`);
     for (const f of falhas) console.error(`  · ${f}`);
@@ -447,6 +451,83 @@ async function main() {
   }
 
   console.log("\nMigrações válidas.");
+}
+
+/**
+ * A `0026` sobre uma base existente:
+ * - A coluna `notificar_submissoes_email` é adicionada à tabela organizacao com default false.
+ * - A tabela `notificacao` é criada com índices.
+ * - A tabela `notificacoes_pendentes` é criada com índices.
+ * - Idempotência garantida na reaplicação.
+ */
+async function validarNotificacoesEResumoDiario(falhas: string[]) {
+  const db = new PGlite({ extensions: { unaccent } });
+  await db.waitReady;
+
+  // Aplica até à 0025
+  await aplicar(db, { ate: 25 });
+
+  await db.exec(`
+    insert into organizacao (id, nome, nif, prefixo_referencia)
+    values ('fe6c269c-5358-43f9-8a7e-ccade4778940', 'PMF Consulting', '500000000', 'PMF');
+  `);
+
+  // Aplica a 0026 duas vezes para testar idempotência
+  for (const passagem of [1, 2]) {
+    for (const bloco of instrucoes("0026_notificacoes_e_resumo_diario")) {
+      try {
+        await db.exec(bloco);
+      } catch (e) {
+        falhas.push(
+          `a 0026 falhou na passagem ${passagem} (não é idempotente): ${(e as Error).message}`,
+        );
+        await db.close();
+        return;
+      }
+    }
+  }
+
+  // Verifica default da coluna notificar_submissoes_email
+  const org = await db.query<{ notificar_submissoes_email: boolean }>(
+    "select notificar_submissoes_email from organizacao where id = 'fe6c269c-5358-43f9-8a7e-ccade4778940'",
+  );
+  if (org.rows[0]?.notificar_submissoes_email !== false) {
+    falhas.push("0026: notificar_submissoes_email não tem default false");
+  }
+
+  // Insere notificação in-app
+  await db.exec(`
+    insert into notificacao (id, organizacao_id, para_papel, titulo, corpo, link)
+    values (
+      '01920000-0000-7000-8000-000000000701',
+      'fe6c269c-5358-43f9-8a7e-ccade4778940',
+      'society_admin',
+      'Novo processo submetido: PMF-2026-0001',
+      'Foi submetido um novo processo de onboarding.',
+      '/processos/01920000-0000-7000-8000-000000000702'
+    );
+  `);
+
+  // Insere notificação pendente
+  await db.exec(`
+    insert into notificacoes_pendentes (id, tipo, organizacao_id, dados)
+    values (
+      '01920000-0000-7000-8000-000000000703',
+      'sociedade_criada',
+      'fe6c269c-5358-43f9-8a7e-ccade4778940',
+      '{"nome": "PMF Consulting", "nif": "500000000"}'::jsonb
+    );
+  `);
+
+  const nInApp = await db.query<{ n: number }>("select count(*)::int as n from notificacao");
+  const nPend = await db.query<{ n: number }>("select count(*)::int as n from notificacoes_pendentes");
+
+  if (Number(nInApp.rows[0]?.n ?? 0) !== 1) falhas.push("0026: inserção em notificacao falhou");
+  if (Number(nPend.rows[0]?.n ?? 0) !== 1) falhas.push("0026: inserção em notificacoes_pendentes falhou");
+
+  await db.close();
+
+  console.log("Notificações e resumo diário: tabelas e coluna criadas com sucesso; idempotência verificada.");
 }
 
 /**

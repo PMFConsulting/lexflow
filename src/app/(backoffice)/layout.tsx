@@ -1,7 +1,8 @@
-import { Building2, FileText, LayoutDashboard, Settings, UserRound, Users } from "lucide-react";
+import { Bell, Building2, FileText, LayoutDashboard, Settings, UserRound, Users } from "lucide-react";
 import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
 import { exigirEquipaDaSociedade, podeVerEmails } from "@/lib/sessao";
 import { sociedadeDe } from "@/features/administracao/consultas";
+import { contarNotificacoesNaoLidas } from "@/features/notificacoes/consultas";
 
 /**
  * O portal da sociedade.
@@ -42,6 +43,7 @@ const NAVEGACAO: Entrada[] = [
   { titulo: "Processos", href: "/processos", icone: FileText },
   { titulo: "A minha equipa", href: "/equipa", icone: Users, soGestor: true },
   { titulo: "Clientes", href: "/clientes", icone: Users },
+  { titulo: "Notificações", href: "/notificacoes", icone: Bell },
   { titulo: "Configuração", href: "/configuracao", icone: Settings },
 ];
 
@@ -77,7 +79,10 @@ export default async function LayoutBackoffice({
   // Guard num sítio só: todas as páginas do back-office passam por aqui, e é
   // o que impede que uma página nova nasça aberta por esquecimento.
   const { eu } = await exigirEquipaDaSociedade();
-  const org = await sociedadeDe(eu.organizacaoId);
+  const [org, contagemNotificacoes] = await Promise.all([
+    sociedadeDe(eu.organizacaoId),
+    contarNotificacoesNaoLidas(eu),
+  ]);
 
   const isGestor = eu.papel === "gestor";
   const admin = podeVerEmails(eu.papel);
@@ -104,6 +109,8 @@ export default async function LayoutBackoffice({
       legendaDaMarca="Processos"
       utilizador={{ nome: eu.nome, papel: ROTULO_DO_PAPEL[eu.papel] ?? eu.papel }}
       logotipoUrl={logotipoUrl}
+      contagemNotificacoes={contagemNotificacoes}
+      hrefNotificacoes="/notificacoes"
     >
       {children}
     </PortalShell>
