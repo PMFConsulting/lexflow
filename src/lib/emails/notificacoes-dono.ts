@@ -14,9 +14,10 @@ import {
   TINTA_SUAVE,
   linkCopiavel,
 } from "./moldura";
-import { enviarEmail } from "@/lib/email";
-import { origemPublica } from "@/lib/origem";
-import { env } from "@/env";
+import {
+  registarNotificacao,
+  enfileirarNotificacaoPendente,
+} from "@/features/notificacoes/servico";
 
 /**
  * Notificações operacionais enviadas ao Dono da plataforma (EMAIL_NOTIFICACOES).
@@ -176,11 +177,6 @@ export function emailNotificacaoNovoUtilizador({
     ARQUIVO,
   );
 }
-
-import {
-  registarNotificacao,
-  enfileirarNotificacaoPendente,
-} from "@/features/notificacoes/servico";
 
 /**
  * Notifica a criação de uma nova sociedade (Frente P):

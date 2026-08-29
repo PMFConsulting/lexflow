@@ -21,6 +21,8 @@ import {
 } from "@/db/schema/seccoes";
 import { registarEvento } from "@/features/auditoria/registar";
 import { acessoPorToken } from "@/features/onboarding/dados";
+import { nifFaturacao } from "@/features/onboarding/schemas";
+import { email as emailSchema } from "@/lib/campos";
 import { enviarEmail } from "@/lib/email";
 import { enviarBoasVindas } from "@/lib/emails/boas-vindas";
 import {
@@ -39,6 +41,7 @@ import {
   podeReabrirProcesso,
 } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
+import { validarNif, validarNipc, validarTelefone } from "@/lib/validacao-pt";
 import {
   novoProcesso,
   reaberturaProcessoSchema,
@@ -618,11 +621,24 @@ export async function aprovarProcesso(id: string): Promise<ResultadoDecisao> {
 
   try {
     atualizado = await db().transaction(async (tx) => {
+      // A guarda de estado no próprio UPDATE, não só no SELECT de
+      // `processoParaDecisao`: entre o SELECT e aqui, outro pedido pode ter
+      // decidido o mesmo processo (dois separadores, ou o cliente a submeter
+      // outra vez em cima da decisão). Sem esta condição no WHERE, a última
+      // escrita ganhava calada — a mesma classe de falha que o OTP já evita
+      // com `WHERE tentativas < 5`.
       const [res] = await tx
         .update(processoOnboarding)
         .set({ estado: "aprovado", aprovadoEm: new Date(), aprovadoPor: atorId })
-        .where(eq(processoOnboarding.id, id))
+        .where(
+          and(
+            eq(processoOnboarding.id, id),
+            eq(processoOnboarding.estado, "aguardar_aprovacao"),
+          ),
+        )
         .returning();
+
+      if (!res) return undefined;
 
       await registarEvento(
         {
@@ -645,10 +661,14 @@ export async function aprovarProcesso(id: string): Promise<ResultadoDecisao> {
     return { ok: false, erro: "Não foi possível aprovar o processo." };
   }
 
+  if (!atualizado) {
+    return { ok: false, erro: "O processo já mudou de estado — recarregue a página." };
+  }
+
   try {
     const { email, nome } = await emailDoCliente(id);
     if (email) {
-      await enviarBoasVindas(atualizado ?? processo, email, nome);
+      await enviarBoasVindas(atualizado, email, nome);
     } else {
       console.warn(
         `[processo] ${processo.referencia}: aprovado sem endereço de email — boas-vindas não enviadas.`,
@@ -683,12 +703,24 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
   if (!verificacao.ok) return verificacao;
   const { processo, atorId } = verificacao;
 
+  let rejeitado: typeof processoOnboarding.$inferSelect | undefined;
+
   try {
-    await db().transaction(async (tx) => {
-      await tx
+    rejeitado = await db().transaction(async (tx) => {
+      // Mesma guarda de estado no UPDATE que `aprovarProcesso` — ver o
+      // comentário lá.
+      const [res] = await tx
         .update(processoOnboarding)
         .set({ estado: "rejeitado", motivoRejeicao: motivo })
-        .where(eq(processoOnboarding.id, id));
+        .where(
+          and(
+            eq(processoOnboarding.id, id),
+            eq(processoOnboarding.estado, "aguardar_aprovacao"),
+          ),
+        )
+        .returning();
+
+      if (!res) return undefined;
 
       await registarEvento(
         {
@@ -703,10 +735,16 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
         },
         tx,
       );
+
+      return res;
     });
   } catch (e) {
     console.error(`[processo] ${processo.referencia}: falhou a rejeição / auditoria:`, e);
     return { ok: false, erro: "Não foi possível rejeitar o processo." };
+  }
+
+  if (!rejeitado) {
+    return { ok: false, erro: "O processo já mudou de estado — recarregue a página." };
   }
 
   try {
@@ -857,7 +895,10 @@ export async function reabrirProcesso(
   const { token, hash } = novoTokenAcesso();
   const expiraEm = expiraDaquiA(30);
 
-  await db()
+  // Guarda de estado no UPDATE: entre o SELECT acima e aqui, outro pedido
+  // pode ter decidido o mesmo processo — a mesma classe de falha que
+  // `aprovarProcesso`/`rejeitarProcesso` já fecham.
+  const [reaberto] = await db()
     .update(processoOnboarding)
     .set({
       estado: novoEstado,
@@ -866,7 +907,17 @@ export async function reabrirProcesso(
       apagadoEm: null,
       atualizadoEm: new Date(),
     })
-    .where(eq(processoOnboarding.id, id));
+    .where(
+      and(
+        eq(processoOnboarding.id, id),
+        eq(processoOnboarding.estado, processo.estado),
+      ),
+    )
+    .returning();
+
+  if (!reaberto) {
+    return falha("O processo já mudou de estado — recarregue a página.");
+  }
 
   let ip: string | null = null;
   let userAgent: string | null = null;
@@ -1026,6 +1077,36 @@ export async function atualizarSeccaoProcesso(
 
   const insere = <T>(extra: Record<string, unknown>) => ({ processoId: processo.id, ...extra }) as T;
 
+  /**
+   * Só os campos que o pedido realmente mudou, comparados com o que estava
+   * gravado antes deste UPDATE — sem isto, `processo.dados_atualizados`
+   * dizia quem e quando, nunca o quê, e o advogado podia corrigir um dossier
+   * sem deixar rasto do que mudou.
+   */
+  const apenasAlterados = (
+    antes: Record<string, unknown> | undefined,
+    depois: Record<string, unknown>,
+  ): { antes: Record<string, unknown>; depois: Record<string, unknown> } => {
+    const antesAlterado: Record<string, unknown> = {};
+    const depoisAlterado: Record<string, unknown> = {};
+    for (const chave of Object.keys(depois)) {
+      const valorAntes = antes?.[chave] ?? null;
+      const valorDepois = depois[chave] ?? null;
+      const igual =
+        valorAntes instanceof Date && valorDepois instanceof Date
+          ? valorAntes.getTime() === valorDepois.getTime()
+          : valorAntes === valorDepois;
+      if (!igual) {
+        antesAlterado[chave] = valorAntes;
+        depoisAlterado[chave] = valorDepois;
+      }
+    }
+    return { antes: antesAlterado, depois: depoisAlterado };
+  };
+
+  let diffAntes: Record<string, unknown> = {};
+  let diffDepois: Record<string, unknown> = {};
+
   switch (passo) {
     case 1: {
       const {
@@ -1068,6 +1149,33 @@ export async function atualizarSeccaoProcesso(
         return { ok: false, erro: "O nome é obrigatório." };
       }
 
+      // O canal de correção não pode gravar o que o cliente não conseguiria
+      // submeter (BUG3-004): as mesmas regras de `onboarding/schemas.ts`,
+      // aplicadas só aos campos que o pedido realmente trouxe.
+      if (telefone?.trim()) {
+        const r = validarTelefone(telefone.trim());
+        if (!r.valido) return { ok: false, erro: r.mensagem };
+      }
+      if (email?.trim() && !emailSchema.safeParse(email.trim()).success) {
+        return { ok: false, erro: "Email inválido — falta o @ ou o domínio." };
+      }
+      if (dataNascimento?.trim()) {
+        if (Number.isNaN(Date.parse(dataNascimento.trim()))) {
+          return { ok: false, erro: "Data de nascimento inválida." };
+        }
+        if (new Date(dataNascimento.trim()) > new Date()) {
+          return { ok: false, erro: "A data de nascimento não pode estar no futuro." };
+        }
+      }
+      if (dataConstituicao?.trim()) {
+        if (Number.isNaN(Date.parse(dataConstituicao.trim()))) {
+          return { ok: false, erro: "Data de constituição inválida." };
+        }
+        if (new Date(dataConstituicao.trim()) > new Date()) {
+          return { ok: false, erro: "A data de constituição não pode estar no futuro." };
+        }
+      }
+
       const valoresIdentificacao = {
         nome: nome.trim(),
         profissao: profissao?.trim() || null,
@@ -1086,6 +1194,12 @@ export async function atualizarSeccaoProcesso(
         pais: pais?.trim() || "Portugal",
       };
 
+      const [identificacaoAnterior] = await base
+        .select()
+        .from(dadosIdentificacao)
+        .where(eq(dadosIdentificacao.processoId, processo.id))
+        .limit(1);
+
       await base
         .insert(dadosIdentificacao)
         .values(insere<typeof dadosIdentificacao.$inferInsert>(valoresIdentificacao))
@@ -1093,6 +1207,11 @@ export async function atualizarSeccaoProcesso(
           target: dadosIdentificacao.processoId,
           set: valoresIdentificacao,
         });
+
+      ({ antes: diffAntes, depois: diffDepois } = apenasAlterados(
+        identificacaoAnterior,
+        valoresIdentificacao,
+      ));
 
       if (Array.isArray(nacionalidades)) {
         await base
@@ -1152,13 +1271,37 @@ export async function atualizarSeccaoProcesso(
         return { ok: false, erro: "O NIF é obrigatório." };
       }
 
+      // Mesma regra do passo 2 do onboarding: o mod-11 só se aplica a NIF
+      // português (`nifPortugues`, default true), e à régua da pessoa
+      // coletiva quando é o caso — um NIF de pessoa singular na caixa de uma
+      // empresa passa o checksum e está errado à mesma.
+      if (nifPortugues ?? true) {
+        const r = processo.tipoCliente === "empresa" ? validarNipc(nif) : validarNif(nif);
+        if (!r.valido) return { ok: false, erro: r.mensagem };
+      }
+
+      const [fiscaisAnterior] = await base
+        .select()
+        .from(dadosFiscais)
+        .where(eq(dadosFiscais.processoId, processo.id))
+        .limit(1);
+
+      // Em falta no pedido, o valor existente fica como estava — nunca hoje.
+      // Um "hoje" a fingir de data de validade marcava o documento como a
+      // expirar já, sem ninguém o ter escolhido. A coluna é `NOT NULL`: sem
+      // um valor anterior para cair de volta, falta mesmo um dado obrigatório.
+      const docValidadeFinal = docValidade?.trim() || fiscaisAnterior?.docValidade;
+      if (!docValidadeFinal) {
+        return { ok: false, erro: "A validade do documento é obrigatória." };
+      }
+
       const valoresFiscais = {
         nif: nif.trim(),
         nifPortugues: nifPortugues ?? true,
         resideEmPortugal: resideEmPortugal ?? true,
         docTipo: docTipo || "cartao_cidadao",
         docNumero: docNumero?.trim() || "",
-        docValidade: docValidade?.trim() || new Date().toISOString().slice(0, 10),
+        docValidade: docValidadeFinal,
         cae: cae?.trim() || null,
         codigoCertidaoPermanente: codigoCertidaoPermanente?.trim() || null,
         regimeIva: regimeIva === "normal" || regimeIva === "isento_art53" || regimeIva === "isento_art9" || regimeIva === "misto" ? regimeIva : null,
@@ -1171,6 +1314,8 @@ export async function atualizarSeccaoProcesso(
           target: dadosFiscais.processoId,
           set: valoresFiscais,
         });
+
+      ({ antes: diffAntes, depois: diffDepois } = apenasAlterados(fiscaisAnterior, valoresFiscais));
 
       await base
         .update(processoOnboarding)
@@ -1222,6 +1367,22 @@ export async function atualizarSeccaoProcesso(
         nacionalidades?: string[];
       };
 
+      if (telefone?.trim()) {
+        const r = validarTelefone(telefone.trim());
+        if (!r.valido) return { ok: false, erro: r.mensagem };
+      }
+      if (email?.trim() && !emailSchema.safeParse(email.trim()).success) {
+        return { ok: false, erro: "Email inválido — falta o @ ou o domínio." };
+      }
+      if (dataNascimento?.trim()) {
+        if (Number.isNaN(Date.parse(dataNascimento.trim()))) {
+          return { ok: false, erro: "Data de nascimento inválida." };
+        }
+        if (new Date(dataNascimento.trim()) > new Date()) {
+          return { ok: false, erro: "A data de nascimento não pode estar no futuro." };
+        }
+      }
+
       const valoresRep = {
         eRepresentante: Boolean(eRepresentante),
         relacao: relacao?.trim() || null,
@@ -1243,6 +1404,12 @@ export async function atualizarSeccaoProcesso(
         docValidade: docValidade?.trim() || null,
       };
 
+      const [repAnterior] = await base
+        .select()
+        .from(representanteLegal)
+        .where(eq(representanteLegal.processoId, processo.id))
+        .limit(1);
+
       await base
         .insert(representanteLegal)
         .values(insere<typeof representanteLegal.$inferInsert>(valoresRep))
@@ -1250,6 +1417,8 @@ export async function atualizarSeccaoProcesso(
           target: representanteLegal.processoId,
           set: valoresRep,
         });
+
+      ({ antes: diffAntes, depois: diffDepois } = apenasAlterados(repAnterior, valoresRep));
 
       if (Array.isArray(nacionalidades)) {
         await base
@@ -1304,6 +1473,16 @@ export async function atualizarSeccaoProcesso(
         origemFundos?: string;
       };
 
+      if (ppeInicio?.trim() && Number.isNaN(Date.parse(ppeInicio.trim()))) {
+        return { ok: false, erro: "Data de início do exercício PPE inválida." };
+      }
+      if (ppeFim?.trim() && Number.isNaN(Date.parse(ppeFim.trim()))) {
+        return { ok: false, erro: "Data de fim do exercício PPE inválida." };
+      }
+      if (ppeInicio?.trim() && ppeFim?.trim() && new Date(ppeFim) < new Date(ppeInicio)) {
+        return { ok: false, erro: "O fim não pode ser anterior ao início." };
+      }
+
       const valoresPpe = {
         ePpe: Boolean(ePpe),
         ppeCargo: ppeCargo?.trim() || null,
@@ -1318,6 +1497,12 @@ export async function atualizarSeccaoProcesso(
         ppeRelacionadaPais: ppeRelacionadaPais?.trim() || null,
       };
 
+      const [ppeAnterior] = await base
+        .select()
+        .from(declaracaoPpe)
+        .where(eq(declaracaoPpe.processoId, processo.id))
+        .limit(1);
+
       await base
         .insert(declaracaoPpe)
         .values(insere<typeof declaracaoPpe.$inferInsert>(valoresPpe))
@@ -1326,21 +1511,31 @@ export async function atualizarSeccaoProcesso(
           set: valoresPpe,
         });
 
+      ({ antes: diffAntes, depois: diffDepois } = apenasAlterados(ppeAnterior, valoresPpe));
+
       if (servicos !== undefined || origemFundos !== undefined) {
+        const valoresRelacao = {
+          servicos: servicos?.trim() || "",
+          origemFundos: origemFundos?.trim() || "",
+        };
+
+        const [relacaoAnterior] = await base
+          .select()
+          .from(relacaoNegocio)
+          .where(eq(relacaoNegocio.processoId, processo.id))
+          .limit(1);
+
         await base
           .insert(relacaoNegocio)
-          .values({
-            processoId: processo.id,
-            servicos: servicos?.trim() || "",
-            origemFundos: origemFundos?.trim() || "",
-          })
+          .values({ processoId: processo.id, ...valoresRelacao })
           .onConflictDoUpdate({
             target: relacaoNegocio.processoId,
-            set: {
-              servicos: servicos?.trim() || "",
-              origemFundos: origemFundos?.trim() || "",
-            },
+            set: valoresRelacao,
           });
+
+        const diffRelacao = apenasAlterados(relacaoAnterior, valoresRelacao);
+        diffAntes = { ...diffAntes, ...diffRelacao.antes };
+        diffDepois = { ...diffDepois, ...diffRelacao.depois };
       }
 
       const eraElevado = processo.nivelRisco === "elevado";
@@ -1447,10 +1642,24 @@ export async function atualizarSeccaoProcesso(
         return { ok: false, erro: "Nome, NIF e email de faturação são obrigatórios." };
       }
 
+      // Mesmo schema do passo 5 do onboarding (`nifFaturacao`): nove dígitos
+      // levam o checksum inteiro, qualquer outra forma é um NIF estrangeiro e
+      // só se exige que exista.
+      const nifValidado = nifFaturacao.safeParse(nif);
+      if (!nifValidado.success) {
+        return { ok: false, erro: nifValidado.error.issues[0]?.message ?? "NIF inválido." };
+      }
+      if (!emailSchema.safeParse(email.trim()).success) {
+        return { ok: false, erro: "Email inválido — falta o @ ou o domínio." };
+      }
+      if (acEmail?.trim() && !emailSchema.safeParse(acEmail.trim()).success) {
+        return { ok: false, erro: "Email do contacto alternativo inválido." };
+      }
+
       const valoresFaturacao = {
         igualAoCliente: Boolean(igualAoCliente),
         nome: nome.trim(),
-        nif: nif.trim(),
+        nif: nifValidado.data,
         email: email.trim().toLowerCase(),
         acIgualAoCliente: Boolean(acIgualAoCliente),
         acNome: acNome?.trim() || null,
@@ -1465,6 +1674,12 @@ export async function atualizarSeccaoProcesso(
         pais: pais?.trim() || "Portugal",
       };
 
+      const [faturacaoAnterior] = await base
+        .select()
+        .from(dadosFaturacao)
+        .where(eq(dadosFaturacao.processoId, processo.id))
+        .limit(1);
+
       await base
         .insert(dadosFaturacao)
         .values(insere<typeof dadosFaturacao.$inferInsert>(valoresFaturacao))
@@ -1472,6 +1687,11 @@ export async function atualizarSeccaoProcesso(
           target: dadosFaturacao.processoId,
           set: valoresFaturacao,
         });
+
+      ({ antes: diffAntes, depois: diffDepois } = apenasAlterados(
+        faturacaoAnterior,
+        valoresFaturacao,
+      ));
       break;
     }
 
@@ -1505,6 +1725,12 @@ export async function atualizarSeccaoProcesso(
         convitesEmail: convitesEmail?.trim() || null,
       };
 
+      const [prefsAnterior] = await base
+        .select()
+        .from(preferenciasContacto)
+        .where(eq(preferenciasContacto.processoId, processo.id))
+        .limit(1);
+
       await base
         .insert(preferenciasContacto)
         .values(insere<typeof preferenciasContacto.$inferInsert>(valoresPrefs))
@@ -1512,6 +1738,8 @@ export async function atualizarSeccaoProcesso(
           target: preferenciasContacto.processoId,
           set: valoresPrefs,
         });
+
+      ({ antes: diffAntes, depois: diffDepois } = apenasAlterados(prefsAnterior, valoresPrefs));
 
       if (Array.isArray(emailsNewsletter)) {
         await base
@@ -1553,6 +1781,12 @@ export async function atualizarSeccaoProcesso(
         propostaAceitacao: Boolean(propostaAceitacao),
       };
 
+      const [fechoAnterior] = await base
+        .select()
+        .from(fechoProposta)
+        .where(eq(fechoProposta.processoId, processo.id))
+        .limit(1);
+
       await base
         .insert(fechoProposta)
         .values(insere<typeof fechoProposta.$inferInsert>(valoresFecho))
@@ -1560,6 +1794,8 @@ export async function atualizarSeccaoProcesso(
           target: fechoProposta.processoId,
           set: valoresFecho,
         });
+
+      ({ antes: diffAntes, depois: diffDepois } = apenasAlterados(fechoAnterior, valoresFecho));
       break;
     }
 
@@ -1580,7 +1816,8 @@ export async function atualizarSeccaoProcesso(
       acao: "processo.dados_atualizados",
       entidade: "processo_onboarding",
       entidadeId: processo.id,
-      valorNovo: { passo, papel: eu.papel },
+      valorAnterior: { passo, papel: eu.papel, ...diffAntes },
+      valorNovo: { passo, papel: eu.papel, ...diffDepois },
       ip,
       userAgent,
     });

@@ -10,12 +10,12 @@ import { Filtros } from "@/features/processos/componentes/Filtros";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 import { passosAntesDe, passosDoProcesso } from "@/features/onboarding/passos";
 import { exigirEquipaDaSociedade, podeVerPpe } from "@/lib/sessao";
+import { formatarDataCurta } from "@/lib/datas";
 
 export const metadata = { title: "Processos" };
 export const dynamic = "force-dynamic";
 
-const quando = (d: Date | null) =>
-  d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" }).format(d) : "—";
+const quando = (d: Date | null) => formatarDataCurta(d);
 
 const lista = (v: string | string[] | undefined) =>
   v === undefined ? undefined : Array.isArray(v) ? v : [v];

@@ -26,20 +26,10 @@ import { PropostaComercial } from "@/features/processos/componentes/PropostaCome
 import { BotaoExportarPdf } from "@/features/processos/componentes/BotaoExportarPdf";
 import { ModalEditarSeccao } from "./ModalEditarSeccao";
 import { passosGravados, type Seccoes } from "@/features/onboarding/dados";
+import { formatarData } from "@/lib/datas";
 
-const dt = (d: Date | null | undefined) =>
-  d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d) : "—";
-
-/**
- * `criadoEm` do `email_log` chega como `Date` ou como texto, consoante o
- * caminho por onde a linha veio. O `dt` acima só sabe `Date`, e um `string`
- * silenciosamente formatado como "—" é uma mensagem sem data no meio de uma
- * cronologia.
- */
-const dtm = (d: Date | string) => {
-  const data = d instanceof Date ? d : new Date(d);
-  return Number.isNaN(data.getTime()) ? "—" : dt(data);
-};
+const dt = (d: Date | string | null | undefined) =>
+  formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 const kb = (b: number) =>
   b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
@@ -587,7 +577,7 @@ export function DetalheProcesso({
                   >
                     {ROTULOS_ESTADO[m.estado]}
                   </span>
-                  <Ref className="shrink-0 text-xs text-muted-foreground">{dtm(m.criadoEm)}</Ref>
+                  <Ref className="shrink-0 text-xs text-muted-foreground">{dt(m.criadoEm)}</Ref>
                 </li>
               ))}
             </ul>

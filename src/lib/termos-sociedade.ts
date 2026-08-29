@@ -1,8 +1,10 @@
 import "server-only";
+import { NextResponse } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { organizacao } from "@/db/schema/organizacao";
 import { documentoOrganizacao } from "@/db/schema/sociedade";
+import { registarEvento } from "@/features/auditoria/registar";
 import { TERMOS_CONDICOES, VERSAO_TERMOS, type SeccaoTermos } from "./termos";
 
 /**
@@ -112,4 +114,85 @@ export async function versaoTermosEmVigor(organizacaoId: string): Promise<string
     .limit(1);
 
   return org?.versao ?? VERSAO_TERMOS;
+}
+
+/**
+ * O PDF do articulado em vigor, servido às quatro rotas que o expõem
+ * (`advogado/termos`, `gestao/sociedade/termos`, `onboarding/[token]/termos`,
+ * `convite/[token]/termos`) — mesma consulta, mesmos cabeçalhos, mesma prova
+ * de auditoria; só o texto do 404 sem articulado e os dados do evento variam
+ * por chamador. Uma correção de segurança feita aqui chega às quatro.
+ */
+export async function servirDocumentoOrganizacao({
+  organizacaoId,
+  termos,
+  mensagemSemTermos,
+  acao,
+  atorId,
+  processoId,
+  valorNovo,
+  ip,
+  userAgent,
+}: {
+  organizacaoId: string;
+  termos: TermosEmVigor;
+  mensagemSemTermos: string;
+  acao: string;
+  atorId?: string | null;
+  processoId?: string | null;
+  /** Recebe o nome do ficheiro, a versão em vigor e o tamanho em bytes — todos só existem depois de confirmado `termos.forma === "documento"`. */
+  valorNovo: (doc: { nome: string }, versao: string, bytesLength: number) => Record<string, unknown>;
+  ip: string | null;
+  userAgent: string | null;
+}): Promise<Response> {
+  if (termos.forma !== "documento") {
+    return NextResponse.json({ erro: mensagemSemTermos }, { status: 404 });
+  }
+
+  const [doc] = await db()
+    .select({
+      id: documentoOrganizacao.id,
+      nome: documentoOrganizacao.nomeOriginal,
+      dados: documentoOrganizacao.dados,
+    })
+    .from(documentoOrganizacao)
+    .where(
+      and(
+        eq(documentoOrganizacao.id, termos.documentoId),
+        eq(documentoOrganizacao.organizacaoId, organizacaoId),
+        isNull(documentoOrganizacao.apagadoEm),
+      ),
+    )
+    .limit(1);
+
+  if (!doc?.dados) {
+    return NextResponse.json({ erro: "Documento não encontrado." }, { status: 404 });
+  }
+
+  const bytes = new Uint8Array(Buffer.from(doc.dados, "base64"));
+  if (bytes.length === 0) {
+    return NextResponse.json({ erro: "O ficheiro está vazio ou corrompido." }, { status: 404 });
+  }
+
+  await registarEvento({
+    organizacaoId,
+    processoId,
+    atorId,
+    acao,
+    entidade: "documento_organizacao",
+    entidadeId: doc.id,
+    valorNovo: valorNovo({ nome: doc.nome }, termos.versao, bytes.length),
+    ip,
+    userAgent,
+  }).catch((e) => console.error("[termos] audit write failed", { erro: String(e) }));
+
+  return new Response(bytes, {
+    headers: {
+      "Content-Type": "application/pdf",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Disposition": `inline; filename="termos-condicoes.pdf"`,
+      "Content-Length": String(bytes.length),
+      "Cache-Control": "private, no-store",
+    },
+  });
 }

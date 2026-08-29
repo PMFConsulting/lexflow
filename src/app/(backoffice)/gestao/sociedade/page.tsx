@@ -6,11 +6,10 @@ import {
 import { PublicarTermos } from "@/features/administracao/componentes/PublicarTermos";
 import { LogotipoSociedade } from "@/features/administracao/componentes/LogotipoSociedade";
 import { cn } from "@/lib/utils";
+import { formatarDataCurta } from "@/lib/datas";
 
 export const metadata = { title: "Sociedade" };
 export const dynamic = "force-dynamic";
-
-const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
 
 function Linha({
   etiqueta,
@@ -113,7 +112,7 @@ export default async function Sociedade() {
                   </p>
                 </div>
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {dataCurta.format(new Date(d.criadoEm))}
+                  {formatarDataCurta(new Date(d.criadoEm))}
                 </span>
               </li>
             ))}

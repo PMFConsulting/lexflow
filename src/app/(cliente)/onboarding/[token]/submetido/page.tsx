@@ -7,25 +7,20 @@ import { LinkIndisponivel } from "@/features/onboarding/componentes/LinkIndispon
 import { Carimbo } from "@/components/carimbo";
 import { Ref } from "@/components/ref-processo";
 import { cn } from "@/lib/utils";
+import { formatarData } from "@/lib/datas";
 
 export const metadata = { title: "Processo submetido" };
 
-const formatadorAssinatura = new Intl.DateTimeFormat("pt-PT", {
-  dateStyle: "long",
-  timeStyle: "short",
-  timeZone: "Europe/Lisbon",
-});
+const formatadorAssinatura = (d: Date | string) =>
+  formatarData(d, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Lisbon" });
 
 /**
  * Também com fuso fixo, e não `toLocaleString` sem opções: isto renderiza no
  * servidor, e um contentor a correr em UTC dava ao cliente uma hora de
  * submissão uma hora abaixo da que ele viu no relógio.
  */
-const formatadorSubmissao = new Intl.DateTimeFormat("pt-PT", {
-  dateStyle: "short",
-  timeStyle: "short",
-  timeZone: "Europe/Lisbon",
-});
+const formatadorSubmissao = (d: Date | string) =>
+  formatarData(d, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Lisbon" });
 
 type EstadoEtapa = "feita" | "atual" | "futura";
 
@@ -122,7 +117,7 @@ export default async function Submetido({
   const etapas: Etapa[] = [
     {
       titulo: "Submissão recebida",
-      descricao: `Registada em ${formatadorSubmissao.format(submetidoEm)}.`,
+      descricao: `Registada em ${formatadorSubmissao(submetidoEm)}.`,
       estado: "feita",
     },
     {
@@ -170,7 +165,7 @@ export default async function Submetido({
         <div className="bg-papel-alto flex justify-between gap-4 p-3">
           <dt className="text-muted-foreground">Submetido em</dt>
           <dd>
-            <Ref>{formatadorSubmissao.format(submetidoEm)}</Ref>
+            <Ref>{formatadorSubmissao(submetidoEm)}</Ref>
           </dd>
         </div>
       </dl>
@@ -188,7 +183,7 @@ export default async function Submetido({
               className="h-16 w-auto max-w-full"
             />
             <p className="text-xs text-muted-foreground">
-              Assinado em <Ref>{formatadorAssinatura.format(assinatura.assinadoEm)}</Ref>
+              Assinado em <Ref>{formatadorAssinatura(assinatura.assinadoEm)}</Ref>
             </p>
           </div>
         </div>

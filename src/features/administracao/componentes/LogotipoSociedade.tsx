@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { Image as ImageIcon, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { formatarData } from "@/lib/datas";
 import { guardarLogotipo, removerLogotipo } from "../logotipo";
-
-const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "long" });
 
 /**
  * Gestão e personalização do logótipo da sociedade.
@@ -108,7 +107,7 @@ export function LogotipoSociedade({
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{nomeLogotipo ?? "Logótipo personalizado"}</p>
                 <p className="text-xs text-muted-foreground">
-                  {atualizadoEm ? `Atualizado em ${dataCurta.format(new Date(atualizadoEm))}` : "Logótipo ativo"}
+                  {atualizadoEm ? `Atualizado em ${formatarData(atualizadoEm)}` : "Logótipo ativo"}
                 </p>
               </div>
             </div>

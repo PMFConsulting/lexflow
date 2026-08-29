@@ -45,8 +45,10 @@ export const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
  * uma variável que nada tem a ver com ela — é a D42 vista deste lado, e o
  * ficheiro tem de continuar a montar-se num teste sem ambiente nenhum.
  */
+// `.png` e não `.svg`: Gmail recusa SVG em `<img>` sempre, sem exceção, e um
+// logo que não aparece em metade das caixas de entrada não é um logo.
 const logotipo = () =>
-  `${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/lexflow.svg`;
+  `${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/lexflow.png`;
 
 export function urlLogotipoSociedade(org?: {
   id: string;
@@ -56,6 +58,11 @@ export function urlLogotipoSociedade(org?: {
 } | null): string | null {
   if (!org?.logotipoDados) return null;
   const mime = org.logotipoMime || "image/png";
+  // Mesma razão do fallback acima: um `data:image/svg+xml` nunca aparece no
+  // Gmail. Sem conversão automática ainda disponível (sharp não está nas
+  // dependências), cair para o logo por omissão é melhor do que um `<img>`
+  // que sabidamente não vai renderizar.
+  if (mime === "image/svg+xml") return null;
   return `data:${mime};base64,${org.logotipoDados}`;
 }
 

@@ -43,7 +43,7 @@ import { assinaturaTemTracoReal } from "./assinatura";
  * ser da validação. Qualquer outra forma é um número de outro país e só se
  * exige que exista.
  */
-const nifFaturacao = z
+export const nifFaturacao = z
   .string()
   .trim()
   .min(1, "O NIF / NIPC de faturação é obrigatório.")

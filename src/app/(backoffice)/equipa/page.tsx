@@ -3,11 +3,10 @@ import { Users, UserCheck } from "lucide-react";
 import { Ref } from "@/components/ref-processo";
 import { listarUtilizadoresDoGestor } from "@/features/plataforma/consultas";
 import { exigirEquipaDaSociedade, portalDoPapel } from "@/lib/sessao";
+import { formatarDataCurta } from "@/lib/datas";
 
 export const metadata = { title: "A minha equipa" };
 export const dynamic = "force-dynamic";
-
-const data = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
 
 /**
  * Vista da equipa atribuída a um gestor.
@@ -82,7 +81,7 @@ export default async function EquipaDoGestorPage() {
                     Desativada
                   </span>
                 )}
-                <Ref className="text-2xs text-muted-foreground">{data.format(m.criadoEm)}</Ref>
+                <Ref className="text-2xs text-muted-foreground">{formatarDataCurta(m.criadoEm)}</Ref>
               </li>
             ))}
           </ul>

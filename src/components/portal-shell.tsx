@@ -160,3 +160,8 @@ export const ROTULO_DO_PAPEL: Record<string, string> = {
   gestor: "Gestor",
   utilizador: "Utilizador",
 };
+
+/** Same lookup as `ROTULO_DO_PAPEL[papel]`, with the raw value as a fallback for a papel not in the map. */
+export function rotuloDoPapel(papel: string): string {
+  return ROTULO_DO_PAPEL[papel] ?? papel;
+}

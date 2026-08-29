@@ -45,6 +45,7 @@ let linhas: Record<string, Linha[]> = {};
 let selectRebentaEm: string | null = null;
 let acesso: AcessoOnboarding;
 let arquivoRebenta = false;
+let processoUpdateNaoAfetaLinhas = false;
 
 const processo = (extra: Linha = {}) => ({
   id: "proc-1",
@@ -71,6 +72,7 @@ vi.mock("next/headers", () => ({
 vi.mock("drizzle-orm", () => ({
   and: (...c: unknown[]) => c,
   eq: (...c: unknown[]) => c,
+  inArray: (...c: unknown[]) => c,
   isNull: (...c: unknown[]) => c,
   desc: (...c: unknown[]) => c,
   gte: (...c: unknown[]) => c,
@@ -172,6 +174,13 @@ vi.mock("@/db", () => {
               if (atual >= 5) return esperavel({ returning: async () => [] });
               operacoes.push({ tipo: "update", tabela, valores: { tentativas: atual + 1 } });
               return esperavel({ returning: async () => [{ tentativas: atual + 1 }] });
+            }
+
+            // TOCTOU: encena outro pedido a mudar o estado do processo entre a
+            // verificação de acesso e este UPDATE — a guarda de estado no
+            // próprio UPDATE devolve zero linhas nesse caso.
+            if (tabela === "processo_onboarding" && processoUpdateNaoAfetaLinhas) {
+              return esperavel({ returning: async () => [] });
             }
 
             operacoes.push({ tipo: "update", tabela, valores: v });
@@ -332,6 +341,7 @@ beforeEach(() => {
   consentimentos.length = 0;
   enviados.length = 0;
   arquivados.length = 0;
+  processoUpdateNaoAfetaLinhas = false;
   // A linha que o `returning()` da submissão devolve, para o arquivo receber a
   // referência e a data de submissão e não um objeto só com o que mudou.
   //
@@ -1370,6 +1380,21 @@ describe("submeter — com tudo no sítio", () => {
     const r = await submeter(TOKEN);
 
     expect(r).toEqual({ ok: true, proximo: null });
+    expect(arquivados).toEqual([]);
+  });
+
+  it("TOCTOU: se o estado mudou entre a verificação de acesso e o UPDATE, recusa em vez de submeter por cima", async () => {
+    processoUpdateNaoAfetaLinhas = true;
+
+    const r = await submeter(TOKEN);
+
+    expect(r).toEqual({
+      ok: false,
+      erros: {},
+      mensagem: "Este processo já foi submetido e não pode ser alterado.",
+    });
+    expect(auditados).toHaveLength(0);
+    expect(enviados).toHaveLength(0);
     expect(arquivados).toEqual([]);
   });
 });

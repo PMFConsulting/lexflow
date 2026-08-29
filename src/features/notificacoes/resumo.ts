@@ -14,6 +14,7 @@ import {
   TINTA_SUAVE,
   linkCopiavel,
 } from "@/lib/emails/moldura";
+import { formatarData } from "@/lib/datas";
 
 export type DadoSociedadeResumo = {
   sociedadeId?: string;
@@ -41,10 +42,6 @@ export type DadosResumoDiario = {
   urlPainelAdmin?: string;
 };
 
-const formatadorData = new Intl.DateTimeFormat("pt-PT", {
-  dateStyle: "long",
-});
-
 function rotuloPapel(papel: string): string {
   switch (papel) {
     case "super_admin":
@@ -69,11 +66,7 @@ export function gerarAssuntoResumo({
   sociedadesCount: number;
   utilizadoresCount: number;
 }): string {
-  const dataFormatada = new Intl.DateTimeFormat("pt-PT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(data);
+  const dataFormatada = formatarData(data, { day: "2-digit", month: "2-digit", year: "numeric" });
 
   if (sociedadesCount === 0 && utilizadoresCount === 0) {
     return `LexFlow | Resumo Diário — ${dataFormatada}`;
@@ -97,7 +90,7 @@ export function gerarResumoDiarioHtml({
   processosSubmetidos24h = 0,
   urlPainelAdmin = "https://poc.terlicalabs.com/admin",
 }: DadosResumoDiario): string {
-  const dataExtenso = formatadorData.format(data);
+  const dataExtenso = formatarData(data, { dateStyle: "long" });
   const hrefAdmin = escapar(urlPainelAdmin);
 
   const totalSociedades = sociedades.length;

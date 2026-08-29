@@ -57,6 +57,13 @@ vi.mock("@/db/schema/seccoes", () => ({
 }));
 
 let auditoriaRebenta = false;
+/**
+ * TOCTOU: encena outro pedido a decidir o mesmo processo entre o SELECT de
+ * `processoParaDecisao` e este UPDATE — a guarda de estado no próprio UPDATE
+ * (`WHERE id = ? AND estado = 'aguardar_aprovacao'`) devolve zero linhas
+ * quando isso acontece, e é isso que o mock aqui imita.
+ */
+let updateNaoAfetaLinhas = false;
 
 /** Um SELECT por tabela (dispatchado pelo nome) e um diário de UPDATEs. */
 vi.mock("@/db", () => {
@@ -76,6 +83,9 @@ vi.mock("@/db", () => {
     update: (t: unknown) => ({
       set: (v: Linha) => ({
         where: () => {
+          if (updateNaoAfetaLinhas) {
+            return esperavel({ returning: async () => [] });
+          }
           atualizacoes.push({ tabela: String(t), valores: v });
           return esperavel({
             returning: async () => [{ ...(linhas[String(t)]?.[0] ?? {}), ...v }],
@@ -173,6 +183,7 @@ beforeEach(() => {
   boasVindasRebenta = false;
   emailRejeicaoRebenta = false;
   auditoriaRebenta = false;
+  updateNaoAfetaLinhas = false;
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -276,6 +287,17 @@ describe("aprovarProcesso", () => {
     expect(r.ok).toBe(false);
     expect(atualizacoes).toHaveLength(0);
   });
+
+  it("TOCTOU: se o estado mudou entre o SELECT e o UPDATE, recusa em vez de decidir sobre dados obsoletos", async () => {
+    linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+    updateNaoAfetaLinhas = true;
+
+    const r = await aprovarProcesso("proc-1");
+
+    expect(r).toEqual({ ok: false, erro: "O processo já mudou de estado — recarregue a página." });
+    expect(auditados).toHaveLength(0);
+    expect(boasVindasEnviadas).toHaveLength(0);
+  });
 });
 
 describe("rejeitarProcesso", () => {
@@ -371,5 +393,16 @@ describe("rejeitarProcesso", () => {
 
     expect(r.ok).toBe(false);
     expect(atualizacoes).toHaveLength(0);
+  });
+
+  it("TOCTOU: se o estado mudou entre o SELECT e o UPDATE, recusa em vez de sobrepor a decisão", async () => {
+    linhas["dados_identificacao"] = [{ email: "maria@exemplo.pt", nome: "Maria Silva" }];
+    updateNaoAfetaLinhas = true;
+
+    const r = await rejeitarProcesso("proc-1", "Documentação incompleta");
+
+    expect(r).toEqual({ ok: false, erro: "O processo já mudou de estado — recarregue a página." });
+    expect(auditados).toHaveLength(0);
+    expect(enviados).toHaveLength(0);
   });
 });

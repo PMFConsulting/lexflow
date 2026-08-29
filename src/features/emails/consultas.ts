@@ -1,9 +1,14 @@
 import "server-only";
 import { and, asc, count, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { emailLog } from "@/db/schema/email";
+import { emailLog, emailModelo } from "@/db/schema/email";
 import { processoOnboarding } from "@/db/schema/processo";
 import type { CanalEmail, EstadoEmail, TemplateEmail } from "./rotulos";
+import {
+  METADADOS_TEMPLATES,
+  TEMPLATES_EDITAVEIS,
+  type TemplateEditavel,
+} from "@/lib/emails/personalizacao";
 
 export type { CanalEmail, EstadoEmail, TemplateEmail };
 
@@ -215,13 +220,6 @@ export type ModeloEmailItem = {
   atualizadoEm: Date | string | null;
   atualizadoPor: string | null;
 };
-
-import { emailModelo } from "@/db/schema/email";
-import {
-  METADADOS_TEMPLATES,
-  TEMPLATES_EDITAVEIS,
-  type TemplateEditavel,
-} from "@/lib/emails/personalizacao";
 
 /**
  * Consulta o estado de todos os templates editáveis para a sociedade indicada.

@@ -1,15 +1,9 @@
 import { cn } from "@/lib/utils";
+import { formatarData } from "@/lib/datas";
 
-const formatador = new Intl.DateTimeFormat("pt-PT", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "2-digit",
-});
+const formatador = (d: Date) => formatarData(d, { day: "2-digit", month: "2-digit", year: "2-digit" });
 
-const formatadorHora = new Intl.DateTimeFormat("pt-PT", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
+const formatadorHora = (d: Date) => formatarData(d, { hour: "2-digit", minute: "2-digit" });
 
 /**
  * O carimbo. Aplicado quando um passo é validado e gravado.
@@ -35,17 +29,17 @@ export function Carimbo({
         className,
       )}
       role="img"
-      aria-label={`${rotulo} a ${formatador.format(data)} às ${formatadorHora.format(data)}`}
+      aria-label={`${rotulo} a ${formatador(data)} às ${formatadorHora(data)}`}
     >
       <div className="text-center leading-none">
         <div className="text-2xs font-medium tracking-[0.14em] uppercase opacity-70">
           {rotulo}
         </div>
         <div className="mt-1 font-mono text-xs font-medium tabular-nums">
-          {formatador.format(data)}
+          {formatador(data)}
         </div>
         <div className="font-mono text-2xs tabular-nums opacity-70">
-          {formatadorHora.format(data)}
+          {formatadorHora(data)}
         </div>
       </div>
     </div>

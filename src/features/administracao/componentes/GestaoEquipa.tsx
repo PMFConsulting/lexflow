@@ -26,21 +26,14 @@ import {
   reenviarConvite,
 } from "../acoes";
 import type { LinhaConvite, LinhaEquipa } from "../consultas";
+import { rotuloDoPapel } from "@/components/portal-shell";
+import { formatarDataCurta } from "@/lib/datas";
 
 const PAPEIS = [
   { valor: "utilizador", texto: "Utilizador" },
   { valor: "gestor", texto: "Gestor" },
   { valor: "society_admin", texto: "Administração da sociedade" },
 ];
-
-const ROTULOS_PAPEL: Record<string, string> = {
-  super_admin: "Administração da plataforma",
-  society_admin: "Administração da sociedade",
-  gestor: "Gestor",
-  utilizador: "Utilizador",
-};
-
-const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
 
 /**
  * O painel de gestão da equipa.
@@ -157,7 +150,7 @@ export function GestaoEquipa({
                         aceitouAtual ? (
                           <span className="text-arquivo">
                             T&amp;C {p.termosVersao} aceites
-                            {p.termosAceiteEm ? ` em ${dataCurta.format(new Date(p.termosAceiteEm))}` : ""}
+                            {p.termosAceiteEm ? ` em ${formatarDataCurta(new Date(p.termosAceiteEm))}` : ""}
                           </span>
                         ) : (
                           <span className="text-latao">
@@ -221,17 +214,17 @@ export function GestaoEquipa({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm">{c.nome}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {c.email} · {ROTULOS_PAPEL[c.papel]} · passo {c.passoAtual} de 6
+                      {c.email} · {rotuloDoPapel(c.papel)} · passo {c.passoAtual} de 6
                     </p>
                     <p className="text-2xs mt-0.5 text-muted-foreground">
                       {expirado ? (
                         <span className="text-selo">
-                          Expirou em {c.expiraEm ? dataCurta.format(new Date(c.expiraEm)) : "—"}
+                          Expirou em {c.expiraEm ? formatarDataCurta(new Date(c.expiraEm)) : "—"}
                         </span>
                       ) : (
                         <>
                           Válido até{" "}
-                          {c.expiraEm ? dataCurta.format(new Date(c.expiraEm)) : "sem prazo"}
+                          {c.expiraEm ? formatarDataCurta(new Date(c.expiraEm)) : "sem prazo"}
                         </>
                       )}
                       {c.criadoPor ? ` · convidado por ${c.criadoPor}` : ""}
@@ -294,7 +287,7 @@ export function GestaoEquipa({
                   )}
                 >
                   {c.estado === "aceite"
-                    ? `Aceite ${c.aceiteEm ? dataCurta.format(new Date(c.aceiteEm)) : ""}`
+                    ? `Aceite ${c.aceiteEm ? formatarDataCurta(new Date(c.aceiteEm)) : ""}`
                     : "Cancelado"}
                 </span>
               </li>

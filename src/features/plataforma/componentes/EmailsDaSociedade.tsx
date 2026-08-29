@@ -15,6 +15,7 @@ import {
   type RegistoDns,
 } from "../dominios";
 import { Erro, ErroGeral } from "./Erro";
+import { formatarData } from "@/lib/datas";
 
 /**
  * De que endereço esta sociedade escreve aos clientes dela.
@@ -41,7 +42,7 @@ const ESTADOS: Record<string, { rotulo: string; classe: string }> = {
   failed: { rotulo: "Falhou", classe: "border-selo/40 bg-selo/10 text-selo" },
 };
 
-const quando = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" });
+const quando = (d: Date | string) => formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 export function EmailsDaSociedade({
   id,
@@ -243,7 +244,7 @@ export function EmailsDaSociedade({
 
         {dominio.dominioVerificadoEm && (
           <p className="mt-1.5 text-xs text-muted-foreground">
-            Verificado a <Ref>{quando.format(dominio.dominioVerificadoEm)}</Ref>
+            Verificado a <Ref>{quando(dominio.dominioVerificadoEm)}</Ref>
           </p>
         )}
 

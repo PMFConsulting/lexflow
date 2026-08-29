@@ -10,6 +10,18 @@ export const tipoCliente = pgEnum("tipo_cliente", ["particular", "empresa"]);
  * `ALTER TYPE ... ADD VALUE ... AFTER 'submetido'` has to put the value exactly
  * here — diverging on order makes the next `db:generate` propose a migration
  * fixing what is not broken.
+ *
+ * Two values with no live write path, kept for existing rows:
+ *
+ *   · `submetido` — history only, from before migration 0013. The current flow
+ *     writes `aguardar_aprovacao` on submission; nothing in `src/` sets
+ *     `estado: "submetido"` on `processo_onboarding` anymore (confirmed by
+ *     `pnpm grep`, BUG3-003). Rows still carrying it predate the approval flow
+ *     and need a data migration, not a code path, to move forward.
+ *   · `arquivado` — no action sets it either; archiving a matter today is the
+ *     soft delete on `apagadoEm`, not a state transition. `reabrirProcesso`
+ *     still accepts it as a source state for whenever an `arquivarProcesso`
+ *     action is added (BUG3-007).
  */
 export const estadoProcesso = pgEnum("estado_processo", [
   "rascunho",

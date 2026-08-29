@@ -3,7 +3,7 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { env } from "@/env";
 import { enviarEmail } from "@/lib/email";
@@ -1187,11 +1187,29 @@ export async function submeter(bruto: string): Promise<Resultado> {
   // um processo submetido pelo cliente fica à espera da decisão de um sócio ou
   // advogado antes de `aprovado` ou `rejeitado`. `submetidoEm` continua a
   // marcar o momento da submissão em si.
+  // Guarda de estado no próprio UPDATE, não só na verificação lá em cima:
+  // entre o SELECT que resolveu o acesso e este UPDATE, outro pedido pode ter
+  // submetido o mesmo processo (duplo clique, ou dois separadores abertos no
+  // mesmo link). Sem esta condição, o segundo pedido reescrevia
+  // silenciosamente `submetidoEm` por cima do primeiro.
   const [submetido] = await db()
     .update(processoOnboarding)
     .set({ estado: "aguardar_aprovacao", submetidoEm: new Date() })
-    .where(eq(processoOnboarding.id, processo.id))
+    .where(
+      and(
+        eq(processoOnboarding.id, processo.id),
+        inArray(processoOnboarding.estado, ["rascunho", "pendente_cliente", "em_revisao"]),
+      ),
+    )
     .returning();
+
+  if (!submetido) {
+    return {
+      ok: false,
+      erros: {},
+      mensagem: "Este processo já foi submetido e não pode ser alterado.",
+    };
+  }
 
   await registarEvento({
     organizacaoId: processo.organizacaoId,
@@ -1215,7 +1233,7 @@ export async function submeter(bruto: string): Promise<Resultado> {
   } catch (e) {
     console.error(`[email] ${processo.referencia}: os emails de submissão não correram`, e);
   }
-  await arquivarNoArmazenamento(submetido ?? processo);
+  await arquivarNoArmazenamento(submetido);
 
   revalidatePath(`/onboarding/${token}`, "layout");
   return { ok: true, proximo: null };

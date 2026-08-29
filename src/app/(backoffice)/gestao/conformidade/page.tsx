@@ -6,14 +6,12 @@ import {
   listarEquipa,
   sociedadeDe,
 } from "@/features/administracao/consultas";
+import { formatarData } from "@/lib/datas";
 
 export const metadata = { title: "Conformidade" };
 export const dynamic = "force-dynamic";
 
-const dataHora = new Intl.DateTimeFormat("pt-PT", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
+const dataHora = (d: Date | string) => formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 /**
  * O ecrã da prova.
@@ -62,7 +60,7 @@ export default async function Conformidade() {
           <p className="mt-2 text-sm text-muted-foreground">
             Versão <Ref>{versaoAtual}</Ref>
             {org?.termosAtualizadoEm
-              ? `, publicada em ${dataHora.format(new Date(org.termosAtualizadoEm))}`
+              ? `, publicada em ${dataHora(new Date(org.termosAtualizadoEm))}`
               : ""}
             . É esta que os clientes aceitam no passo final do registo e que cada pessoa da equipa
             aceita no registo dela.
@@ -150,7 +148,7 @@ export default async function Conformidade() {
                       <Ref>{a.versao}</Ref>
                     </td>
                     <td className="px-3 py-2 font-mono text-xs tabular-nums">
-                      {dataHora.format(new Date(a.aceiteEm))}
+                      {dataHora(new Date(a.aceiteEm))}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">{a.ip}</td>
                   </tr>

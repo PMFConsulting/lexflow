@@ -16,6 +16,8 @@ import {
 import type { ContaCriada } from "../contas";
 import { MODELO_CSV, type LinhaRecusada } from "../importacao";
 import { classeSelect } from "@/features/onboarding/componentes/Campo";
+import { rotuloDoPapel } from "@/components/portal-shell";
+import { formatarDataCurta } from "@/lib/datas";
 import { ContasCriadas } from "./ContasCriadas";
 import { Erro, ErroGeral } from "./Erro";
 
@@ -46,15 +48,6 @@ export type LinhaDeConta = {
   gestorId?: string | null;
   gestorNome?: string | null;
 };
-
-const ROTULOS: Record<string, string> = {
-  super_admin: "Administrador da plataforma",
-  society_admin: "Administrador da sociedade",
-  gestor: "Gestor",
-  utilizador: "Utilizador",
-};
-
-const data = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
 
 export function GestaoUtilizadores({
   organizacaoId,
@@ -205,7 +198,7 @@ export function GestaoUtilizadores({
                 </span>
                 <Ref className="text-xs text-muted-foreground">{c.email}</Ref>
                 <span className="text-2xs border-linha rounded-sm border px-2 py-0.5">
-                  {ROTULOS[c.papel] ?? c.papel}
+                  {rotuloDoPapel(c.papel)}
                 </span>
                 {c.papel === "utilizador" && podeGerirGestores && (
                   <div className="flex items-center gap-1.5">
@@ -258,7 +251,7 @@ export function GestaoUtilizadores({
                     Sem acesso
                   </span>
                 )}
-                <Ref className="text-2xs text-muted-foreground">{data.format(c.criadoEm)}</Ref>
+                <Ref className="text-2xs text-muted-foreground">{formatarDataCurta(c.criadoEm)}</Ref>
                 {podeAlterarEstado && (
                   <button
                     type="button"

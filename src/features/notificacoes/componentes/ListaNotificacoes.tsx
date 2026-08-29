@@ -17,11 +17,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ItemNotificacao } from "../consultas";
 import { marcarNotificacaoComoLida, marcarTodasComoLidas } from "../acoes";
+import { formatarData } from "@/lib/datas";
 
-const formatadorDataHora = new Intl.DateTimeFormat("pt-PT", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
+const formatadorDataHora = (d: Date | string) =>
+  formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 function obterIcone(titulo: string) {
   const t = titulo.toLowerCase();
@@ -174,7 +173,7 @@ export function ListaNotificacoes({
 
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       <span className="text-tinta-suave/80 font-mono text-xs tabular-nums">
-                        {formatadorDataHora.format(new Date(item.criadoEm))}
+                        {formatadorDataHora(new Date(item.criadoEm))}
                       </span>
 
                       {item.link && (

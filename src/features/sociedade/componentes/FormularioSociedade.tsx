@@ -9,6 +9,7 @@ import { CHAVE_CARIMBO } from "@/components/lombada";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Ref } from "@/components/ref-processo";
+import { formatarDataCurta } from "@/lib/datas";
 import {
   CampoCaixa,
   CampoEscolha,
@@ -535,9 +536,7 @@ export function FormularioSociedade({
             {dados.termosVersao && dados.termosAtualizadoEm && (
               <p className="text-xs text-muted-foreground">
                 Versão em vigor: <Ref>{dados.termosVersao}</Ref>, submetida em{" "}
-                {new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" }).format(
-                  dados.termosAtualizadoEm,
-                )}
+                {formatarDataCurta(dados.termosAtualizadoEm)}
                 .
               </p>
             )}

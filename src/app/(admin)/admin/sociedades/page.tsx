@@ -5,10 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Ref } from "@/components/ref-processo";
 import { NovaSociedade } from "@/features/plataforma/componentes/NovaSociedade";
 import { listarSociedades } from "@/features/plataforma/consultas";
+import { formatarDataCurta } from "@/lib/datas";
 
 export const metadata = { title: "Sociedades" };
-
-const data = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
 
 /**
  * A lista de sociedades.
@@ -81,7 +80,7 @@ export default async function Sociedades({
                 <Ref className="text-xs text-muted-foreground">
                   {s.processos} {s.processos === 1 ? "processo" : "processos"}
                 </Ref>
-                <Ref className="text-2xs text-muted-foreground">{data.format(s.criadoEm)}</Ref>
+                <Ref className="text-2xs text-muted-foreground">{formatarDataCurta(s.criadoEm)}</Ref>
               </Link>
             </li>
           ))}

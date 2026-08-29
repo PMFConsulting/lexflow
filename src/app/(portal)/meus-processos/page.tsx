@@ -5,11 +5,11 @@ import { Ref } from "@/components/ref-processo";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 import { processosDaSociedade } from "@/features/plataforma/consultas";
 import { exigirEquipaDaSociedade } from "@/lib/sessao";
+import { formatarData } from "@/lib/datas";
 
 export const metadata = { title: "Os meus processos" };
 
-const quando = (d: Date) =>
-  new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d);
+const quando = (d: Date) => formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 /**
  * Os processos da sociedade de quem está autenticado.

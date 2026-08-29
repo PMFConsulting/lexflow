@@ -1,18 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { organizacao } from "@/db/schema/organizacao";
-import { registarEvento } from "@/features/auditoria/registar";
 import { exigirAdministracao } from "@/lib/sessao";
 import {
-  MAX_TAMANHO_LOGOTIPO,
-  assinaturaLogotipoConfere,
-  esquemaLogotipo,
-  normalizarMimeLogotipo,
-} from "./logotipo-validador";
+  aplicarAlteracaoLogotipo,
+  logotipoAtualDaOrganizacao,
+  validarFicheiroLogotipo,
+} from "@/lib/logotipo-organizacao";
 
 /**
  * Gestão do logótipo próprio da sociedade (whitelabel).
@@ -26,15 +20,12 @@ import {
  * - Tamanho máximo: 2 MB.
  * - Isolamento estrito: a atualização afeta unicamente a organização da sessão autenticada.
  * - Toda a alteração fica registada na auditoria com a ação `sociedade.logotipo_alterado`.
+ *
+ * A validação do ficheiro, a escrita e a auditoria são as mesmas do fluxo do
+ * onboarding de sociedade (`sociedade/logotipo-onboarding.ts`), partilhadas em
+ * `@/lib/logotipo-organizacao` — o que muda aqui é só a origem da identidade
+ * (sessão, não token) e os caminhos que se revalidam.
  */
-
-async function obterContexto() {
-  const h = await headers();
-  return {
-    ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-    userAgent: h.get("user-agent") ?? null,
-  };
-}
 
 export type ResultadoGuardarLogotipo =
   | { ok: true; mensagem?: string }
@@ -44,131 +35,47 @@ export type ResultadoRemoverLogotipo =
   | { ok: true; mensagem?: string }
   | { ok: false; mensagem: string };
 
+function revalidarLogotipoAdministracao() {
+  revalidatePath("/gestao/sociedade");
+  revalidatePath("/", "layout");
+}
+
 /**
  * Guarda o logótipo da sociedade a partir de um FormData.
  */
 export async function guardarLogotipo(formData: FormData): Promise<ResultadoGuardarLogotipo> {
   const { eu } = await exigirAdministracao();
-  const base = db();
 
-  const ficheiro = formData.get("logotipo") ?? formData.get("ficheiro");
-  if (!(ficheiro instanceof File) || ficheiro.size === 0) {
-    return {
-      ok: false,
-      erros: { logotipo: ["Escolha um ficheiro de imagem para o logótipo."] },
-      mensagem: "Falta o ficheiro do logótipo.",
-    };
-  }
+  const validado = await validarFicheiroLogotipo(formData);
+  if (!validado.ok) return validado;
 
-  if (ficheiro.size > MAX_TAMANHO_LOGOTIPO) {
-    const mb = (ficheiro.size / 1024 / 1024).toFixed(1);
-    return {
-      ok: false,
-      erros: { logotipo: [`O ficheiro tem ${mb} MB. O tamanho máximo permitido são 2 MB.`] },
-      mensagem: "O ficheiro é demasiado grande.",
-    };
-  }
-
-  const mime = normalizarMimeLogotipo(ficheiro.name, ficheiro.type);
-  if (!mime) {
-    return {
-      ok: false,
-      erros: {
-        logotipo: [
-          `«${ficheiro.name}» tem um formato não suportado. Aceitamos ficheiros PNG, JPEG, WEBP ou SVG.`,
-        ],
-      },
-      mensagem: "Formato de imagem não suportado.",
-    };
-  }
-
-  const parseResult = esquemaLogotipo.safeParse({
-    nome: ficheiro.name,
-    mime,
-    tamanhoBytes: ficheiro.size,
-  });
-
-  if (!parseResult.success) {
-    const erros: Record<string, string[]> = {};
-    for (const problema of parseResult.error.issues) {
-      const campo = problema.path.join(".") || "logotipo";
-      (erros[campo] ??= []).push(problema.message);
-    }
-    return {
-      ok: false,
-      erros,
-      mensagem: "Dados do logótipo inválidos.",
-    };
-  }
-
-  const arrayBuffer = await ficheiro.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-
-  if (!assinaturaLogotipoConfere(mime, bytes)) {
-    return {
-      ok: false,
-      erros: {
-        logotipo: [
-          `O conteúdo de «${ficheiro.name}» não corresponde ao formato de imagem anunciado.`,
-        ],
-      },
-      mensagem: "O conteúdo do ficheiro não corresponde a uma imagem válida.",
-    };
-  }
-
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-
-  const [orgAtual] = await base
-    .select({
-      id: organizacao.id,
-      logotipoNome: organizacao.logotipoNome,
-      logotipoMime: organizacao.logotipoMime,
-      logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
-    })
-    .from(organizacao)
-    .where(eq(organizacao.id, eu.organizacaoId))
-    .limit(1);
-
-  if (!orgAtual) {
+  const anterior = await logotipoAtualDaOrganizacao(eu.organizacaoId);
+  if (!anterior) {
     return { ok: false, mensagem: "Sociedade não encontrada." };
   }
 
   const agora = new Date();
+  const { ficheiro } = validado;
 
-  await base
-    .update(organizacao)
-    .set({
-      logotipoDados: base64,
-      logotipoMime: mime,
-      logotipoNome: ficheiro.name,
-      logotipoAtualizadoEm: agora,
-    })
-    .where(eq(organizacao.id, eu.organizacaoId));
-
-  const { ip, userAgent } = await obterContexto();
-  await registarEvento({
+  await aplicarAlteracaoLogotipo({
     organizacaoId: eu.organizacaoId,
     atorId: eu.id,
     acao: "sociedade.logotipo_alterado",
-    entidade: "organizacao",
-    entidadeId: eu.organizacaoId,
-    valorAnterior: {
-      nome: orgAtual.logotipoNome,
-      mime: orgAtual.logotipoMime,
-      atualizadoEm: orgAtual.logotipoAtualizadoEm,
+    anterior,
+    campos: {
+      logotipoDados: ficheiro.base64,
+      logotipoMime: ficheiro.mime,
+      logotipoNome: ficheiro.nome,
+      logotipoAtualizadoEm: agora,
     },
     valorNovo: {
-      nome: ficheiro.name,
-      mime,
-      tamanhoBytes: ficheiro.size,
+      nome: ficheiro.nome,
+      mime: ficheiro.mime,
+      tamanhoBytes: ficheiro.tamanhoBytes,
       atualizadoEm: agora,
     },
-    ip,
-    userAgent,
-  }).catch((e) => console.error("[logotipo] audit write failed", { erro: String(e) }));
-
-  revalidatePath("/gestao/sociedade");
-  revalidatePath("/", "layout");
+    revalidar: revalidarLogotipoAdministracao,
+  });
 
   return { ok: true, mensagem: "Logótipo atualizado com sucesso." };
 }
@@ -178,60 +85,26 @@ export async function guardarLogotipo(formData: FormData): Promise<ResultadoGuar
  */
 export async function removerLogotipo(): Promise<ResultadoRemoverLogotipo> {
   const { eu } = await exigirAdministracao();
-  const base = db();
 
-  const [orgAtual] = await base
-    .select({
-      id: organizacao.id,
-      logotipoNome: organizacao.logotipoNome,
-      logotipoMime: organizacao.logotipoMime,
-      logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
-    })
-    .from(organizacao)
-    .where(eq(organizacao.id, eu.organizacaoId))
-    .limit(1);
-
-  if (!orgAtual) {
+  const anterior = await logotipoAtualDaOrganizacao(eu.organizacaoId);
+  if (!anterior) {
     return { ok: false, mensagem: "Sociedade não encontrada." };
   }
 
-  /*
-   * As quatro colunas ficam a `null`, a data incluída.
-   *
-   * É o que o esquema diz que `null` significa — «esta sociedade usa o logótipo
-   * padrão». Uma data de atualização sozinha, sem imagem do outro lado, é um
-   * estado que nenhuma leitura sabe interpretar: o `LogotipoSociedade` usa-a
-   * para furar a cache de uma imagem que já não existe.
-   */
-  await base
-    .update(organizacao)
-    .set({
+  await aplicarAlteracaoLogotipo({
+    organizacaoId: eu.organizacaoId,
+    atorId: eu.id,
+    acao: "sociedade.logotipo_removido",
+    anterior,
+    campos: {
       logotipoDados: null,
       logotipoMime: null,
       logotipoNome: null,
       logotipoAtualizadoEm: null,
-    })
-    .where(eq(organizacao.id, eu.organizacaoId));
-
-  const { ip, userAgent } = await obterContexto();
-  await registarEvento({
-    organizacaoId: eu.organizacaoId,
-    atorId: eu.id,
-    acao: "sociedade.logotipo_alterado",
-    entidade: "organizacao",
-    entidadeId: eu.organizacaoId,
-    valorAnterior: {
-      nome: orgAtual.logotipoNome,
-      mime: orgAtual.logotipoMime,
-      atualizadoEm: orgAtual.logotipoAtualizadoEm,
     },
     valorNovo: null,
-    ip,
-    userAgent,
-  }).catch((e) => console.error("[logotipo] audit write failed", { erro: String(e) }));
-
-  revalidatePath("/gestao/sociedade");
-  revalidatePath("/", "layout");
+    revalidar: revalidarLogotipoAdministracao,
+  });
 
   return { ok: true, mensagem: "Logótipo removido. O portal passa a usar o LexFlow." };
 }

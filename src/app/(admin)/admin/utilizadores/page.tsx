@@ -4,18 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Ref } from "@/components/ref-processo";
 import { NovoAdminPlataforma } from "@/features/plataforma/componentes/NovoAdminPlataforma";
 import { listarUtilizadores } from "@/features/plataforma/consultas";
+import { rotuloDoPapel } from "@/components/portal-shell";
+import { formatarDataCurta } from "@/lib/datas";
 
 export const metadata = { title: "Utilizadores" };
 export const dynamic = "force-dynamic";
-
-const ROTULOS: Record<string, string> = {
-  super_admin: "Administrador da plataforma",
-  society_admin: "Administrador da sociedade",
-  gestor: "Gestor",
-  utilizador: "Utilizador",
-};
-
-const data = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
 
 /**
  * Todas as contas da plataforma, de todas as sociedades.
@@ -72,7 +65,7 @@ export default async function Utilizadores({
               </span>
               <Ref className="text-xs text-muted-foreground">{c.email}</Ref>
               <span className="text-2xs border-linha rounded-sm border px-2 py-0.5">
-                {ROTULOS[c.papel] ?? c.papel}
+                {rotuloDoPapel(c.papel)}
               </span>
               {c.papel === "utilizador" && c.gestorNome && (
                 <span
@@ -113,7 +106,7 @@ export default async function Utilizadores({
                   Sem acesso
                 </span>
               )}
-              <Ref className="text-2xs text-muted-foreground">{data.format(c.criadoEm)}</Ref>
+              <Ref className="text-2xs text-muted-foreground">{formatarDataCurta(c.criadoEm)}</Ref>
             </li>
           ))}
         </ul>

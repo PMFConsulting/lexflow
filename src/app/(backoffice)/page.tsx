@@ -7,11 +7,11 @@ import { Ref } from "@/components/ref-processo";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 import { numerosDoPainel, recentes } from "@/features/processos/consultas";
 import { exigirEquipaDaSociedade, portalDoPapel } from "@/lib/sessao";
+import { formatarData } from "@/lib/datas";
 
 export const metadata = { title: "Painel" };
 
-const quando = (d: Date) =>
-  new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d);
+const quando = (d: Date) => formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 /**
  * Painel — e o despachante da raiz.

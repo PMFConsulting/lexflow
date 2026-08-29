@@ -4,7 +4,7 @@ import {
   gerarResumoDiarioHtml,
 } from "./resumo";
 
-type Linha = Record<string, any>;
+type Linha = Record<string, unknown>;
 
 const inseridos: { tabela: string; valores: Linha }[] = [];
 const atualizados: { tabela: string; valores: Linha }[] = [];
@@ -60,17 +60,17 @@ vi.mock("@/db", () => ({
               limit: (n?: number) => (n ? ler().slice(0, n) : ler()),
               orderBy: () => ({
                 limit: (n?: number) => (n ? ler().slice(0, n) : ler()),
-                then: (res: any) => Promise.resolve(res(ler())),
+                then: (res: (valor: unknown) => void) => Promise.resolve(res(ler())),
               }),
-              then: (res: any) => Promise.resolve(res(ler())),
+              then: (res: (valor: unknown) => void) => Promise.resolve(res(ler())),
             };
             return innerQuery;
           },
           orderBy: () => ({
             limit: (n?: number) => (n ? ler().slice(0, n) : ler()),
-            then: (res: any) => Promise.resolve(res(ler())),
+            then: (res: (valor: unknown) => void) => Promise.resolve(res(ler())),
           }),
-          then: (res: any) => Promise.resolve(res(ler())),
+          then: (res: (valor: unknown) => void) => Promise.resolve(res(ler())),
         };
         return queryObj;
       },
@@ -244,7 +244,9 @@ describe("Frente P: Notificações in-app e resumo diário", () => {
       expect(inseridos.length).toBe(1);
       expect(inseridos[0]?.tabela).toBe("notificacoes_pendentes");
       expect(inseridos[0]?.valores.tipo).toBe("sociedade_criada");
-      expect(inseridos[0]?.valores.dados.nome).toBe("Costa & Silva Advogados");
+      expect((inseridos[0]?.valores.dados as Record<string, unknown> | undefined)?.nome).toBe(
+        "Costa & Silva Advogados",
+      );
     });
 
     it("gera o assunto do resumo diário corretamente com plurais", () => {

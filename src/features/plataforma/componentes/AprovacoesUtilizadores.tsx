@@ -8,18 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Ref } from "@/components/ref-processo";
 import { aprovarUtilizador, rejeitarUtilizador } from "../acoes";
 import type { LinhaUtilizadorPendente } from "../consultas";
+import { rotuloDoPapel } from "@/components/portal-shell";
+import { formatarData } from "@/lib/datas";
 
-const ROTULOS: Record<string, string> = {
-  super_admin: "Administrador da plataforma",
-  society_admin: "Administrador da sociedade",
-  gestor: "Gestor",
-  utilizador: "Utilizador",
-};
-
-const data = new Intl.DateTimeFormat("pt-PT", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
+const data = (d: Date) => formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 export function AprovacoesUtilizadores({
   pendentes,
@@ -148,7 +140,7 @@ export function AprovacoesUtilizadores({
                       <span className="text-sm font-medium">{u.nome}</span>
                       <Ref className="text-xs text-muted-foreground">{u.email}</Ref>
                       <span className="text-2xs border-linha bg-papel rounded-sm border px-2 py-0.5">
-                        {ROTULOS[u.papel] ?? u.papel}
+                        {rotuloDoPapel(u.papel)}
                       </span>
                       {u.gestorNome && (
                         <span className="text-2xs border-linha text-muted-foreground rounded-sm border px-2 py-0.5">
@@ -173,7 +165,7 @@ export function AprovacoesUtilizadores({
                           )}
                         </span>
                       )}
-                      <span>Proposto em: {data.format(u.criadoEm)}</span>
+                      <span>Proposto em: {data(u.criadoEm)}</span>
                     </div>
                   </div>
 

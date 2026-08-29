@@ -2,10 +2,11 @@ import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { papelUtilizador } from "@/db/schema/enums";
 import { organizacao } from "@/db/schema/organizacao";
 import { exigirSocietyAdmin } from "@/lib/sessao";
 import { cn } from "@/lib/utils";
+import { rotuloDoPapel } from "@/components/portal-shell";
+import { formatarDataCurta } from "@/lib/datas";
 
 export const metadata = { title: "Configuração" };
 export const dynamic = "force-dynamic";
@@ -24,22 +25,6 @@ export const dynamic = "force-dynamic";
  * nada disto se muda pela interface. As contas criam-se no servidor
  * (`scripts/criar_utilizador.mjs`, D23) e a organização vem das seeds.
  */
-
-type Papel = (typeof papelUtilizador.enumValues)[number];
-
-/**
- * Um mapa exaustivo, e não um `Record<string, string>` com fallback: assim, um
- * papel novo no enum não passa calado a mostrar `socio` em cru na interface —
- * parte a compilação aqui, que é onde a tradução falta.
- */
-const ROTULOS_PAPEL: Record<Papel, string> = {
-  super_admin: "Administrador da plataforma",
-  society_admin: "Administrador da sociedade",
-  gestor: "Gestor",
-  utilizador: "Utilizador",
-};
-
-const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
 
 /**
  * Uma linha de detalhe. `mono` para o que é identificador — NIF, prefixo de
@@ -104,8 +89,8 @@ export default async function Configuracao() {
       <Bloco titulo="Conta">
         <Linha etiqueta="Nome" valor={eu.nome} />
         <Linha etiqueta="Email" valor={eu.email} />
-        <Linha etiqueta="Papel" valor={ROTULOS_PAPEL[eu.papel]} />
-        <Linha etiqueta="Criada em" valor={dataCurta.format(eu.criadoEm)} mono />
+        <Linha etiqueta="Papel" valor={rotuloDoPapel(eu.papel)} />
+        <Linha etiqueta="Criada em" valor={formatarDataCurta(eu.criadoEm)} mono />
       </Bloco>
 
       <Bloco titulo="Sociedade">

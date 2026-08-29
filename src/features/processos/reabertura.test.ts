@@ -10,6 +10,8 @@ const atualizacoes: { tabela: string; valores: Linha }[] = [];
 let linhas: Record<string, Linha[]> = {};
 let papelAtual = "society_admin";
 let emailReaberturaRebenta = false;
+/** TOCTOU: outro pedido já reabriu/decidiu o processo entre o SELECT e o UPDATE. */
+let updateNaoAfetaLinhas = false;
 
 const PROCESSO = (extra: Linha = {}): Linha => ({
   id: "proc-1",
@@ -64,6 +66,9 @@ vi.mock("@/db", () => {
       update: (t: unknown) => ({
         set: (v: Linha) => ({
           where: () => {
+            if (updateNaoAfetaLinhas) {
+              return esperavel({ returning: async () => [] });
+            }
             atualizacoes.push({ tabela: String(t), valores: v });
             return esperavel({
               returning: async () => [{ ...(linhas[String(t)]?.[0] ?? {}), ...v }],
@@ -137,6 +142,7 @@ beforeEach(() => {
   };
   papelAtual = "society_admin";
   emailReaberturaRebenta = false;
+  updateNaoAfetaLinhas = false;
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -347,6 +353,17 @@ describe("reabrirProcesso", () => {
         acao: "reabertura",
       }),
     );
+  });
+
+  it("TOCTOU: se o estado mudou entre o SELECT e o UPDATE, recusa em vez de reabrir sobre dados obsoletos", async () => {
+    linhas["processo_onboarding"] = [PROCESSO({ estado: "rejeitado" })];
+    updateNaoAfetaLinhas = true;
+
+    const r = await reabrirProcesso("proc-1", "Motivo válido com mais de 10 caracteres");
+
+    expect(r).toEqual({ ok: false, erro: "O processo já mudou de estado — recarregue a página." });
+    expect(auditados).toHaveLength(0);
+    expect(enviados).toHaveLength(0);
   });
 });
 

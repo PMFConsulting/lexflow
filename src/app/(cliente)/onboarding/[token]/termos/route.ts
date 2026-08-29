@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
-import { and, eq, isNull } from "drizzle-orm";
-import { db } from "@/db";
-import { documentoOrganizacao } from "@/db/schema/sociedade";
 import { acessoPorToken } from "@/features/onboarding/dados";
-import { registarEvento } from "@/features/auditoria/registar";
-import { termosEmVigor } from "@/lib/termos-sociedade";
+import { termosEmVigor, servirDocumentoOrganizacao } from "@/lib/termos-sociedade";
 
 /**
  * O articulado de Termos e Condições da sociedade, para o cliente ler no fecho.
@@ -31,38 +27,6 @@ export async function GET(
   }
 
   const { processo } = acesso;
-  const termos = await termosEmVigor(processo.organizacaoId);
-
-  if (termos.forma !== "documento") {
-    return NextResponse.json(
-      { erro: "Esta sociedade ainda não submeteu o articulado dela." },
-      { status: 404 },
-    );
-  }
-
-  const [doc] = await db()
-    .select({
-      id: documentoOrganizacao.id,
-      nome: documentoOrganizacao.nomeOriginal,
-      dados: documentoOrganizacao.dados,
-    })
-    .from(documentoOrganizacao)
-    .where(
-      and(
-        eq(documentoOrganizacao.id, termos.documentoId),
-        isNull(documentoOrganizacao.apagadoEm),
-      ),
-    )
-    .limit(1);
-
-  if (!doc?.dados) {
-    return NextResponse.json({ erro: "Documento não encontrado." }, { status: 404 });
-  }
-
-  const bytes = new Uint8Array(Buffer.from(doc.dados, "base64"));
-  if (bytes.length === 0) {
-    return NextResponse.json({ erro: "O ficheiro está vazio ou corrompido." }, { status: 404 });
-  }
 
   /*
    * Que o cliente abriu os T&C é facto do dossier, não estatística.
@@ -73,24 +37,14 @@ export async function GET(
    * plataforma: o momento em que o documento saiu daqui para ele, com a versão
    * à frente. Numa validação jurídica é isto que responde a "foi-lhe mostrado?".
    */
-  await registarEvento({
+  return servirDocumentoOrganizacao({
     organizacaoId: processo.organizacaoId,
-    processoId: processo.id,
+    termos: await termosEmVigor(processo.organizacaoId),
+    mensagemSemTermos: "Esta sociedade ainda não submeteu o articulado dela.",
     acao: "termos.abertos_pelo_cliente",
-    entidade: "documento_organizacao",
-    entidadeId: doc.id,
-    valorNovo: { nome: doc.nome, versao: termos.versao, bytes: bytes.length },
+    processoId: processo.id,
+    valorNovo: (doc, versao, bytesLength) => ({ nome: doc.nome, versao, bytes: bytesLength }),
     ip: pedido.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
     userAgent: pedido.headers.get("user-agent") ?? null,
-  }).catch((e) => console.error("[termos] audit write failed", { erro: String(e) }));
-
-  return new Response(bytes, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "X-Content-Type-Options": "nosniff",
-      "Content-Disposition": `inline; filename="termos-condicoes.pdf"`,
-      "Content-Length": String(bytes.length),
-      "Cache-Control": "private, no-store",
-    },
   });
 }

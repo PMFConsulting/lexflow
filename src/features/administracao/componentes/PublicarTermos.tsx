@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Ref } from "@/components/ref-processo";
+import { formatarData } from "@/lib/datas";
 import { publicarTermosSociedade } from "../acoes";
-
-const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "long" });
 
 /**
  * Publicar uma versão nova do articulado da sociedade.
@@ -87,7 +86,7 @@ export function PublicarTermos({
             </p>
             <p className="text-xs text-muted-foreground">
               {nomeDocumento ?? "documento"}
-              {atualizadoEm ? ` · publicado em ${dataCurta.format(new Date(atualizadoEm))}` : ""}
+              {atualizadoEm ? ` · publicado em ${formatarData(atualizadoEm)}` : ""}
             </p>
           </>
         ) : (

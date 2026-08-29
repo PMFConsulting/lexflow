@@ -8,22 +8,11 @@ import {
   perfilDe,
 } from "@/features/advogado/consultas";
 import { cn } from "@/lib/utils";
+import { rotuloDoPapel } from "@/components/portal-shell";
+import { formatarDataCurta } from "@/lib/datas";
 
 export const metadata = { title: "A minha conta" };
 export const dynamic = "force-dynamic";
-
-const dataCurta = new Intl.DateTimeFormat("pt-PT", { dateStyle: "short" });
-
-const ROTULOS_PAPEL: Record<string, string> = {
-  super_admin: "Administrador da plataforma",
-  society_admin: "Administrador da sociedade",
-  gestor: "Gestor",
-  utilizador: "Utilizador",
-  admin: "Administrador",
-  socio: "Sócio",
-  advogado: "Advogado",
-  assistente: "Assistente",
-};
 
 const ROTULOS_DOC: Record<string, string> = {
   identificacao: "Documento de identificação",
@@ -83,7 +72,7 @@ export default async function PortalAdvogado() {
       <div>
         <h1 className="text-2xl">{eu.nome}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {ROTULOS_PAPEL[eu.papel]}
+          {rotuloDoPapel(eu.papel)}
           {perfil?.cargo ? ` · ${perfil.cargo}` : ""} em {org?.nome ?? "—"}
         </p>
       </div>
@@ -92,8 +81,8 @@ export default async function PortalAdvogado() {
         <h2 className="text-lg">Conta</h2>
         <dl className="mt-2">
           <Linha etiqueta="Email" valor={eu.email} />
-          <Linha etiqueta="Perfil" valor={ROTULOS_PAPEL[eu.papel]} />
-          <Linha etiqueta="Conta criada em" valor={dataCurta.format(eu.criadoEm)} mono />
+          <Linha etiqueta="Perfil" valor={rotuloDoPapel(eu.papel)} />
+          <Linha etiqueta="Conta criada em" valor={formatarDataCurta(eu.criadoEm)} mono />
         </dl>
       </section>
 
@@ -109,7 +98,7 @@ export default async function PortalAdvogado() {
                 etiqueta="Inscrição na Ordem"
                 valor={
                   perfil.dataInscricaoOa
-                    ? dataCurta.format(new Date(perfil.dataInscricaoOa))
+                    ? formatarDataCurta(new Date(perfil.dataInscricaoOa))
                     : null
                 }
                 mono
@@ -156,7 +145,7 @@ export default async function PortalAdvogado() {
                   </p>
                 </div>
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {dataCurta.format(new Date(d.criadoEm))}
+                  {formatarDataCurta(new Date(d.criadoEm))}
                 </span>
               </li>
             ))}
@@ -175,7 +164,7 @@ export default async function PortalAdvogado() {
                   <p className="truncate text-xs text-muted-foreground">{c.email}</p>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {c.cargo ?? ROTULOS_PAPEL[c.papel]}
+                  {c.cargo ?? rotuloDoPapel(c.papel)}
                 </span>
               </li>
             ))}

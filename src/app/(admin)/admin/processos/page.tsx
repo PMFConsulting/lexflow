@@ -9,6 +9,7 @@ import { classeSelect } from "@/features/onboarding/componentes/Campo";
 import { listarProcessosPlataforma } from "@/features/processos/consultas";
 import { listarSociedades } from "@/features/plataforma/consultas";
 import { cn } from "@/lib/utils";
+import { formatarData } from "@/lib/datas";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,7 @@ export const metadata = {
   title: "Processos — Plataforma",
 };
 
-const dt = (d: Date | null | undefined) =>
-  d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d) : "—";
+const dt = (d: Date | null | undefined) => formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 export default async function ProcessosPlataforma({
   searchParams,

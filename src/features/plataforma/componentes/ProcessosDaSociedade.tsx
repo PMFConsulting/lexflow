@@ -4,9 +4,10 @@ import { EstadoBadge } from "@/components/estado-badge";
 import { Ref } from "@/components/ref-processo";
 import { BotaoNovoProcesso } from "@/features/processos/componentes/BotaoNovoProcesso";
 import { metadadosProcessosDaSociedade } from "@/features/plataforma/consultas";
+import { formatarData } from "@/lib/datas";
 
 const dt = (d: Date | null | undefined) =>
-  d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(d) : "—";
+  formatarData(d, { dateStyle: "short", timeStyle: "short" });
 
 export async function ProcessosDaSociedade({
   organizacaoId,

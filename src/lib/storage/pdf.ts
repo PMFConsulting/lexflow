@@ -1,5 +1,6 @@
 import type { PDFFont } from "pdf-lib";
 import { rgb } from "pdf-lib";
+import { formatarData } from "@/lib/datas";
 
 /**
  * What the two PDFs in the client's folder — `dados_cliente.pdf` and
@@ -48,16 +49,10 @@ export function paraWinAnsi(texto: string): string {
 }
 
 export const dataPt = (d: Date | null) =>
-  d ? new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeZone: "Europe/Lisbon" }).format(d) : "—";
+  formatarData(d, { dateStyle: "short", timeZone: "Europe/Lisbon" });
 
 export const dataHoraPt = (d: Date | null) =>
-  d
-    ? new Intl.DateTimeFormat("pt-PT", {
-        dateStyle: "short",
-        timeStyle: "short",
-        timeZone: "Europe/Lisbon",
-      }).format(d)
-    : "—";
+  formatarData(d, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Lisbon" });
 
 export const kb = (b: number) =>
   b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
