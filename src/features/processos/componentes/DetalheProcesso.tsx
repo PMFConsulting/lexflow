@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Download, EyeOff, FileText, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Check, Clock, Download, EyeOff, FileText, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Carimbos } from "@/components/carimbo";
@@ -27,6 +27,7 @@ import { BotaoExportarPdf } from "@/features/processos/componentes/BotaoExportar
 import { ModalEditarSeccao } from "./ModalEditarSeccao";
 import { passosGravados, type Seccoes } from "@/features/onboarding/dados";
 import { formatarData } from "@/lib/datas";
+import { cn } from "@/lib/utils";
 
 const dt = (d: Date | string | null | undefined) =>
   formatarData(d, { dateStyle: "short", timeStyle: "short" });
@@ -40,6 +41,23 @@ const ORIGEM_CONTACTO_TEXTO: Record<string, string> = {
   pesquisa_online: "Pesquisa Online",
   outro: "Outro",
 };
+
+/** Estado de uma aceitação do cliente — verde-arquivo quando aceite, latão em espera. */
+function BadgeAceitacao({ aceite }: { aceite: boolean }) {
+  return (
+    <span
+      className={cn(
+        "text-2xs inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 font-medium whitespace-nowrap",
+        aceite
+          ? "border-arquivo/40 bg-arquivo/10 text-arquivo"
+          : "border-latao/40 bg-latao/10 text-latao",
+      )}
+    >
+      {aceite ? <Check className="size-3" strokeWidth={2.5} /> : <Clock className="size-3" />}
+      {aceite ? "Aceite" : "Por aceitar"}
+    </span>
+  );
+}
 
 function Linha({ k, v }: { k: string; v: React.ReactNode }) {
   if (v === null || v === undefined || v === "") return null;
@@ -147,6 +165,7 @@ export type DetalheProcessoProps = {
     id: string;
     nome: string;
     bytes: number;
+    criadoEm?: Date | string | null;
   } | null;
   vePpe: boolean;
   podeAprovar: boolean;
@@ -454,13 +473,15 @@ export function DetalheProcesso({
           seccoes={s}
           podeEditar={podeEditarEfetivo}
         >
+          <Linha k="Termos e condições" v={<BadgeAceitacao aceite={Boolean(s.fecho?.tcAceitacao)} />} />
           <Linha
-            k="Termos e condições e proposta"
-            v={s.fecho?.tcAceitacao ? "Aceite" : "Por aceitar"}
+            k="Proposta de honorários"
+            v={<BadgeAceitacao aceite={Boolean(s.fecho?.propostaAceitacao)} />}
           />
+          <Linha k="Modelo de honorários" v={s.fecho?.modeloHonorarios} />
           <Linha
             k="Declaração de veracidade"
-            v={s.fecho?.declaracaoVeracidade ? "Aceite" : "Por aceitar"}
+            v={<BadgeAceitacao aceite={Boolean(s.fecho?.declaracaoVeracidade)} />}
           />
           <Linha
             k="Rubrica"
@@ -525,7 +546,14 @@ export function DetalheProcesso({
           <PropostaComercial
             processoId={processo.id}
             atual={
-              proposta ? { id: proposta.id, nome: proposta.nome, bytes: proposta.bytes } : null
+              proposta
+                ? {
+                    id: proposta.id,
+                    nome: proposta.nome,
+                    bytes: proposta.bytes,
+                    criadoEm: proposta.criadoEm,
+                  }
+                : null
             }
           />
 

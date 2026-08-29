@@ -2,9 +2,13 @@
 
 import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, TriangleAlert, Upload } from "lucide-react";
-import { Label } from "@/components/ui/label";
+import { Check, FileText, TriangleAlert, Upload } from "lucide-react";
+import { formatarDataCurta } from "@/lib/datas";
+import { cn } from "@/lib/utils";
 import { carregarPropostaComercial } from "../proposta";
+
+const kb = (b: number) =>
+  b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 
 /**
  * Anexar (ou substituir) a proposta comercial de um processo já aberto.
@@ -26,18 +30,21 @@ export function PropostaComercial({
 }: {
   processoId: string;
   /** A que já lá está, se já lá está alguma. */
-  atual: { id: string; nome: string; bytes: number } | null;
+  atual: { id: string; nome: string; bytes: number; criadoEm?: Date | string | null } | null;
 }) {
   const id = useId();
   const router = useRouter();
   const entrada = useRef<HTMLInputElement>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [substituir, setSubstituir] = useState(false);
+  const [arrastar, setArrastar] = useState(false);
   const [aEnviar, transicao] = useTransition();
 
   const escolher = (lista: FileList | null) => {
     const f = lista?.[0];
     if (!f) return;
     setErro(null);
+    setSubstituir(Boolean(atual));
 
     const fd = new FormData();
     fd.set("ficheiro", f);
@@ -64,49 +71,88 @@ export function PropostaComercial({
   };
 
   return (
-    <div className="border-linha bg-papel-alto mt-4 flex flex-col gap-3 rounded-sm border border-dashed p-4">
+    <div className="border-linha bg-papel-alto mt-4 flex flex-col gap-4 rounded-sm border p-4">
       <div>
-        <h3 className="text-sm font-medium">Proposta comercial</h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <p className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+          Proposta comercial
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
           {atual
             ? "É esta a proposta que o cliente lê e aceita no fim do processo. Anexar outro ficheiro substitui esta."
             : "Ainda não anexaste a proposta deste processo. O cliente só a pode aceitar depois de a anexares."}
         </p>
       </div>
 
-      {atual && (
-        <div className="border-linha bg-muted/40 flex items-center gap-3 rounded-sm border p-2.5">
-          <FileText className="text-tinta-suave size-4 shrink-0" />
+      {atual ? (
+        <div className="border-linha bg-papel flex items-center gap-3 rounded-sm border p-3">
+          <div className="border-arquivo/30 bg-arquivo/10 text-arquivo flex size-11 shrink-0 items-center justify-center rounded-sm border">
+            <FileText className="size-5" />
+          </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm">{atual.nome}</p>
+            <p className="truncate text-sm font-medium">{atual.nome}</p>
             <p className="text-xs text-muted-foreground">
-              PDF ·{" "}
-              {atual.bytes < 1024 * 1024
-                ? `${Math.round(atual.bytes / 1024)} KB`
-                : `${(atual.bytes / 1024 / 1024).toFixed(1)} MB`}
+              PDF · {kb(atual.bytes)}
+              {atual.criadoEm && ` · anexada em ${formatarDataCurta(atual.criadoEm)}`}
             </p>
           </div>
+          <span className="border-arquivo/40 bg-arquivo/10 text-arquivo text-2xs inline-flex shrink-0 items-center gap-1 rounded-sm border px-2 py-0.5 font-medium whitespace-nowrap">
+            <Check className="size-3" strokeWidth={2.5} />
+            Proposta ativa
+          </span>
+        </div>
+      ) : (
+        <div
+          className="border-latao/40 bg-latao/5 text-latao flex items-center gap-2 rounded-sm border border-dashed p-3 text-xs"
+          role="alert"
+        >
+          <TriangleAlert className="size-4 shrink-0" />
+          Sem proposta anexada.
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={id} className="text-tinta-suave">
-          Selecionar PDF
-        </Label>
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setArrastar(true);
+        }}
+        onDragLeave={() => setArrastar(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setArrastar(false);
+          escolher(e.dataTransfer.files);
+        }}
+        className={cn(
+          "border-linha flex flex-col items-center gap-2 rounded-sm border border-dashed p-5 text-center transition-colors",
+          arrastar && "border-marca bg-marca/5",
+        )}
+      >
+        <div className="text-marca bg-marca/10 flex size-9 items-center justify-center rounded-sm">
+          <Upload className="size-4" />
+        </div>
+
         <input
           id={id}
           ref={entrada}
           type="file"
           accept=".pdf,application/pdf"
           onChange={(e) => escolher(e.target.files)}
-          className="file:bg-tinta file:text-papel-alto text-sm file:mr-3 file:rounded-sm file:border-0 file:px-3 file:py-1.5 file:text-sm"
+          className="sr-only"
         />
-        <p className="text-xs text-muted-foreground">PDF, até 4 MB.</p>
+        <label
+          htmlFor={id}
+          className="bg-tinta text-papel-alto hover:bg-tinta/90 focus-within:ring-ring inline-flex cursor-pointer items-center justify-center rounded-sm px-3 py-1.5 text-sm font-medium transition-colors focus-within:ring-2 focus-within:outline-none"
+        >
+          {atual ? "Substituir proposta" : "Anexar proposta"}
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Arraste o PDF para aqui ou clique para escolher. Até 4 MB.
+        </p>
       </div>
 
       {aEnviar && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Upload className="size-3.5" />A enviar…
+          <Upload className="size-3.5" />
+          {substituir ? "A substituir a proposta anterior…" : "A enviar…"}
         </p>
       )}
       {erro && (

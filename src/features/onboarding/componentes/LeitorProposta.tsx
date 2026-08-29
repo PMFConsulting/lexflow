@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { formatarDataCurta } from "@/lib/datas";
 import { cn } from "@/lib/utils";
 
 /** A proposta que a sociedade anexou a **este** processo, quando existe. */
@@ -18,8 +19,11 @@ export type PropostaAnexada = {
   bytes: number;
   /** A rota que a serve, autorizada pelo mesmo token do link mágico. */
   url: string;
+  criadoEm?: Date | string | null;
 };
 
+const kb = (b: number) =>
+  b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 
 /**
  * A proposta de honorários, e a porta que ela fecha.
@@ -51,24 +55,47 @@ export function LeitorProposta({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant={lido ? "outline" : "default"} onClick={() => setAberto(true)}>
-          <FileText className="size-4" />
-          {lido ? "Rever a proposta de honorários" : "Abrir e ler a proposta de honorários"}
-        </Button>
+    <div className="border-linha bg-papel-alto flex flex-col gap-4 rounded-sm border p-4">
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-sm border",
+            lido
+              ? "border-arquivo/30 bg-arquivo/10 text-arquivo"
+              : "border-marca/30 bg-marca/10 text-marca",
+          )}
+        >
+          <FileText className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+            Proposta de Honorários
+          </p>
+          <p className="mt-0.5 truncate text-sm font-medium">{anexada.nome}</p>
+          <p className="text-xs text-muted-foreground">
+            PDF · {kb(anexada.bytes)}
+            {anexada.criadoEm && ` · anexada em ${formatarDataCurta(anexada.criadoEm)}`}
+          </p>
+        </div>
+        {lido && (
+          <span className="text-arquivo flex shrink-0 items-center gap-1 text-xs font-medium">
+            <Check className="size-3.5" strokeWidth={2.5} />
+            Aberta
+          </span>
+        )}
       </div>
 
-      {lido ? (
-        <p className="text-arquivo flex items-center gap-1.5 text-xs">
-          <Check className="size-3.5" strokeWidth={2.5} />
-          Documento aberto.
-        </p>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          Para poder aceitar, abra o documento que a sociedade lhe enviou.
-        </p>
-      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant={lido ? "outline" : "default"} onClick={() => setAberto(true)}>
+          <FileText className="size-4" />
+          {lido ? "Rever proposta" : "Ver proposta"}
+        </Button>
+        {!lido && (
+          <p className="text-xs text-muted-foreground">
+            Para poder aceitar, abra o documento que a sociedade lhe enviou.
+          </p>
+        )}
+      </div>
 
       <Dialog open={aberto} onOpenChange={setAberto}>
         {aberto && (
@@ -103,7 +130,13 @@ function ModalAnexada({
   return (
     <DialogContent className="max-w-2xl" aria-describedby={undefined}>
       <DialogHeader className="pr-8">
-        <DialogTitle>Proposta de Honorários</DialogTitle>
+        <DialogTitle className="flex items-center gap-2">
+          <FileText className="text-marca size-4.5" />
+          Proposta de Honorários
+        </DialogTitle>
+        <p className="text-2xs font-mono tracking-[0.14em] text-muted-foreground uppercase">
+          {proposta.nome} · {kb(proposta.bytes)}
+        </p>
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 py-5">
@@ -144,4 +177,3 @@ function ModalAnexada({
     </DialogContent>
   );
 }
-

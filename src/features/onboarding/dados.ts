@@ -168,6 +168,7 @@ export async function seccoesDoProcesso(processoId: string) {
         nome: documento.nomeOriginal,
         tipo: documento.tipo,
         bytes: documento.tamanhoBytes,
+        criadoEm: documento.criadoEm,
       })
       .from(documento)
       .where(and(eq(documento.processoId, processoId), isNull(documento.apagadoEm))),

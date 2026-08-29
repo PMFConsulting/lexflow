@@ -317,7 +317,12 @@ export function Formulario({
    */
   const anexo = seccoes.documentos.find((d) => d.tipo === "proposta_comercial");
   const propostaAnexada = anexo
-    ? { nome: anexo.nome, bytes: anexo.bytes, url: `/onboarding/${token}/proposta` }
+    ? {
+        nome: anexo.nome,
+        bytes: anexo.bytes,
+        url: `/onboarding/${token}/proposta`,
+        criadoEm: anexo.criadoEm,
+      }
     : null;
 
   // A contagem do cabeçalho é a do percurso deste cliente, não a dos sete

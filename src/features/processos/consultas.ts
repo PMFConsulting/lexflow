@@ -336,6 +336,7 @@ export async function propostaDoProcesso(processoId: string) {
       mime: documento.mime,
       bytes: documento.tamanhoBytes,
       dados: documento.dados,
+      criadoEm: documento.criadoEm,
     })
     .from(documento)
     .where(
