@@ -68,11 +68,25 @@ export default async function Processos({
     return `/processos?${p}`;
   };
 
-  const gestorId = eu.papel === "gestor" ? eu.id : undefined;
+  /*
+   * BUG3-001: o `gestor` via zero processos. O filtro por `responsavelId`
+   * (aqui e em `facetas`/`gestorPodeVerProcesso`) pressupõe que os processos
+   * têm um responsável atribuído — e `responsavel_id` nunca chegou a ser
+   * escrito por caminho nenhum do produto (218 processos em produção, 0 com
+   * responsável). Um `exists` sobre uma coluna sempre `NULL` nunca é
+   * verdadeiro, e por isso a lista ficava sempre vazia para este papel.
+   *
+   * A correção não é escrever `responsavel_id` — não há ecrã nenhum que o
+   * peça, e inventar uma atribuição agora seria um dado a mais, não a
+   * menos. É tratar o `gestor` como o que ele é na sociedade: equipa que
+   * trabalha os processos, tal como `society_admin` e `utilizador`, e por
+   * isso vê os processos DA SOCIEDADE, sem filtro por responsável — a mesma
+   * consulta dos outros dois papéis.
+   */
 
   const [{ linhas, total, pagina, porPagina }, f] = await Promise.all([
-    listarProcessos(filtros, eu.organizacaoId, { gestorId }),
-    facetas(eu.organizacaoId, gestorId),
+    listarProcessos(filtros, eu.organizacaoId),
+    facetas(eu.organizacaoId),
   ]);
 
   const paginas = Math.max(1, Math.ceil(total / porPagina));

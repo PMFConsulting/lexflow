@@ -10,6 +10,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
+  cookies: async () => ({ get: () => undefined }),
 }));
 
 let sessaoUsuario: Record<string, unknown> | null = null;
@@ -30,9 +31,13 @@ vi.mock("@/db", () => {
         query.from = () => query;
         query.leftJoin = () => query;
         query.where = (cond: unknown) => {
+          const linhaSessao = sessaoUsuario ? [sessaoUsuario] : [];
           return {
-            limit: async () => (sessaoUsuario ? [sessaoUsuario] : []),
+            limit: async () => linhaSessao,
             orderBy: () => ({
+              // `sessaoAtual()` faz `await` diretamente sobre o resultado de
+              // `.orderBy(...)`, sem `.limit()` — é o `thenable` que o serve.
+              then: (resolve: (v: unknown) => unknown) => Promise.resolve(linhaSessao).then(resolve),
               limit: () => ({
                 offset: async () => [
                   {

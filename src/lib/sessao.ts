@@ -1,7 +1,7 @@
 import "server-only";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { papelUtilizador } from "@/db/schema/enums";
 import { utilizador } from "@/db/schema/organizacao";
@@ -29,24 +29,82 @@ import { auth } from "./auth";
 export type Papel = (typeof papelUtilizador.enumValues)[number];
 
 /**
+ * O cookie que fixa, entre pedidos, qual das sociedades de uma conta
+ * multi-sociedade está ativa. Ver `sessaoAtual()` e `trocarSociedade()`
+ * (`features/conta/acoes.ts`) — o nome vive aqui porque os dois têm de
+ * concordar sobre ele, e concordar por import é a única forma de não
+ * divergirem.
+ */
+export const COOKIE_SOCIEDADE_ATIVA = "sociedade_ativa";
+
+/**
  * Back-office session.
  *
  * Returns the domain user — the one with a role and an organisation — and not
  * the Better Auth record. That is the one that matters for deciding what can be
  * seen.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * BUG3-002 — mais do que uma linha por `authUserId`
+ *
+ * Desde a `0025` a mesma conta de autenticação pode ter uma linha
+ * `utilizador` em mais do que uma sociedade (`utilizador_auth_org` é único
+ * por `(organizacaoId, authUserId)`, não só por `authUserId`) — é o que
+ * permite a um administrador gerir duas sociedades sem precisar de duas
+ * contas. O que estava aqui — `.limit(1)` sem `ORDER BY` — pedia ao Postgres
+ * "dá-me uma qualquer": sem ordenação, a ordem de um SELECT não é garantida
+ * nem estável entre pedidos, e essa pessoa podia entrar ora numa sociedade
+ * ora noutra, sem ter escolhido e sem saber qual. Num sistema de KYC isso não
+ * é um detalhe — é o próprio risco que a plataforma existe para evitar:
+ * trabalhar a identificação de um cliente sob a sociedade errada.
+ *
+ * A correção tem duas partes. Primeiro, a ordem deixa de ser arbitrária:
+ * `criadoEm` (a linha mais antiga primeiro) é determinística e não muda de
+ * pedido para pedido, o que já por si fecha o risco de "sociedade ao acaso" —
+ * a conta cai sempre na mesma por omissão. Segundo, a pessoa pode escolher
+ * outra: o cookie `sociedade_ativa`, quando aponta para uma das sociedades
+ * desta conta, tem prioridade sobre a ordenação. Um cookie que aponte para
+ * uma sociedade a que a conta não pertence — alheio, adulterado, ou de uma
+ * sessão anterior a sair dela — é ignorado, e cai-se de volta na ordenação
+ * determinística; nunca num acesso não autorizado.
  */
 export async function sessaoAtual() {
   const sessao = await auth().api.getSession({ headers: await headers() });
   if (!sessao?.user) return null;
 
-  const [eu] = await db()
+  const linhas = await db()
     .select()
     .from(utilizador)
     .where(eq(utilizador.authUserId, sessao.user.id))
-    .limit(1);
+    .orderBy(asc(utilizador.criadoEm), asc(utilizador.id));
+
+  if (linhas.length === 0) return null;
+
+  let eu = linhas[0];
+
+  if (linhas.length > 1) {
+    const cookieOrg = (await cookies()).get(COOKIE_SOCIEDADE_ATIVA)?.value;
+    const escolhida = cookieOrg ? linhas.find((l) => l.organizacaoId === cookieOrg) : undefined;
+    if (escolhida) eu = escolhida;
+  }
 
   if (!eu || !eu.ativo || eu.apagadoEm) return null;
-  return { conta: sessao.user, eu };
+
+  return {
+    conta: sessao.user,
+    eu,
+    /**
+     * As outras sociedades desta conta — só os `organizacaoId`, sem nome.
+     * `sessaoAtual()` corre em toda a página autenticada, e ir buscar o nome
+     * de cada sociedade aqui pagava um segundo SELECT em todos os pedidos por
+     * causa do único sítio (o seletor no `portal-shell`) que alguma vez o
+     * mostra — e só quando há de facto mais do que uma. Vazio para a
+     * generalidade das contas, que só têm uma linha.
+     */
+    outrasOrganizacoes: linhas
+      .map((l) => l.organizacaoId)
+      .filter((id): id is string => Boolean(id) && id !== eu.organizacaoId),
+  };
 }
 
 /**
@@ -192,6 +250,20 @@ export function podeReabrirProcesso(papel: string) {
     papel === "gestor" ||
     papel === "super_admin"
   );
+}
+
+/**
+ * Quem pode reenviar o link de acesso de um processo ao cliente (BUG3-005).
+ *
+ * Só `society_admin` e o `super_admin` transversal — nem `gestor` nem
+ * `utilizador`: reenviar o link é administração do acesso do cliente à
+ * sociedade, não trabalho sobre o conteúdo do processo. É mais restrito do
+ * que `podeReabrirProcesso`, que inclui o `gestor`, de propósito — reabrir
+ * decide o que acontece a um dossier fechado; reenviar decide quem consegue
+ * chegar a um que ainda está aberto.
+ */
+export function podeReenviarLinkProcesso(papel: string) {
+  return papel === "society_admin" || papel === "super_admin";
 }
 
 /**

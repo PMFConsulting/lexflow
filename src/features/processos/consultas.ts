@@ -34,18 +34,16 @@ export type Filtros = {
 const daOrganizacao = (organizacaoId: string) =>
   eq(processoOnboarding.organizacaoId, organizacaoId);
 
-function condicoes(f: Filtros, organizacaoId: string, gestorId?: string) {
+/**
+ * BUG3-001: o `gestor` é equipa da sociedade, não dono de processos — vê os
+ * mesmos processos que `society_admin` e `utilizador`, sem filtro por
+ * responsável. `responsavel_id` nunca chegou a ser escrito por caminho
+ * nenhum do produto (218 processos em produção, 0 com responsável), e um
+ * `exists` sobre uma coluna sempre `NULL` nunca é verdadeiro — era por isso
+ * que este papel via sempre zero processos.
+ */
+function condicoes(f: Filtros, organizacaoId: string) {
   const partes = [daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm)];
-
-  if (gestorId) {
-    partes.push(
-      sql`exists (
-        select 1 from ${utilizador}
-        where ${utilizador.id} = ${processoOnboarding.responsavelId}
-          and (${utilizador.gestorId} = ${gestorId} or ${utilizador.id} = ${gestorId})
-      )`,
-    );
-  }
 
   if (f.estado?.length) {
     partes.push(inArray(processoOnboarding.estado, f.estado as never[]));
@@ -74,15 +72,11 @@ function condicoes(f: Filtros, organizacaoId: string, gestorId?: string) {
   return and(...partes);
 }
 
-export async function listarProcessos(
-  f: Filtros,
-  organizacaoId: string,
-  opcoes?: { gestorId?: string },
-) {
+export async function listarProcessos(f: Filtros, organizacaoId: string) {
   const base = db();
   const pagina = Math.max(1, f.pagina ?? 1);
   const porPagina = Math.min(100, f.porPagina ?? 25);
-  const onde = condicoes(f, organizacaoId, opcoes?.gestorId);
+  const onde = condicoes(f, organizacaoId);
 
   const [linhas, [total]] = await Promise.all([
     base
@@ -166,19 +160,9 @@ export async function listarProcessosPlataforma(f: Filtros, organizacaoId?: stri
 }
 
 /** Contagens por estado e tipo — os filtros facetados do §6. */
-export async function facetas(organizacaoId: string, gestorId?: string) {
+export async function facetas(organizacaoId: string) {
   const base = db();
-  const partes = [daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm)];
-  if (gestorId) {
-    partes.push(
-      sql`exists (
-        select 1 from ${utilizador}
-        where ${utilizador.id} = ${processoOnboarding.responsavelId}
-          and (${utilizador.gestorId} = ${gestorId} or ${utilizador.id} = ${gestorId})
-      )`,
-    );
-  }
-  const vivos = and(...partes);
+  const vivos = and(daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm));
 
   const [porEstado, porTipo] = await Promise.all([
     base
@@ -194,33 +178,6 @@ export async function facetas(organizacaoId: string, gestorId?: string) {
   ]);
 
   return { porEstado, porTipo };
-}
-
-/**
- * Verifica se um gestor tem permissão para aceder a um dado processo.
- * Um gestor pode ver apenas processos cujo responsável seja ele próprio
- * ou um utilizador associado a ele (gestor_id = gestorId).
- */
-export async function gestorPodeVerProcesso(
-  processoId: string,
-  gestorId: string,
-  organizacaoId: string,
-): Promise<boolean> {
-  const [linha] = await db()
-    .select({ id: processoOnboarding.id })
-    .from(processoOnboarding)
-    .innerJoin(utilizador, eq(utilizador.id, processoOnboarding.responsavelId))
-    .where(
-      and(
-        eq(processoOnboarding.id, processoId),
-        eq(processoOnboarding.organizacaoId, organizacaoId),
-        isNull(processoOnboarding.apagadoEm),
-        or(eq(utilizador.gestorId, gestorId), eq(utilizador.id, gestorId)),
-      ),
-    )
-    .limit(1);
-
-  return Boolean(linha);
 }
 
 /** Os números do painel. Só o que faz agir — nada de gráficos decorativos. */

@@ -1,13 +1,14 @@
 "use server";
 
-import { headers } from "next/headers";
-import { and, eq } from "drizzle-orm";
+import { cookies, headers } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { and, eq, isNull } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { db } from "@/db";
 import { account } from "@/db/schema/auth";
 import { utilizador } from "@/db/schema/organizacao";
 import { registarEvento } from "@/features/auditoria/registar";
-import { sessaoAtual } from "@/lib/sessao";
+import { COOKIE_SOCIEDADE_ATIVA, sessaoAtual } from "@/lib/sessao";
 import { novaPalavraPasseSchema } from "./schemas";
 
 /**
@@ -170,5 +171,52 @@ export async function redefinirPalavraPasse(dados: unknown): Promise<ResultadoRe
     );
   }
 
+  return { ok: true };
+}
+
+export type ResultadoTrocaSociedade = { ok: true } | { ok: false; erro: string };
+
+/**
+ * Muda a sociedade ativa de uma conta que administra mais do que uma
+ * (BUG3-002) — grava o cookie que `sessaoAtual()` lê, e nada mais.
+ *
+ * A validação de pertença não é opcional nem cosmética: sem ela, esta ação
+ * era uma forma de qualquer conta autenticada escolher entrar em **qualquer**
+ * sociedade só por saber o `id` — que não é segredo, aparece em URLs e em
+ * exports. `organizacaoId` só é aceite quando existe uma linha `utilizador`
+ * ativa e não apagada, desta mesma conta de autenticação, nessa sociedade;
+ * qualquer outro valor é recusado, e o cookie não é escrito.
+ */
+export async function trocarSociedade(organizacaoId: string): Promise<ResultadoTrocaSociedade> {
+  const sessao = await sessaoAtual();
+  if (!sessao) {
+    return { ok: false, erro: "A sessão expirou. Volte a entrar." };
+  }
+
+  const [pertence] = await db()
+    .select({ id: utilizador.id })
+    .from(utilizador)
+    .where(
+      and(
+        eq(utilizador.authUserId, sessao.conta.id),
+        eq(utilizador.organizacaoId, organizacaoId),
+        eq(utilizador.ativo, true),
+        isNull(utilizador.apagadoEm),
+      ),
+    )
+    .limit(1);
+
+  if (!pertence) {
+    return { ok: false, erro: "Não tem acesso a essa sociedade." };
+  }
+
+  (await cookies()).set(COOKIE_SOCIEDADE_ATIVA, organizacaoId, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  revalidatePath("/");
   return { ok: true };
 }

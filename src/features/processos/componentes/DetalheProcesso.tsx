@@ -22,6 +22,7 @@ import {
 import { AcoesAprovacao } from "@/features/processos/componentes/AcoesAprovacao";
 import { AcoesReabertura } from "@/features/processos/componentes/AcoesReabertura";
 import { BotaoReabrirProcesso } from "@/features/processos/componentes/BotaoReabrirProcesso";
+import { BotaoReenviarLink } from "@/features/processos/componentes/BotaoReenviarLink";
 import { PropostaComercial } from "@/features/processos/componentes/PropostaComercial";
 import { BotaoExportarPdf } from "@/features/processos/componentes/BotaoExportarPdf";
 import { ModalEditarSeccao } from "./ModalEditarSeccao";
@@ -170,6 +171,7 @@ export type DetalheProcessoProps = {
   vePpe: boolean;
   podeAprovar: boolean;
   podeReabrir?: boolean;
+  podeReenviarLink?: boolean;
   podeEditar?: boolean;
   caminhoVoltar: string;
   textoVoltar?: string;
@@ -187,6 +189,7 @@ export function DetalheProcesso({
   vePpe,
   podeAprovar,
   podeReabrir,
+  podeReenviarLink,
   podeEditar = true,
   caminhoVoltar,
   textoVoltar = "Voltar",
@@ -199,6 +202,12 @@ export function DetalheProcesso({
     (papelAtual
       ? papelAtual === "society_admin" || papelAtual === "gestor" || papelAtual === "super_admin"
       : true);
+  // BUG3-005: mais restrito do que a reabertura — society_admin e super_admin
+  // apenas, como em podeReenviarLinkProcesso (src/lib/sessao.ts).
+  const podeReenviarLinkEfetivo =
+    podeReenviarLink ??
+    (papelAtual ? papelAtual === "society_admin" || papelAtual === "super_admin" : true);
+  const ESTADOS_REENVIO = new Set(["rascunho", "pendente_cliente", "em_revisao"]);
   const naoChegaram = emails.filter((m) => ESTADOS_FALHADOS.includes(m.estado)).length;
 
   return (
@@ -228,6 +237,9 @@ export function DetalheProcesso({
           <EstadoBadge estado={processo.estado} />
           {papelAtual === "society_admin" && (
             <BotaoExportarPdf processoId={processo.id} referencia={processo.referencia} />
+          )}
+          {podeReenviarLinkEfetivo && ESTADOS_REENVIO.has(processo.estado) && (
+            <BotaoReenviarLink processoId={processo.id} />
           )}
           {/* aprovado é terminal: sem botão de reabertura (imutabilidade definitiva). */}
           {podeReabrirEfetivo &&

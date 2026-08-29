@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { organizacao, utilizador } from "@/db/schema/organizacao";
 import {
@@ -134,6 +134,20 @@ export async function sociedadeDe(organizacaoId: string) {
     .where(eq(organizacao.id, organizacaoId))
     .limit(1);
   return org ?? null;
+}
+
+/**
+ * Nomes das sociedades indicadas, para o seletor de sociedade ativa
+ * (BUG3-002) — a única vez que o `id`, sem mais, precisa de virar algo
+ * legível. Vazio devolve vazio sem consultar nada: é o caso comum, de uma
+ * conta com uma única sociedade e nenhum seletor a mostrar.
+ */
+export async function sociedadesPorIds(ids: string[]) {
+  if (!ids.length) return [];
+  return db()
+    .select({ id: organizacao.id, nome: organizacao.nome })
+    .from(organizacao)
+    .where(inArray(organizacao.id, ids));
 }
 
 /** Os documentos da sociedade — os que não pertencem a ninguém em concreto. */

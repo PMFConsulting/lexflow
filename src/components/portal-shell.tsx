@@ -18,6 +18,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BotaoSair } from "@/features/conta/componentes/BotaoSair";
+import { SeletorSociedade } from "@/features/conta/componentes/SeletorSociedade";
 import { Logotipo } from "@/components/logotipo";
 import { SinoNotificacoes } from "@/features/notificacoes/componentes/SinoNotificacoes";
 
@@ -49,6 +50,8 @@ export function PortalShell({
   logotipoUrl,
   contagemNotificacoes,
   hrefNotificacoes,
+  sociedadeAtiva,
+  outrasSociedades,
   children,
 }: {
   entradas: EntradaDeMenu[];
@@ -59,8 +62,16 @@ export function PortalShell({
   logotipoUrl?: string | null;
   contagemNotificacoes?: number;
   hrefNotificacoes?: string;
+  /** A sociedade desta sessão e as outras da mesma conta (BUG3-002). */
+  sociedadeAtiva?: { id: string; nome: string };
+  outrasSociedades?: { id: string; nome: string }[];
   children: React.ReactNode;
 }) {
+  // O seletor só aparece com 2+ sociedades — com uma só não há escolha
+  // nenhuma a fazer, e mostrá-lo sempre seria uma pergunta sem resposta
+  // possível para a generalidade das contas.
+  const opcoesSociedade =
+    sociedadeAtiva && outrasSociedades?.length ? [sociedadeAtiva, ...outrasSociedades] : null;
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider>
@@ -118,6 +129,9 @@ export function PortalShell({
                 {utilizador.papel}
               </p>
             </div>
+            {opcoesSociedade && sociedadeAtiva && (
+              <SeletorSociedade atual={sociedadeAtiva.id} opcoes={opcoesSociedade} />
+            )}
             <BotaoSair />
             <span className="text-2xs font-mono opacity-40">LexFlow · v1.0.0</span>
           </SidebarFooter>

@@ -39,6 +39,7 @@ import {
   podeAcederSociedade,
   podeAprovarProcesso,
   podeReabrirProcesso,
+  podeReenviarLinkProcesso,
 } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
 import { validarNif, validarNipc, validarTelefone } from "@/lib/validacao-pt";
@@ -1005,6 +1006,149 @@ export async function reabrirProcesso(
     revalidatePath(`/admin/sociedades/${processo.organizacaoId}`);
     revalidatePath("/admin");
     revalidatePath("/");
+  } catch {
+    // revalidatePath outside request context
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Reenvia o link de acesso de um processo ao cliente (BUG3-005).
+ *
+ * Problema: o link expira ao fim de 30 dias, ou o cliente esgota a quota de
+ * pedidos de OTP e fica sem forma de voltar a entrar — e a única saída, até
+ * aqui, era a sociedade criar um processo novo, que perdia o histórico e a
+ * referência do primeiro.
+ *
+ * Apenas para `society_admin` e o `super_admin` transversal
+ * (`podeReenviarLinkProcesso`) — é administração do acesso do cliente à
+ * sociedade, não trabalho sobre o processo, e por isso mais restrito do que
+ * `podeReabrirProcesso`. Só nos estados editáveis (`rascunho`,
+ * `pendente_cliente`, `em_revisao`); `aprovado` é imutável (D59/D20) e os
+ * restantes (`submetido`, `aguardar_aprovacao`, `rejeitado`, `arquivado`) já
+ * têm o seu próprio caminho — decisão ou reabertura.
+ *
+ * **Não reutiliza o token existente.** O brief original pedia para reusar o
+ * token gravado, mas isso não é possível: só o SHA-256 fica na base de dados
+ * (D4), o texto original existiu uma única vez, na chamada que criou o
+ * processo, e um hash não se inverte. Gera-se por isso um token novo, como
+ * `reabrirProcesso` já fazia — a diferença para a reabertura é que o `estado`
+ * **não muda**: reenviar um link não é reabrir um processo fechado, é dar a
+ * quem já está a meio do preenchimento uma forma de lá voltar.
+ */
+export async function reenviarLinkProcesso(id: string): Promise<ResultadoDecisao> {
+  const { eu } = await exigirEquipaOuSuperAdmin();
+  if (!podeReenviarLinkProcesso(eu.papel)) {
+    return falha("Não tem permissão para reenviar o link deste processo.");
+  }
+
+  const [processo] = await db()
+    .select()
+    .from(processoOnboarding)
+    .where(eq(processoOnboarding.id, id))
+    .limit(1);
+
+  if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
+    return falha("Processo não encontrado.");
+  }
+
+  const ESTADOS_REENVIO = new Set(["rascunho", "pendente_cliente", "em_revisao"]);
+  if (!ESTADOS_REENVIO.has(processo.estado)) {
+    return falha(
+      processo.estado === "aprovado"
+        ? "Processo aprovado — já não pode ser alterado."
+        : "Só é possível reenviar o link de processos em rascunho, pendentes do cliente ou em revisão.",
+    );
+  }
+
+  const { token, hash } = novoTokenAcesso();
+  const expiraEm = expiraDaquiA(30);
+
+  // Guarda de estado no UPDATE, como em reabrirProcesso/aprovarProcesso: entre
+  // o SELECT e aqui, outro pedido pode ter decidido o processo.
+  const [atualizado] = await db()
+    .update(processoOnboarding)
+    .set({ tokenAcessoHash: hash, expiraEm, apagadoEm: null, atualizadoEm: new Date() })
+    .where(and(eq(processoOnboarding.id, id), eq(processoOnboarding.estado, processo.estado)))
+    .returning();
+
+  if (!atualizado) {
+    return falha("O processo já mudou de estado — recarregue a página.");
+  }
+
+  let ip: string | null = null;
+  let userAgent: string | null = null;
+  try {
+    const h = await headers();
+    ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    userAgent = h.get("user-agent") ?? null;
+  } catch {
+    // Headers outside request context
+  }
+
+  try {
+    await registarEvento({
+      organizacaoId: processo.organizacaoId,
+      processoId: processo.id,
+      atorId: eu.id,
+      acao: "processo.link_reenviado",
+      entidade: "processo_onboarding",
+      entidadeId: processo.id,
+      valorAnterior: { estado: processo.estado },
+      valorNovo: { estado: processo.estado },
+      ip,
+      userAgent,
+    });
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: falhou auditoria de reenvio de link`, e);
+  }
+
+  try {
+    let link = `/onboarding/${token}`;
+    try {
+      link = `${await origemPublica()}/onboarding/${token}`;
+    } catch (erro) {
+      console.error(`[processo] ${processo.referencia}: origemPublica falhou; link relativo`, erro);
+    }
+
+    const { email, nome } = await emailDoCliente(id);
+    const destino = email ?? processo.emailCliente;
+    if (destino) {
+      const [org] = await db()
+        .select({
+          id: organizacao.id,
+          nome: organizacao.nome,
+          logotipoDados: organizacao.logotipoDados,
+          logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+        })
+        .from(organizacao)
+        .where(eq(organizacao.id, processo.organizacaoId))
+        .limit(1);
+
+      await enviarEmail({
+        para: destino,
+        assunto: ASSUNTO_REGISTO,
+        html: emailRegisto({
+          nome: nome ?? processo.nomeCliente,
+          link,
+          logotipoUrl: urlLogotipoSociedade(org),
+        }),
+        template: "registo",
+        organizacaoId: processo.organizacaoId,
+        processoId: processo.id,
+        tokenHash: hash,
+      });
+    } else {
+      console.warn(`[processo] ${processo.referencia}: reenvio de link sem endereço de email.`);
+    }
+  } catch (e) {
+    console.error(`[processo] ${processo.referencia}: o email de reenvio não foi enviado`, e);
+  }
+
+  try {
+    revalidatePath("/processos");
+    revalidatePath(`/processos/${id}`);
   } catch {
     // revalidatePath outside request context
   }

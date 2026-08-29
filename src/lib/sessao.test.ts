@@ -25,26 +25,57 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-let sessao: { conta: { id: string }; eu: Record<string, unknown> } | null = null;
+/**
+ * `linhasUtilizador` simula a tabela inteira: uma conta de autenticação pode
+ * ter mais do que uma linha (BUG3-002, uma por sociedade), e é por isso que
+ * deixou de fazer sentido guardar "a sessão" como um objeto só.
+ */
+let contaAutenticada: { id: string } | null = null;
+let linhasUtilizador: Record<string, unknown>[] = [];
+let cookieSociedadeAtiva: string | undefined;
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({
+    get: (nome: string) =>
+      nome === "sociedade_ativa" && cookieSociedadeAtiva
+        ? { value: cookieSociedadeAtiva }
+        : undefined,
+  }),
+}));
 
 vi.mock("@/lib/auth", () => ({
   auth: () => ({
     api: {
-      getSession: async () => (sessao ? { user: sessao.conta } : null),
+      getSession: async () => (contaAutenticada ? { user: contaAutenticada } : null),
     },
   }),
 }));
 
-vi.mock("drizzle-orm", () => ({ eq: (...c: unknown[]) => c }));
+vi.mock("drizzle-orm", () => ({ eq: (...c: unknown[]) => c, asc: (...c: unknown[]) => c }));
 vi.mock("@/db/schema/organizacao", () => ({ utilizador: "utilizador" }));
 
 vi.mock("@/db", () => ({
   db: () => ({
     select: () => ({
       from: () => ({
-        where: () => ({ limit: async () => (sessao ? [sessao.eu] : []) }),
+        where: () => ({
+          // O `ORDER BY criadoEm, id` é o que o Postgres real aplicaria — o
+          // mock simula-o em vez de devolver as linhas na ordem em que os
+          // testes as escreveram em `linhasUtilizador`, que é exatamente o
+          // que o teste de determinismo precisa de não poder assumir.
+          orderBy: async () =>
+            contaAutenticada
+              ? linhasUtilizador
+                  .filter((l) => l.authUserId === contaAutenticada?.id)
+                  .slice()
+                  .sort((a, b) => {
+                    const t =
+                      (a.criadoEm as Date).getTime() - (b.criadoEm as Date).getTime();
+                    return t !== 0 ? t : String(a.id).localeCompare(String(b.id));
+                  })
+              : [],
+        }),
       }),
     }),
   }),
@@ -61,21 +92,24 @@ const {
   podeAprovarProcesso,
   podeAprovarUtilizadores,
   podeGerirUtilizadores,
+  podeReenviarLinkProcesso,
   podeVerEmails,
   podeVerPpe,
   portalDoPapel,
   sessaoAtual,
   ROTA_AGUARDA_APROVACAO,
+  COOKIE_SOCIEDADE_ATIVA,
 } = await import("./sessao");
 
 const PAPEIS = ["super_admin", "society_admin", "gestor", "utilizador"] as const;
 
-/** Entra em sessão como um papel. O `super_admin` nunca tem sociedade. */
+/** Entra em sessão como um papel, com uma única linha `utilizador`. O `super_admin` nunca tem sociedade. */
 function entrarComo(papel: (typeof PAPEIS)[number], extra: Record<string, unknown> = {}) {
-  sessao = {
-    conta: { id: "auth-1" },
-    eu: {
+  contaAutenticada = { id: "auth-1" };
+  linhasUtilizador = [
+    {
       id: "user-1",
+      authUserId: "auth-1",
       nome: "Quem quer que seja",
       email: "x@exemplo.pt",
       papel,
@@ -83,14 +117,17 @@ function entrarComo(papel: (typeof PAPEIS)[number], extra: Record<string, unknow
       aprovadoEm: new Date(),
       ativo: true,
       apagadoEm: null,
+      criadoEm: new Date("2026-01-01T00:00:00.000Z"),
       ...extra,
     },
-  };
+  ];
 }
 
 beforeEach(() => {
   redirecionamentos.length = 0;
-  sessao = null;
+  contaAutenticada = null;
+  linhasUtilizador = [];
+  cookieSociedadeAtiva = undefined;
 });
 
 afterEach(() => {
@@ -199,7 +236,8 @@ async function destinoDe(guard: () => Promise<unknown>) {
 
 describe("os guards", () => {
   it("sem sessão, todos vão para o início de sessão", async () => {
-    sessao = null;
+    contaAutenticada = null;
+    linhasUtilizador = [];
     expect(await destinoDe(exigirSuperAdmin)).toBe("/entrar");
     expect(await destinoDe(exigirSocietyAdmin)).toBe("/entrar");
     expect(await destinoDe(exigirEquipaDaSociedade)).toBe("/entrar");
@@ -389,7 +427,98 @@ describe("sessaoAtual", () => {
   });
 
   it("sem conta de autenticação não há sessão", async () => {
-    sessao = null;
+    contaAutenticada = null;
+    linhasUtilizador = [];
     expect(await sessaoAtual()).toBeNull();
+  });
+
+  it("uma conta com uma só sociedade não traz outras", async () => {
+    entrarComo("society_admin");
+    const s = await sessaoAtual();
+    expect(s?.outrasOrganizacoes).toEqual([]);
+  });
+});
+
+/* --------------------------------------- BUG3-002: multi-sociedade */
+
+describe("BUG3-002 — sessão multi-sociedade determinística", () => {
+  /** Duas linhas `utilizador` para a mesma conta de autenticação, em sociedades diferentes. */
+  function entrarComDuasSociedades() {
+    contaAutenticada = { id: "auth-1" };
+    linhasUtilizador = [
+      {
+        id: "user-org-2",
+        authUserId: "auth-1",
+        nome: "Admin de Duas Sociedades",
+        email: "admin@exemplo.pt",
+        papel: "society_admin",
+        organizacaoId: "org-2",
+        aprovadoEm: new Date(),
+        ativo: true,
+        apagadoEm: null,
+        // Mais recente — entra depois da org-1 na lista, e é por isso que o
+        // teste de determinismo confirma que a ordenação, e não a ordem de
+        // inserção, é o que decide.
+        criadoEm: new Date("2026-03-01T00:00:00.000Z"),
+      },
+      {
+        id: "user-org-1",
+        authUserId: "auth-1",
+        nome: "Admin de Duas Sociedades",
+        email: "admin@exemplo.pt",
+        papel: "society_admin",
+        organizacaoId: "org-1",
+        aprovadoEm: new Date(),
+        ativo: true,
+        apagadoEm: null,
+        criadoEm: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    ];
+  }
+
+  it("sem cookie, cai sempre na sociedade mais antiga (criadoEm), nunca ao acaso", async () => {
+    entrarComDuasSociedades();
+    const s1 = await sessaoAtual();
+    expect(s1?.eu.organizacaoId).toBe("org-1");
+
+    // A mesma chamada, outra vez — determinístico é não variar entre pedidos,
+    // mesmo com as linhas devolvidas na mesma ordem (o mock simula o que o
+    // `ORDER BY` real garante).
+    const s2 = await sessaoAtual();
+    expect(s2?.eu.organizacaoId).toBe("org-1");
+  });
+
+  it("a sessão devolve as outras sociedades da conta, para o seletor decidir se aparece", async () => {
+    entrarComDuasSociedades();
+    const s = await sessaoAtual();
+    expect(s?.eu.organizacaoId).toBe("org-1");
+    expect(s?.outrasOrganizacoes).toEqual(["org-2"]);
+  });
+
+  it("com o cookie a apontar para uma sociedade da conta, essa é a escolhida", async () => {
+    entrarComDuasSociedades();
+    cookieSociedadeAtiva = "org-2";
+    const s = await sessaoAtual();
+    expect(s?.eu.organizacaoId).toBe("org-2");
+    expect(s?.outrasOrganizacoes).toEqual(["org-1"]);
+  });
+
+  it("um cookie apontando para uma sociedade alheia é ignorado — cai na ordenação, nunca num acesso não autorizado", async () => {
+    entrarComDuasSociedades();
+    cookieSociedadeAtiva = "org-alheia";
+    const s = await sessaoAtual();
+    expect(s?.eu.organizacaoId).toBe("org-1");
+  });
+
+  it("o cookie não tem efeito nenhum com uma única sociedade", async () => {
+    entrarComo("society_admin");
+    cookieSociedadeAtiva = "org-1";
+    const s = await sessaoAtual();
+    expect(s?.eu.organizacaoId).toBe("org-1");
+    expect(s?.outrasOrganizacoes).toEqual([]);
+  });
+
+  it("o nome do cookie é o mesmo que sessaoAtual() e trocarSociedade() combinam", () => {
+    expect(COOKIE_SOCIEDADE_ATIVA).toBe("sociedade_ativa");
   });
 });

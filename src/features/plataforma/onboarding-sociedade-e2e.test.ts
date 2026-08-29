@@ -42,6 +42,7 @@ vi.mock("next/cache", () => ({
 
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "x-forwarded-for": "127.0.0.1", "user-agent": "test-agent" }),
+  cookies: async () => ({ get: () => undefined }),
 }));
 
 vi.mock("better-auth/crypto", () => ({

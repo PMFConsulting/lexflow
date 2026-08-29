@@ -50,4 +50,5 @@ export const ACOES: Record<string, string> = {
   "processo.aprovado": "Processo aprovado",
   "processo.rejeitado": "Processo rejeitado",
   "reabertura": "Processo reaberto",
+  "processo.link_reenviado": "Link de acesso reenviado ao cliente",
 };

@@ -3,7 +3,6 @@ import { auditoriaDoProcesso } from "@/features/auditoria/consultas";
 import { emailsDoProcesso } from "@/features/emails/consultas";
 import {
   documentosDoProcesso,
-  gestorPodeVerProcesso,
   processoPorId,
   propostaDoProcesso,
 } from "@/features/processos/consultas";
@@ -15,6 +14,7 @@ import {
   exigirEquipaOuSuperAdmin,
   podeAprovarProcesso,
   podeReabrirProcesso,
+  podeReenviarLinkProcesso,
   podeVerPpe,
 } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
@@ -39,14 +39,9 @@ export default async function Processo({
     notFound();
   }
 
-  if (eu.papel === "gestor") {
-    const podeVer = await gestorPodeVerProcesso(
-      processo.id,
-      eu.id,
-      eu.organizacaoId ?? "",
-    );
-    if (!podeVer) notFound();
-  }
+  // BUG3-001: o gestor é equipa da sociedade, não dono de processos — vê o
+  // mesmo detalhe que society_admin e utilizador veem, sem o filtro por
+  // responsavel_id que nunca tinha dados para comparar (ver processos/page.tsx).
 
   const [s, docs, eventos, emails, assinatura, proposta] = await Promise.all([
     seccoesDoProcesso(processo.id),
@@ -60,6 +55,7 @@ export default async function Processo({
   const vePpe = podeVerPpe(eu.papel);
   const podeAprovar = podeAprovarProcesso(eu.papel);
   const podeReabrir = podeReabrirProcesso(eu.papel);
+  const podeReenviarLink = podeReenviarLinkProcesso(eu.papel);
 
   await registarEvento({
     organizacaoId: processo.organizacaoId,
@@ -83,6 +79,7 @@ export default async function Processo({
       vePpe={vePpe}
       podeAprovar={podeAprovar}
       podeReabrir={podeReabrir}
+      podeReenviarLink={podeReenviarLink}
       podeEditar={true}
       caminhoVoltar="/processos"
       textoVoltar="Processos"

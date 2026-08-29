@@ -1,7 +1,7 @@
 import { Bell, Building2, FileText, LayoutDashboard, Settings, UserRound, Users } from "lucide-react";
 import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
 import { exigirEquipaDaSociedade, podeVerEmails } from "@/lib/sessao";
-import { sociedadeDe } from "@/features/administracao/consultas";
+import { sociedadeDe, sociedadesPorIds } from "@/features/administracao/consultas";
 import { contarNotificacoesNaoLidas } from "@/features/notificacoes/consultas";
 
 /**
@@ -78,10 +78,13 @@ export default async function LayoutBackoffice({
 }: Readonly<{ children: React.ReactNode }>) {
   // Guard num sítio só: todas as páginas do back-office passam por aqui, e é
   // o que impede que uma página nova nasça aberta por esquecimento.
-  const { eu } = await exigirEquipaDaSociedade();
-  const [org, contagemNotificacoes] = await Promise.all([
+  const { eu, outrasOrganizacoes } = await exigirEquipaDaSociedade();
+  const [org, contagemNotificacoes, outrasSociedades] = await Promise.all([
     sociedadeDe(eu.organizacaoId),
     contarNotificacoesNaoLidas(eu),
+    // BUG3-002: só consulta nomes quando há de facto outra sociedade — o
+    // caso comum (uma conta, uma sociedade) não paga este SELECT extra.
+    sociedadesPorIds(outrasOrganizacoes),
   ]);
 
   const isGestor = eu.papel === "gestor";
@@ -111,6 +114,8 @@ export default async function LayoutBackoffice({
       logotipoUrl={logotipoUrl}
       contagemNotificacoes={contagemNotificacoes}
       hrefNotificacoes="/notificacoes"
+      sociedadeAtiva={{ id: eu.organizacaoId, nome: org?.nome ?? eu.organizacaoId }}
+      outrasSociedades={outrasSociedades}
     >
       {children}
     </PortalShell>

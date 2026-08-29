@@ -19,16 +19,34 @@ type Linha = Record<string, unknown>;
 
 const atualizados: { tabela: string; valores: Linha }[] = [];
 let credenciais: Linha[] = [];
+/** Linhas devolvidas por `select().from(t).where().limit()`, por tabela. */
+let linhasPorTabela: Record<string, Linha[]> = {};
 let sessao: { conta: { id: string }; eu: Linha } | null = null;
 let transacaoRebenta = false;
 
 const eventos: { acao: string; organizacaoId: string }[] = [];
+const revalidados: string[] = [];
+const cookiesEscritos: { nome: string; valor: string; opcoes: Record<string, unknown> }[] = [];
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: (p: string) => {
+    revalidados.push(p);
+  },
+}));
+
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({
+    set: (nome: string, valor: string, opcoes: Record<string, unknown>) => {
+      cookiesEscritos.push({ nome, valor, opcoes });
+    },
+  }),
+}));
 
 vi.mock("drizzle-orm", () => ({
   and: (...c: unknown[]) => c,
   eq: (...c: unknown[]) => c,
+  isNull: (...c: unknown[]) => c,
 }));
 
 vi.mock("@/db/schema/auth", () => ({ account: "account" }));
@@ -41,7 +59,10 @@ vi.mock("better-auth/crypto", () => ({
     hash === `scrypt$${password}`,
 }));
 
-vi.mock("@/lib/sessao", () => ({ sessaoAtual: async () => sessao }));
+vi.mock("@/lib/sessao", () => ({
+  sessaoAtual: async () => sessao,
+  COOKIE_SOCIEDADE_ATIVA: "sociedade_ativa",
+}));
 
 vi.mock("@/features/auditoria/registar", () => ({
   registarEvento: async (e: { acao: string; organizacaoId: string }) => {
@@ -62,7 +83,11 @@ const transacao = {
 vi.mock("@/db", () => ({
   db: () => ({
     select: () => ({
-      from: () => ({ where: () => ({ limit: async () => credenciais }) }),
+      from: (t: unknown) => ({
+        where: () => ({
+          limit: async () => (String(t) === "account" ? credenciais : (linhasPorTabela[String(t)] ?? [])),
+        }),
+      }),
     }),
     transaction: async (f: (t: unknown) => Promise<unknown>) => {
       if (transacaoRebenta) throw new Error("a base de dados caiu");
@@ -71,15 +96,18 @@ vi.mock("@/db", () => ({
   }),
 }));
 
-const { redefinirPalavraPasse } = await import("./acoes");
+const { redefinirPalavraPasse, trocarSociedade } = await import("./acoes");
 
 const NOVA = { palavraPasse: "uma-palavra-passe-nova", confirmacao: "uma-palavra-passe-nova" };
 
 beforeEach(() => {
   atualizados.length = 0;
   eventos.length = 0;
+  revalidados.length = 0;
+  cookiesEscritos.length = 0;
   transacaoRebenta = false;
   credenciais = [{ id: "cred-1", password: "scrypt$temporaria-do-email" }];
+  linhasPorTabela = { utilizador: [{ id: "u-1" }] };
   sessao = {
     conta: { id: "auth-1" },
     eu: { id: "u-1", email: "maria@exemplo.pt", papel: "utilizador", organizacaoId: "org-1" },
@@ -196,5 +224,48 @@ describe("redefinirPalavraPasse", () => {
     expect(r.ok).toBe(true);
     expect(eventos).toHaveLength(0);
     expect(escritaEm("utilizador")).toMatchObject({ deveRedefinirPassword: false });
+  });
+});
+
+/**
+ * `trocarSociedade` (BUG3-002): a Server Action por trás do seletor. O que
+ * importa fixar aqui não é o cookie em si — é que ele só se escreve quando a
+ * conta autenticada tem mesmo uma linha `utilizador` ativa e não apagada
+ * nessa sociedade. Sem essa validação, a ação era uma forma de qualquer
+ * conta entrar em qualquer sociedade só por saber o `id` — que não é
+ * segredo, aparece em URLs e em exports.
+ */
+describe("trocarSociedade", () => {
+  it("grava o cookie quando a conta pertence à sociedade pedida", async () => {
+    linhasPorTabela = { utilizador: [{ id: "u-1" }] };
+
+    const r = await trocarSociedade("org-2");
+
+    expect(r).toEqual({ ok: true });
+    expect(cookiesEscritos).toHaveLength(1);
+    expect(cookiesEscritos[0]).toMatchObject({
+      nome: "sociedade_ativa",
+      valor: "org-2",
+      opcoes: expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/" }),
+    });
+    expect(revalidados).toContain("/");
+  });
+
+  it("recusa e não escreve cookie nenhum quando a conta não pertence a essa sociedade", async () => {
+    linhasPorTabela = { utilizador: [] };
+
+    const r = await trocarSociedade("org-alheia");
+
+    expect(r).toEqual({ ok: false, erro: "Não tem acesso a essa sociedade." });
+    expect(cookiesEscritos).toHaveLength(0);
+  });
+
+  it("sem sessão não troca nada", async () => {
+    sessao = null;
+
+    const r = await trocarSociedade("org-2");
+
+    expect(r.ok).toBe(false);
+    expect(cookiesEscritos).toHaveLength(0);
   });
 });
