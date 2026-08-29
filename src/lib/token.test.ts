@@ -84,6 +84,53 @@ describe("normalizarToken — a sujidade das pontas", () => {
   });
 });
 
+/**
+ * BUG-301: o ZWSP percent-encoded.
+ *
+ * Um cliente de email parte o link e insere um ZWSP (U+200B). Alguns
+ * navegadores enviam-no percent-encoded (`%E2%80%8B`) em vez de o descodificar
+ * antes do pedido chegar ao servidor. O último caráter dessa sequência
+ * codificada é "B" — que pertence ao alfabeto do token — por isso o corte nas
+ * pontas, sozinho, não remove nada: o token "sujo" fica com o mesmo
+ * comprimento e passa por limpo, e o SHA-256 nunca bate com o guardado.
+ */
+describe("normalizarToken — sujidade percent-encoded (BUG-301)", () => {
+  const t = "abcDEF123_-abcDEF123_-abcDEF123_-abcDEF123x";
+  const ZWSP = String.fromCharCode(8203);
+
+  it("um ZWSP cru nas pontas é removido (caso já coberto)", () => {
+    expect(normalizarToken(`${ZWSP}${t}${ZWSP}`)).toBe(t);
+  });
+
+  it("um ZWSP percent-encoded (%E2%80%8B) nas pontas é removido", () => {
+    const codificado = "%E2%80%8B";
+    expect(normalizarToken(`${codificado}${t}${codificado}`)).toBe(t);
+    expect(hashToken(`${codificado}${t}${codificado}`)).toBe(hashToken(t));
+  });
+
+  it("um ZWSP percent-encoded só à direita — o caso do relatório", () => {
+    // encodeURIComponent(ZWSP) === "%E2%80%8B"; é o que o browser envia depois
+    // de o email inserir o caráter a seguir ao token.
+    const sujo = `${t}${encodeURIComponent(ZWSP)}`;
+    expect(normalizarToken(sujo)).toBe(t);
+  });
+
+  it("um 'B' legítimo no fim do token NÃO é cortado", () => {
+    // O bug oposto: um token que termina genuinamente em "B" não pode perder
+    // esse caráter só porque "B" também aparece dentro de "%E2%80%8B".
+    const terminaEmB = "abcDEF123_-abcDEF123_-abcDEF123_-abcDEF123B";
+    expect(normalizarToken(terminaEmB)).toBe(terminaEmB);
+    expect(normalizarToken(`  ${terminaEmB}  `)).toBe(terminaEmB);
+  });
+
+  it("percent-encoding inválido (%zz) não rebenta — falha o decode e segue com a string original", () => {
+    expect(() => normalizarToken("%zz")).not.toThrow();
+    // decodeURIComponent("%zz") lança; o catch devolve a string tal como chegou,
+    // e o corte nas pontas não tem nada a remover (começa e acaba em alfabeto).
+    expect(normalizarToken(`${t}%zz`)).toBe(`${t}%zz`);
+  });
+});
+
 describe("hashToken", () => {
   it("é estável e normaliza antes de calcular", () => {
     const token = gerarToken();

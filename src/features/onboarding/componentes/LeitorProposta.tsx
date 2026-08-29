@@ -127,6 +127,11 @@ function ModalAnexada({
 }) {
   const [abriu, setAbriu] = useState(lido);
 
+  const marcarAberta = () => {
+    setAbriu(true);
+    aoAbrir();
+  };
+
   return (
     <DialogContent className="max-w-2xl" aria-describedby={undefined}>
       <DialogHeader className="pr-8">
@@ -148,19 +153,27 @@ function ModalAnexada({
         <iframe
           src={proposta.url}
           title={`Proposta de honorários — ${proposta.nome}`}
-          onLoad={() => {
-            setAbriu(true);
-            aoAbrir();
-          }}
+          onLoad={marcarAberta}
           className="border-linha h-[60vh] w-full rounded-sm border bg-white"
         />
 
-        <Button asChild variant="outline" className="w-fit">
-          <a href={proposta.url} target="_blank" rel="noopener">
-            <Maximize2 className="size-3.5" />
-            Abrir em janela própria
-          </a>
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button asChild variant="outline" className="w-fit" onClick={marcarAberta}>
+            <a href={proposta.url} target="_blank" rel="noopener">
+              <Maximize2 className="size-3.5" />
+              Abrir em janela própria
+            </a>
+          </Button>
+          {!abriu && (
+            <button
+              type="button"
+              onClick={marcarAberta}
+              className="text-marca text-xs font-medium underline underline-offset-2"
+            >
+              Confirmei que li a proposta noutra janela
+            </button>
+          )}
+        </div>
       </div>
 
       <DialogFooter className="justify-between">

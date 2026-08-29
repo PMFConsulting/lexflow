@@ -61,13 +61,28 @@ const ALFABETO = /[A-Za-z0-9_-]/;
  * would turn a corrupted token into a possibly valid one, which is hiding the
  * fault instead of fixing it. At the ends there is no such risk — a token has a
  * fixed length and none is a prefix of another.
+ *
+ * The dirt itself can arrive percent-encoded — a webmail client's ZWSP reaches
+ * the server as `%E2%80%8B`, and its last decoded character, `B`, belongs to
+ * the token alphabet. Trimming a still-encoded string finds nothing to cut and
+ * leaves the ZWSP sitting inside what looks like a clean token. Decoding runs
+ * first, and only once: after that the ZWSP is the raw invisible character the
+ * trim already knows how to remove, and a token's own alphabet has no `%` to
+ * decode in the first place, so a real token is never touched by this step.
  */
 export function normalizarToken(bruto: string): string {
+  let t = bruto ?? "";
+  try {
+    t = decodeURIComponent(t);
+  } catch {
+    // Malformed percent-encoding (e.g. a lone `%zz`) — keep it as received and
+    // let the trim below and the hash mismatch handle it, same as any other dirt.
+  }
   let inicio = 0;
-  let fim = bruto.length;
-  while (inicio < fim && !ALFABETO.test(bruto[inicio])) inicio++;
-  while (fim > inicio && !ALFABETO.test(bruto[fim - 1])) fim--;
-  return bruto.slice(inicio, fim);
+  let fim = t.length;
+  while (inicio < fim && !ALFABETO.test(t[inicio])) inicio++;
+  while (fim > inicio && !ALFABETO.test(t[fim - 1])) fim--;
+  return t.slice(inicio, fim);
 }
 
 /**
