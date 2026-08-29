@@ -846,6 +846,7 @@ this** — it changes what is built around it.
 | D61 | As três respostas do passo de RGPD do registo de utilizador **não são do mesmo tipo**, e o esquema, o ecrã e o texto dizem-no: a informação sobre tratamento de dados é **tomada de conhecimento** (a base legal é o contrato e a obrigação legal — pedir consentimento onde ele não é a base produz um consentimento inválido e faz a pessoa acreditar que o pode retirar), o sigilo profissional é uma **declaração** obrigatória, e as comunicações internas são o único **consentimento** — e por isso o único que pode ficar por marcar sem travar o passo. Se as três fossem obrigatórias, a que é consentimento deixava de o ser: um consentimento que não se pode recusar não é livre | `src/features/convites/schemas.ts` |
 | D62 | A API dos onboardings **não tem lógica própria**: cada rota chama exatamente a função que o ecrã chama, e o que acrescenta é transporte. É a única disciplina que impede o que sempre acontece a uma segunda porta para a mesma casa — a validação apertar de um lado e não do outro. Autenticação em duas camadas: o token do link mágico diz *qual* registo, a `API_CHAVE` diz *quem* chama; não são redundantes, porque um token de link vive num email e um email reencaminha-se, e há diferença entre ele abrir um formulário e abrir uma porta programática percorrida em segundos sem olhos humanos pelo meio. **Sem `API_CHAVE` a API responde 503 e não fica aberta** — um recuo permissivo seria a instalação que esqueceu a variável a servir dados de KYC a quem os peça. Não cria registos, não valida códigos OTP e não devolve dados pessoais preenchidos | `docs/API.md` |
 | D63 | A conta de uma pessoa da equipa nasce **no último passo do registo dela**, e as três escritas (`user`, `account`, `utilizador`) são uma transação. Uma conta criada à cabeça é uma conta que entra na plataforma sem ninguém se ter identificado; e a meio das três escritas não há estado intermédio aceitável — um `user` sem `account` é uma conta sem palavra-passe a ocupar o email para sempre, um `account` sem `utilizador` é um login que passa e uma sessão que não resolve, e as duas dão a mesma coisa a quem lá está: um convite gasto e nenhuma maneira de entrar. As verificações dos cinco passos anteriores repetem-se dentro do `concluirConvite` e não só no ecrã, porque uma Server Action é chamável à mão | `src/features/convites/acoes.ts` |
+| D64 | BUG-022 (migração `0025`): uma conta de acesso já existente, ao ser associada a uma segunda sociedade, reaproveita a credencial em vez de a substituir — regenerar a palavra-passe entregaria a alguém uma credencial que já usa e não pediu. A pessoa recebe um aviso ("foi adicionado como administrador de uma nova sociedade"), sem palavra-passe nenhuma no corpo | `src/features/plataforma/contas.ts` |
 
 ## Open decisions
 
@@ -915,7 +916,9 @@ DELETE, and that search resolves accents and capitals. It is what guarantees the
   titles, validation and error messages, confirmations, legal texts and the emails sent to the
   client all stay in Portuguese. The system is integrated with a Portuguese-language customer
   service bot; translating any of this would break that.
-- **Code comments, documentation and server-side logs in English.** Domain identifiers stay in
+- **Code comments, documentation and server-side logs in Portuguese.** The rule used to say
+  English; the codebase settled on Portuguese in practice from early on, and this now records
+  what actually happens rather than what was originally planned. Domain identifiers stay in
   Portuguese (`processo_onboarding`, `nivel_risco`) because the database, the enums and the audit
   labels depend on them; technical terms in English where idiomatic.
 - Commits in Portuguese, small, one per logical unit.

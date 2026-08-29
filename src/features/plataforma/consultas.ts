@@ -20,40 +20,27 @@ import { dadosFiscais, dadosIdentificacao } from "@/db/schema/seccoes";
 /**
  * Consultas do portal da plataforma.
  *
- * Tudo aqui atravessa sociedades — é o que distingue este portal do
- * back-office, onde toda a consulta é filtrada pela organização de quem lê. Por
- * isso nenhuma destas funções é chamada de outro sítio que não seja `/admin`,
+ * Tudo aqui atravessa sociedades, ao contrário do back-office, onde toda a
+ * consulta é filtrada pela organização de quem lê. Só chamado de `/admin`,
  * que tem `exigirSuperAdmin()` no layout.
  */
 
 /**
  * As sociedades, com os números que dizem se estão vivas.
  *
- * As contagens **não** podem ir em subconsulta correlacionada escrita num
- * `sql` template dentro da lista de campos. O Drizzle constrói a lista de
- * campos com `buildSelection({ isSingleTable })`, e quando a consulta tem uma
- * tabela só — que é o caso aqui, `from(organizacao)` sem `join` — ele **retira
- * o prefixo de tabela a todas as colunas** que apareçam nesses templates. O que
- * saía era isto:
+ * As contagens não podem ir em subconsulta correlacionada na lista de campos:
+ * com tabela única (`from(organizacao)`, sem `join`), o Drizzle
+ * (`buildSelection({ isSingleTable })`) retira o prefixo de tabela a essas
+ * colunas em templates `sql`, e `"organizacao_id" = "id"` passa a resolver
+ * `"id"` para `utilizador.id` — condição sempre falsa, sem erro nenhum,
+ * sociedades sempre a 0 contas e 0 processos. Alias na tabela de fora não
+ * salva, a remoção é incondicional.
  *
- *   (select count(*)::int from "utilizador" where "organizacao_id" = "id" ...)
+ * Também não em `join` + `group by`: duas junções sobre a mesma linha
+ * multiplicam as contagens entre si (3 contas × 4 processos dava 12 de cada).
  *
- * Dentro da subconsulta, `"id"` já não é o da organização: resolve para
- * `utilizador.id`. A condição passa a comparar duas colunas da mesma tabela, é
- * sempre falsa, e o Postgres não se queixa de nada — a página mostrava 0 contas
- * e 0 processos em todas as sociedades. Dar um alias à tabela de fora não
- * salva: a remoção do prefixo é incondicional.
- *
- * Também não vão em `join` + `group by` sobre esta consulta: com dois `join`
- * sobre a mesma linha (contas e processos) as contagens multiplicam-se uma pela
- * outra, e uma sociedade com 3 contas e 4 processos aparecia com 12 de cada. É
- * o erro clássico e, tal como o de cima, não dá erro nenhum — dá números
- * plausíveis.
- *
- * O que fica são três agregações independentes, cada uma agrupada pela sua
- * organização e com `count()` nativo, reunidas em memória. Sem produto
- * cartesiano, sem subconsulta correlacionada, e nada que dependa de como o
- * Drizzle qualifica colunas.
+ * Por isso três agregações independentes, cada uma agrupada pela sua
+ * organização, reunidas em memória.
  */
 export async function listarSociedades(procura?: string) {
   const base = db();
@@ -101,9 +88,9 @@ export async function listarSociedades(procura?: string) {
   ]);
 
   /**
-   * O `organizacaoId` do `utilizador` é anulável desde a `0016` — é assim que o
-   * `super_admin` está guardado. Essas linhas não pertencem a sociedade
-   * nenhuma e ficam de fora do mapa em vez de irem parar a uma chave inventada.
+   * `utilizador.organizacaoId` é anulável desde a `0016` — é assim que o
+   * `super_admin` é guardado. Essas linhas ficam de fora do mapa em vez de
+   * irem para uma chave inventada.
    */
   const mapa = (ls: { organizacaoId: string | null; n: number }[]) =>
     new Map(
@@ -153,10 +140,8 @@ export type LinhaDeUtilizador = {
  * As contas de uma sociedade — ou, com `organizacaoId` a `null`, as da
  * plataforma.
  *
- * O `null` não é um "todas": é literalmente o grupo dos `super_admin`, que é
- * como eles estão guardados. Um `null` a significar "sem filtro" numa função
- * cujo argumento também pode ser legitimamente nulo era uma armadilha à espera
- * — por isso a lista global tem função própria, abaixo.
+ * O `null` não é "todas": é literalmente o grupo dos `super_admin`. Por isso a
+ * lista global tem função própria, abaixo.
  */
 export async function utilizadoresDaSociedade(
   organizacaoId: string | null,
@@ -327,17 +312,12 @@ export async function numerosDaPlataforma() {
       .from(processoOnboarding)
       .where(isNull(processoOnboarding.apagadoEm)),
     /**
-     * Sociedades sem nenhum administrador — o número que faz agir.
+     * Sociedades sem administrador — resultado de criar a sociedade e adiar o
+     * primeiro `society_admin`, que o formulário permite.
      *
-     * Uma sociedade nesse estado está criada e não tem quem a opere: ninguém
-     * entra nela, ninguém abre processos, e do lado de fora parece que está a
-     * funcionar. É o resultado de criar a sociedade e adiar o primeiro
-     * `society_admin`, que o formulário permite de propósito.
-     *
-     * Aqui a subconsulta correlacionada **é** segura, ao contrário da de
-     * `listarSociedades`: esta vive no `where` e não na lista de campos, e o
-     * `where` não passa por `buildSelection` — o Drizzle mantém o prefixo, e o
-     * SQL gerado diz `"utilizador"."organizacao_id" = "organizacao"."id"`.
+     * Aqui a subconsulta correlacionada é segura, ao contrário da de
+     * `listarSociedades`: vive no `where`, que não passa por `buildSelection`
+     * — o Drizzle mantém o prefixo de tabela.
      */
     base
       .select({ n: count() })
@@ -377,10 +357,8 @@ export async function numerosDaPlataforma() {
 /**
  * Repartição de todos os processos da plataforma por estado.
  *
- * Uma contagem agrupada por `estado` — os valores vêm do enum `estado_processo`
- * e o devolvido é um objeto com todas as chaves a zero por omissão, para o
- * painel nunca renderizar `undefined` num estado que ainda não tem processos.
- * Usa a mesma cláusula de vivos de `numerosDaPlataforma` (`apagado_em is null`).
+ * Chaves do enum `estado_processo`, todas a zero por omissão — o painel nunca
+ * renderiza `undefined` num estado ainda sem processos.
  */
 export async function reparticaoProcessosPorEstado() {
   const linhas = await db()

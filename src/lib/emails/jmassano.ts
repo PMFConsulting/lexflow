@@ -1,60 +1,39 @@
 /**
- * The client-facing emails, all in one place.
+ * Client-facing emails, all in one place.
  *
- * 1. **LexFlow | Registro** — goes out with the form link, when the firm
- *    creates the matter.
- * 2. **LexFlow | Confirmação de Receção dos seus Dados** — when the client
- *    submits.
- * 3. **Bem-vindo à LexFlow** — when the matter is
- *    approved in the back-office, with the summary of the information, the T&C
- *    and the fee proposal attached.
- * 4. **LexFlow | Feedback Registro** — when the matter is rejected in the
- *    back-office. It follows, verbatim, the template delivered by the client on
- *    11/08/2026 — which replaces the in-house wording used until now.
- * 5. **LexFlow | Código de verificação** — the six-digit code that unlocks the
- *    signature at step 7. It is the only one of the five that does **not** come
- *    from a client document: it is a platform message, written here, because
- *    there was nothing of this kind to follow verbatim.
+ * 1. LexFlow | Registro — sent with the form link, when the firm creates the matter.
+ * 2. LexFlow | Confirmação de Receção dos seus Dados — on submission.
+ * 3. Bem-vindo à LexFlow — on approval, with summary, T&C and fee proposal attached.
+ * 4. LexFlow | Feedback Registro — on rejection. Follows the client's template
+ *    of 11/08/2026 verbatim, replacing the in-house wording used until then.
+ * 5. LexFlow | Código de verificação — the OTP at step 7 signature. The only
+ *    one with no client document behind it; written here as a platform message.
  *
- * The four follow the subjects **and bodies** of the client's documents,
- * verbatim — including "Registro", which is how it reads there and was not
- * corrected to "Registo" in subjects 1 and 4, and including the open signature
- * ("Assinatura do Advogado gestor do Cliente"), which is the space left for the
- * lawyer managing each client. The second had two sentences adjusted after the
- * approval flow (migration `0013`) was added: the original document gave the
- * matter as "under review" with no second point of contact; now there is one,
- * and the email says the matter awaits approval and that the decision arrives
- * by email — the rest of the client's text stays verbatim. The fourth
- * (template of 11/08/2026) mentions neither reference nor reason — unlike the
- * previous wording, which cited both. The reason is still mandatory in the UI
- * and recorded in the matter and in the audit trail; it just stopped going in
- * the body of the email, because the client's template does not provide for it.
+ * Emails 1-4 follow the client's subjects and bodies verbatim, including
+ * "Registro" (not "Registo") and the open signature ("Assinatura do Advogado
+ * gestor do Cliente"). Email 2's wording was adjusted for the approval flow
+ * (migration `0013`): it now says the matter awaits approval and the decision
+ * arrives by email, instead of "em análise" with no second contact. Email 4
+ * (template of 11/08/2026) drops reference and reason, unlike the wording it
+ * replaced — both stay recorded in the matter and the audit trail regardless.
  *
- * What the frame adds to the client's text is only this, and for technical
- * reasons: the first email's `(link)` becomes a button plus the address in
- * text (an email has nowhere to click in a parenthesis), the third's attachment
- * list is built from the files that were actually generated, and the
- * confidentiality footer closes all four messages.
+ * What the frame adds beyond the client's text: email 1's `(link)` becomes a
+ * button plus plain-text address (nowhere to click in a parenthesis), email
+ * 3's attachment list reflects what was actually generated, and the
+ * confidentiality footer closes all four.
  *
- * A consequence of following the text verbatim: the greeting is generic — the
- * document says "Caro(a) Sr.(a)," and leaves no space for the name — and the
- * matter reference stopped appearing in the body of emails 2, 3 and 4. In the
- * first three, the `nome` and `referencia` parameters remain in the signatures,
- * accepted and ignored, for the day the firm wants one of those things back
- * without touching the callers. The fourth (`emailRejeicao`) had no parameter
- * other than `motivo` and `referencia`, and neither enters the new template —
- * so the function stopped accepting arguments, rather than keeping parameters
- * that never had any other use.
+ * Following the text verbatim means the greeting stays generic ("Caro(a)
+ * Sr.(a)," — no room for a name) and the reference dropped from the body of
+ * emails 2-4. `nome`/`referencia` stay in the signatures of the first three,
+ * accepted and ignored, so either can come back without touching callers.
+ * `emailRejeicao` had no other parameters, so it stopped taking any.
  */
 
 /**
- * The exact palette and typography of `src/app/globals.css` (§3), in direct hex
- * and with fallback fonts — an email loads neither CSS variables nor uncommon
- * typefaces, and most clients ignore `@font-face`. Each message picks the
- * colour of the rule under the header by what it represents: terracotta
- * (`MARCA`) on a call to act, brass (`LATAO`) on a waiting or attention
- * message, archive green (`ARQUIVO`) on a positive confirmation, carmine
- * (`SELO`) only on the one piece of bad news of the four.
+ * Palette and typography from `src/app/globals.css` (§3), in direct hex with
+ * fallback fonts — email clients ignore CSS variables and most ignore
+ * `@font-face`. Header rule colour by message type: terracotta (call to
+ * act), brass (waiting), archive green (confirmation), carmine (rejection).
  */
 import {
   ARQUIVO,
@@ -168,11 +147,8 @@ export function emailBoasVindas({
   anexos: string[];
   logotipoUrl?: string | null;
 }): string {
-  // The list in the client's document ends in "[Outros documentos
-  // aplicáveis]", which is where the lawyer adds whatever they attach by hand;
-  // it stays in its place. The attachments before it are the ones actually
-  // generated — one that fails cannot go on being announced, and the
-  // punctuation (";" between lines, "." on the last) follows whatever remains.
+  // Client's document ends the list with "[Outros documentos aplicáveis]" for
+  // manual attachments; generated ones go before it, only if they succeeded.
   const itens = [...anexos, "[Outros documentos aplicáveis]"];
   const lista = itens
     .map(
@@ -211,16 +187,10 @@ export function emailBoasVindas({
 export const ASSUNTO_OTP = "LexFlow | Código de verificação";
 
 /**
- * The code that unlocks the signature at closing.
- *
- * It comes from no client document — it is a platform message, and the wording
- * is short on purpose: an email whose only useful content is six digits should
- * not force anyone to hunt for them between two paragraphs of courtesy. Hence
- * the code in a block, in mono and large, with the deadline underneath.
- *
- * The closing sentence is not boilerplate. A verification code arriving without
- * having been requested is the first sign that somebody holds the access link —
- * and the person receiving it is the only one in a position to raise the alarm.
+ * OTP that unlocks the signature at closing. No client document behind it —
+ * platform message, kept short: the code sits alone in a mono block with the
+ * deadline underneath. The "didn't request this?" line is deliberate: it's
+ * the only warning if the access link leaked.
  */
 export function emailCodigoOtp({
   nome,
@@ -267,14 +237,10 @@ export function emailCodigoOtp({
 export const ASSUNTO_REJEICAO = "LexFlow | Feedback Registro";
 
 /**
- * The body of the client's template (11/08/2026), verbatim.
- *
- * It carries the reference and the name, which are identification and not
- * wording: the text delivered by the client is what sits between the greeting
- * and the sign-off, and it stays word for word. **The rejection reason does not
- * go** — it is recorded in the matter and in the audit trail (`motivoRejeicao`,
- * `processo.rejeitado`), which is where it has to be; the message expressly
- * invites contacting the firm, and that is where it gets explained to a person.
+ * Body of the client's template (11/08/2026), verbatim, between greeting and
+ * sign-off. The rejection reason is not included — it stays in the matter and
+ * the audit trail (`motivoRejeicao`, `processo.rejeitado`); the email invites
+ * contact instead.
  */
 export function emailRejeicao({
   nome,

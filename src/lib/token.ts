@@ -20,18 +20,12 @@ export function hashToken(token: string): string {
 }
 
 /**
- * The plaintext token and its hash, generated **in one go**.
+ * Generates the plaintext token and its hash **in one step** (D47).
  *
- * They used to be separate, and whoever created the matter hashed by hand what
- * they had just generated. That works as long as nobody touches the two lines —
- * and the day one of them starts hashing something else (a renewed token, a
- * value normalised halfway through) gives a stored matter with a hash matching
- * no link at all: the client receives the address, the lookup by hash finds
- * nothing, and what they see is a 404 with no possible explanation.
- *
- * By returning the pair, that divergence stops being writable. Whoever stores
- * does not choose what gets hashed; they receive that token's hash and have no
- * other at hand.
+ * Kept separate, one call hashing something other than what it just
+ * generated gives a matter with a hash matching no link — 404 with no
+ * explanation. Returning the pair means whoever stores never chooses what
+ * gets hashed.
  */
 export function novoTokenAcesso(): { token: string; hash: string } {
   const token = gerarToken();
@@ -42,41 +36,29 @@ export function novoTokenAcesso(): { token: string; hash: string } {
 const ALFABETO = /[A-Za-z0-9_-]/;
 
 /**
- * Cleans a token arriving from outside before looking it up.
+ * Cleans a token from outside before lookup (D47).
  *
- * One of our tokens is 43 characters of `base64url`, and what reaches the
- * server has been through an email client, a paste and a browser. Along the way
- * it picks up things that are **not part of it**: the full stop ending the
- * sentence the link sat in, the `<` and `>` Outlook wraps addresses in, a hard
- * space stuck on the right, a trailing `/` the browser adds, a `​` webmail
- * inserted so it could break the line.
+ * A token is 43 `base64url` characters, but what arrives has passed through
+ * an email client, a paste and a browser: a trailing full stop, Outlook's
+ * `<>`, a hard space, a trailing `/`, a webmail ZWSP. None belongs to the
+ * token, and any one of them changes the SHA-256 entirely — link is right,
+ * lookup finds nothing.
  *
- * None of those characters can exist in a token, and even so any one of them
- * changes the SHA-256 entirely — the matter is there, the link is the right
- * one, and the lookup returns nothing. It is the most banal way for a valid
- * magic link to give a 404, and the hardest to believe when you look at the URL
- * and it *looks* fine.
+ * Trimmed only at the ends: cleaning the middle would turn a corrupted token
+ * into a possibly valid one, hiding the fault instead of fixing it. At the
+ * ends there's no such risk — fixed length, no token is a prefix of another.
  *
- * Trimming happens **only at the ends**, and on purpose: cleaning the middle
- * would turn a corrupted token into a possibly valid one, which is hiding the
- * fault instead of fixing it. At the ends there is no such risk — a token has a
- * fixed length and none is a prefix of another.
- *
- * The dirt itself can arrive percent-encoded — a webmail client's ZWSP reaches
- * the server as `%E2%80%8B`, and its last decoded character, `B`, belongs to
- * the token alphabet. Trimming a still-encoded string finds nothing to cut and
- * leaves the ZWSP sitting inside what looks like a clean token. Decoding runs
- * first, and only once: after that the ZWSP is the raw invisible character the
- * trim already knows how to remove, and a token's own alphabet has no `%` to
- * decode in the first place, so a real token is never touched by this step.
+ * `decodeURIComponent` runs first and only once: a ZWSP can arrive as
+ * `%E2%80%8B`, whose last decoded character (`B`) belongs to the token
+ * alphabet and would slip past an un-decoded trim.
  */
 export function normalizarToken(bruto: string): string {
   let t = bruto ?? "";
   try {
     t = decodeURIComponent(t);
   } catch {
-    // Malformed percent-encoding (e.g. a lone `%zz`) — keep it as received and
-    // let the trim below and the hash mismatch handle it, same as any other dirt.
+    // Malformed percent-encoding (e.g. a lone `%zz`) — leave as received, the
+    // trim and hash mismatch handle it like any other dirt.
   }
   let inicio = 0;
   let fim = t.length;

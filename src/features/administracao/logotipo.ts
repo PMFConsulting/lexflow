@@ -9,22 +9,13 @@ import {
 } from "@/lib/logotipo-organizacao";
 
 /**
- * Gestão do logótipo próprio da sociedade (whitelabel).
+ * Gestão do logótipo da sociedade (whitelabel), restrito a `society_admin`.
+ * PNG/JPEG/WEBP/SVG, máx. 2 MB, sempre com registo em auditoria
+ * (`sociedade.logotipo_alterado`).
  *
- * Permite que cada sociedade personalize a sua marca no portal em vez de usar
- * o logótipo genérico "LexFlow".
- *
- * Regras:
- * - Só o `society_admin` da sociedade (`exigirAdministracao()`).
- * - Formatos aceites: PNG, JPEG, WEBP, SVG (`image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`).
- * - Tamanho máximo: 2 MB.
- * - Isolamento estrito: a atualização afeta unicamente a organização da sessão autenticada.
- * - Toda a alteração fica registada na auditoria com a ação `sociedade.logotipo_alterado`.
- *
- * A validação do ficheiro, a escrita e a auditoria são as mesmas do fluxo do
- * onboarding de sociedade (`sociedade/logotipo-onboarding.ts`), partilhadas em
- * `@/lib/logotipo-organizacao` — o que muda aqui é só a origem da identidade
- * (sessão, não token) e os caminhos que se revalidam.
+ * Validação, escrita e auditoria partilhadas com o onboarding de sociedade
+ * via `@/lib/logotipo-organizacao` — aqui muda só a origem da identidade
+ * (sessão, não token) e os caminhos revalidados.
  */
 
 export type ResultadoGuardarLogotipo =

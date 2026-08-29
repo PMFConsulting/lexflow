@@ -1,19 +1,13 @@
 /**
- * Valida que uma rubrica (canvas → PNG em base64) tem forma de traço real
- * desenhado, e não de imagem forjada colada no campo escondido.
+ * Valida que a rubrica (canvas → PNG base64) é um traço real, e não uma
+ * imagem forjada colada no campo escondido (BUG-024, pentest ronda 2): um
+ * PNG 1x1 passava no `.startsWith(...)` e no `.length < 1_400_000` tão bem
+ * quanto uma rubrica real. O quadro em `componentes/Assinatura.tsx` nunca
+ * produz menos que algumas centenas de píxeis de lado, por isso um PNG abaixo
+ * do mínimo aqui é outra coisa, não uma rubrica pequena.
  *
- * O passo 7 aceitava qualquer string com o prefixo certo: um PNG 1x1 nunca
- * desenhado passava no `.startsWith("data:image/png;base64,")` e no
- * `.length < 1_400_000` tão bem quanto uma rubrica real, e ficava gravado com
- * um evento de auditoria a dar-lhe falsa garantia de integridade (BUG-024,
- * pentest ronda 2). O quadro em `componentes/Assinatura.tsx` tem `h-40`/`h-44`
- * a multiplicar pelo rácio de píxeis do ecrã — nunca produz menos do que
- * algumas centenas de píxeis de lado — por isso um PNG abaixo do mínimo aqui
- * não é uma rubrica pequena, é outra coisa qualquer.
- *
- * A verificação lê os bytes do cabeçalho PNG diretamente (assinatura de 8
- * bytes + chunk IHDR, que é sempre o primeiro): sem bibliotecas novas, e sem
- * precisar de descodificar a imagem inteira.
+ * Lê os bytes do cabeçalho PNG diretamente (assinatura de 8 bytes + chunk
+ * IHDR) — sem bibliotecas novas, sem descodificar a imagem inteira.
  */
 
 const ASSINATURA_PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -55,9 +49,9 @@ function dimensoesPng(bytes: Uint8Array): { largura: number; altura: number } | 
 }
 
 /**
- * `true` só quando o dataURL é um PNG genuíno, com peso real e dimensões
- * compatíveis com um traço desenhado no quadro — recusa tanto o 1x1 forjado
- * do pentest como qualquer imagem menor do que o quadro consegue produzir.
+ * `true` só quando o dataURL é um PNG genuíno, com peso e dimensões
+ * compatíveis com um traço desenhado no quadro. Recusa o 1x1 forjado do
+ * pentest e qualquer imagem menor do que o quadro consegue produzir.
  */
 export function assinaturaTemTracoReal(dataUrl: string): boolean {
   const bytes = bytesDoDataUrl(dataUrl);

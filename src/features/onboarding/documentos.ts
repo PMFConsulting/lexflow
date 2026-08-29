@@ -12,11 +12,9 @@ import { acessoPorToken, motivoDoAcesso } from "./dados";
 import { assinaturaConfere, MENSAGEM_FORMATO, mensagemConteudo, mimeAceite } from "./formatos";
 
 /**
- * Upload de documentos.
- *
- * O que o formulário real tem é um dropzone genérico. Categorizamos na mesma —
- * sem tipo não há alertas de validade no painel, que é meio ponto do §6 do
- * brief.
+ * Upload de documentos. O formulário real usa um dropzone genérico;
+ * categorizamos aqui porque sem tipo não há alertas de validade no painel
+ * (§6 do brief).
  */
 
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -24,15 +22,13 @@ const MAX_BYTES = 4 * 1024 * 1024;
 /**
  * Os tipos que o **cliente** pode escolher.
  *
- * O que aqui estava era um `String(formData.get("tipo") ?? "outro")` a entrar no
- * INSERT com um `as never` por cima — ou seja, sem allowlist nenhuma e com o
- * TypeScript calado à força. Um valor fora do enum era um 500 vindo do Postgres
- * a partir de um campo de formulário; e um valor *dentro* do enum mas fora do
- * que o cliente devia poder escrever era pior: `proposta_comercial` é o
- * documento que a **sociedade** anexa (D52) e que o passo 7 lhe mostra como a
- * proposta a aceitar. Um cliente que carregasse um ficheiro com esse tipo
- * passava a ler, e a aceitar, uma proposta escrita por ele próprio. O mesmo
- * vale para `termos_sociedade` e `dossier_assinado`, que a plataforma produz.
+ * Antes era `String(formData.get("tipo") ?? "outro")` com `as never` por
+ * cima — sem allowlist, TypeScript calado à força, e um valor fora do enum
+ * dava 500 do Postgres. Pior ainda: dentro do enum mas fora desta lista havia
+ * `proposta_comercial` (documento que a sociedade anexa, D52, e que o passo 7
+ * mostra como proposta a aceitar) — um cliente podia carregar um ficheiro
+ * com esse tipo e passar a "aceitar" uma proposta escrita por ele próprio.
+ * Mesmo risco para `termos_sociedade` e `dossier_assinado`.
  */
 const TIPOS_DO_CLIENTE = [
   "identificacao",
@@ -86,11 +82,9 @@ export async function carregarDocumento(
     const mb = (ficheiro.size / 1024 / 1024).toFixed(1);
     return { ok: false, erro: `O ficheiro tem ${mb} MB. O máximo são 4 MB.` };
   }
-  // O tipo declarado pelo browser não é prova de nada, mas filtra o acidente
-  // óbvio. A validação a sério é trabalho de quem revê o processo. Quando o
-  // browser não declara tipo nenhum — HEIC no Chrome, ficheiros vindos de
-  // automação — vale a extensão, senão recusávamos formatos que o próprio
-  // `accept` do campo anuncia. Ver `formatos.ts`.
+  // Tipo declarado pelo browser filtra o acidente óbvio, não prova nada — a
+  // validação a sério é de quem revê o processo. Sem tipo declarado (HEIC no
+  // Chrome, automação) vale a extensão. Ver `formatos.ts`.
   const mime = mimeAceite(ficheiro.name, ficheiro.type);
   if (!mime) {
     return { ok: false, erro: MENSAGEM_FORMATO };
@@ -98,11 +92,11 @@ export async function carregarDocumento(
 
   const bytes = Buffer.from(await ficheiro.arrayBuffer());
 
-  // O nome e o MIME vêm os dois do cliente. Os primeiros bytes vêm do ficheiro,
-  // e são a única coisa aqui que ele não escolheu — ver `assinaturaConfere`.
+  // Nome e MIME vêm do cliente; os bytes são a única coisa que ele não
+  // escolheu — ver `assinaturaConfere`.
   if (!assinaturaConfere(mime, bytes)) {
     console.warn(
-      `[documento] ${processo.referencia}: «${ficheiro.name}» declara ${mime} e o conteúdo não bate — recusado.`,
+      `[documento] ${processo.referencia}: assinatura de "${ficheiro.name}" não corresponde a ${mime} — recusado.`,
     );
     return { ok: false, erro: mensagemConteudo(ficheiro.name) };
   }
@@ -138,7 +132,7 @@ export async function carregarDocumento(
       mime,
       tamanhoBytes: ficheiro.size,
       hashSha256: hash,
-      // Chave futura: quando houver bucket, é aqui que ela fica e `dados` some.
+      // Chave futura: quando houver bucket, fica aqui e `dados` some.
       chaveStorage: `processos/${processo.id}/${hash}`,
       dados: bytes.toString("base64"),
     })

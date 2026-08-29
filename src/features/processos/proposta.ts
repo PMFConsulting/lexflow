@@ -12,23 +12,17 @@ import { assinaturaConfere, mensagemConteudo } from "@/features/onboarding/forma
 import { exigirEquipaOuSuperAdmin, podeAcederSociedade } from "@/lib/sessao";
 
 /**
- * A proposta comercial que segue com o convite.
+ * A proposta comercial que segue com o convite (D52).
  *
- * Até aqui o passo 7 mostrava sempre o mesmo documento — o `/custos.html` que
- * vive em `public/`, igual para toda a gente. Isso serve para demonstrar o
- * mecanismo e não serve para trabalhar: a proposta é o documento que fixa o que
- * **este** cliente vai pagar, e o cliente estava a aceitar uma proposta que não
- * era a dele. É a única aceitação do fecho em que o documento aceite não
- * correspondia ao que a sociedade negociou.
+ * Antes o passo 7 mostrava sempre o `/custos.html` genérico — agora o
+ * documento que o cliente aceita é o que a sociedade negociou com ele.
  *
- * O upload é do lado da sociedade e não do cliente, e por isso não passa pelo
- * `documentos.ts` do onboarding: aqui há sessão, papel e organização a
- * verificar, e lá há um token mágico. São duas portas com duas fechaduras.
+ * Upload do lado da sociedade, não do cliente — por isso não passa por
+ * `documentos.ts` do onboarding (sessão e papel aqui, token mágico lá).
  *
- * Só PDF. Os anexos do cliente aceitam fotografias porque o que se lhe pede é o
- * cartão de cidadão tirado com o telemóvel; uma proposta comercial é um
- * documento que a sociedade produz, e um JPEG de uma proposta é uma proposta que
- * ninguém consegue ler no ecrã nem imprimir sem perder metade.
+ * Só PDF: os anexos do cliente aceitam fotografias (documento tirado com o
+ * telemóvel), mas uma proposta é produzida pela sociedade e tem de ser
+ * legível e imprimível.
  */
 
 /** O mesmo tamanho dos anexos do cliente: o `bodySizeLimit` são 6 MB (base64 incluído). */
@@ -53,9 +47,8 @@ export async function carregarPropostaComercial(
     return { ok: false, erro: `A proposta tem ${mb} MB. O máximo são 4 MB.` };
   }
 
-  // O tipo declarado pelo browser é o primeiro filtro; a extensão fecha o caso
-  // do browser que não se compromete. Mesma lógica de `formatos.ts`, reduzida a
-  // um formato só — ver a nota em cima.
+  // Tipo declarado pelo browser primeiro; extensão como fallback quando ele
+  // não se compromete. Mesma lógica de `formatos.ts`, reduzida a um formato só.
   const tipo = (ficheiro.type ?? "").trim().toLowerCase();
   const pdfPeloNome = ficheiro.name.toLowerCase().endsWith(".pdf");
   const indeciso = tipo === "" || tipo === "application/octet-stream";
@@ -79,17 +72,15 @@ export async function carregarPropostaComercial(
     .where(and(eq(processoOnboarding.id, processoId), isNull(processoOnboarding.apagadoEm)))
     .limit(1);
 
-  // Um processo de outra organização responde o mesmo que um que não existe —
-  // a regra da rota de download e do detalhe do processo.
-  // O super_admin tem acesso transversal.
+  // Mesma resposta para "não existe" e "é de outra organização" — regra da
+  // rota de download e do detalhe. super_admin tem acesso transversal.
   if (!processo || !podeAcederSociedade(eu, processo.organizacaoId)) {
     return { ok: false, erro: "Processo não encontrado." };
   }
 
   if (processo.estado === "aprovado" || processo.estado === "arquivado") {
-    // Mesma mensagem das restantes ações de imutabilidade. A tentativa já fica
-    // registada pela auditoria do detalhe? Não — esta ação é independente, e a
-    // recusa de um upload num dossier fechado também merece rasto.
+    // Mesma mensagem das outras ações de imutabilidade. Ação independente do
+    // detalhe — a recusa também fica na auditoria.
     try {
       await registarEvento({
         organizacaoId: processo.organizacaoId,
@@ -110,18 +101,13 @@ export async function carregarPropostaComercial(
   const bytes = Buffer.from(await ficheiro.arrayBuffer());
 
   /*
-   * Os primeiros bytes, que é a única coisa aqui que quem envia não escolheu.
-   *
-   * O nome e o MIME vêm ambos do browser, e um ficheiro com HTML lá dentro,
-   * chamado `proposta.pdf` e declarado `application/pdf`, passava as duas
-   * verificações em cima. Ficava gravado com `mime: "application/pdf"` escrito
-   * à mão no INSERT — e a rota `/onboarding/[token]/proposta` serve-o **inline**
-   * ao cliente com esse `Content-Type`, porque é para ser lido. É o único
-   * ficheiro desta plataforma que é servido inline a alguém, e por isso é o
-   * único onde a diferença entre "diz que é PDF" e "é PDF" tem consequência.
-   *
-   * Cinco bytes: `%PDF-`. Não valida o interior do documento — um PDF com
-   * JavaScript continua a ser um PDF —, fecha o degrau de baixo.
+   * Só os primeiros bytes não são escolhidos por quem envia: nome e MIME vêm
+   * do browser, e um ficheiro com HTML lá dentro, chamado `proposta.pdf` e
+   * declarado `application/pdf`, passa as duas verificações acima. É servido
+   * **inline** ao cliente em `/onboarding/[token]/proposta` — o único
+   * documento desta plataforma servido assim — daí a assinatura `%PDF-`
+   * fechar o degrau que falta. Não valida o interior (um PDF com JavaScript
+   * continua a ser PDF).
    */
   if (!assinaturaConfere("application/pdf", bytes)) {
     console.warn(
@@ -133,14 +119,8 @@ export async function carregarPropostaComercial(
   const hash = createHash("sha256").update(bytes).digest("hex");
 
   /*
-   * Uma proposta de cada vez.
-   *
-   * Substituir e não acumular: o passo 7 mostra ao cliente **a** proposta, no
-   * singular, e duas linhas vivas obrigariam a escolher uma — com a escolha a
-   * ser feita por uma ordenação, que é a forma de o cliente aceitar a proposta
-   * errada sem ninguém dar por isso. A anterior fica em soft delete, que é o que
-   * a retenção obriga e o que permite provar depois qual foi substituída por
-   * qual.
+   * Substitui em vez de acumular (D52): o passo 7 mostra **a** proposta, no
+   * singular. A anterior fica em soft delete, para retenção e rastreio.
    */
   await base
     .update(documento)
@@ -164,8 +144,8 @@ export async function carregarPropostaComercial(
       hashSha256: hash,
       chaveStorage: `processos/${processo.id}/${hash}`,
       dados: bytes.toString("base64"),
-      // Ao contrário dos anexos do cliente, este tem autor: foi alguém da
-      // sociedade, com sessão iniciada, que o pôs no dossier.
+      // Ao contrário dos anexos do cliente, este tem autor — alguém da
+      // sociedade, com sessão iniciada.
       carregadoPor: eu.id,
     })
     .returning({ id: documento.id, nome: documento.nomeOriginal });

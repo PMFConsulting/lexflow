@@ -1,16 +1,12 @@
 import { lerFolhaDeCalculo, type LinhaDaFolha } from "./folha";
 
 /**
- * Importação de contas em lote — a leitura e a validação, sem tocar na base de
+ * Importação de contas em lote — leitura e validação, sem tocar na base de
  * dados.
  *
- * Separado do Server Action de propósito: isto é uma função pura, do ficheiro
- * para uma lista de linhas boas e uma lista de linhas más, e é o que permite
- * mostrar a **pré-visualização** antes de criar seja o que for. Um ficheiro de
- * trinta pessoas com dois emails repetidos não pode ser descoberto a meio, com
- * quinze contas já criadas.
- *
- * A mesma pureza é o que a torna testável sem harness nenhum.
+ * Função pura, separada do Server Action: do ficheiro para uma lista de
+ * linhas boas e más, o que permite mostrar a pré-visualização antes de criar
+ * seja o que for — e a torna testável sem harness nenhum.
  */
 
 /** Os papéis que uma sociedade pode ter. `super_admin` não é de sociedade. */
@@ -41,10 +37,8 @@ export type Prevista = {
 /**
  * Os nomes de coluna aceites, por campo.
  *
- * Mais do que um por campo porque o ficheiro vem de fora: quem o preenche
- * escreve "e-mail" ou "email", "função" ou "papel", e recusar o ficheiro
- * inteiro por causa do cabeçalho é a forma mais rápida de a funcionalidade
- * deixar de ser usada. A comparação é feita sem acentos e sem maiúsculas.
+ * Mais do que um por campo porque o ficheiro vem de fora — "e-mail" ou
+ * "email", "função" ou "papel". Comparação sem acentos e sem maiúsculas.
  */
 const COLUNAS: Record<"nome" | "email" | "papel", string[]> = {
   nome: ["nome", "name", "nome completo"],
@@ -55,10 +49,9 @@ const COLUNAS: Record<"nome" | "email" | "papel", string[]> = {
 /**
  * Os valores aceites na coluna do papel.
  *
- * Inclui os nomes antigos (`advogado`, `assistente`, `socio`) a apontar para
- * `utilizador`, e é deliberado: são os nomes que a sociedade usa a falar, e vão
- * aparecer nos ficheiros durante muito tempo. Recusá-los era exigir a quem
- * preenche a folha que soubesse do enum interno da plataforma.
+ * Inclui nomes antigos (`advogado`, `assistente`, `socio`) a apontar para
+ * `utilizador` — são os nomes que a sociedade usa a falar, e vão continuar a
+ * aparecer nos ficheiros.
  */
 const PAPEIS_ESCRITOS: Record<string, PapelDeSociedade> = {
   society_admin: "society_admin",
@@ -92,18 +85,17 @@ function achatar(texto: string) {
 /**
  * Um email suficientemente válido.
  *
- * Sem a expressão do RFC 5322 completa, que aceita coisas que nenhum servidor
- * de correio entrega e é ilegível. O que aqui interessa apanhar são os erros
- * reais de uma folha: a célula com um nome em vez do endereço, o espaço a
- * meio, a arroba a faltar.
+ * Sem a expressão completa do RFC 5322, que aceita coisas que nenhum servidor
+ * entrega. O que interessa apanhar são os erros reais de uma folha: nome em
+ * vez de endereço, espaço a meio, arroba a faltar.
  */
 const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[a-z]{2,}$/i;
 
 /**
  * Onde está cada coluna, a partir do cabeçalho.
  *
- * Devolve `null` quando o cabeçalho não é reconhecível — e nesse caso o que se
- * diz a quem enviou é o que faltou, não "ficheiro inválido".
+ * Devolve `null` quando o cabeçalho não é reconhecível — e nesse caso diz-se
+ * o que faltou, não "ficheiro inválido".
  */
 function localizarColunas(cabecalho: LinhaDaFolha) {
   const achatado = cabecalho.map(achatar);
@@ -120,10 +112,9 @@ export type ResultadoDaLeitura =
 /**
  * Lê o ficheiro e classifica cada linha.
  *
- * `jaExistentes` são os emails que a sociedade já tem — passados de fora, e não
- * consultados aqui, para esta função continuar pura. É o que impede a
- * importação de tropeçar no índice único a meio do lote com metade das contas
- * já criadas.
+ * `jaExistentes` são os emails que a sociedade já tem, passados de fora — não
+ * consultados aqui, para a função continuar pura. Evita a importação tropeçar
+ * no índice único a meio do lote.
  */
 export function prepararImportacao(
   bytes: Buffer,

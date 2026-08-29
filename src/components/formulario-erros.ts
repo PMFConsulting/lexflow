@@ -1,30 +1,19 @@
 /**
- * Levar quem corrige até ao campo que está errado.
- *
- * Peças de DOM, partilhadas pelos três formulários por passos — o do cliente, o
- * da sociedade e o de cada pessoa da equipa. Estavam dentro do formulário do
- * cliente, que era o único que existia; o que as trouxe para aqui não foi
- * arrumação, foi o facto de custarem a acertar e valerem em qualquer
- * formulário: um `[name="x"]` que aterra num `input type="hidden"`, um
- * `scrollIntoView` que não sai do sítio, um resumo de erros com links mortos.
+ * Levar quem corrige até ao campo errado. Peças de DOM partilhadas pelos três
+ * formulários por passos (cliente, sociedade, equipa) — vieram do formulário
+ * do cliente para aqui por terem custado a acertar: `[name="x"]` a aterrar
+ * num `input type="hidden"`, `scrollIntoView` que não saía do sítio.
  */
 
 /**
  * Onde saltar quando um erro cai sobre um campo.
  *
- * `[name="x"]` não chega. Só as caixas de texto levam o `name` num campo que se
- * vê: os sim/não, a escolha única, as listas e as caixas de aceitação levam-no
- * num `input type="hidden"`, que o browser não desenha. `scrollIntoView` e
- * `focus` sobre um elemento sem caixa não fazem rigorosamente nada — o resumo
- * de erros tinha links mortos e o salto automático para o primeiro erro não
- * saía do sítio, precisamente nos campos onde o vermelho é mais difícil de
- * encontrar a olho ("Indique pelo menos uma nacionalidade", "Responda sim ou
- * não").
- *
- * Encontrado o escondido, sobe-se ao contentor do campo e leva-se o foco ao
- * primeiro controlo que se possa mesmo usar. Os campos de texto vêm à frente
- * dos botões porque numa lista já preenchida o primeiro botão é o "Remover" da
- * primeira etiqueta, e não é lá que se quer deixar quem vem corrigir.
+ * `[name="x"]` não chega: sim/não, escolha única, listas e caixas de
+ * aceitação levam o `name` num `input type="hidden"` que o browser não
+ * desenha, e `scrollIntoView`/`focus` sobre um elemento invisível não fazem
+ * nada. Encontrado o escondido, sobe-se ao contentor e foca-se o primeiro
+ * controlo utilizável — campos de texto antes de botões, porque numa lista
+ * já preenchida o primeiro botão é um "Remover".
  */
 export function alvoDoErro(campo: string) {
   const el = document.querySelector<HTMLElement>(`[name="${CSS.escape(campo)}"]`);
@@ -45,18 +34,12 @@ export function alvoDoErro(campo: string) {
 }
 
 /**
- * A etiqueta que o cliente lê por cima do campo — "Número de contribuinte",
- * "Nacionalidade(s)", a pergunta do sim/não.
+ * A etiqueta que o cliente lê por cima do campo. Mensagens como "Obrigatório."
+ * ou "Responda sim ou não." não se nomeiam a si próprias, e deixavam "Falta
+ * corrigir um campo" sem dizer qual (relatado no passo 2).
  *
- * O resumo de erros listava só as mensagens. A maior parte nomeia-se a si
- * própria ("O NIF não é válido…"), mas as que não o fazem — "Obrigatório.",
- * "Data inválida.", "Responda sim ou não." — deixavam o cabeçalho "Falta
- * corrigir um campo" a não dizer qual, que foi o que se relatou do passo 2.
- *
- * Vem do DOM e não de um mapa de nomes para rótulos: um mapa é uma segunda
- * cópia dos textos, que envelhece à parte daquilo que está no ecrã. Aqui, se
- * não houver etiqueta nenhuma, devolve-se `null` e a linha fica como estava —
- * a mensagem sozinha é sempre melhor do que uma etiqueta errada.
+ * Vem do DOM, não de um mapa de nomes — um mapa envelhece à parte do ecrã.
+ * Sem etiqueta, devolve `null`: a mensagem sozinha é melhor que uma errada.
  */
 export function rotuloVisivel(el: HTMLElement): string | null {
   const escondido = el instanceof HTMLInputElement && el.type === "hidden";
@@ -78,8 +61,7 @@ export function rotuloVisivel(el: HTMLElement): string | null {
 /** Sem o asterisco de obrigatório nem as quebras de linha da marcação. */
 export function limparRotulo(texto: string) {
   const limpo = texto.replace(/\s+/g, " ").replace(/\s*\*$/, "").trim();
-  // Uma declaração inteira como etiqueta ("Declaro que as informações
-  // prestadas são verdadeiras e assumo…") empurra a mensagem para fora da
-  // vista. Corta-se, que para localizar o campo o início chega.
+  // Uma declaração inteira como etiqueta empurraria a mensagem para fora da
+  // vista — o início já chega para localizar o campo.
   return limpo.length > 60 ? `${limpo.slice(0, 59).trimEnd()}…` : limpo;
 }

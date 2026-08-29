@@ -31,13 +31,11 @@ import {
 import { notificarDonoNovoUtilizador } from "@/lib/emails/notificacoes-dono";
 
 /**
- * As Server Actions do registo de uma pessoa da equipa.
+ * Server Actions do registo de uma pessoa da equipa.
  *
- * O token vem do URL e é revalidado em cada chamada: uma Server Action é um
- * endpoint público como qualquer outro. E há aqui uma coisa que os outros
- * percursos não têm — o último passo **cria uma conta com palavra-passe**, que
- * é a operação mais sensível de toda a plataforma. Tudo o que a antecede existe
- * para que ela só possa acontecer depois de a pessoa estar identificada.
+ * O token vem do URL e é revalidado em cada chamada — endpoint público como
+ * outro qualquer. O último passo cria a conta com palavra-passe; os anteriores
+ * existem para que isso só aconteça depois da pessoa estar identificada.
  */
 
 export type ResultadoConvite =
@@ -71,11 +69,9 @@ async function tiposAnexados(conviteId: string): Promise<string[]> {
 }
 
 /**
- * Garante que a linha do perfil existe antes de se escrever nela.
- *
- * O perfil nasce vazio no primeiro passo e enche-se aos poucos — todas as
- * colunas são anuláveis por isso. Um `onConflictDoUpdate` sobre `convite_id`
- * faz o mesmo trabalho sem a leitura prévia, e é o que se usa a seguir.
+ * Garante que a linha do perfil existe antes de se escrever nela. O perfil
+ * nasce vazio e enche-se aos poucos (colunas anuláveis); `onConflictDoUpdate`
+ * sobre `convite_id` evita a leitura prévia.
  */
 async function gravarPerfil(
   organizacaoId: string,
@@ -110,16 +106,9 @@ export async function guardarPassoConvite(
 
   const exerce = exerceAdvocacia(convite.papel);
 
-  /*
-   * `exerce` e `documentos` vêm daqui e não da carga.
-   *
-   * O primeiro decide se a cédula é obrigatória, e sai do **papel do convite** —
-   * que é onde o administrador o escreveu. Um formulário que pudesse mandar o
-   * seu próprio papel era um assistente a dispensar-se da cédula, ou a
-   * promover-se a sócio, no caminho para o servidor. O segundo é a lista de
-   * anexos, que o `FormData` do passo nunca soube (D56). O que a carga trouxesse
-   * com estes nomes é substituído, não acreditado.
-   */
+  // `exerce` e `documentos` vêm daqui e não da carga: o primeiro sai do papel
+  // do convite (não do formulário — senão dava para dispensar a cédula), o
+  // segundo é a lista de anexos que o `FormData` do passo nunca soube (D56).
   const entrada =
     typeof dados === "object" && dados !== null
       ? {
@@ -150,11 +139,9 @@ export async function guardarPassoConvite(
     }
 
     case 2: {
-      // `exerce` entrou no schema para decidir se a cédula é obrigatória e não
-      // é coluna do perfil: sai antes do INSERT, senão o Drizzle escreve
-      // `insert into perfil_utilizador ("exerce"…)` e rebenta num campo que
-      // ninguém viu. Um campo por preencher chega como string vazia, e uma data
-      // vazia numa coluna `date` rebenta — por isso o vazio vira null.
+      // `exerce` não é coluna do perfil — sai antes do INSERT, senão o Drizzle
+      // tenta escrever um campo que não existe. Campos vazios viram `null`
+      // porque uma string vazia numa coluna `date` rebenta.
       const limpo = Object.fromEntries(
         Object.entries(v)
           .filter(([k]) => k !== "exerce")
@@ -165,8 +152,7 @@ export async function guardarPassoConvite(
     }
 
     case 3:
-      // Nada a gravar: o passo é o anexo, e o anexo já está na base. O `break`
-      // explícito é o que impede um passo novo de cair num `default` calado.
+      // Nada a gravar: o passo é o anexo, e já está na base.
       break;
 
     case 4: {
@@ -182,14 +168,9 @@ export async function guardarPassoConvite(
         comunicacoesInternas,
       });
 
-      /*
-       * A declaração de sigilo entra na auditoria com o IP e o momento.
-       *
-       * `evento_auditoria` é append-only com cadeia de hash (D5/D6), e é ele
-       * que responde a "quando é que esta pessoa assumiu o sigilo?" daqui a
-       * sete anos. A coluna no perfil responde à mesma pergunta e é
-       * atualizável; a linha da auditoria não é, e é essa a que vale como prova.
-       */
+      // A declaração de sigilo entra na auditoria com IP e momento —
+      // `evento_auditoria` é append-only com cadeia de hash (D5/D6), e é essa
+      // linha, não a coluna do perfil, que vale como prova daqui a sete anos.
       await registarEvento({
         organizacaoId: org.id,
         acao: "utilizador.sigilo_declarado",
@@ -205,15 +186,9 @@ export async function guardarPassoConvite(
     }
 
     case 5: {
-      /*
-       * A aceitação dos T&C da sociedade — o ponto 2 da revisão do cliente.
-       *
-       * A versão é **copiada** e não referenciada: é o valor que estava em vigor
-       * naquele instante, e uma cópia não se pode editar a partir de outro sítio
-       * (D3/D38). Uma linha por aceitação, e nunca atualizada — uma versão nova
-       * do articulado produz uma linha nova e a antiga continua a dizer o que
-       * aquela pessoa aceitou naquele dia.
-       */
+      // A versão dos T&C é copiada, não referenciada (D3/D38): uma linha por
+      // aceitação, nunca atualizada — uma versão nova produz linha nova e a
+      // antiga continua a dizer o que foi aceite naquele dia.
       const termos = await termosEmVigor(org.id);
 
       const [jaAceite] = await base
@@ -259,19 +234,13 @@ export async function guardarPassoConvite(
     }
 
     case 6:
-      // O passo 6 não se grava por aqui: cria uma conta, e isso é
-      // `concluirConvite`. Chegar aqui com o schema 6 validado significa que a
-      // palavra-passe está bem formada — o que falta é a transação, que não
-      // cabe num `switch` de gravação de campos.
+      // Não se grava por aqui: criar a conta é `concluirConvite`. Chegar aqui
+      // só confirma que a palavra-passe está bem formada.
       return { ok: true, proximo: null };
   }
 
-  /*
-   * `passo_atual` nunca anda para trás (mesma regra da D58).
-   *
-   * Gravar uma correção no passo 2 punha-o a 3, e quem fechasse o separador
-   * voltava ao 3 num registo que já ia no 5.
-   */
+  // `passo_atual` nunca anda para trás (D58) — sem isto, corrigir o passo 2
+  // fazia recuar um registo que já ia no 5.
   const proximo = proximoPassoConvite(n);
   const avanco = Math.min(proximo ?? TOTAL_PASSOS_CONVITE, TOTAL_PASSOS_CONVITE);
   if (avanco > convite.passoAtual) {
@@ -309,22 +278,15 @@ const idAuth = () => randomBytes(16).toString("hex");
 /**
  * O último passo: cria a conta.
  *
- * Três escritas, e as três são precisas (D2/D23): `user` e `account` — onde o
- * Better Auth guarda a palavra-passe, com `provider_id = 'credential'` — e
- * `utilizador`, que é quem tem papel e organização. Sem a terceira, o login
- * passa e a sessão não resolve, porque `sessaoAtual()` procura por
- * `auth_user_id` e devolve `null`.
+ * Três escritas numa transação (D2/D23, D63): `user` e `account` (onde o
+ * Better Auth guarda a palavra-passe, `provider_id = 'credential'`) e
+ * `utilizador`, que tem papel e organização — sem ela o login passa mas
+ * `sessaoAtual()` não resolve. A meio não há estado aceitável: um `user` sem
+ * `account` ocupa o email para sempre sem palavra-passe; um `account` sem
+ * `utilizador` é um login que passa e uma sessão que não resolve.
  *
- * O hash vem de `better-auth/crypto` e não de uma reimplementação: é a única
- * forma de garantir que os parâmetros do scrypt não divergem numa atualização
- * da biblioteca — e uma divergência aqui dá uma conta criada em que ninguém
- * consegue entrar, sem nada no ecrã que o explique.
- *
- * **Tudo numa transação.** A meio destas três escritas não há estado
- * intermédio aceitável: um `user` sem `account` é uma conta sem palavra-passe
- * que ocupa o email para sempre; um `account` sem `utilizador` é um login que
- * passa e uma sessão que não resolve. As duas dão a mesma coisa a quem lá está
- * — um convite gasto e nenhuma maneira de entrar.
+ * O hash vem de `better-auth/crypto`, não de reimplementação — garante que os
+ * parâmetros do scrypt não divergem numa atualização da biblioteca.
  */
 export async function concluirConvite(
   bruto: string,
@@ -348,16 +310,9 @@ export async function concluirConvite(
     return { ok: false, erros, mensagem: "Corrija a palavra-passe para concluir." };
   }
 
-  /*
-   * Os passos anteriores confirmam-se aqui, e não só no ecrã.
-   *
-   * Esta é uma Server Action, chamável à mão: quem soubesse o token podia
-   * saltar direto para cá e sair com uma conta sem ter anexado documento
-   * nenhum, sem declaração de sigilo e sem ter aceitado o articulado da
-   * sociedade. Cada uma destas verificações fecha um desses caminhos, e as
-   * mensagens dizem a **qual passo** voltar — um "faltam dados" genérico deixa
-   * quem o lê a percorrer seis ecrãs à procura.
-   */
+  // Os passos anteriores confirmam-se aqui e não só no ecrã — é uma Server
+  // Action chamável à mão, e sem isto dava para saltar direto para cá sem
+  // anexos, sigilo ou T&C aceites. As mensagens dizem a que passo voltar.
   if (!perfil?.nomeCompleto || !perfil.nif) {
     return { ok: false, mensagem: "Falta preencher os seus dados, no passo 1." };
   }
@@ -469,8 +424,7 @@ export async function concluirConvite(
           id: authUserId,
           name: nome,
           email,
-          // O email é dado por verificado: a pessoa chegou aqui por um link
-          // que só existiu dentro de uma mensagem enviada para este endereço.
+          // Dado por verificado: chegou aqui por um link enviado a este endereço.
           emailVerified: true,
         });
       }
@@ -515,26 +469,19 @@ export async function concluirConvite(
             authUserId,
             ativo: true,
             apagadoEm: null,
-            // A palavra-passe foi escolhida por esta pessoa, no passo anterior:
-            // não há nada a redefinir. Explícito porque a linha pode ser
-            // anterior — uma conta criada por um administrador (que nasce
-            // marcada) e depois apagada volta por aqui, e sem esta linha ficava
-            // a exigir a redefinição de uma palavra-passe que ela mesma acabou
-            // de definir.
+            // Palavra-passe escolhida no passo anterior, nada a redefinir.
+            // Explícito porque a linha pode ser anterior (conta criada por
+            // administrador, depois apagada) e voltar a exigir redefinição.
             deveRedefinirPassword: false,
-            // Quem chega por convite não passa pela aprovação da plataforma: o
-            // convite **é** o ato de admissão, e as seis etapas anteriores são a
-            // identificação que a aprovação existe para exigir. Explícito, e não
-            // deixado ao valor da coluna: `aprovado_em` é anulável, e uma linha
-            // que volte por aqui depois de ter sido rejeitada traria o `null`
-            // consigo — a pessoa acabava de escolher a palavra-passe e ficava
-            // presa em `/aguarda-aprovacao`, sem nada no ecrã a dizer porquê.
+            // O convite é o próprio ato de admissão — explícito e não deixado
+            // ao valor da coluna, porque uma linha rejeitada antes traria o
+            // `null` e prenderia a pessoa em `/aguarda-aprovacao` sem explicação.
             aprovadoEm: new Date(),
             atualizadoEm: new Date(),
           })
           .where(eq(utilizador.id, id));
       } else {
-        // `id` gerado na aplicação e não pela base (D15): o Postgres só tem
+        // `id` gerado na aplicação e não pela base (D15): Postgres só tem
         // `uuidv7()` nativo na v18.
         id = uuidv7();
         await tx.insert(utilizador).values({
@@ -545,11 +492,8 @@ export async function concluirConvite(
           email,
           papel: convite.papel,
           ativo: true,
-          // Ver acima: o convite é a admissão, e sem esta linha a conta nascia
-          // pendente de uma aprovação que ninguém pediu. Vale sobretudo para o
-          // primeiro administrador de uma sociedade nova, que entra por aqui —
-          // uma sociedade acabada de registar ficaria sem ninguém que consegue
-          // entrar nela.
+          // Ver acima: o convite é a admissão. Vale sobretudo para o primeiro
+          // administrador de uma sociedade nova, que entra por aqui.
           aprovadoEm: new Date(),
         });
       }
@@ -569,10 +513,8 @@ export async function concluirConvite(
         .set({ utilizadorId: id })
         .where(eq(perfilUtilizador.conviteId, convite.id));
 
-      // A prova da aceitação passa a apontar também para a conta. Sem isto, o
-      // portal do advogado não conseguia mostrar a **própria** aceitação da
-      // pessoa: a linha só tinha o convite, e o convite deixa de estar à mão
-      // depois de aceite.
+      // A aceitação passa a apontar também para a conta — senão o portal do
+      // advogado não conseguia mostrar a própria aceitação depois do convite aceite.
       await tx
         .update(aceitacaoTermos)
         .set({ utilizadorId: id })
@@ -623,8 +565,7 @@ export async function concluirConvite(
     revalidatePath(`/convite/${token}`, "layout");
     revalidatePath("/gestao/utilizadores");
   } catch {
-    // Fora de um contexto de pedido, `revalidatePath` não é motivo para
-    // transformar uma conta criada com sucesso numa falha.
+    // Fora de um contexto de pedido, `revalidatePath` não deve falhar a criação da conta.
   }
 
   return { ok: true, email };

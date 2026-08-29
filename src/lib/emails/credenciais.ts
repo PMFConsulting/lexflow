@@ -120,17 +120,15 @@ export function emailCredenciais({
   );
 }
 
-/* --------------------- o aviso de multi-sociedade (BUG-022) ---------------- */
+/* --------------------- o aviso de multi-sociedade (D64) --------------------- */
 
 export const ASSUNTO_AVISO_MULTI_SOCIEDADE =
   "LexFlow | Foi adicionado como administrador de uma nova sociedade";
 
 /**
- * Enviado a quem JÁ tinha conta e passou a administrar mais uma sociedade
- * (migração 0025). A diferença para as credenciais é a que interessa: **não
- * leva palavra-passe nenhuma** — a credencial da pessoa não mudou, e voltar a
- * meter um segredo novo no email era repor o risco que o canal temporário
- * minimiza. Diz o que aconteceu, a que sociedade, e como entrar.
+ * Enviado a quem já tinha conta e passou a administrar mais uma sociedade
+ * (D64, migração 0025). Sem palavra-passe — a credencial não mudou. Diz o
+ * que aconteceu, a que sociedade, e como entrar.
  */
 export function emailAvisoMultiSociedade({
   nome,

@@ -68,17 +68,13 @@ export const PASSOS = [
 export type Passo = (typeof PASSOS)[number];
 
 /**
- * O passo do Representante Legal só existe para pessoas coletivas.
+ * O passo do Representante Legal só existe para pessoas coletivas (D28) —
+ * uma pessoa singular representa-se a si própria.
  *
- * Uma pessoa singular representa-se a si própria: perguntar-lhe quem é o
- * representante legal é uma pergunta sem resposta possível, e era o que a
- * reunião de 07/08 apanhou. Numa empresa a pergunta é obrigatória — é alguém
- * que age em nome de outrem, e a Lei 83/2017 obriga a identificá-lo.
- *
- * A numeração não se mexe: o passo continua a ser o 3 e o Fecho continua a ser
- * o 7. Renumerar partia os rótulos de auditoria (`passo.N.gravado`), a
- * restrição `passo_valido` e os links de "Corrigir" já gravados. O que muda é
- * quais deles se percorrem.
+ * A numeração não se mexe: o passo continua a ser o 3 e o Fecho o 7.
+ * Renumerar partia os rótulos de auditoria (`passo.N.gravado`), a restrição
+ * `passo_valido` e os links de "Corrigir" já gravados. O que muda é quais
+ * passos se percorrem.
  */
 const SO_EMPRESA: number[] = [3];
 
@@ -111,11 +107,9 @@ export function passoAnterior(atual: number, tipoCliente: TipoCliente): number |
 }
 
 /**
- * Quantos passos do percurso ficam para trás de `n`.
- *
- * Serve as listagens, que só têm o `passo_atual` à mão: um `passoAtual - 1` num
- * particular carimbava também o Representante Legal, que ele nunca viu, porque
- * a numeração salta do 2 para o 4.
+ * Quantos passos do percurso ficam para trás de `n`. Serve as listagens, que
+ * só têm o `passo_atual` à mão — um `passoAtual - 1` num particular carimbava
+ * também o Representante Legal, que ele nunca viu.
  */
 export function passosAntesDe(n: number, tipoCliente: TipoCliente): number {
   return passosDoProcesso(tipoCliente).filter((p) => p.n < n).length;

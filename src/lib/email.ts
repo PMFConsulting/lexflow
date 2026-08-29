@@ -13,19 +13,17 @@ export type EstadoEmail = (typeof estadoEmail.enumValues)[number];
 export type TemplateEmail = (typeof templateEmail.enumValues)[number];
 
 /**
- * What the channel returns. Success now carries the channel that accepted and
- * the identifier it gave the message — without that identifier there is no way
- * to go back and ask it what happened afterwards, which is the whole problem
- * `confirmarEntrega` solves. It is `null` when the provider accepted but
- * returned no recognisable id: accepted is still accepted, it just stops being
- * traceable.
+ * O que o canal devolve. Sucesso leva o canal que aceitou e o identificador da
+ * mensagem — sem ele não há como perguntar depois o que aconteceu
+ * (`confirmarEntrega`). `null` quando o fornecedor aceitou sem devolver um id
+ * reconhecível: aceite continua aceite, só deixa de ser rastreável.
  */
 export type ResultadoEnvio =
   | { ok: true; canal: CanalEmail; mensagemId: string | null }
   | { ok: false; erro: string };
 
 export type AnexoEmail = {
-  /** The name the attachment arrives with in the client's mailbox. */
+  /** O nome com que o anexo chega à caixa de correio do cliente. */
   nome: string;
   conteudo: Buffer;
 };
@@ -35,11 +33,7 @@ type ParametrosEmail = {
   assunto: string;
   html: string;
   anexos?: AnexoEmail[];
-  /**
-   * Which email this is. Mandatory on purpose: it is what guarantees a new
-   * sending path cannot come into being without entering the log — whoever
-   * writes it has to answer the question for the code to compile.
-   */
+  /** Qual email é este. Obrigatório de propósito — sem responder, o código não compila (D34). */
   template: TemplateEmail;
   /**
    * A sociedade em nome de quem esta mensagem sai. É por ela que o remetente é
@@ -47,64 +41,38 @@ type ParametrosEmail = {
    */
   organizacaoId?: string | null;
   /**
-   * Força o `From`, saltando a consulta à sociedade.
-   *
-   * Existe para quem já tem o endereço em mãos e não quer uma ida à base de
-   * dados — o `pnpm email:testar`, um envio de diagnóstico. Não é a via normal:
-   * o remetente de um email de uma sociedade é uma propriedade dela, não uma
-   * decisão de quem chama.
+   * Força o `From`, saltando a consulta à sociedade — usado por
+   * `pnpm email:testar`, um envio de diagnóstico. Não é a via normal: o
+   * remetente é propriedade da sociedade, não decisão de quem chama.
    */
   remetente?: string;
   processoId?: string | null;
-  /**
-   * SHA-256 of the magic link token, when the email carries one. Never the
-   * plaintext token — see the note on the column, in `db/schema/email.ts`.
-   */
+  /** SHA-256 do token do link mágico, quando o email o carrega. Nunca o token em claro (D4). */
   tokenHash?: string | null;
 };
 
 /**
- * How long the provider is waited on before giving up.
- *
- * Without this, a closed outbound path to the internet on the server gave no
- * error at all: the `fetch` hung, and the Server Action creating the matter
- * with it — the user was left with the button on "A criar…" forever and there
- * was no line in the log saying why. A send taking more than fifteen seconds
- * has already failed; what is missing is saying so.
+ * Tempo de espera pelo fornecedor antes de desistir. Sem isto, uma saída de
+ * rede fechada não dava erro nenhum — o fetch ficava pendurado e a Server
+ * Action com ele (D42).
  */
 const TEMPO_LIMITE_MS = 15_000;
 
 /**
- * When the provider is asked again whether the message arrived.
- *
- * Three attempts, ~3 minutes in total. A normal delivery is resolved on the
- * first; a `hardBounce` from a domain that does not exist likewise. What is
- * left for the third are the servers that accept and only then decide — and
- * whatever is left over from that stays at `enviado`, which is the truth about
- * it.
+ * Quando se pergunta outra vez ao fornecedor se a mensagem chegou. Três
+ * tentativas, ~3 minutos no total — a maioria resolve-se na primeira; o que
+ * sobrar fica em `enviado`, que é a verdade sobre isso (D51).
  */
 const ESPERAS_ENTREGA_MS = [15_000, 45_000, 120_000] as const;
 
 /**
- * Writes the log row. Never throws. Returns the row `id`, or `null` if the
- * write failed — whoever receives it uses it to touch the row again when the
- * provider says what it did with the message.
+ * Grava a linha do diário. Nunca lança. Devolve o `id`, ou `null` se a
+ * escrita falhar. Um email que sai e não fica registado é mau; um email que
+ * não sai *por causa* do registo falhar é pior (D34) — o que a lei exige
+ * manter está em `evento_auditoria`, noutro caminho de escrita.
  *
- * An email that went out and was not recorded is bad; an email that did not go
- * out *because* the recording failed is worse. The write is the last step and
- * its error stops at the console: the value of this table is operational, not
- * legal — what the law requires to be kept is in `evento_auditoria`, on another
- * write path.
- *
- * The error is shouted with the recipient and the template in front, and not
- * just with the exception. A failed write leaves `/emails` saying "0 mensagens",
- * which is exactly what is seen when the send was not even attempted: without
- * this console line the two cases are indistinguishable from outside — and it
- * was by confusing them that a whole investigation was lost.
- *
- * The `id` is generated here rather than asked of the database with a
- * `returning` (D15): that way there is an identifier even when the INSERT blows
- * up, and the write remains a single statement.
+ * `id` gerado aqui e não por `returning` (D15): garante identificador mesmo
+ * que o INSERT rebente.
  */
 async function registar(
   p: ParametrosEmail,
@@ -125,16 +93,14 @@ async function registar(
         estado: resultado.ok ? "enviado" : "erro",
         canal: resultado.ok ? resultado.canal : null,
         mensagemId: resultado.ok ? resultado.mensagemId : null,
-        // The error is truncated: a provider's response can come with a whole
-        // body, and the column is for diagnosis, not for archiving HTML.
+        // Erro truncado: a coluna é para diagnóstico, não para arquivar HTML.
         erro: resultado.ok ? null : resultado.erro.slice(0, 2000),
       });
     return linhaId;
   } catch (e) {
     console.error(
-      `[email] FAILED to write to email_log — template=${p.template} to=${p.para} ` +
-        `state=${resultado.ok ? "enviado" : "erro"}. /emails will show fewer ` +
-        `messages than were attempted.`,
+      `[email] FAILED to write to email_log template=${p.template} para=${p.para} ` +
+        `estado=${resultado.ok ? "enviado" : "erro"}`,
       e,
     );
     return null;
@@ -142,25 +108,16 @@ async function registar(
 }
 
 /**
- * Transactional email sending (Brevo, with Resend as a fallback). Never lets
- * the flow blow up: with no key configured, it stops at the log; any error in
- * the call is caught and returned, not propagated.
+ * Envio transacional (vários canais, ver `tentarEnviar`). Nunca deixa o fluxo
+ * rebentar: sem chave configurada para no log; qualquer erro é apanhado e
+ * devolvido, não propagado (D42).
  *
- * Every exit path goes through `registar` — including the missing-key one, the
- * exception one and the one where `tentarEnviar` itself blows up. It is the
- * only way for the question "did the client receive anything?" to have an
- * answer when the answer is "no".
+ * Toda a saída passa por `registar`, incluindo a de chave em falta e a de
+ * exceção — é a única forma de "o cliente recebeu alguma coisa?" ter resposta
+ * quando a resposta é não.
  *
- * The `try` around `tentarEnviar` is not excess zeal. It reads the environment
- * before entering its own `try` (`env()` throws when a variable is missing),
- * and an exception there jumped over `registar` **and** propagated to the
- * caller — which is how a failed send turned into a failed matter creation,
- * leaving no trace anywhere.
- *
- * What it returns is still about **acceptance** and not about delivery: an
- * `ok: true` means the provider took the message. Whoever wants to know whether
- * it reached the mailbox looks at the row's state a few minutes later — see
- * `confirmarEntrega`.
+ * O que devolve é sobre aceitação, não entrega: `ok: true` só diz que o
+ * fornecedor aceitou a mensagem — ver `confirmarEntrega` para o resto.
  */
 export async function enviarEmail(p: ParametrosEmail): Promise<ResultadoEnvio> {
   let resultado: ResultadoEnvio;
@@ -173,27 +130,23 @@ export async function enviarEmail(p: ParametrosEmail): Promise<ResultadoEnvio> {
     };
   }
 
-  // One line per attempt, always, even when the write that follows fails. It is
-  // what allows answering "was it even attempted?" with no database at hand —
-  // the question `/emails` saying "0 mensagens" does not distinguish from "it
-  // was attempted and not recorded".
+  // Uma linha por tentativa, sempre — mesmo que a escrita seguinte falhe.
   if (resultado.ok) {
     console.info(
-      `[email] accepted by ${resultado.canal} template=${p.template} to=${p.para} ` +
-        `id=${resultado.mensagemId ?? "(no id)"}`,
+      `[email] aceite por ${resultado.canal} template=${p.template} para=${p.para} ` +
+        `id=${resultado.mensagemId ?? "(sem id)"}`,
     );
   } else {
     console.error(
-      `[email] NOT sent template=${p.template} to=${p.para}: ${resultado.erro}`,
+      `[email] não enviado template=${p.template} para=${p.para}: ${resultado.erro}`,
     );
   }
 
   const linhaId = await registar(p, resultado);
 
   if (resultado.ok && resultado.mensagemId && linhaId) {
-    // Detached and not awaited: whoever created the matter cannot wait three
-    // minutes to learn whether the email arrived. See the note in
-    // `confirmarEntrega`.
+    // Disparado sem await: quem criou o processo não pode esperar três
+    // minutos para saber se o email chegou.
     void confirmarEntrega({
       linhaId,
       canal: resultado.canal,
@@ -204,9 +157,8 @@ export async function enviarEmail(p: ParametrosEmail): Promise<ResultadoEnvio> {
       console.error(`[email] delivery confirmation blew up for ${p.para}`, e),
     );
   } else if (resultado.ok) {
-    // With no id there is nobody to ask. It is stated, otherwise the row at
-    // `enviado` would read as "still to be confirmed" when it is "never going
-    // to be confirmed".
+    // Sem id não há a quem perguntar depois — dito aqui, senão a linha em
+    // "enviado" lê-se como "por confirmar" quando nunca vai ser confirmada.
     console.warn(
       `[email] no provider id for ${p.para} (template=${p.template}) — ` +
         "delivery of this message will not be confirmable.",
@@ -216,32 +168,23 @@ export async function enviarEmail(p: ParametrosEmail): Promise<ResultadoEnvio> {
   return resultado;
 }
 
-/** What gets sent, without the log bookkeeping around it. */
+/** O que é enviado, sem a contabilidade do diário à volta. */
 type Mensagem = Pick<ParametrosEmail, "para" | "assunto" | "html" | "anexos"> & {
-  /** The resolved `From`, already decided — no channel picks its own. */
+  /** O `From` já resolvido — nenhum canal escolhe o seu. */
   de: string;
 };
 
 /**
- * Whose address this message goes out under.
+ * Em nome de quem esta mensagem sai: da sociedade quando tem remetente
+ * configurado, da instalação caso contrário. `organizacao.email_remetente`
+ * fica `null` até ser configurado, o que torna o whitelabel aditivo.
  *
- * The rule in one line: **the firm's, when it has one; the installation's
- * otherwise**. `organizacao.email_remetente` is `null` for every firm that has
- * not configured anything, which is what makes the whitelabel additive — an
- * existing installation keeps sending from `EMAIL_REMETENTE` without a single
- * row changing.
+ * A consulta nunca lança — uma linha ilegível não pode deixar o cliente sem
+ * link, recua para o remetente global e diz porquê na consola.
  *
- * The lookup **never throws**, and that is the point of the `try`: this
- * function sits between the caller and the send, and a firm's row that cannot
- * be read is not a reason for the client to be left without a link. It falls
- * back to the global sender and says so in the console — the message still goes
- * out, from an address that is merely less right.
- *
- * It is also not conditional on the domain being verified. An address
- * configured against a domain Resend has not verified produces a 403 with the
- * sender in front (D43), which is a message solved on first reading; silently
- * sending from the platform's domain instead would produce a client asking why
- * a firm they never heard of wants their identification documents.
+ * Não depende do domínio estar verificado: um remetente contra domínio não
+ * verificado dá 403 com o remetente à frente (D43), resolvido à primeira
+ * leitura — enviar em silêncio pelo domínio da plataforma seria pior.
  */
 async function remetenteDaOrganizacao(
   organizacaoId: string | null | undefined,
@@ -269,24 +212,13 @@ async function remetenteDaOrganizacao(
 }
 
 /**
- * Picks the channel and, failing that one, tries the next.
+ * Escolhe o canal e, falhando esse, tenta o seguinte. Resend primeiro (mais
+ * fiável, quota mais curta), depois Mailjet, depois Brevo — mas ser primeiro
+ * não é ser único: uma conta suspensa ou quota esgotada não pode deixar o
+ * cliente sem link. Um 429 pausa o canal até ao fim do dia UTC.
  *
- * Resend comes first for being the most reliable channel on delivery, even with
- * the shortest free quota (100 emails/day); Mailjet next (200/day) and Brevo
- * after (300/day) — but being first is not being the only one: a suspended
- * account, an unverified sender or an exhausted quota at one of the providers
- * cannot leave the client without the link. With every key configured, a send
- * only fails when they all fail — and the error message carries each one's
- * reason, because they are different and are fixed in different dashboards.
- *
- * A 429 (daily quota exhausted) pauses the channel until the end of the UTC
- * day: knocking again at the door of a provider that has already said it has no
- * quota is not a retry, it is noise — and, worse, it delays the channels that
- * can still accept.
- *
- * What this costs is the possibility of a duplicate: if a channel accepts the
- * message and the response is lost to the timeout, the next one sends a second.
- * A doubled email is preferable to none.
+ * Custo aceite: se um canal aceitar e a resposta se perder no timeout, o
+ * seguinte envia outra vez — um email a dobrar é preferível a nenhum.
  */
 async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
   const ambiente = env();
@@ -295,12 +227,9 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     assunto: p.assunto,
     html: p.html,
     anexos: p.anexos,
-    // Resolved **once**, before the channels are assembled, and handed to all
-    // four. Letting each read it for itself is how the SMTP channel ended up
-    // being the only one on `env().EMAIL_REMETENTE` while the other three were
-    // already elsewhere — and a fallback that changes the sender halfway down
-    // the chain is a difference nobody sees until a client asks who wrote to
-    // them.
+    // Resolvido uma vez só, antes dos canais, e passado a todos — deixar cada
+    // um ler por si foi como o SMTP ficou preso a EMAIL_REMETENTE enquanto os
+    // outros já usavam outro valor.
     de: p.remetente?.trim() || (await remetenteDaOrganizacao(p.organizacaoId, ambiente.EMAIL_REMETENTE)),
   };
 
@@ -322,9 +251,8 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     const chave = ambiente.TWILIO_SENDGRID_API_KEY;
     canais.push({ nome: "Twilio SendGrid", enviar: () => tentarEnviarTwilio(msg, chave) });
   }
-  // Our own SMTP (postfix on the client's server) is the last resort: it has no
-  // third-party quota, but delivery is less closely watched (no domain DKIM),
-  // so it only comes in when every provider has failed.
+  // SMTP próprio é o último recurso: sem quota de terceiros, mas com menos
+  // garantias de entrega (sem DKIM do domínio) — só entra quando os outros falham.
   if (ambiente.SMTP_HOST) {
     const anfitriao = ambiente.SMTP_HOST;
     const porta = ambiente.SMTP_PORT ?? 25;
@@ -352,10 +280,8 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
     if (r.ok) return r;
     marcarEsgotado(canal.nome, r.erro);
     erros.push(r.erro);
-    // A channel that failed and was replaced leaves no row at all in
-    // `email_log` — the row belongs to the send, and the send may still have
-    // gone well. Without this warning, a provider could be down for weeks with
-    // nothing saying so.
+    // Canal falhado e substituído não deixa linha em email_log — sem este
+    // aviso, um fornecedor podia estar em baixo semanas sem ninguém notar.
     if (canal !== canais[canais.length - 1]) {
       console.warn(`[email] ${canal.nome} failed (${r.erro}) — trying the next channel.`);
     }
@@ -365,17 +291,13 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
 }
 
 /**
- * Channels paused on an exhausted daily quota: channel name → instant (ms) at
- * which it is tried again.
- *
- * In process memory, on purpose: the pause is a decision of the moment (\"this
- * provider has already said today that it has no quota\"), not a state that
- * needs to survive a restart — after a restart, the 429 comes back and the
- * pause rebuilds itself.
+ * Canais pausados por quota diária esgotada: nome → instante (ms) da próxima
+ * tentativa. Em memória do processo de propósito — depois de um reinício o
+ * 429 volta e a pausa reconstrói-se sozinha.
  */
 const esgotadosAte = new Map<string, number>();
 
-/** End of the UTC day — the instant the providers' daily quotas reset. */
+/** Fim do dia UTC — instante em que as quotas diárias dos fornecedores reiniciam. */
 function fimDoDiaUtc(): number {
   const agora = new Date();
   return Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate() + 1);
@@ -387,10 +309,8 @@ function estaEsgotado(nome: string): boolean {
 }
 
 /**
- * A 429 is the provider saying the day's quota is over. Pauses the channel
- * until the end of the UTC day — and the `Map` cleans itself: once the day is
- * over, `estaEsgotado` returns `false` and the channel comes back into
- * rotation.
+ * Um 429 é o fornecedor a dizer que a quota do dia acabou. Pausa até ao fim
+ * do dia UTC — o Map limpa-se sozinho, e o canal volta à rotação.
  */
 function marcarEsgotado(nome: string, erro: string): void {
   if (/\b429\b/i.test(erro)) {
@@ -399,22 +319,15 @@ function marcarEsgotado(nome: string, erro: string): void {
   }
 }
 
-/**
- * Reactivates every paused channel. Exported for the tests (the pause state
- * lives in the module and does not survive a `vi.resetModules` without this)
- * and for whoever wants to reactivate a channel by hand without restarting the
- * process.
- */
+/** Reativa todos os canais pausados — usado pelos testes e para reativar um canal à mão. */
 export function limparPausasDeQuota(): void {
   esgotadosAte.clear();
 }
 
 /**
- * Reads the identifier the provider gave the message.
- *
- * Never throws: a 200 response with a body that is not the expected one is an
- * accepted send left without a trace, not a failed send. Swapping the two would
- * be telling the second channel to repeat a message that has already gone out.
+ * Lê o identificador que o fornecedor deu à mensagem. Nunca lança: um 200 com
+ * corpo inesperado é um envio aceite sem rasto, não um envio falhado — trocar
+ * os dois faria o canal seguinte repetir uma mensagem já enviada.
  */
 async function idDaResposta(resposta: Response, campo: "id" | "messageId"): Promise<string | null> {
   try {
@@ -423,8 +336,7 @@ async function idDaResposta(resposta: Response, campo: "id" | "messageId"): Prom
     const registo = corpo as Record<string, unknown>;
     const valor = registo[campo];
     if (typeof valor === "string" && valor.length > 0) return valor;
-    // Brevo returns `messageIds` (plural) when there is more than one
-    // recipient. We always send one, but the response shape is theirs.
+    // Brevo devolve `messageIds` (plural) com mais de um destinatário; aqui é sempre um só.
     const plural = registo.messageIds;
     if (Array.isArray(plural) && typeof plural[0] === "string") return plural[0];
     return null;
@@ -433,7 +345,7 @@ async function idDaResposta(resposta: Response, campo: "id" | "messageId"): Prom
   }
 }
 
-/** Sending via Resend: `Authorization: Bearer`, attachments in `attachments`. */
+/** Envio via Resend: `Authorization: Bearer`, anexos em `attachments`. */
 async function tentarEnviarResend(
   { de, para, assunto, html, anexos }: Mensagem,
   chave: string,
@@ -451,8 +363,7 @@ async function tentarEnviarResend(
         to: [para],
         subject: assunto,
         html,
-        // Resend wants the content in base64. The key is only included when
-        // there are attachments: an `attachments: []` makes the API answer 422.
+        // Resend quer o conteúdo em base64; `attachments: []` faz a API responder 422.
         ...(anexos?.length
           ? {
               attachments: anexos.map((a) => ({
@@ -466,12 +377,8 @@ async function tentarEnviarResend(
 
     if (!resposta.ok) {
       const corpo = await resposta.text();
-      // The sender goes into the message because it is the most likely cause of
-      // a 403 and the one not visible in the response: Resend refuses any send
-      // from a domain not verified on the account, and `POC@jmassano.pt` is a
-      // default value nobody wrote and therefore nobody suspects. Since the
-      // whitelabel, it is also the firm's own address — and then the 403 says,
-      // in one line, that the domain was configured and never verified.
+      // Remetente na mensagem: é a causa mais provável de um 403 e a que não
+      // aparece na resposta — domínio não verificado no Resend (D43).
       return {
         ok: false,
         erro: `Resend devolveu ${resposta.status} (de=${de}): ${corpo}`,
@@ -480,9 +387,7 @@ async function tentarEnviarResend(
 
     return { ok: true, canal: "resend", mensagemId: await idDaResposta(resposta, "id") };
   } catch (erro) {
-    // `AbortSignal.timeout` throws a `TimeoutError` whose `message` is generic
-    // ("The operation was aborted due to timeout") and does not say who was
-    // being called — in an email log that is worth nothing.
+    // TimeoutError tem mensagem genérica e não diz quem foi chamado — sem valor num diário de email.
     if (erro instanceof Error && erro.name === "TimeoutError") {
       return {
         ok: false,
@@ -493,7 +398,7 @@ async function tentarEnviarResend(
   }
 }
 
-/** Sending via Brevo (ex-Sendinblue): `api-key` in the header, attachments in `attachment`. */
+/** Envio via Brevo (ex-Sendinblue): `api-key` no cabeçalho, anexos em `attachment`. */
 async function tentarEnviarBrevo(
   { de, para, assunto, html, anexos }: Mensagem,
   chave: string,
@@ -511,7 +416,7 @@ async function tentarEnviarBrevo(
         to: [{ email: para }],
         subject: assunto,
         htmlContent: html,
-        // Brevo wants the content in base64, in the `attachment` field.
+        // Brevo quer o conteúdo em base64, no campo `attachment`.
         ...(anexos?.length
           ? {
               attachment: anexos.map((a) => ({
@@ -544,9 +449,8 @@ async function tentarEnviarBrevo(
 }
 
 /**
- * Sending via Mailjet: Basic authentication (key:secret), attachments in
- * `Attachments` (base64, with a mandatory `ContentType` — Mailjet does not
- * infer it from the name, unlike Resend and Brevo).
+ * Envio via Mailjet: autenticação Basic (key:secret), anexos em `Attachments`
+ * com `ContentType` obrigatório — ao contrário de Resend/Brevo, não infere do nome.
  */
 async function tentarEnviarMailjet(
   { de, para, assunto, html, anexos }: Mensagem,
@@ -610,10 +514,7 @@ async function tentarEnviarMailjet(
   }
 }
 
-/**
- * Sending via Twilio SendGrid: `Authorization: Bearer`, message ID returned in
- * `X-Message-Id` header.
- */
+/** Envio via Twilio SendGrid: `Authorization: Bearer`, id da mensagem no cabeçalho `X-Message-Id`. */
 async function tentarEnviarTwilio(
   { de, para, assunto, html, anexos }: Mensagem,
   chave: string,
@@ -672,9 +573,9 @@ async function tentarEnviarTwilio(
 }
 
 /**
- * Sending through our own SMTP (postfix on the server). No provider id: postfix
- * has no API — accepted is accepted, and delivery itself is left without a
- * trace (`mensagemId` `null`, and `confirmarEntrega` skips these rows).
+ * Envio pelo SMTP próprio (postfix no servidor). Sem id de fornecedor —
+ * postfix não tem API, aceite é aceite e a entrega fica sem rasto
+ * (`mensagemId` null, `confirmarEntrega` salta estas linhas).
  */
 async function tentarEnviarSmtp(
   { de, para, assunto, html, anexos }: Mensagem,
@@ -697,11 +598,8 @@ async function tentarEnviarSmtp(
 /* ----------------------------------------------------------------- delivery */
 
 /**
- * What the provider knows about the message **after** having accepted it.
- *
- * `pendente` is not "it did not arrive": it is "it has not decided yet". A
- * destination server can accept in three seconds or in three minutes, and
- * calling that a failure along the way would be inventing a fault.
+ * O que o fornecedor sabe da mensagem depois de a ter aceite. `pendente` não
+ * é "não chegou" — é "ainda não decidiu"; chamar-lhe falha seria inventar um defeito.
  */
 export type EventoEntrega = "entregue" | "devolvido" | "queixa" | "pendente";
 
@@ -709,7 +607,7 @@ export type ResultadoVerificacao =
   | { ok: true; evento: EventoEntrega; motivo?: string }
   | { ok: false; erro: string };
 
-/** Only conclusive events change the row's state. */
+/** Só eventos conclusivos mudam o estado da linha. */
 const ESTADO_POR_EVENTO = {
   entregue: "entregue",
   devolvido: "devolvido",
@@ -717,11 +615,8 @@ const ESTADO_POR_EVENTO = {
 } as const satisfies Record<Exclude<EventoEntrega, "pendente">, EstadoEmail>;
 
 /**
- * Waits without holding the process up.
- *
- * The `unref` is what stops a `pnpm email:testar` or a migration script sitting
- * still for two minutes waiting on a timer that only exists for a courtesy
- * check.
+ * Espera sem segurar o processo. `unref` evita que um script fique parado
+ * dois minutos por causa de um temporizador que só existe para uma verificação de cortesia.
  */
 function dormir(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -731,11 +626,9 @@ function dormir(ms: number): Promise<void> {
 }
 
 /**
- * Asks the provider what happened to the message after it accepted it.
- *
- * Exported because its value is not only that of the automatic confirmation:
- * given a `mensagem_id` from `/emails`, this answers "did it arrive?" without
- * opening anybody's dashboard.
+ * Pergunta ao fornecedor o que aconteceu à mensagem depois de aceite.
+ * Exportada porque, dado um `mensagem_id` de `/emails`, responde "chegou?"
+ * sem abrir dashboard nenhum.
  */
 export async function verificarEntrega(
   canal: CanalEmail,
@@ -786,12 +679,9 @@ export async function verificarEntrega(
 }
 
 /**
- * Resend: `GET /emails/{id}` returns the message's `last_event`.
- *
- * The states that matter are three — `delivered`, `bounced`, `complained`.
- * Everything else (`queued`, `scheduled`, `sent`, `delivery_delayed`) is the
- * provider saying it does not know yet, and translates to `pendente` with the
- * raw name as the reason: a new event on their side cannot pass for delivery.
+ * Resend: `GET /emails/{id}` devolve o `last_event` da mensagem. Três estados
+ * importam — `delivered`, `bounced`, `complained`; o resto vira `pendente`
+ * com o nome bruto como motivo.
  */
 async function verificarEntregaResend(
   mensagemId: string,
@@ -848,17 +738,10 @@ async function verificarEntregaResend(
 }
 
 /**
- * Brevo: `GET /v3/smtp/statistics/events?messageId=…` returns the message's
- * list of events.
- *
- * Unlike Resend, there is no "last event": a list comes back, and its order is
- * not the order of severity. A message can have `delivered` and, two days
- * later, `spam`. The most severe of those present wins — it is what has to be
- * acted on, and that is why it is ordered by severity and not by date.
- *
- * A 404 is a normal response: Brevo answers it when there is still no event at
- * all for that id. Treating it as an error put a console warning up every time
- * the question was asked too soon.
+ * Brevo: `GET /v3/smtp/statistics/events` devolve a lista de eventos, sem
+ * ordem de gravidade — uma mensagem pode ter `delivered` e, dois dias depois,
+ * `spam`. Vence o mais grave presente. 404 é resposta normal: ainda sem
+ * evento para este id.
  */
 async function verificarEntregaBrevo(
   mensagemId: string,
@@ -909,12 +792,10 @@ async function verificarEntregaBrevo(
 }
 
 /**
- * Brevo event names, reduced to the four that tell us something.
- *
- * The `includes("bounce")` catches `bounces`, `hardBounces` and `softBounces`
- * in one go — the name changes with the query's `event` parameter and with the
- * API version, and a literal map aged silently towards the wrong side (a bounce
- * read as pending is a client left without a link and nobody notices).
+ * Nomes de evento do Brevo, reduzidos aos quatro que interessam.
+ * `includes("bounce")` apanha `bounces`/`hardBounces`/`softBounces` de uma
+ * vez — um mapa literal envelheceria para o lado errado (bounce lido como
+ * pendente é cliente sem link e ninguém repara).
  */
 function eventoBrevo(nome: string): EventoEntrega {
   const n = nome.toLowerCase();
@@ -934,14 +815,9 @@ const GRAVIDADE: Record<EventoEntrega, number> = {
 };
 
 /**
- * Mailjet: `GET /v3/REST/message/{id}` returns the message's `Status`.
- *
- * Mailjet does not expose a `delivered` event over the API (only in webhooks):
- * the `sent` state is it saying it handed the message to the destination
- * server, and `open`/`click` are better proof. `bounce`, `blocked` and `spam`
- * are conclusive and take priority — a `bounce` after a `sent` has to be read
- * as returned, and that is why the mapping is explicit and not by order of
- * arrival.
+ * Mailjet: `GET /v3/REST/message/{id}` devolve o `Status`. Sem evento
+ * `delivered` na API (só em webhooks) — `sent` só diz que entregou ao
+ * servidor de destino; `bounce`/`blocked`/`spam` são conclusivos e têm prioridade.
  */
 async function verificarEntregaMailjet(
   mensagemId: string,
@@ -987,9 +863,7 @@ async function verificarEntregaMailjet(
   }
 }
 
-/**
- * Twilio SendGrid: `GET /v3/messages/{id}` returns the message status and events.
- */
+/** Twilio SendGrid: `GET /v3/messages/{id}` devolve estado e eventos da mensagem. */
 async function verificarEntregaTwilio(
   mensagemId: string,
   chave: string,
@@ -1072,28 +946,15 @@ function eventoSendGrid(nome: string): EventoEntrega {
 }
 
 /**
- * Confirms delivery and updates the log row. Does not throw and is not awaited.
+ * Confirma entrega e atualiza a linha. Não lança e não é aguardada (D51).
  *
- * **Why this and not a webhook.** Resend's webhook is the official route and
- * the one that would be used in a serious system, but it costs three things a
- * POC does not have: a public address always reachable and outside the
- * authentication `middleware`, signature verification (`svix`) — without which
- * the address is a button for anyone to mark emails as delivered — and
- * configuration in *each* provider's dashboard, which goes undone the day the
- * account changes and nobody works out why the states stopped. And, with two
- * channels, it would be two addresses with two formats and two signature
- * schemes.
+ * Polling em vez de webhook: um webhook custaria endereço público fora do
+ * middleware, verificação de assinatura e configuração em cada dashboard —
+ * o polling usa a chave que já existe e corre no próprio processo.
  *
- * Deferred polling needs none of that: it runs in the server's own Node process
- * — which is a long-lived container on Coolify, not a serverless function that
- * dies with the response — it uses the key that already exists, and it works
- * the same on both providers. It costs three HTTP requests per email.
- *
- * **What this does not cover**, and on purpose: a container restart partway
- * through loses the pending checks, and the row stays at `enviado`. Since
- * `enviado` means exactly "the provider accepted, delivery was not confirmed",
- * that is no lie — it is what is known. `pnpm email:conferir` picks up the ones
- * left behind, and a bounce arriving after the last attempt too.
+ * O que não cobre, de propósito: um reinício a meio perde as verificações
+ * pendentes e a linha fica em `enviado` — que é a verdade sobre o que se sabe.
+ * `pnpm email:conferir` apanha as que ficaram por trás.
  */
 export async function confirmarEntrega(p: {
   linhaId: string;
@@ -1112,9 +973,8 @@ export async function confirmarEntrega(p: {
 
     const r = await verificarEntrega(p.canal, p.mensagemId);
     if (!r.ok) {
-      // Does not change the state: a lookup that failed says nothing about the
-      // message. Marking the row here would be turning a failure of ours into
-      // an accusation against the recipient.
+      // Não muda o estado: uma consulta falhada nada diz sobre a mensagem —
+      // marcar a linha aqui seria transformar uma falha nossa numa acusação ao destinatário.
       console.warn(
         `[email] could not confirm delivery to ${p.para} ` +
           `(${p.canal} ${p.mensagemId}): ${r.erro}`,
@@ -1147,12 +1007,8 @@ export async function confirmarEntrega(p: {
 }
 
 /**
- * Writes the outcome into the row. Does not throw, for the same reason as
- * `registar`: the email has already gone out (or already has not) and none of
- * this changes that.
- *
- * `erro` is only touched when there is a reason — an `entregue` cannot erase
- * the reason an earlier attempt failed.
+ * Grava o resultado na linha. Não lança, mesma razão de `registar` — o email
+ * já saiu (ou não), nada disto muda isso. `erro` só é tocado quando há motivo.
  */
 async function marcarEntrega(
   linhaId: string,
@@ -1171,7 +1027,7 @@ async function marcarEntrega(
   } catch (e) {
     console.error(
       `[email] FAILED to update email_log ${linhaId} to «${evento}». ` +
-        "/emails will keep saying «Aceite» about a message whose outcome is already known.",
+        "/emails vai continuar a mostrar «Aceite» sobre uma mensagem cujo resultado já se conhece.",
       e,
     );
   }

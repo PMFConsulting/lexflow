@@ -1,24 +1,13 @@
 /**
- * Os textos legais do passo 4 do registo de uma pessoa da equipa.
+ * Textos legais do passo 4 do registo de uma pessoa da equipa. Ficheiro
+ * próprio (como `lib/termos.ts`), pensado para revisão jurídica sem tocar em
+ * marcação.
  *
- * Num ficheiro próprio, e não dentro do formulário, pela mesma razão que os
- * T&C do cliente estão em `lib/termos.ts`: é texto que uma revisão jurídica vai
- * ler, corrigir e devolver, e tem de se poder trocar sem tocar em marcação.
- *
- * ---------------------------------------------------------------------------
- * **Texto de demonstração.** Foi escrito a partir do que os artigos 13.º/14.º
- * do RGPD obrigam a constar e do que o Estatuto da Ordem dos Advogados diz
- * sobre o segredo profissional. A redação definitiva é da sociedade e
- * substitui-se aqui, sem tocar em mais nada.
- *
- * O que **não** se pode esquecer ao substituir: a informação de proteção de
- * dados não é um consentimento, e a caixa que a acompanha diz «tomei
- * conhecimento» e não «autorizo». Trocar o verbo transforma um dever de
- * informação cumprido num consentimento inválido — inválido porque a base legal
- * do tratamento dos dados de um advogado da casa é o contrato e a obrigação
- * legal, não a vontade dele; e pior do que inválido, porque leva a pessoa a
- * acreditar que o pode retirar e ver os seus dados apagados.
- * ---------------------------------------------------------------------------
+ * Texto de demonstração, escrito a partir dos artigos 13.º/14.º do RGPD e do
+ * Estatuto da Ordem dos Advogados. Ao substituir: a informação de proteção de
+ * dados é «tomei conhecimento», não «autorizo» — trocar o verbo transforma um
+ * dever de informação num consentimento inválido (a base legal aqui é o
+ * contrato/obrigação legal, não a vontade da pessoa).
  */
 
 /** A informação do artigo 13.º do RGPD, em linguagem de quem a vai ler. */

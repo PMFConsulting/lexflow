@@ -13,35 +13,27 @@ import { email, morada, obrigatorio, pais, telefone } from "@/lib/campos";
 import { assinaturaTemTracoReal } from "./assinatura";
 
 /**
- * Um schema por passo, partilhado entre cliente e servidor.
- *
- * A validação no cliente é conforto; a do servidor é segurança. É o mesmo
- * ficheiro nos dois sítios precisamente para não divergirem — o erro clássico
- * é apertar o formulário e deixar a Server Action aberta.
+ * Um schema por passo, partilhado entre cliente e servidor — validação no
+ * cliente é conforto, no servidor é segurança, e o mesmo ficheiro evita que
+ * divirjam.
  */
 
 /* ── peças reutilizáveis ──────────────────────────────────────────────── */
 
 /*
- * `obrigatorio`, `email`, `telefone`, `pais` e `morada` estavam aqui e passaram
- * para `@/lib/campos`: o percurso do cliente deixou de ser o único a pedir
- * moradas e contactos — a sociedade tem sede e cada pessoa que se junta a ela
- * tem morada. Ficam aqui as peças cuja mensagem só faz sentido neste percurso.
+ * `obrigatorio`, `email`, `telefone`, `pais` e `morada` mudaram-se para
+ * `@/lib/campos` — a sociedade e cada pessoa da equipa também têm morada e
+ * contactos. Ficam aqui só as peças cuja mensagem é específica deste percurso.
  */
 
 /**
  * NIF de faturação — português *ou* estrangeiro.
  *
  * O mod-11 aqui era um beco sem saída: um cliente com número fiscal
- * estrangeiro (que o passo 2 aceita de propósito, com `nifPortugues = false`)
- * chegava ao passo 5, era obrigado a preencher um "NIF / NIPC" e não havia
- * número nenhum que passasse — nem sequer o dele. Ficava preso a um passo do
- * fim, sem forma de perceber porquê.
- *
- * A regra passa a olhar para a forma: nove dígitos é um número português e
- * leva o checksum inteiro — que é o que apanha o dígito trocado, a razão de
- * ser da validação. Qualquer outra forma é um número de outro país e só se
- * exige que exista.
+ * estrangeiro (passo 2, `nifPortugues = false`) chegava ao passo 5 e não
+ * havia número nenhum que passasse a validação portuguesa, nem sequer o
+ * dele. Agora nove dígitos leva o checksum inteiro; qualquer outra forma só
+ * precisa de existir.
  */
 export const nifFaturacao = z
   .string()
@@ -117,13 +109,9 @@ export const passo1 = z
         });
     }
 
-    // A pessoa coletiva não tinha exigência nenhuma neste passo além do nome:
-    // "Lda.", "S.A.", "Unipessoal" ou "Associação" ficavam por dizer, e o
-    // detalhe do back-office mostra a linha "Natureza jurídica" a vazio sem
-    // ninguém saber se foi esquecimento se não se aplica. É o simétrico do que
-    // já se pede a uma pessoa singular — profissão, entidade patronal, data de
-    // nascimento —, e é forma jurídica, não campo acessório: decide quem pode
-    // obrigar a entidade, que é o que o passo 3 vai a seguir perguntar.
+    // Simétrico do que já se pede a uma pessoa singular. Natureza jurídica
+    // não é campo acessório: decide quem pode obrigar a entidade, que é o
+    // que o passo 3 pergunta a seguir.
     if (v.tipoCliente === "empresa") {
       if (!v.naturezaJuridica)
         ctx.addIssue({
@@ -143,17 +131,11 @@ export const passo1 = z
 /* ── passo 2 — fiscal ─────────────────────────────────────────────────── */
 
 /**
- * Os anexos sem os quais o passo 2 não fecha, por percurso.
+ * Os anexos sem os quais o passo 2 não fecha, por percurso (D56).
  *
- * Eram todos opcionais, e a consequência aparecia tarde: o cliente chegava ao
- * fim, submetia, e a sociedade ficava com um dossier de KYC sem cópia do
- * documento de identificação — que é precisamente a peça que a Lei 83/2017
- * obriga a conservar. Recuperá-la depois é um email, uma espera e um processo
- * que fica parado; pedi-la no ecrã em que ela é o assunto custa um clique.
- *
- * A certidão permanente só se exige à pessoa coletiva, pela mesma razão por que
- * o passo 3 só a ela aparece (D28): uma pessoa singular não tem certidão a que
- * ir buscar, e pedir-lha era um passo sem saída.
+ * Eram todos opcionais — o cliente submetia e a sociedade ficava sem cópia
+ * do documento de identificação, que a Lei 83/2017 obriga a conservar.
+ * Certidão permanente só para pessoa coletiva, mesma razão do D28.
  */
 export const ANEXOS_OBRIGATORIOS = {
   particular: ["identificacao", "comprovativo_nif"],
@@ -171,21 +153,16 @@ const FALTA_ANEXO: Record<string, string> = {
 export const passo2 = z
   .object({
     /**
-     * O percurso deste processo. **Não vem do formulário** — é injetado pelo
-     * `guardarPasso` a partir da linha do processo, e é por isso que é opcional
-     * aqui: o schema tem de continuar a parsear a carga que a janela constrói,
-     * e o que decide a regra é o servidor. Uma carga que traga `tipoCliente` de
-     * fora é substituída antes de chegar aqui, não acreditada.
+     * O percurso deste processo. **Não vem do formulário** — injetado pelo
+     * `guardarPasso` a partir da linha do processo, daí ser opcional aqui.
+     * Um `tipoCliente` trazido de fora é substituído antes de chegar aqui,
+     * não acreditado.
      */
     tipoCliente: z.enum(["particular", "empresa"]).optional(),
     /**
-     * Os tipos dos documentos já anexados a este processo, também injetados
-     * pelo servidor a partir da tabela `documento`.
-     *
-     * O `Anexos` não é campo do formulário — sobe pela sua própria Server Action
-     * e o input nem `name` tem — por isso a carga do passo nunca traz ficheiro
-     * nenhum, e nunca poderia trazer. A única fonte honesta do que está anexado
-     * é a base de dados, e é de lá que isto vem.
+     * Tipos dos documentos já anexados, injetados pelo servidor a partir da
+     * tabela `documento`. `Anexos` sobe pela sua própria Server Action e o
+     * input não tem `name`, por isso a carga do passo nunca traz ficheiros.
      */
     documentos: z.array(z.string()).optional().default([]),
     nifPortugues: z.boolean().default(true),
@@ -198,21 +175,16 @@ export const passo2 = z
     regimeIva: z.enum(["normal", "isento_art53", "isento_art9", "misto"]).optional(),
   })
   .superRefine((v, ctx) => {
-    // O mod-11 só se aplica a NIF português. Um TIN estrangeiro tem outra forma
-    // e rejeitá-lo com a regra portuguesa seria bloquear clientes legítimos.
-    //
-    // Numa pessoa coletiva a régua é mais apertada: além do checksum, o primeiro
-    // dígito tem de ser 5, 6, 8 ou 9. Um NIF de pessoa singular na caixa de uma
-    // empresa passa o mod-11 e está errado à mesma — e fica gravado a dizer que
-    // a entidade é aquela pessoa.
+    // Mod-11 só se aplica a NIF português — um TIN estrangeiro tem outra
+    // forma. Pessoa coletiva usa regra mais apertada (D54): além do
+    // checksum, o primeiro dígito tem de ser 5, 6, 8 ou 9.
     if (v.nifPortugues) {
       const r = v.tipoCliente === "empresa" ? validarNipc(v.nif) : validarNif(v.nif);
       if (!r.valido) ctx.addIssue({ code: "custom", path: ["nif"], message: r.mensagem });
     }
 
-    // Um erro por documento em falta, e não um "faltam anexos" só: o resumo de
-    // erros do formulário lista uma linha por campo, e três documentos por
-    // anexar têm de se ler como três coisas a fazer.
+    // Um erro por documento em falta, não um "faltam anexos" genérico — três
+    // documentos por anexar devem ler-se como três coisas a fazer.
     const anexados = new Set(v.documentos);
     for (const tipo of ANEXOS_OBRIGATORIOS[v.tipoCliente ?? "particular"]) {
       if (!anexados.has(tipo)) {
@@ -224,32 +196,21 @@ export const passo2 = z
       }
     }
   })
-  /*
-   * A normalização fica no fim, e ao nível do objeto e não do campo.
-   *
-   * Ao nível do campo, o `superRefine` em baixo passaria a ler um `nif` que o
-   * `transform` pode não ter chegado a produzir — e `validarNif(undefined)`
-   * rebenta, o que trocaria uma mensagem de erro por um 500. Aqui, corre depois
-   * de tudo e só sobre dados que já passaram: o que se grava é `500000000` e
-   * não `500 000 000`, e é isso que faz a pesquisa e a deduplicação por NIF do
-   * `/clientes` encontrarem o mesmo contribuinte escrito de duas maneiras.
-   */
+  // Normalização ao nível do objeto, no fim — ao nível do campo o
+  // `superRefine` acima leria um `nif` que o `transform` pode não ter
+  // produzido, e `validarNif(undefined)` rebenta em vez de dar erro de
+  // validação. Grava `500000000`, não `500 000 000` — é o que faz a
+  // deduplicação por NIF do `/clientes` encontrar o mesmo contribuinte.
   .transform((v) => ({ ...v, nif: normalizarNumeroFiscal(v.nif) }));
 
 /* ── passo 3 — representante legal ────────────────────────────────────── */
 
 /**
- * Só para pessoas coletivas, e pende de um interruptor: "É o representante
- * legal desta entidade?".
- *
- * Com **Sim**, quem preenche é o representante — já se identificou no passo 1 e
- * não há nada a repetir aqui. Com **Não**, é preciso dizer quem representa
- * legalmente a entidade, e aí exige-se o mesmo rigor da identificação do passo
- * 1: é uma pessoa que age em nome de outra, e a Lei 83/2017 obriga a
- * identificá-la.
- *
- * O interruptor não tem resposta de partida. É uma declaração sobre quem age em
- * nome de quem, e pré-responder a uma declaração é dá-la por feita.
+ * Só para pessoas coletivas (D28), com o interruptor invertido (D29): "É o
+ * representante legal desta entidade?" — **Sim** não repete nada (já se
+ * identificou no passo 1); **Não** exige o mesmo rigor de identificação do
+ * passo 1 para quem representa a entidade. Sem resposta de partida — é uma
+ * declaração, e pré-respondê-la é dá-la por feita.
  */
 export const passo3 = z
   .object({
@@ -270,8 +231,8 @@ export const passo3 = z
     distrito: z.string().trim().optional(),
   })
   .superRefine((v, ctx) => {
-    // Ao contrário do que aqui esteve: é o "Não" que abre os campos. Quem
-    // responde Sim é o próprio representante e já se identificou no passo 1.
+    // É o "Não" que abre os campos — quem responde "Sim" já se identificou
+    // no passo 1.
     if (v.eRepresentante) return;
 
     const falta = (campo: string, mensagem: string) =>
@@ -311,9 +272,8 @@ export const passo3 = z
       if (!r.valido) falta("codigoPostal", r.mensagem);
     }
   })
-  // Mesma razão do passo 2: no fim, sobre dados já validados, e sem tocar no
-  // campo quando ele não foi preenchido (com "Sim" no interruptor, não há
-  // representante nenhum a normalizar).
+  // Mesma razão do passo 2: normaliza no fim, sem tocar no campo se vazio
+  // (com "Sim" no interruptor não há representante a normalizar).
   .transform((v) => ({
     ...v,
     telefone: v.telefone ? normalizarTelefone(v.telefone) : v.telefone,
@@ -334,9 +294,8 @@ export const passo4 = z
     ppeRelacionadaNome: z.string().trim().optional(),
     ppeRelacionadaCargo: z.string().trim().optional(),
     ppeRelacionadaPais: z.string().trim().optional(),
-    // A origem de fundos é obrigatória sempre. O formulário atual já está
-    // assim, e é o que a Lei 83/2017 pede em diligência normal — não só
-    // reforçada (divergência D5 em docs/CAMPOS.md).
+    // Origem de fundos obrigatória sempre — é o que a Lei 83/2017 pede em
+    // diligência normal, não só reforçada (D5 em docs/CAMPOS.md).
     servicos: obrigatorio("Indique os serviços jurídicos pretendidos"),
     origemFundos: obrigatorio("A origem dos fundos"),
   })
@@ -428,8 +387,7 @@ export const passo6 = z
         path: ["origemDetalhe"],
         message: "Indique quem o recomendou.",
       });
-    // "Outro" sem explicação não é resposta nenhuma: a pergunta existe para
-    // saber por onde os clientes chegam, e um "outro" em branco não conta nada.
+    // "Outro" sem explicação não conta nada.
     if (v.origemContacto === "outro" && !v.origemDetalhe)
       ctx.addIssue({
         code: "custom",
@@ -475,12 +433,10 @@ export const passo7 = z.object({
       (v) => v.startsWith("data:image/png;base64,"),
       "A assinatura não foi lida corretamente. Limpe o quadro e tente de novo.",
     )
-    // ~1 MB de PNG é muito mais do que uma rubrica precisa; acima disso é
-    // sinal de que algo está errado, e não vale a pena aceitar.
+    // ~1 MB de PNG é muito mais do que uma rubrica precisa.
     .refine((v) => v.length < 1_400_000, "A assinatura ficou demasiado pesada.")
-    // BUG-024 (pentest ronda 2): um PNG 1x1 forjado no lugar do quadro passava
-    // nas duas verificações acima. Isto lê o cabeçalho PNG e recusa qualquer
-    // imagem abaixo do que o quadro consegue mesmo produzir.
+    // BUG-024 (pentest ronda 2): um PNG 1x1 forjado passava nas duas
+    // verificações acima. Lê o cabeçalho PNG e recusa abaixo do mínimo real.
     .refine(
       assinaturaTemTracoReal,
       "A assinatura não parece ter sido desenhada no quadro. Limpe e assine de novo.",

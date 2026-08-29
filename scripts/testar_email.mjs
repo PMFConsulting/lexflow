@@ -1,28 +1,10 @@
 #!/usr/bin/env node
 /**
- * Envia um email de teste pelo mesmo caminho que a aplicação usa e grava-o em
- * `email_log`, para aparecer no `/emails`.
- *
- * Existe porque "o cliente não recebeu nada" tem três causas com o mesmo
- * sintoma, e distingui-las a partir da aplicação obriga a criar processos a
- * sério:
- *
- *   1. a chave não chega ao processo do Node (está no painel do Coolify mas
- *      não no ambiente do contentor);
- *   2. o fornecedor recusa o envio — quase sempre 403, porque o domínio do
- *      `EMAIL_REMETENTE` não está verificado na conta;
- *   3. o servidor não tem saída para a API e o pedido fica pendurado até ao
- *      tempo limite.
- *
- * Percorre os canais pela **mesma ordem da aplicação** — Brevo primeiro, Resend
- * a seguir. Se assim não fosse, este teste podia dizer que está tudo bem depois
- * de exercitar um canal que a aplicação já não usa, que é exatamente o género
- * de resposta errada que ele existe para não dar.
- *
- * As três dizem-se de maneiras diferentes aqui e não dizem nada nenhuma na
- * aplicação. Escreve na mesma tabela que o `enviarEmail` escreve, com a mesma
- * forma de linha: se isto aparece no `/emails` e um processo criado não aparece,
- * o problema está a montante do envio — no que a janela mandou para o servidor.
+ * Envia um email de teste pelo mesmo caminho da aplicação e grava em
+ * `email_log`, para aparecer em `/emails`. Distingue as três causas de "o
+ * cliente não recebeu nada": chave não chega ao processo, fornecedor recusa
+ * (403, domínio não verificado) ou saída de rede fechada — cada uma com um
+ * sintoma diferente aqui. Percorre os canais na mesma ordem da aplicação.
  *
  * Uso, dentro do contentor:
  *
@@ -37,6 +19,7 @@
 import { randomUUID } from "node:crypto";
 import { connect } from "node:net";
 import postgres from "postgres";
+import { EMAIL_REMETENTE_DEFAULT } from "../src/email-remetente-default.mjs";
 
 const TEMPO_LIMITE_MS = 15_000;
 
@@ -63,7 +46,7 @@ const chaveResend = process.env.RESEND_API_KEY;
 const chaveTwilio = process.env.TWILIO_SENDGRID_API_KEY;
 const anfitriaoSmtp = process.env.SMTP_HOST;
 const portaSmtp = Number(process.env.SMTP_PORT || 25);
-const remetente = process.env.EMAIL_REMETENTE || "POC@jmassano.pt";
+const remetente = process.env.EMAIL_REMETENTE || EMAIL_REMETENTE_DEFAULT;
 const urlBd = process.env.DATABASE_URL;
 
 console.log("Ambiente");

@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { EMAIL_REMETENTE_DEFAULT } from "./email-remetente-default.mjs";
 
 /**
  * Validated environment variables. The read is lazy on purpose: `next build`
@@ -28,14 +29,8 @@ const esquema = z.object({
    */
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().max(65535).optional(),
-  /**
-   * Sender of the emails to the client. The default is the firm's and not the
-   * `onboarding@resend.dev` of the early days: an installation missing this
-   * variable sent the three JMASSANO emails with Resend's sender, and a client
-   * receiving a request for personal data from a domain they do not know is
-   * right not to answer. It can still be swapped via `.env`.
-   */
-  EMAIL_REMETENTE: z.string().email().default("POC@jmassano.pt"),
+  /** Remetente dos emails ao cliente. Substituível via `.env`. */
+  EMAIL_REMETENTE: z.string().email().default(EMAIL_REMETENTE_DEFAULT),
   EMAIL_NOTIFICACOES: z.string().email().optional(),
   /** AES-256 key (64 hex characters) for encrypting storage credentials. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. */
   ARMAZENAMENTO_CHAVE: z

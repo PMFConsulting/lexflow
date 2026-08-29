@@ -8,22 +8,15 @@ import { cn } from "@/lib/utils";
 import { enviarCodigoOtp, verificarCodigoOtp, type EstadoOtp } from "../acoes";
 
 /**
- * A verificação por email, no fecho.
+ * Verificação por email antes da assinatura (D57).
  *
- * Entre a declaração final e a assinatura, e é aí de propósito: é a última
- * coisa que o cliente faz antes de assinar, e o que ela destranca é
- * precisamente a assinatura. Pô-la mais acima seria pedir um código dez minutos
- * antes de ele fazer falta — e dez minutos é exatamente o tempo que ele dura.
- *
- * O envio é a pedido e não automático ao abrir o passo. O passo 7 é revisitado
- * (o cliente vai corrigir um campo e volta) e um envio por visita enchia-lhe a
- * caixa de códigos, gastava a quota do fornecedor e treinava-o a ignorar
- * exatamente a mensagem que precisa de ler.
- *
- * O `name="otp"` num input escondido não é para enviar nada — o código não vai
- * no `FormData` do passo, e a validação é do servidor contra a base de dados.
- * É o que dá ao resumo de erros um sítio para onde saltar quando a submissão é
- * recusada por falta de verificação (ver `alvoDoErro`, em `Formulario.tsx`).
+ * Fica entre a declaração final e a assinatura de propósito — é o que a
+ * destranca, e o código dura 10 minutos, o mesmo tempo que falta até ali.
+ * O envio é a pedido, não automático: o passo 7 é revisitado a corrigir
+ * campos, e um envio por visita enchia a caixa de códigos e gastava a quota
+ * do fornecedor. `name="otp"` no input escondido não envia nada — só dá ao
+ * resumo de erros um alvo quando a submissão é recusada por falta de
+ * verificação (`alvoDoErro`, em `Formulario.tsx`).
  */
 export function CodigoOtp({
   token,
@@ -35,12 +28,10 @@ export function CodigoOtp({
   token: string;
   inicial: EstadoOtp;
   /**
-   * Estado do formulário, e não deste componente.
-   *
-   * É o mesmo valor que decide se o quadro da assinatura monta, por isso tem de
-   * haver **um** — com uma cópia local, uma verificação que o servidor recusasse
-   * a meio (a validade de uma hora esgota-se) deixava este bloco a mostrar o
-   * visto verde e o botão de submeter apagado, sem forma de voltar atrás.
+   * Estado do formulário, não deste componente — é o mesmo valor que decide
+   * se o quadro da assinatura monta. Com uma cópia local, uma verificação
+   * expirada no servidor (validade de uma hora) deixava este bloco a mostrar
+   * o visto verde sem forma de voltar atrás.
    */
   verificado: boolean;
   erros: Record<string, string[]>;
@@ -72,9 +63,8 @@ export function CodigoOtp({
           `Enviámos um código de 6 dígitos para ${r.para}. É válido durante ${r.expiraEmMinutos} minutos.`,
         );
       } catch {
-        // Uma Server Action que rebenta não pode deixar o botão a sair de "A
-        // enviar…" e mais nada — é o silêncio que faz uma falha de servidor
-        // parecer um clique perdido.
+        // Sem isto o botão ficava preso em "A enviar…" — falha de servidor a
+        // parecer clique perdido.
         setErro("Não foi possível pedir o código. Verifique a ligação e tente de novo.");
       }
     });

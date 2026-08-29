@@ -7,20 +7,15 @@ import { processoOnboarding } from "./processo";
 /**
  * A record of every email the system attempted to send.
  *
- * One row per attempt, written by `enviarEmail` — which means no sending path
- * can forget it, including the ones that do not yet exist. Success and error
- * both go in: "nothing reached the client" is the question being asked, and it
- * only has an answer if failures are recorded with the reason.
+ * One row per attempt, written by `enviarEmail` — no sending path can forget
+ * it. Success and error both go in, so a failure to reach the client is
+ * always recorded with a reason.
  *
- * This is not the audit trail and does not replace it. `evento_auditoria` is
- * append-only, with a hash chain, and still records what sending a link means
- * for the matter (`link.enviado` / `link.envio_falhou`); this is the email
- * channel's technical log, which can be truncated and rebuilt with no legal
- * consequence.
- *
- * It does not store the message body. A welcome email carries the matter's
- * summary as an attachment, and duplicating personal data into a diagnostic
- * table multiplies the surface of a GDPR-subject system for nothing.
+ * Not the audit trail and doesn't replace it: `evento_auditoria` is
+ * append-only with a hash chain and still records `link.enviado` /
+ * `link.envio_falhou`; this is the channel's technical log, truncable with no
+ * legal consequence. Doesn't store the message body — duplicating personal
+ * data into a diagnostic table multiplies GDPR surface for nothing.
  */
 export const emailLog = pgTable(
   "email_log",

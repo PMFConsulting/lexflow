@@ -8,16 +8,12 @@ import type { finalidadeConsentimento } from "@/db/schema/enums";
 type Finalidade = (typeof finalidadeConsentimento.enumValues)[number];
 
 /**
- * Consentimentos com prova.
+ * Consentimentos com prova: cada um aponta para uma versão de texto imutável
+ * em vez de guardar só "sim" — o que interessa daqui a anos é o texto exato
+ * que a pessoa viu e quando o aceitou, não um booleano.
  *
- * O que interessa daqui a quatro anos não é um booleano: é conseguir mostrar o
- * texto exato que a pessoa viu, quando o aceitou e de que endereço. É por isso
- * que cada consentimento aponta para uma versão de texto imutável em vez de
- * guardar só "sim".
- *
- * Só entram aqui as finalidades que são mesmo consentimento. Prestação do
- * serviço e obrigações legais têm outra base legal e pedir consentimento para
- * elas seria inválido — ver a divergência D2 e a ambiguidade A11 em
+ * Só entram aqui finalidades que são mesmo consentimento. Prestação do
+ * serviço e obrigações legais têm outra base legal — ver D2 e A11 em
  * docs/CAMPOS.md.
  */
 
@@ -47,13 +43,10 @@ const TEXTOS: Record<string, { chave: string; versao: string; conteudo: string }
  * A versão em vigor de um texto — a que este código declara. Cria-a se ainda
  * não existir.
  *
- * A procura é por **chave e versão**, e não pela mais recente da chave. Assim
- * não estava: bastava existir uma linha da chave para ela ser devolvida para
- * sempre, e mudar o texto aqui não tinha efeito nenhuma numa instalação já a
- * correr — o cliente continuava a consentir o articulado antigo enquanto o
- * ecrã lhe mostrava o novo. Com a procura pela versão exata, subir a `versao`
- * cria uma linha nova e os consentimentos anteriores continuam a apontar para
- * o texto que quem os deu viu de facto, que é o que a D3 pede.
+ * Procura por **chave e versão**, não pela mais recente da chave (D38):
+ * bastava existir uma linha para ser devolvida para sempre, e mudar o texto
+ * aqui não tinha efeito numa instalação já a correr. Subir `versao` cria uma
+ * linha nova e preserva o que quem consentiu viu de facto (D3).
  */
 async function textoEmVigor(finalidade: Finalidade) {
   const base = db();
@@ -88,12 +81,12 @@ async function textoEmVigor(finalidade: Finalidade) {
 
   if (criado) return criado;
 
-  // Corrida com outro pedido a criar a mesma linha: ela existe agora.
+  // Corrida com outro pedido a criar a mesma linha — já existe.
   const [depois] = await daVersao();
   if (depois) return depois;
 
-  // Rede de segurança — a linha da chave que houver, para não deixar o passo 6
-  // por gravar só porque o texto legal não resolveu.
+  // Rede de segurança: qualquer linha da chave, para o passo 6 não ficar por
+  // gravar só porque o texto legal não resolveu.
   const [qualquer] = await base
     .select()
     .from(versaoTextoLegal)

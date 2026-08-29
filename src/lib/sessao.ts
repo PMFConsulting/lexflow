@@ -8,65 +8,34 @@ import { utilizador } from "@/db/schema/organizacao";
 import { auth } from "./auth";
 
 /**
- * Sessão e permissões.
+ * Sessão e permissões. Três níveis desde a 0016: `super_admin` (dono da
+ * plataforma, sem organização, portal `/admin`), `society_admin` (gere a sua
+ * sociedade) e `utilizador` (trabalha os processos, antigo socio/advogado/assistente).
  *
- * Três níveis, desde a migração `0016` (ver `db/schema/enums.ts`):
- *
- * - `super_admin` — dono da plataforma. Não pertence a sociedade nenhuma
- *   (`organizacao_id` é NULL) e o portal dele é `/admin`: sociedades e as
- *   contas delas.
- * - `society_admin` — gere a sua sociedade. É o back-office de sempre.
- * - `utilizador` — trabalha os processos da sua sociedade. É o que eram o
- *   `socio`, o `advogado` e o `assistente`.
- *
- * Os `pode*` continuam a receber o papel em `string` e não o tipo estreito, e é
- * de propósito: quem os chama tem o papel vindo da base de dados, e um `cast`
- * em cada sítio de chamada era mais ruído do que segurança. A garantia de
- * exaustividade está onde interessa — em `PORTAL_DO_PAPEL`, que o compilador
- * obriga a cobrir os três.
+ * Os `pode*` recebem o papel em `string`, não no tipo estreito — quem chama
+ * já tem o valor da base de dados, e um cast por chamada seria ruído. A
+ * exaustividade fica em `PORTAL_DO_PAPEL`, que o compilador obriga a cobrir.
  */
 
 export type Papel = (typeof papelUtilizador.enumValues)[number];
 
-/**
- * O cookie que fixa, entre pedidos, qual das sociedades de uma conta
- * multi-sociedade está ativa. Ver `sessaoAtual()` e `trocarSociedade()`
- * (`features/conta/acoes.ts`) — o nome vive aqui porque os dois têm de
- * concordar sobre ele, e concordar por import é a única forma de não
- * divergirem.
- */
+/** Cookie que fixa qual sociedade ativa de uma conta multi-sociedade — partilhado entre `sessaoAtual()` e `trocarSociedade()`. */
 export const COOKIE_SOCIEDADE_ATIVA = "sociedade_ativa";
 
 /**
- * Back-office session.
+ * Sessão do back-office. Devolve o utilizador de domínio (papel +
+ * organização), não o registo do Better Auth — é esse que decide o que pode
+ * ser visto.
  *
- * Returns the domain user — the one with a role and an organisation — and not
- * the Better Auth record. That is the one that matters for deciding what can be
- * seen.
+ * BUG3-002: desde a 0025 a mesma conta pode ter uma linha `utilizador` em
+ * mais de uma sociedade (único é `(organizacaoId, authUserId)`, não só
+ * `authUserId`). Um `.limit(1)` sem `ORDER BY` dava ao Postgres uma ordem não
+ * garantida — a pessoa caía ora numa sociedade ora noutra, sem escolher, o
+ * que num KYC é o próprio risco a evitar.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * BUG3-002 — mais do que uma linha por `authUserId`
- *
- * Desde a `0025` a mesma conta de autenticação pode ter uma linha
- * `utilizador` em mais do que uma sociedade (`utilizador_auth_org` é único
- * por `(organizacaoId, authUserId)`, não só por `authUserId`) — é o que
- * permite a um administrador gerir duas sociedades sem precisar de duas
- * contas. O que estava aqui — `.limit(1)` sem `ORDER BY` — pedia ao Postgres
- * "dá-me uma qualquer": sem ordenação, a ordem de um SELECT não é garantida
- * nem estável entre pedidos, e essa pessoa podia entrar ora numa sociedade
- * ora noutra, sem ter escolhido e sem saber qual. Num sistema de KYC isso não
- * é um detalhe — é o próprio risco que a plataforma existe para evitar:
- * trabalhar a identificação de um cliente sob a sociedade errada.
- *
- * A correção tem duas partes. Primeiro, a ordem deixa de ser arbitrária:
- * `criadoEm` (a linha mais antiga primeiro) é determinística e não muda de
- * pedido para pedido, o que já por si fecha o risco de "sociedade ao acaso" —
- * a conta cai sempre na mesma por omissão. Segundo, a pessoa pode escolher
- * outra: o cookie `sociedade_ativa`, quando aponta para uma das sociedades
- * desta conta, tem prioridade sobre a ordenação. Um cookie que aponte para
- * uma sociedade a que a conta não pertence — alheio, adulterado, ou de uma
- * sessão anterior a sair dela — é ignorado, e cai-se de volta na ordenação
- * determinística; nunca num acesso não autorizado.
+ * Correção em duas partes: `criadoEm` torna a ordem determinística (linha
+ * mais antiga primeiro), e o cookie `sociedade_ativa`, quando válido, tem
+ * prioridade sobre essa ordem. Um cookie inválido é ignorado, nunca dá acesso não autorizado.
  */
 export async function sessaoAtual() {
   const sessao = await auth().api.getSession({ headers: await headers() });
@@ -93,68 +62,31 @@ export async function sessaoAtual() {
   return {
     conta: sessao.user,
     eu,
-    /**
-     * As outras sociedades desta conta — só os `organizacaoId`, sem nome.
-     * `sessaoAtual()` corre em toda a página autenticada, e ir buscar o nome
-     * de cada sociedade aqui pagava um segundo SELECT em todos os pedidos por
-     * causa do único sítio (o seletor no `portal-shell`) que alguma vez o
-     * mostra — e só quando há de facto mais do que uma. Vazio para a
-     * generalidade das contas, que só têm uma linha.
-     */
+    /** Outras sociedades desta conta, só organizacaoId — buscar o nome aqui pagaria um SELECT extra em toda página. */
     outrasOrganizacoes: linhas
       .map((l) => l.organizacaoId)
       .filter((id): id is string => Boolean(id) && id !== eu.organizacaoId),
   };
 }
 
-/**
- * Onde vive o ecrã de definição de palavra-passe.
- *
- * Exportado porque é o mesmo endereço em três sítios — o guard aqui, a página
- * que ele serve e a ação que a fecha — e um literal repetido três vezes é um
- * `redirect` para uma página que deixou de existir no dia em que a rota mudar.
- */
+/** Rota do ecrã de definição de palavra-passe — exportada para não repetir o literal em três sítios. */
 export const ROTA_DEFINIR_PALAVRA_PASSE = "/definir-palavra-passe";
 export const ROTA_AGUARDA_APROVACAO = "/aguarda-aprovacao";
 
 /**
- * Requires a session. Without one, it goes to the login screen.
+ * Exige sessão; sem ela, manda para o login. Chamada em toda página do
+ * back-office.
  *
- * Called on every back-office page: a system holding PEP declarations and
- * identification documents cannot have a single page left open by oversight.
+ * Dois desvios antes de devolver a sessão: aprovação da plataforma (0021) —
+ * conta com `aprovado_em = null` vai para `/aguarda-aprovacao` até o
+ * `super_admin` aprovar (que nunca passa por aqui, é ele quem aprova); e
+ * redefinição obrigatória — `deve_redefinir_password = true` manda para o
+ * ecrã de definição. Aprovação primeiro, por ser a mais externa das duas.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * Dois desvios, e porque são aqui
- *
- * 1. **A aprovação da plataforma** (`0021`). Uma conta proposta pelo
- *    administrador de uma sociedade nasce com `aprovado_em = null`, e enquanto
- *    o `super_admin` não a aprovar não passa daqui: vai para
- *    `/aguarda-aprovacao`, que lhe diz o que está a acontecer. O `super_admin`
- *    nunca passa por isto — é ele quem aprova, e um dono da plataforma à espera
- *    de si próprio era uma instalação trancada por dentro.
- *
- * 2. **A redefinição obrigatória.** Uma conta criada por um administrador nasce
- *    com uma palavra-passe gerada e enviada por email — um segredo que viajou
- *    por um canal que não é secreto. Enquanto `deve_redefinir_password` estiver
- *    a `true`, esta função não deixa passar: manda para o ecrã de definição, e
- *    mais nada.
- *
- * A ordem entre os dois não é indiferente: a aprovação vem primeiro porque é a
- * mais externa das duas. Mandar definir a palavra-passe alguém que ainda não
- * sabe se vai ter conta era pedir-lhe trabalho a contar com uma decisão que
- * pode ser "não".
- *
- * **Os guards são estes e não o `middleware`.** O middleware desta instalação
- * só corre sobre `/api/auth/sign-in` de propósito (ver a nota lá) e não tem
- * acesso à base de dados de onde estas duas marcas vêm — a sessão do Better
- * Auth diz quem é a pessoa, não o que falta a essa pessoa. Pôr a decisão aqui é
- * pô-la no mesmo sítio por onde já passam todas as páginas e todos os Server
- * Actions autenticados: os guards de papel chamam esta função, e uma página nova
- * que se esqueça do desvio não existe — teria de se esquecer também da sessão.
- *
- * As exceções óbvias — a página de definição de palavra-passe, a ação que a
- * fecha, e o ecrã de espera pela aprovação — usam `sessaoAtual()` diretamente. É
- * a única forma de não ficarem a redirecionar para si próprias.
+ * Guard aqui e não no middleware: o middleware só corre sobre
+ * `/api/auth/sign-in` e não tem acesso à base de dados de onde vêm as duas
+ * marcas. As exceções (página de definição, ação que a fecha, ecrã de
+ * espera) usam `sessaoAtual()` diretamente, para não redirecionarem para si próprias.
  */
 export async function exigirSessao() {
   const s = await sessaoAtual();
@@ -169,16 +101,10 @@ export async function exigirSessao() {
 /* --------------------------------------------------------------- os portais */
 
 /**
- * Onde é que cada papel vive.
- *
- * Um `Record<Papel, string>` e não um `switch` com `default`: o dia em que
- * nascer outro nível, isto parte a compilação aqui — que é onde falta a
- * decisão — em vez de o mandar calado para o portal errado.
- *
- * É também o destino a seguir ao início de sessão. O ecrã de entrada manda
- * toda a gente para `/`, e é `/` que despacha: assim o browser nunca precisa de
- * saber o papel de quem entra para calcular um destino, e a decisão fica num
- * sítio só.
+ * Onde cada papel vive. `Record<Papel, string>` e não `switch` com
+ * `default`: um papel novo parte a compilação aqui em vez de cair calado no
+ * portal errado. Também é o destino após login — `/` despacha, o browser
+ * nunca precisa de saber o papel para calcular a rota.
  */
 const PORTAL_DO_PAPEL: Record<Papel, string> = {
   super_admin: "/admin",
@@ -193,30 +119,15 @@ export function portalDoPapel(papel: string) {
 
 /* ----------------------------------------------------------- as capacidades */
 
-/**
- * O dono da plataforma não é parte de nenhuma sociedade.
- *
- * O papel sozinho quase nunca é o que decide: o isolamento real vem de
- * `organizacao_id` ser NULL, e das consultas do back-office compararem sempre a
- * organização do processo com a de quem lê. Isto é a leitura legível dessa
- * mesma condição.
- */
+/** Dono da plataforma não pertence a nenhuma sociedade — leitura legível de `organizacao_id is null`. */
 export function eSuperAdmin(papel: string) {
   return papel === "super_admin";
 }
 
 /**
- * Quem vê as declarações de PPE e a origem dos fundos.
- *
- * Era o `assistente` que ficava de fora (§6 do brief), e o `assistente`
- * desapareceu: quem trabalha processos passou a ver o processo todo — e o
- * `gestor` da `0021` entra pela mesma razão, porque coordena quem os trabalha.
- *
- * Que o `super_admin` esteja aqui pode ler-se como uma contradição com a nota
- * do `podeVerEmails` logo abaixo: não é. O acesso transversal dele aos dados das
- * sociedades foi uma decisão tomada à parte, e o que fica de fora é o diário de
- * emails, que é operação corrente de uma sociedade e não supervisão da
- * plataforma.
+ * Quem vê declarações de PPE e origem dos fundos. Era o `assistente` que
+ * ficava de fora (§6 do brief); com o papel extinto, quem trabalha processos
+ * vê o processo todo — `gestor` (0021) entra pela mesma razão.
  */
 export function podeVerPpe(papel: string) {
   return (
@@ -253,40 +164,24 @@ export function podeReabrirProcesso(papel: string) {
 }
 
 /**
- * Quem pode reenviar o link de acesso de um processo ao cliente (BUG3-005).
- *
- * Só `society_admin` e o `super_admin` transversal — nem `gestor` nem
- * `utilizador`: reenviar o link é administração do acesso do cliente à
- * sociedade, não trabalho sobre o conteúdo do processo. É mais restrito do
- * que `podeReabrirProcesso`, que inclui o `gestor`, de propósito — reabrir
- * decide o que acontece a um dossier fechado; reenviar decide quem consegue
- * chegar a um que ainda está aberto.
+ * Quem pode reenviar o link de acesso ao cliente (BUG3-005). Só
+ * `society_admin`/`super_admin`, nem `gestor` nem `utilizador` — é
+ * administração de acesso, mais restrito que `podeReabrirProcesso` de propósito.
  */
 export function podeReenviarLinkProcesso(papel: string) {
   return papel === "society_admin" || papel === "super_admin";
 }
 
 /**
- * O diário de emails é administração da sociedade.
- *
- * A lista mostra a quem a sociedade escreveu e quando — endereços de clientes,
- * lado a lado, numa página só. É para diagnóstico, não para o trabalho do dia,
- * e não há razão para estar ao alcance de quem preenche processos.
- *
- * O `super_admin` também não entra: os emails são de uma sociedade e ele não
- * está em nenhuma. O portal dele é outro.
+ * Diário de emails é administração da sociedade — página de diagnóstico, não
+ * trabalho do dia. `super_admin` também não entra: os emails são de uma
+ * sociedade e ele não está em nenhuma.
  */
 export function podeVerEmails(papel: string) {
   return papel === "society_admin";
 }
 
-/**
- * Quem cria contas dentro de uma sociedade.
- *
- * O `super_admin` cria em qualquer uma (é ele quem abre a sociedade e lhe dá o
- * primeiro administrador); o `society_admin` cria na sua. O `gestor` e o `utilizador`
- * não criam nenhuma — dar acesso a um sistema de KYC é uma decisão de administração.
- */
+/** Quem cria contas: `super_admin` em qualquer sociedade, `society_admin` na sua — `gestor`/`utilizador` não criam nenhuma. */
 export function podeGerirUtilizadores(papel: string) {
   return papel === "super_admin" || papel === "society_admin";
 }
@@ -316,16 +211,9 @@ export function podeAcederSociedade(
 /* ---------------------------------------------------------------- os guards */
 
 /**
- * Manda quem não pertence aqui para o portal dele — e não para o início de
- * sessão.
- *
- * A diferença conta: quem chega a uma página sem ter papel para ela **tem**
- * sessão válida, e mandá-lo autenticar-se outra vez sugeria que o problema era
- * a sessão. Passa a cair no sítio onde efetivamente trabalha.
- *
- * O guard tem de estar na página (ou no layout que a serve) e não só na
- * navegação: esconder a entrada na barra lateral é cortesia, não é fechar o
- * endereço a quem o escreve à mão.
+ * Manda quem não pertence aqui para o portal dele, não para o login — a
+ * sessão é válida, só o papel é errado. Tem de estar na página em si, não só
+ * na navegação: esconder a entrada na barra lateral não fecha o endereço.
  */
 async function exigirPapel(permitidos: readonly Papel[]) {
   const s = await exigirSessao();
@@ -334,20 +222,11 @@ async function exigirPapel(permitidos: readonly Papel[]) {
 }
 
 /**
- * O mesmo, para os papéis que **têm** sociedade — e a devolver `organizacaoId`
- * já como `string`.
- *
- * Desde a `0016` a coluna é anulável, e sem esta função o `null` do
- * `super_admin` viajava pelo código todo: cada consulta que compara a
- * organização do processo com a de quem lê passava a precisar de um `!` ou de
- * um `?? ""`, e um deles mais cedo ou mais tarde fica errado. Aqui a restrição
- * da base de dados (`utilizador_org_por_papel`) é traduzida uma única vez para
- * o sistema de tipos, no sítio onde o papel acabou de ser verificado.
- *
- * O `redirect` desse ramo é defensivo: com a restrição em vigor não há linha
- * que o alcance. Se alguma existir — uma base anterior à migração, um `UPDATE`
- * infeliz — o que ela precisa é de parar à entrada, e não de descobrir a meio
- * de uma consulta que não tem organização nenhuma para comparar.
+ * O mesmo, para papéis com sociedade — devolve `organizacaoId` já como
+ * `string`. Sem isto, o `null` do `super_admin` viajava pelo código todo,
+ * exigindo `!`/`?? ""` em cada consulta. Traduz a restrição da base de dados
+ * (`utilizador_org_por_papel`) uma única vez para o sistema de tipos; o
+ * `redirect` é defensivo — não há linha real que o alcance.
  */
 async function exigirPapelComSociedade(permitidos: readonly Papel[]) {
   const s = await exigirPapel(permitidos);
@@ -361,15 +240,7 @@ export async function exigirSuperAdmin() {
   return exigirPapel(["super_admin"]);
 }
 
-/**
- * Só quem administra a sociedade.
- *
- * Era o `exigirAdmin` de antes, com o mesmo papel a fazer o mesmo trabalho — o
- * `admin` da sociedade passou a chamar-se `society_admin` e o nome do guard
- * acompanhou. Sem alias para o nome antigo: um `exigirAdmin` a viver ao lado
- * de um `exigirSuperAdmin` é uma armadilha de leitura por 25 caracteres
- * poupados.
- */
+/** Só quem administra a sociedade — nome acompanha o papel `society_admin` (antigo `admin`). */
 export async function exigirSocietyAdmin() {
   return exigirPapelComSociedade(["society_admin"]);
 }
@@ -393,26 +264,15 @@ export async function exigirEquipaOuSuperAdmin() {
 }
 
 /**
- * Quem pode criar contas — o dono da plataforma ou o administrador da
- * sociedade.
- *
- * Sem `ComSociedade`: é o único guard onde os dois lados da fronteira se
- * encontram, e o `super_admin` que passa por aqui não tem organização por
- * definição. Quem o chamar tem de decidir **em que sociedade** está a criar a
- * conta — e é isso que `sociedadeAlvo()`, em `features/plataforma/acoes.ts`,
- * resolve: para o `society_admin` é sempre a dele (o parâmetro é ignorado), e
- * para o `super_admin` é a que vier indicada.
+ * Quem pode criar contas: dono da plataforma ou administrador da sociedade.
+ * Sem `ComSociedade` — `super_admin` não tem organização por definição; quem
+ * chama decide em que sociedade, via `sociedadeAlvo()`.
  */
 export async function exigirGestorDeUtilizadores() {
   return exigirPapel(["super_admin", "society_admin"]);
 }
 
-/**
- * Alias de compatibilidade para o código pré-RBAC.
- *
- * Equivalente a `exigirSocietyAdmin`. Mantido para as páginas e Server Actions
- * de administração que foram escritas contra o antigo nome do papel.
- */
+/** Equivalente a `exigirSocietyAdmin` — nome usado pela feature `administracao/`. */
 export async function exigirAdministracao() {
   return exigirSocietyAdmin();
 }

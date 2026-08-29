@@ -61,52 +61,21 @@ function restricaoViolada(erro: unknown): string {
 /**
  * Cria um processo e devolve o link mágico.
  *
- * O token em claro é devolvido uma única vez, aqui — depois disto só existe o
- * hash na base de dados. Quem perder o link pede outro; ninguém o recupera.
+ * Token em claro só existe nesta chamada; a BD guarda o hash (D4). Dados de
+ * abertura (nome/NIPC/email) ficam gravados no processo — obrigatórios em
+ * pessoa coletiva, para identificar a entidade antes do passo 1.
  *
- * Os dados de abertura (nome/denominação, NIPC, email) ficam gravados no
- * processo. Antes não ficavam em lado nenhum: o nome servia a saudação de um
- * email que a D33 tirou, e o processo nascia sem uma pista de quem era até o
- * cliente chegar ao passo 1. Numa pessoa coletiva são obrigatórios — é por eles
- * que a sociedade identifica a entidade que acabou de abrir.
+ * Exige sessão (D59): sem isto, o identificador da ação bastava para abrir
+ * processos e disparar emails de registo para qualquer endereço.
  *
- * Com email, o link segue também por mensagem ("JMASSANO | Registro"). O envio
- * nunca faz falhar a criação: o processo já existe e o link continua a ser
- * mostrado no ecrã, que é a forma de o recuperar quando o email não sai.
- *
- * **Exige sessão** (D59). Era uma Server Action pública: um `POST` direto ao
- * identificador da ação criava processos e fazia sair o email "JMASSANO |
- * Registro" para qualquer endereço, em nome da sociedade e à custa da quota do
- * fornecedor. A organização deixa de ser "a primeira que a base de dados
- * devolver" e passa a ser a de quem está autenticado — que é a mesma regra que
- * o `processoParaDecisao` e o download de documentos já aplicavam.
- *
- * **A partir do `INSERT` do processo esta função não rejeita** (D46). Cada passo
- * a seguir — cabeçalhos, auditoria, endereço público, envio, revalidação —
- * corre dentro do seu próprio `try`, e nenhum pode impedir o seguinte. Não é
- * zelo: o token em claro só existe nesta chamada, e o envio está atrás de um
- * `if` a que se chegava por três `await` sem rede por baixo. Qualquer um deles
- * a lançar dava um processo gravado, um `/emails` a zero e uma janela a dizer
- * "o servidor não respondeu" — uma avaria de auditoria com a cara de uma avaria
- * de email, e sem rasto nenhum a desfazer a confusão.
+ * A partir do INSERT não rejeita (D46): cada passo corre no seu try, para uma
+ * falha de auditoria não derrubar o email nem o link já gravado.
  */
 export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: string }) {
-  /*
-   * A primeira linha do rasto, e é a **primeira instrução da ação** de
-   * propósito: diz o que a Server Action recebeu de facto, antes de qualquer
-   * coisa poder recusá-lo. Estava depois do `safeParse`, e por isso uma carga
-   * rejeitada pelo schema não deixava linha nenhuma no servidor — que é
-   * precisamente o caso em que se precisa de saber o que chegou cá.
-   *
-   * Regista a **forma** e não só os valores. Se algum dia aparecer aqui
-   * `string:particular` em vez de `{tipoCliente,nome,email}`, a resposta está
-   * dada sem mais investigação: o separador aberto no browser está a chamar
-   * esta ação com a assinatura antiga, de três argumentos posicionais
-   * (`criarProcesso(tipo, email, nome)`), contra um servidor que já espera um
-   * objeto — e o email cai no chão entre os dois sem deixar rasto em `email_log`,
-   * porque o `enviarEmail` nunca chega a ser chamado. Recarregar a página é a
-   * cura; saber que é isso é o que custava horas.
-   */
+  // Primeira instrução da ação, antes do safeParse — uma carga rejeitada pelo
+  // schema também fica registada. Regista a forma (chaves), não os valores:
+  // "string:particular" em vez de "{tipoCliente,nome,email}" indica um
+  // separador antigo a chamar a ação com a assinatura anterior.
   const bruto: unknown = entrada;
   const forma =
     typeof bruto === "object" && bruto !== null
@@ -114,31 +83,18 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
       : `${typeof bruto}:${String(bruto)}`;
   console.info(`[processo] pedido de criação recebido — carga=${forma}`);
 
-  /*
-   * Sessão primeiro, antes de qualquer trabalho e antes de qualquer email.
-   *
-   * Uma Server Action é um endpoint HTTP como outro qualquer — a mesma nota que
-   * o `guardarPasso` do onboarding traz há muito, e que aqui faltava. Sem esta
-   * linha, quem descobrisse o identificador da ação (que vai no HTML de
-   * qualquer página do back-office, e chega a viajar em separadores abertos)
-   * tinha um botão para abrir processos e disparar o email de registo para
-   * endereços à escolha, com o remetente e o domínio da sociedade à frente.
-   *
-   * `exigirSessao` redireciona para `/entrar` quando não há sessão — o mesmo
-   * comportamento do `processoParaDecisao` e das páginas do back-office. Numa
-   * chamada sem sessão a ação não devolve resultado nenhum, que é exatamente o
-   * que se pretende.
-   */
+  // Sessão antes de qualquer trabalho e antes de qualquer email — mesma regra
+  // do `guardarPasso` do onboarding. Sem isto, o identificador da ação (que
+  // viaja no HTML de qualquer página do back-office) bastava para abrir
+  // processos e disparar o email de registo para qualquer endereço.
   const { eu } = await exigirEquipaOuSuperAdmin();
 
-  // O cliente já validou, e isso é conforto. A decisão é aqui: um NIPC com o
-  // checksum errado não entra por a janela ter sido contornada.
+  // Validação do cliente é conforto, não garantia — decide-se aqui.
   const analise = novoProcesso.safeParse(entrada);
   if (!analise.success) {
     const problema = analise.error.issues[0];
-    // O `campo` é o que permite pôr o erro por baixo da caixa certa em vez de
-    // um aviso genérico no fundo da janela — com dois campos obrigatórios no
-    // percurso Empresa, "dados inválidos" deixa de dizer o que corrigir.
+    // O campo aponta o erro à caixa certa em vez de um aviso genérico no
+    // fundo da janela.
     return falha(
       problema?.message ?? "Dados inválidos.",
       typeof problema?.path[0] === "string" ? problema.path[0] : undefined,
@@ -155,10 +111,8 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
 
   const base = db();
 
-  /*
-   * A organização é a de quem está autenticado (para equipa da sociedade)
-   * ou a indicada na entrada (para o super_admin transversal).
-   */
+  // Organização de quem está autenticado (equipa da sociedade) ou a indicada
+  // na entrada (super_admin transversal).
   const orgId =
     eu.papel === "super_admin"
       ? (entrada.organizacaoId ?? eu.organizacaoId)
@@ -186,17 +140,9 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
     .values({ organizacaoId: org.id, ano, ultimo: 0 })
     .onConflictDoNothing({ target: [contadorReferencia.organizacaoId, contadorReferencia.ano] });
 
-  /*
-   * O token e o seu hash saem do mesmo sítio e da mesma chamada.
-   *
-   * Estavam em duas linhas — `gerarToken()` aqui, `hashToken(token)` lá em
-   * baixo, dentro do `values` — e enquanto ninguém lhes tocasse davam sempre o
-   * mesmo par. O que se guarda contra é o dia em que deixem de dar: um token
-   * gravado com o hash de outra coisa é um processo real, visível em
-   * `/processos`, com um link que a consulta por hash nunca encontra. O cliente
-   * carrega no botão do email e leva com um ecrã de "não existe" — e não há
-   * nada, do lado dele, que possa estar errado.
-   */
+  // Token e hash saem da mesma chamada, não de duas linhas separadas —
+  // divergir dava um processo real cujo link a consulta por hash nunca
+  // encontra: o cliente carrega no email e leva com "não existe".
   const { token, hash } = novoTokenAcesso();
   const expiraEm = expiraDaquiA(30);
 
@@ -233,21 +179,12 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
       if ((erro as { code?: string }).code !== "23505") throw erro;
 
       /*
-       * Duas restrições únicas nesta tabela, e a diferença entre elas é a
-       * diferença entre repetir e não poder repetir.
-       *
-       * `processo_referencia_org` é a colisão que se espera — dois pedidos ao
-       * mesmo tempo a apanharem o mesmo número — e a resposta é tirar outro
-       * número e tentar de novo, que é o que já estava.
-       *
-       * `processo_token` é outra coisa: significa que **já existe uma linha
-       * gravada com este token**, quase sempre porque o INSERT anterior chegou
-       * a ser confirmado pelo Postgres e a resposta perdeu-se a caminho.
-       * Repetir com o mesmo token nunca pode funcionar, e o que estava aqui
-       * repetia-o mais quatro vezes e desistia com "tente novamente" — deixando
-       * atrás um processo real, a que ninguém volta a chegar, porque o único
-       * token que o abre estava nesta chamada e ia ser deitado fora com ela.
-       * Recupera-se a linha pelo mesmo caminho que o cliente vai usar.
+       * Duas restrições únicas, tratamento diferente. `processo_referencia_org`
+       * é colisão esperada (dois pedidos em simultâneo) — tira-se outro número
+       * e repete-se. `processo_token` significa que já existe uma linha gravada
+       * com este token (o INSERT anterior confirmou e a resposta perdeu-se);
+       * repetir nunca resolve, por isso recupera-se a linha pelo mesmo caminho
+       * que o cliente usa.
        */
       if (restricaoViolada(erro).includes("processo_token")) {
         const recuperado = await acessoPorToken(token);
@@ -273,65 +210,28 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
   }
 
   /**
-   * A mesma linha, numa constante.
-   *
-   * O `processo` é um `let` — tem de ser, o ciclo atribui-lhe —, e o
-   * TypeScript não leva a garantia de "já não é `undefined`" para dentro de uma
-   * função criada a seguir. O `auditar` aqui em baixo é uma dessas funções.
+   * `processo` é `let` (o ciclo atribui-lhe) e o TypeScript não propaga a
+   * garantia de não-undefined para as closures definidas a seguir (`auditar`).
    */
   const dossier = processo;
 
   /*
-   * ------------------------------------------------------------------------
-   * Daqui para baixo o processo **já está gravado**, e nada pode rebentar.
-   *
-   * É este o defeito que sobreviveu às três passagens anteriores. O envio do
-   * email está atrás de um `if`, e chegar a esse `if` dependia de três `await`
-   * sem rede por baixo — `headers()`, o `registarEvento` do `processo.criado`
-   * e o `origemPublica()`. Qualquer um deles a lançar produzia exatamente o
-   * ecrã que foi relatado, e produzia-o **sem uma única pista**:
-   *
-   *   · o processo aparece em `/processos`, porque o INSERT já tinha sido
-   *     confirmado;
-   *   · o `/emails` fica a «0 mensagens», porque o `enviarEmail` — que é quem
-   *     escreve em `email_log` (D34) — nunca chegou a ser chamado;
-   *   · não há `link.enviado`, nem `link.envio_falhou`, nem `link.sem_email`;
-   *   · e a janela, que só vê uma promessa rejeitada, diz "o servidor não
-   *     respondeu" — uma frase que se lê como falha de rede e não como
-   *     "o teu email nunca vai sair".
-   *
-   * Ou seja: um erro em código que **não tem nada a ver com email** apresenta-se
-   * como um email que não sai, e apaga-se a si próprio pelo caminho. Foi por
-   * isso que a leitura do caminho do envio nunca fechou o caso — o caminho do
-   * envio estava certo; o que estava errado era o que havia antes dele.
-   *
-   * A regra passa a ser uma só: **cada peça daqui para baixo corre dentro do
-   * seu próprio `try`**, e nenhuma pode impedir a seguinte. A auditoria fica
-   * onde estava — a ordem dos eventos no dossier não muda —, mas deixa de ser
-   * um passo por onde a ação possa morrer.
-   * ------------------------------------------------------------------------
+   * Daqui para baixo o processo já está gravado — nada pode rebentar. Chegar
+   * ao envio de email dependia de três awaits sem rede por baixo (headers,
+   * registarEvento, origemPublica); qualquer um a rebentar dava "/emails" a
+   * zero sem o enviarEmail ter sido chamado, e a janela dizia "o servidor não
+   * respondeu" — um erro de auditoria com cara de erro de email. Regra: cada
+   * peça a partir daqui corre no seu próprio try (D46).
    */
 
   /*
-   * O link é experimentado **antes** de ser entregue a alguém.
-   *
-   * Toda a gente confia neste caminho porque ele é curto: gera-se o token,
-   * grava-se o hash, devolve-se o token. Só que entre as duas pontas está o
-   * Postgres, e o que sai de lá pode não ser o que se pensa que entrou — uma
-   * coluna que o schema mudou, um trigger, um `apagado_em` com valor por
-   * omissão, um `expira_em` que o relógio do contentor põe no passado. Em
-   * qualquer desses casos o processo fica gravado, a janela mostra um link com
-   * ar perfeitamente normal, e o 404 só aparece do lado do cliente — dias
-   * depois, e sem ninguém saber ligá-lo ao momento em que o processo nasceu.
-   *
-   * Uma consulta, pela mesma função que serve a página do cliente. Se a linha
-   * não responder a este token, repõe-se o hash e a validade uma vez; e se nem
-   * assim, quem criou o processo fica a saber **no ecrã** que o link não abre,
-   * em vez de o enviar ao cliente e descobrir pela reclamação.
-   *
-   * Dentro de `try`, como tudo o resto daqui para baixo: uma verificação que
-   * rebentasse repunha, sozinha, o defeito que esta função inteira existe para
-   * não ter — a consulta a matar o email do cliente por não ter que ver com ele.
+   * O link é testado antes de ser entregue a alguém: token gerado e hash
+   * gravado nem sempre resultam num link que abre (schema mudado, trigger,
+   * expira_em no passado) — sem este teste o 404 só aparecia do lado do
+   * cliente, dias depois. Consulta pela mesma função que serve a página do
+   * cliente; se falhar, repõe-se o hash uma vez, e se ainda assim falhar quem
+   * criou o processo fica a saber no ecrã. Corre dentro de try como tudo o
+   * resto abaixo — não pode ser esta verificação a matar o email do cliente.
    */
   const linkAbre = async () => {
     try {
@@ -371,21 +271,16 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
   }
 
   /**
-   * Um evento de auditoria que nunca propaga.
-   *
-   * A cadeia de hashes continua a ser escrita pelo mesmo `registarEvento`, com
-   * as mesmas garantias; o que muda é que a **falha** a escrevê-la deixa de
-   * poder interromper o resto da ação. Um registo que se perde é mau; um
-   * registo que se perde *e* leva com ele o email do cliente e o link do
-   * dossier é a avaria que se esteve três sessões a perseguir.
+   * Evento de auditoria que nunca propaga — a cadeia de hashes continua a ser
+   * escrita pelo mesmo `registarEvento`; só a falha a escrevê-la deixa de
+   * poder interromper o resto da ação (D46).
    */
   const auditar = async (acao: string, valorNovo: Record<string, unknown>) => {
     try {
       await registarEvento({
         organizacaoId: org.id,
         processoId: dossier.id,
-        // Agora há autor: o processo nasce de alguém com sessão iniciada, e é
-        // essa a pergunta que o dossier passa a responder por escrito.
+        // Agora sempre com autor: o processo nasce de alguém com sessão.
         atorId: eu.id,
         acao,
         entidade: "processo_onboarding",
@@ -399,8 +294,7 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
     }
   };
 
-  // Os dados de abertura entram no evento: é a prova de com que identificação o
-  // dossier nasceu, antes de o cliente ter tocado nele.
+  // Dados de abertura no evento: prova de com que identificação o dossier nasceu.
   await auditar("processo.criado", {
     referencia,
     tipoCliente,
@@ -408,33 +302,20 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
     nif: nif ?? null,
   });
 
-  // Um link que não resolveu à primeira é um acontecimento do dossier, não uma
-  // linha de log: é a prova escrita de que o acesso esteve em risco, e a única
-  // maneira de o descobrir mais tarde sem ter a consola do contentor à mão.
+  // Falha de acesso é evento de auditoria, não só uma linha de log — permite
+  // descobrir mais tarde, sem consola do contentor à mão.
   if (!linkVerificado) {
     await auditar("link.nao_resolve", { referencia });
   }
 
-  /*
-   * O link, uma vez só, para os dois destinos.
-   *
-   * Estava dentro do `if (emailCliente)`, e por isso a janela não recebia link
-   * nenhum: montava-o à parte, com o `window.location.origin` do browser de
-   * quem estava a criar o processo. Os dois coincidem quase sempre e é por isso
-   * que a diferença passa despercebida — até alguém abrir o back-office por um
-   * túnel, por `localhost`, por um IP ou por um segundo domínio que aponte para
-   * a mesma instalação. Aí o link copiado da janela leva o anfitrião do
-   * back-office e o link do email leva o do pedido: o cliente recebe um
-   * endereço que não existe para ele, e o que vê é um 404. Um só sítio a
-   * montá-lo é um só endereço possível.
-   */
+  // Link montado uma vez só, no servidor, para os dois destinos (email e
+  // janela) — cada um a montar o seu divergia sempre que o back-office fosse
+  // acedido por túnel, localhost, IP ou segundo domínio (D48).
   let link = `/onboarding/${token}`;
   try {
     link = `${await origemPublica()}/onboarding/${token}`;
   } catch (erro) {
-    // Um link com o anfitrião em falta ainda se corrige a olho; um email que
-    // não sai por causa disso não se corrige de todo. A janela completa-o com
-    // a própria origem, que é o que ela sabe de melhor.
+    // Origem em falta ainda se corrige a olho; a janela completa com a sua própria origem.
     console.error(`[processo] ${referencia}: origemPublica falhou; link relativo`, erro);
   }
 
@@ -443,10 +324,8 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
   let erroEmail: string | undefined;
 
   if (emailCliente) {
-    // O `enviarEmail` já promete não propagar (D42) e o `auditar` também. Este
-    // `try` é o terceiro fecho, para o dia em que um deles deixe de o cumprir:
-    // o token em claro só existe nesta chamada, e uma exceção aqui não pode
-    // custar o link de um dossier que já está gravado.
+    // enviarEmail já não propaga (D42) e auditar também — este try é o
+    // terceiro fecho, para o token em claro não se perder por uma exceção aqui.
     try {
       const r = await enviarEmail({
         para: emailCliente,
@@ -455,21 +334,16 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
         template: "registo",
         organizacaoId: org.id,
         processoId: dossier.id,
-        // O mesmo hash que ficou em `processo_onboarding.token_acesso_hash`: é o
-        // que permite dizer "foi este link que saiu nesta mensagem" sem guardar
-        // o token em claro em mais um sítio (D4). Vem da constante e não da
-        // linha devolvida pelo INSERT — é o hash **deste** token, o mesmo que a
-        // verificação em cima experimentou, e não o que a base de dados diz ter
-        // gravado. Divergindo os dois, o diário do canal apontaria para um link
-        // que não é o que saiu na mensagem.
+        // Mesmo hash gravado em processo_onboarding.token_acesso_hash — liga
+        // o email enviado ao link que a verificação em cima experimentou (D4),
+        // sem guardar o token em claro em mais um sítio.
         tokenHash: hash,
       });
       emailEnviado = r.ok;
       if (!r.ok) erroEmail = r.erro;
 
-      // O envio fica em auditoria mesmo quando falha: um link de acesso a um
-      // processo que sai por email é um acontecimento, e saber que não saiu é
-      // tão relevante como saber que saiu.
+      // Falha de envio também vai a auditoria: saber que não saiu importa
+      // tanto como saber que saiu.
       await auditar(r.ok ? "link.enviado" : "link.envio_falhou", {
         para: emailCliente,
         ...(r.ok ? {} : { erro: r.erro }),
@@ -480,24 +354,16 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
       console.error(`[processo] ${referencia}: o email de registo rebentou`, erro);
     }
   } else {
-    // O ramo que faltava, e é o que fecha a investigação de 09/08.
-    //
-    // Um processo criado sem endereço não deixava rasto nenhum: nem em
-    // `email_log`, que só regista tentativas de envio e não pode registar um
-    // envio que ninguém pediu, nem em `evento_auditoria`. O `/emails` a dizer
-    // «0 mensagens» significava ao mesmo tempo "não havia endereço" e "havia
-    // endereço e o envio evaporou-se" — as duas hipóteses que sobraram depois
-    // de o `scripts/testar_email.mjs` provar que o Resend e a gravação do
-    // diário funcionam a partir do contentor. Com este evento, a primeira
-    // hipótese passa a ter prova positiva no dossier em vez de silêncio.
+    // Processo sem endereço não deixava rasto: nem em email_log (só regista
+    // tentativas), nem em evento_auditoria. Este evento dá prova positiva de
+    // que não havia endereço, em vez de silêncio (D44).
     console.warn(
       `[processo] ${referencia}: criado sem endereço de email — o email de registo não foi tentado.`,
     );
     await auditar("link.sem_email", { referencia });
   }
 
-  // Também com rede: uma revalidação de cache que rebente não pode ser a razão
-  // de o token em claro — que só existe nesta chamada — nunca chegar à janela.
+  // revalidatePath também não pode impedir o token de chegar à janela.
   try {
     revalidatePath("/");
   } catch (erro) {
@@ -508,34 +374,16 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
     ok: true as const,
     referencia,
     token,
-    /**
-     * O link tal e qual como ele vai no email. A janela mostra este, e não um
-     * que monte por sua conta — o que se copia do ecrã e o que o cliente recebe
-     * têm de ser o mesmo texto, senão há dois links a existir e só um funciona.
-     * Relativo (`/onboarding/…`) quando o anfitrião não se conseguiu apurar; a
-     * janela completa-o com a origem dela.
-     */
+    /** O mesmo texto do email — a janela não monta o seu próprio, senão há dois links e só um funciona. */
     link,
-    /**
-     * Se o link chegou a ser experimentado com sucesso contra a base de dados.
-     * A falso, o processo existe e o link **não abre** — quem o está a criar
-     * precisa de o saber antes de o enviar, não depois da reclamação.
-     */
+    /** Se o link foi testado com sucesso. A falso, o processo existe mas o link não abre. */
     linkVerificado,
     processoId: dossier.id,
     emailEnviado,
-    /**
-     * O endereço que o **servidor** recebeu, e não o que a janela julga ter
-     * mandado. É a única forma de a janela distinguir "escrevi um endereço e o
-     * envio falhou" de "escrevi um endereço e ele não chegou cá" — que se leem
-     * as duas como um email que não sai, e não se resolvem no mesmo sítio.
-     */
+    /** Endereço que o servidor recebeu — distingue "envio falhou" de "nunca chegou cá". */
     paraServidor: emailCliente ?? null,
-    // O motivo viaja até à janela de propósito. "Não foi possível enviar o
-    // email" sozinho manda quem o lê procurar nos logs do contentor, e a
-    // diferença entre um domínio por verificar no Resend, uma chave em falta e
-    // uma saída para a Internet fechada resolve-se em segundos quando está
-    // escrita no ecrã e em minutos ou horas quando não está.
+    // Motivo visível na janela: evita ir aos logs para distinguir domínio por
+    // verificar, chave em falta ou saída de rede fechada.
     erroEmail,
   };
 }
@@ -545,10 +393,9 @@ export async function criarProcesso(entrada: NovoProcesso & { organizacaoId?: st
 type ResultadoDecisao = { ok: true } | { ok: false; erro: string };
 
 /**
- * O email do cliente, para as duas decisões — o mesmo par de tabelas e a
- * mesma prioridade que `notificarSubmissao` usa em `features/onboarding/acoes.ts`:
- * a identificação, e a faturação como recurso quando o passo 1 não chegou a
- * ser gravado.
+ * Email do cliente para as duas decisões: identificação, com faturação como
+ * recurso quando o passo 1 não foi gravado (mesma prioridade de
+ * `notificarSubmissao` em `onboarding/acoes.ts`).
  */
 async function emailDoCliente(processoId: string) {
   const base = db();
@@ -570,11 +417,8 @@ async function emailDoCliente(processoId: string) {
 
 /**
  * Sessão, permissão e estado — as três guardas comuns a aprovar e a rejeitar.
- *
- * A mesma regra do detalhe do processo (`processoPorId` + a comparação de
- * organização): um processo de outra organização responde como se não
- * existisse, e não com um erro que revele que existe algures noutra conta.
- * O `super_admin` tem acesso transversal a todas as organizações.
+ * Um processo de outra organização responde como inexistente, não com um erro
+ * que revele que existe noutra conta (mesma regra do detalhe do processo).
  */
 async function processoParaDecisao(
   id: string,
@@ -604,14 +448,9 @@ async function processoParaDecisao(
 }
 
 /**
- * Aprova um processo: muda o estado, grava quem e quando, e envia as
- * boas-vindas ao cliente com os três anexos (`enviarBoasVindas`, partilhada
- * com a submissão — que já não a envia, ver D46 e a atualização do fluxo de
- * aprovação).
- *
- * O email é o último passo e corre dentro do seu próprio `try`, pelo mesmo
- * motivo do `criarProcesso`: a decisão já está gravada e um Resend em baixo
- * não pode transformar uma aprovação bem-sucedida num ecrã de erro.
+ * Aprova um processo: muda estado, grava autor/data, envia boas-vindas com os
+ * três anexos (`enviarBoasVindas`, partilhada com a submissão). O email corre
+ * no seu próprio try — a decisão já está gravada, um Resend em baixo não a desfaz.
  */
 export async function aprovarProcesso(id: string): Promise<ResultadoDecisao> {
   const verificacao = await processoParaDecisao(id);
@@ -622,12 +461,9 @@ export async function aprovarProcesso(id: string): Promise<ResultadoDecisao> {
 
   try {
     atualizado = await db().transaction(async (tx) => {
-      // A guarda de estado no próprio UPDATE, não só no SELECT de
-      // `processoParaDecisao`: entre o SELECT e aqui, outro pedido pode ter
-      // decidido o mesmo processo (dois separadores, ou o cliente a submeter
-      // outra vez em cima da decisão). Sem esta condição no WHERE, a última
-      // escrita ganhava calada — a mesma classe de falha que o OTP já evita
-      // com `WHERE tentativas < 5`.
+      // Guarda de estado também no UPDATE, não só no SELECT de
+      // processoParaDecisao — entre os dois, outro pedido (dois separadores,
+      // um duplo submit) pode ter decidido o mesmo processo.
       const [res] = await tx
         .update(processoOnboarding)
         .set({ estado: "aprovado", aprovadoEm: new Date(), aprovadoPor: atorId })
@@ -708,8 +544,7 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
 
   try {
     rejeitado = await db().transaction(async (tx) => {
-      // Mesma guarda de estado no UPDATE que `aprovarProcesso` — ver o
-      // comentário lá.
+      // Mesma guarda de estado no UPDATE que aprovarProcesso.
       const [res] = await tx
         .update(processoOnboarding)
         .set({ estado: "rejeitado", motivoRejeicao: motivo })
@@ -802,20 +637,12 @@ export async function rejeitarProcesso(id: string, motivoBruto: string): Promise
 }
 
 /**
- * Reabre um processo (Frente M): muda o estado, renova o acesso do cliente,
- * grava o motivo na auditoria e notifica o cliente por email com o modelo de reabertura.
+ * Reabre um processo (Frente M): muda estado, renova o acesso do cliente,
+ * grava o motivo em auditoria e notifica por email. Só permitido a partir de
+ * `arquivado` (→ `em_revisao`) ou `rejeitado` (→ `pendente_cliente`).
  *
- * Apenas permitido para processos nos estados `arquivado` ou `rejeitado`.
- *
- * Transições de estado:
- * - `arquivado` -> `em_revisao`
- * - `rejeitado` -> `pendente_cliente`
- *
- * **`aprovado` não reabre** (imutabilidade definitiva): um processo aprovado é
- * um dossier fechado — a aprovação é a decisão final da sociedade sobre a
- * identificação do cliente, e um estado que se rebenta a pedido desfaz o que
- * `aprovado_em`/`aprovado_por` dizem ter acontecido. A tentativa fica em
- * auditoria e a ação responde com a mensagem de processo imutável.
+ * `aprovado` nunca reabre — é a decisão final da sociedade; a tentativa fica
+ * em auditoria e a ação responde com mensagem de processo imutável.
  */
 export async function reabrirProcesso(
   id: string,
@@ -848,12 +675,7 @@ export async function reabrirProcesso(
     return falha("Processo não encontrado.");
   }
 
-  /*
-   * `aprovado` saiu do mapa de reabertura (imutabilidade definitiva): o
-   * processo aprovado não volta a `em_revisao`, nem por botão nem por chamada
-   * direta à ação. A tentativa fica registada em auditoria (D46) e a resposta
-   * é a mesma mensagem que as restantes ações recusam.
-   */
+  // aprovado não reabre (imutabilidade definitiva) — tentativa fica em auditoria.
   if (processo.estado === "aprovado") {
     let ipTentativa: string | null = null;
     let userAgentTentativa: string | null = null;
@@ -1014,28 +836,17 @@ export async function reabrirProcesso(
 }
 
 /**
- * Reenvia o link de acesso de um processo ao cliente (BUG3-005).
+ * Reenvia o link de acesso de um processo ao cliente (BUG3-005): o link
+ * expira aos 30 dias, ou o cliente esgota a quota de OTP e fica sem forma de
+ * voltar a entrar.
  *
- * Problema: o link expira ao fim de 30 dias, ou o cliente esgota a quota de
- * pedidos de OTP e fica sem forma de voltar a entrar — e a única saída, até
- * aqui, era a sociedade criar um processo novo, que perdia o histórico e a
- * referência do primeiro.
+ * Restrito a `society_admin`/`super_admin` (`podeReenviarLinkProcesso`) — é
+ * administração de acesso, não trabalho sobre o processo. Só nos estados
+ * editáveis (`rascunho`, `pendente_cliente`, `em_revisao`); `aprovado` é
+ * imutável (D59/D20).
  *
- * Apenas para `society_admin` e o `super_admin` transversal
- * (`podeReenviarLinkProcesso`) — é administração do acesso do cliente à
- * sociedade, não trabalho sobre o processo, e por isso mais restrito do que
- * `podeReabrirProcesso`. Só nos estados editáveis (`rascunho`,
- * `pendente_cliente`, `em_revisao`); `aprovado` é imutável (D59/D20) e os
- * restantes (`submetido`, `aguardar_aprovacao`, `rejeitado`, `arquivado`) já
- * têm o seu próprio caminho — decisão ou reabertura.
- *
- * **Não reutiliza o token existente.** O brief original pedia para reusar o
- * token gravado, mas isso não é possível: só o SHA-256 fica na base de dados
- * (D4), o texto original existiu uma única vez, na chamada que criou o
- * processo, e um hash não se inverte. Gera-se por isso um token novo, como
- * `reabrirProcesso` já fazia — a diferença para a reabertura é que o `estado`
- * **não muda**: reenviar um link não é reabrir um processo fechado, é dar a
- * quem já está a meio do preenchimento uma forma de lá voltar.
+ * Gera sempre um token novo — só o SHA-256 fica gravado (D4), o hash não se
+ * inverte. Ao contrário de `reabrirProcesso`, o `estado` não muda.
  */
 export async function reenviarLinkProcesso(id: string): Promise<ResultadoDecisao> {
   const { eu } = await exigirEquipaOuSuperAdmin();
@@ -1187,11 +998,8 @@ export async function atualizarSeccaoProcesso(
   }
 
   if (processo.estado === "aprovado" || processo.estado === "arquivado") {
-    /*
-     * A recusa não fica silenciosa: a tentativa de editar um dossier fechado
-     * fica em auditoria (D46), com o passo que se tentou gravar — é a prova de
-     * quem tentou, quando e por onde.
-     */
+    // Recusa registada: tentativa de editar dossier fechado fica em auditoria
+    // (D46), com o passo que se tentou gravar.
     try {
       await registarEvento({
         organizacaoId: processo.organizacaoId,
@@ -1221,12 +1029,7 @@ export async function atualizarSeccaoProcesso(
 
   const insere = <T>(extra: Record<string, unknown>) => ({ processoId: processo.id, ...extra }) as T;
 
-  /**
-   * Só os campos que o pedido realmente mudou, comparados com o que estava
-   * gravado antes deste UPDATE — sem isto, `processo.dados_atualizados`
-   * dizia quem e quando, nunca o quê, e o advogado podia corrigir um dossier
-   * sem deixar rasto do que mudou.
-   */
+  /** Só os campos que mudaram face ao que estava gravado — o diff é o que entra em auditoria. */
   const apenasAlterados = (
     antes: Record<string, unknown> | undefined,
     depois: Record<string, unknown>,

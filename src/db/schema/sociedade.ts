@@ -23,22 +23,14 @@ import { organizacao, utilizador } from "./organizacao";
 /**
  * The firm's own onboarding — the leg that comes before everything else.
  *
- * Until now the platform started at the point where a firm already existed:
- * the organisation came from the seeds and the accounts were written on the
- * server (D23). That is fine for one firm and stops being fine at the second —
- * and the whole shape of this product is multi-tenant since day one (see
- * `organizacao`). What was missing was the process by which a firm *becomes* a
- * row in that table, with its data, its wording and its first administrator.
+ * Until now the platform started from an organisation already in the seeds,
+ * with accounts written on the server (D23) — fine for one firm, not for the
+ * second. The row is born with the organisation shell from
+ * `scripts/convidar_sociedade.mjs`, using the same magic link mechanism as the
+ * client's (D4, SHA-256 only).
  *
- * The row is born with the organisation shell, from
- * `scripts/convidar_sociedade.mjs`, and carries the same magic link mechanism
- * as the client's (D4: only the SHA-256 is stored). The firm walks the steps,
- * submits, and from that moment the organisation is `ativa` and the first
- * administrator has an invitation of their own waiting in the inbox.
- *
- * One row per organisation, and that is on purpose: re-onboarding a firm is not
- * a second row, it is editing the one that exists — otherwise "which of these
- * is the firm's data?" becomes a question with two answers.
+ * One row per organisation: re-onboarding is editing the row that exists, not
+ * creating a second one.
  */
 export const onboardingSociedade = pgTable(
   "onboarding_sociedade",
@@ -73,20 +65,13 @@ export const onboardingSociedade = pgTable(
 /**
  * Documents that belong to nobody's matter.
  *
- * `documento.processo_id` is `not null`, and that was the right call for what
- * that table holds — every client file hangs off a case file. The firm's T&C
- * and a lawyer's professional card hang off no case file at all, and
- * `docs/TERMOS_SOCIEDADE.md` left the choice open between "a dedicated table"
- * and "`processo_id` stops being mandatory". With the shape now in hand, the
- * dedicated table is the one that costs less: making `processo_id` nullable
- * would weaken a constraint that is correct for every existing row in order to
- * accommodate documents with a different owner, a different lifetime and a
- * different set of readers.
+ * `documento.processo_id` is `not null`, which is right for that table — but
+ * the firm's T&C and a lawyer's bar card hang off no case file. A dedicated
+ * table costs less than making `processo_id` nullable, which would weaken a
+ * constraint correct for every existing row.
  *
- * Two owners, and exactly one of them per row: the organisation (the firm's
- * T&C) or an invitation (a person's identification, their bar card). The
- * organisation is always present because everything here is tenant-scoped;
- * `convite_id` is what says "this is a person's, not the firm's".
+ * Two owners, one per row: the organisation (the firm's T&C) or an invitation
+ * (a person's document). `convite_id` is what distinguishes the two.
  */
 export const documentoOrganizacao = pgTable(
   "documento_organizacao",
@@ -123,16 +108,12 @@ export const documentoOrganizacao = pgTable(
  * An invitation for a person to join the firm — the entry point of user
  * onboarding.
  *
- * It is the same mechanism as the client's magic link, and deliberately so: the
- * person being invited has no account yet, so there is nothing to authenticate
- * them with. What they have is an address the firm wrote to, and a token that
- * only opens their own onboarding.
+ * Same mechanism as the client's magic link: the invited person has no
+ * account yet, only an address the firm wrote to and a token.
  *
- * The invitation is what the onboarding data hangs off, **not** the user
- * account — the account does not exist until the last step. Keying the profile
- * to `utilizador` instead would mean creating the account up front, and an
- * account that exists before its owner finished identifying themselves is an
- * account that can log in without having done so.
+ * The onboarding data hangs off the invitation, not the user account — the
+ * account only exists from the last step, so it can't log in before its owner
+ * finished identifying themselves.
  */
 export const conviteUtilizador = pgTable(
   "convite_utilizador",
@@ -173,11 +154,9 @@ export const conviteUtilizador = pgTable(
 /**
  * What a person fills in during their onboarding.
  *
- * Separate from `utilizador` for the same reason `dados_identificacao` is
- * separate from `processo_onboarding`: one is the record's identity in the
- * system (role, organisation, whether it is active), the other is the data
- * collected about the person. They have different lifetimes — the account can
- * be deactivated and reactivated without the profile changing a line — and
+ * Separate from `utilizador` for the same reason as `dados_identificacao`
+ * versus `processo_onboarding`: identity in the system (role, organisation,
+ * active) versus data collected about the person — different lifetimes,
  * different readers.
  */
 export const perfilUtilizador = pgTable(
@@ -215,10 +194,9 @@ export const perfilUtilizador = pgTable(
 
     /* --------------------------------------------------- step 2: professional */
     /**
-     * The Bar Association registration number. It is what distinguishes a lawyer
-     * from everybody else in the firm, and it is the number the acts are signed
-     * with — an assistant does not have one, and requiring it of them would make
-     * the step impossible to finish for a role that legitimately has none.
+     * Bar Association registration number — what distinguishes a lawyer from
+     * the rest of the firm. An assistant legitimately has none; requiring it
+     * would make the step impossible to finish for that role.
      */
     cedulaProfissional: text("cedula_profissional"),
     /** The Bar's district council (Lisboa, Porto, Coimbra…). */
@@ -229,26 +207,13 @@ export const perfilUtilizador = pgTable(
 
     /* ------------------------------ step 4: GDPR and professional secrecy
      *
-     * These are the columns a legal review asks about first, and they are
-     * declarations, not preferences.
-     *
-     * `informacaoRgpdEm` is the timestamp at which the person was **shown** the
-     * data-protection notice. It is not consent and must not be read as one:
-     * the firm processes its own lawyers' data under contract and legal
-     * obligation, and asking for consent where consent is not the lawful basis
-     * produces a consent that is invalid and, worse, that the person believes
-     * they can withdraw. What is recorded is that the information duty
-     * (articles 13/14 GDPR) was discharged, and when.
-     *
-     * `sigiloProfissional` **is** a declaration, and a mandatory one: the
-     * Estatuto da Ordem dos Advogados binds every lawyer to professional
-     * secrecy, and somebody who is about to see client identification
-     * documents, PEP declarations and source-of-funds statements confirms in
-     * writing that they know it applies to what they will find here.
-     *
-     * `comunicacoesInternas` is the only one of the three that is real consent,
-     * which is why it is the only one that may be `false` and still let the
-     * step close.
+     * The three columns are not the same kind of thing. `informacaoRgpdEm` is
+     * when the person was shown the notice — information, not consent: the
+     * firm processes lawyers' data under contract and legal obligation, and
+     * consent where it isn't the lawful basis is invalid and revocable when it
+     * shouldn't be. `sigiloProfissional` is a mandatory declaration (Estatuto
+     * da OA). `comunicacoesInternas` is the only real consent, hence the only
+     * one allowed to stay `false`.
      */
     informacaoRgpdEm: timestamp("informacao_rgpd_em", { withTimezone: true }),
     sigiloProfissional: boolean("sigilo_profissional").notNull().default(false),
@@ -265,17 +230,14 @@ export const perfilUtilizador = pgTable(
 );
 
 /**
- * A person accepting the firm's T&C — the evidence, one row per acceptance.
+ * A person accepting the firm's T&C — evidence, one row per acceptance.
  *
- * This is the point the client's review asked for: the firm's wording is the
- * same from lawyer to lawyer, and every person joining has to send it back
- * accepted. `consentimento` could not hold it — its `processo_id` is `not null`
- * and points at a client matter, which this is not.
+ * `consentimento` couldn't hold this: its `processo_id` is `not null` and
+ * points at a client matter, which this isn't.
  *
- * The row is **never updated**. A new version of the wording produces a new
- * row, and the old one keeps saying what that person accepted on that day
- * (D3/D38). `versao` is copied and not referenced on purpose: it is the value
- * that was in force at that instant, and a copy cannot be edited from elsewhere.
+ * Never updated. A new wording version produces a new row, and the old one
+ * keeps saying what that person accepted on that day (D3/D38). `versao` is
+ * copied rather than referenced — a copy can't be edited from elsewhere.
  */
 export const aceitacaoTermos = pgTable(
   "aceitacao_termos",

@@ -13,15 +13,12 @@ import { PAPEIS_DE_SOCIEDADE } from "./importacao";
 /**
  * O prefixo da referência.
  *
- * Maiúsculas e dígitos, 2 a 6 caracteres: é o que cabe em `PMF-2026-0142` sem
- * a referência deixar de se ler. Sem espaços nem acentos porque isto entra em
- * nomes de pasta no servidor de arquivo (`lib/storage`) e em assuntos de email
- * — dois sítios onde um `ç` viaja mal.
+ * Maiúsculas e dígitos, 2 a 6 caracteres — o que cabe em `PMF-2026-0142` sem
+ * a referência deixar de se ler. Sem espaços nem acentos: entra em nomes de
+ * pasta no arquivo (`lib/storage`) e em assuntos de email.
  *
- * A normalização (maiúsculas, cortar espaços) é feita **antes** da validação e
- * não depois: quem escreve "pmf" está a escrever o prefixo certo em minúsculas,
- * e recusá-lo por isso seria fazer o utilizador adivinhar uma regra de
- * formatação que a plataforma podia aplicar sozinha.
+ * Normaliza (maiúsculas, corta espaços) antes de validar: "pmf" é o prefixo
+ * certo escrito em minúsculas, não um erro a recusar.
  */
 const prefixo = z
   .string()
@@ -37,18 +34,16 @@ const prefixo = z
 /**
  * O NIPC da sociedade.
  *
- * `validarNipc` e não `validarNif` (D54): uma sociedade é uma pessoa coletiva,
- * e o NIF de uma pessoa singular é uma resposta errada em substância aqui — o
- * número ficava gravado como sendo o da entidade.
+ * `validarNipc`, não `validarNif` (D54): é uma pessoa coletiva, e o NIF de
+ * pessoa singular ficava gravado como sendo o número da entidade.
  */
 const nipc = z
   .string()
   .transform(normalizarNumeroFiscal)
   .superRefine((valor, ctx) => {
     const r = validarNipc(valor);
-    // A mensagem vem do validador e não daqui: ele sabe distinguir "começa pelo
-    // dígito errado" de "o dígito de controlo teria de ser 4", e essas duas
-    // mandam corrigir sítios diferentes do número (D54).
+    // A mensagem vem do validador: distingue "começa pelo dígito errado" de
+    // "o dígito de controlo teria de ser 4" (D54), sítios diferentes a corrigir.
     if (!r.valido) ctx.addIssue({ code: "custom", message: r.mensagem });
   });
 
@@ -75,10 +70,9 @@ export type DadosSociedade = z.infer<typeof sociedadeSchema>;
 /**
  * O remetente da sociedade — ou o pedido para deixar de haver um.
  *
- * O vazio é uma resposta válida e transforma-se em `null`, não num erro: apagar
- * o campo é como se volta ao remetente global da instalação, e é a única saída
- * de quem configurou um domínio errado. Um `min(1)` aqui deixava a sociedade
- * presa a um endereço que já não serve.
+ * Vazio é válido e vira `null`: é como se volta ao remetente global da
+ * instalação, a única saída de quem configurou um domínio errado. Um
+ * `min(1)` prendia a sociedade a um endereço que já não serve.
  */
 export const remetenteSchema = z.object({
   emailRemetente: z
@@ -94,17 +88,13 @@ export const remetenteSchema = z.object({
 /**
  * O domínio de envio.
  *
- * A normalização faz-se antes de validar, e não é cortesia: o que uma pessoa
- * cola aqui vem quase sempre de um browser ou de um cartão — `https://`,
- * `www.`, uma barra no fim, ou o endereço inteiro por distração
- * (`geral@andradecosta.pt`). Todos esses **são** o domínio certo escrito de
- * outra maneira, e recusá-los obrigava a adivinhar uma regra de formatação que
- * a plataforma sabe aplicar sozinha.
+ * Normaliza antes de validar: o que se cola aqui vem de um browser ou de um
+ * cartão — `https://`, `www.`, barra final, ou o endereço completo por
+ * engano. Tudo isso é o domínio certo escrito de outra forma.
  *
- * O que fica de fora é o que não é um domínio: sem ponto (`localhost`), com
- * espaços, com acentos. Um domínio internacionalizado tem de vir já em
- * punycode — a conversão não se faz aqui às escuras, porque o que a Resend vai
- * verificar no DNS é o punycode e o que a pessoa veria no ecrã era outra coisa.
+ * Fica de fora o que não é domínio (sem ponto, com espaços ou acentos). Um
+ * domínio internacionalizado tem de vir em punycode — a Resend verifica o
+ * punycode no DNS, e converter aqui às escuras mostrava outra coisa no ecrã.
  */
 export const dominioSchema = z.object({
   dominioEmail: z
@@ -134,19 +124,14 @@ export const dominioSchema = z.object({
 /**
  * A conta criada à mão, uma de cada vez.
  *
- * `super_admin` **não** está nos papéis aceites, e é a decisão que mais importa
- * neste ficheiro: quem administra a plataforma não se cria pelo caminho de
- * criar contas de uma sociedade. Um `society_admin` que conseguisse escolher
- * esse valor ganhava, com um clique, a lista de todas as sociedades do sistema
- * e a possibilidade de criar contas em qualquer uma. O caminho para criar um
- * `super_admin` é outro, é só do `super_admin`, e está noutro formulário.
+ * `super_admin` não está nos papéis aceites: um `society_admin` que
+ * conseguisse escolher esse valor ganhava acesso a todas as sociedades do
+ * sistema. Criar um `super_admin` é outro formulário, só do `super_admin`.
  *
- * **Não há campo de palavra-passe, e a ausência é a regra.** Ela é sempre
- * gerada pelo servidor e vai por email para a pessoa a quem pertence, que é
- * obrigada a trocá-la no primeiro início de sessão. Um campo opcional aqui era
- * o processo antigo à espera de voltar: bastava um formulário mandar o valor
- * para quem administra voltar a escolher — e a escolher, na décima conta
- * seguida, sempre a mesma.
+ * Sem campo de palavra-passe — é sempre gerada pelo servidor, enviada por
+ * email à pessoa a quem pertence, com troca obrigatória no primeiro login. Um
+ * campo opcional aqui reabria o processo antigo de quem administra escolher a
+ * palavra-passe.
  */
 export const contaSchema = z.object({
   nome,
@@ -164,10 +149,8 @@ export const contaSchema = z.object({
 /**
  * A conta de plataforma. Sem sociedade e sem escolha de papel — só há um.
  *
- * Separada da de cima, e não a mesma com um campo a mais: são caminhos com
- * permissões diferentes (esta só o `super_admin` pode chamar) e misturá-las era
- * ter uma só função onde a diferença entre criar um colaborador e criar um
- * segundo dono da plataforma é o valor de um campo.
+ * Separada da de cima: as permissões diferem (esta só o `super_admin` pode
+ * chamar), não é a mesma função com um campo a mais.
  */
 export const contaDePlataformaSchema = z.object({
   nome,
@@ -177,10 +160,9 @@ export const contaDePlataformaSchema = z.object({
 /**
  * A sociedade nova, opcionalmente já com o primeiro administrador.
  *
- * Os campos da conta são opcionais em conjunto: ou vêm os dois (nome e email),
- * ou não vem nenhum. Meio preenchido é o estado que produz uma sociedade criada
- * com um administrador por criar e ninguém a dar por isso — daí o `superRefine`
- * em vez de dois `optional()` independentes.
+ * Os campos da conta são opcionais em conjunto — os dois ou nenhum. Meio
+ * preenchido cria uma sociedade com administrador por criar e ninguém a dar
+ * por isso, daí o `superRefine` em vez de dois `optional()` independentes.
  */
 export const sociedadeComAdminSchema = sociedadeSchema
   .extend({

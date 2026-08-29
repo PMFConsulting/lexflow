@@ -1,35 +1,19 @@
 /**
- * Terms and Conditions for the provision of legal services.
+ * Terms and Conditions for the provision of legal services. Single source for
+ * the three places it appears: the step 7 reader (D30 measures reading to the
+ * end), `/termos-condicoes`, and the PDF in the welcome email — duplicating
+ * the text would let them diverge, and in a consent the text is the evidence.
  *
- * A single source for the three places the document appears: the step 7 reader
- * (which only unlocks acceptance once scrolled to the end), the
- * `/termos-condicoes` page that opens in its own tab, and the PDF attached to
- * the welcome email. Duplicating the text would guarantee that one of the three
- * diverged — and in a consent, the text *is* the evidence.
+ * Demonstration text, written for the POC from legal requirements; the firm's
+ * definitive wording replaces it here. Bump `VERSAO_TERMOS` whenever the text
+ * changes — it's what `versao_texto_legal` records alongside consent, and
+ * without it there's no way to tell what the client actually accepted.
  *
- * **Demonstration text.** It was written for the POC from what the law requires
- * to be stated; the definitive wording belongs to the firm and is replaced
- * here, in this file, without touching anything else. What cannot be left
- * behind is the version: it is what gets recorded in `versao_texto_legal`
- * alongside the consent, and changing the text without changing the version
- * erases the difference between what the client accepted and what is now
- * written.
- *
- * ---------------------------------------------------------------------------
- * **This is the fallback, not the contract.**
- *
- * The firm delivers its own wording at step 4 of its registration, and from
- * that moment `termosEmVigor` (D59) serves *that* document — to the client at
- * step 7, to each person of the firm at step 5 of their own registration, and
- * in the lawyer portal. What is written below is what is served while the firm
- * has not delivered anything, and it is *platform* text: a reversal of roles
- * that is acceptable as a fallback and not as a resting state, because the one
- * contracting with the client is the firm.
- *
- * `/admin` says so on screen, and not in a footnote: while there is no
- * published wording, the firm is making its clients accept a contract it did
- * not write. See `docs/TERMOS_SOCIEDADE.md`.
- * ---------------------------------------------------------------------------
+ * Fallback only, not the contract: once the firm delivers its own wording,
+ * `termosEmVigor` (D59) serves that instead, everywhere. This platform text is
+ * what's served meanwhile — the firm is contracting with the client, and
+ * `/admin` says so on screen while no firm wording is published. See
+ * `docs/TERMOS_SOCIEDADE.md`.
  */
 
 export const VERSAO_TERMOS = "2026.08-poc";

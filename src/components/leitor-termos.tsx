@@ -15,28 +15,17 @@ import type { SeccaoTermos } from "@/lib/termos";
 import { cn } from "@/lib/utils";
 
 /**
- * O documento dos Termos e Condições, e a porta que ele fecha.
+ * O documento dos T&C, e a porta que ele fecha: a caixa de aceitação só
+ * destranca depois de lido (padrão bancário) — sob RGPD, um consentimento
+ * sobre um documento nunca mostrado não prova nada.
  *
- * A caixa de aceitação só se destranca depois de o documento ter sido lido — o
- * padrão da banca, e pela mesma razão: uma declaração de que se leu um
- * documento que nunca chegou a ser mostrado não prova coisa nenhuma, e num
- * consentimento sob RGPD é precisamente o que se tem de provar.
- *
- * **O que "lido" quer dizer depende da forma do documento**, e o componente diz
- * qual das duas está a aplicar em vez de as confundir:
- *
- *   · `plataforma` — o texto vem em secções e é renderizado aqui dentro. O fim
- *     do documento é uma medição do próprio elemento, sem depender de o browser
- *     deixar ler o `scrollTop` de outro documento nem de uma folha ter
- *     carregado. É a D30, intacta.
- *
- *   · `documento` — o PDF que a sociedade submeteu. Aqui a medição **não
- *     existe**, e é dito no ecrã: o `X-Frame-Options: DENY` do
- *     `next.config.ts` recusa até o próprio domínio, um `<iframe>` daria um
- *     retângulo em branco, e medir o scroll de um PDF que abre noutro separador
- *     não é possível. A caixa destranca ao **abrir**. Foi a mesma escolha da
- *     proposta comercial anexada (D52), e pela mesma razão: fingir a medição
- *     era pior do que dizer que ali ela não existe.
+ * "Lido" depende da forma:
+ *   · `plataforma` — texto em secções, renderizado aqui. Fim medido no
+ *     próprio elemento (D30).
+ *   · `documento` — PDF da sociedade. Sem medição possível (`X-Frame-Options:
+ *     DENY` recusa até o próprio domínio, `<iframe>` daria um retângulo em
+ *     branco): destranca ao **abrir**, mesma escolha da proposta comercial
+ *     (D52).
  */
 export type TermosParaLer =
   | { forma: "plataforma"; versao: string; seccoes: SeccaoTermos[] }
@@ -64,11 +53,10 @@ export function LeitorTermos({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {ePdf ? (
-          // Um PDF não abre dentro da janela: abre no separador dele, e é o
-          // próprio abrir que conta como leitura. O `onClick` corre à mesma
-          // quando o browser bloqueia o separador — o que é uma imprecisão
-          // conhecida e preferível ao contrário, que era trancar a caixa a quem
-          // tem um bloqueador de popups.
+          // PDF abre no próprio separador; abrir conta como leitura. O
+          // `onClick` corre mesmo se o browser bloquear o separador —
+          // imprecisão conhecida, preferível a trancar a caixa a quem tem
+          // bloqueador de popups.
           <Button asChild variant={lido ? "outline" : "default"}>
             <a href={termos.url} target="_blank" rel="noopener" onClick={aoLer}>
               <FileText className="size-4" />
@@ -135,16 +123,10 @@ export function LeitorTermos({
 }
 
 /**
- * A janela do documento.
- *
- * Assenta no `Dialog` da aplicação e não numa caixa `fixed` escrita à mão. O
- * que se ganha não é aparência — é a armadilha de foco: sem ela, o `Tab` dentro
- * da janela saía para os campos do formulário por baixo, e quem navega por
- * teclado ou leitor de ecrã podia estar a "percorrer o documento" sem nunca lá
- * estar. Numa caixa que liberta a aceitação de um contrato, isso não é um
- * pormenor. Escape e o bloqueio da rolagem de fundo vêm do primitivo.
- *
- * A medição do fim do documento é exatamente a que a D30 descreve.
+ * A janela do documento. Usa o `Dialog` da aplicação, não uma caixa `fixed`
+ * escrita à mão — dá a armadilha de foco: sem ela, `Tab` saía para os campos
+ * do formulário por baixo, e quem navega por teclado podia "percorrer o
+ * documento" sem lá estar. Medição do fim conforme D30.
  */
 function Modal({
   aoFechar,
@@ -164,26 +146,24 @@ function Modal({
   const corpo = useRef<HTMLDivElement>(null);
   const [chegouAoFim, setChegouAoFim] = useState(lido);
 
-  // O `aoChegarAoFim` chega numa função nova a cada render do formulário. Numa
-  // dependência de efeito isso era o efeito a correr sem parar; guardado numa
-  // ref, o efeito corre uma vez e continua a chamar a versão mais recente.
+  // `aoChegarAoFim` chega numa função nova a cada render — numa dependência
+  // de efeito isso corria sem parar. Guardado em ref, o efeito corre uma vez.
   const avisar = useRef(aoChegarAoFim);
   avisar.current = aoChegarAoFim;
 
   const verificar = () => {
     const el = corpo.current;
     if (!el) return;
-    // 24px de tolerância: com zoom do browser ou barras de rolagem do sistema, o
-    // `scrollTop` máximo fica uns pixels abaixo da conta e o fim nunca era dado
-    // por atingido — quem rolava até não haver mais continuava preso.
+    // 24px de tolerância: zoom do browser ou barras de rolagem do sistema
+    // deixam o `scrollTop` máximo uns pixels abaixo da conta.
     const noFim = el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
     if (!noFim) return;
     setChegouAoFim(true);
     avisar.current();
   };
 
-  // Um documento que caiba todo no ecrã não tem fim para onde rolar: sem isto,
-  // um monitor grande ou um texto curto deixavam a caixa trancada para sempre.
+  // Documento que cabe todo no ecrã não tem fim para onde rolar — sem isto a
+  // caixa ficava trancada para sempre num monitor grande.
   useEffect(() => {
     const el = corpo.current;
     if (el && el.scrollHeight <= el.clientHeight + 24) {
@@ -196,9 +176,8 @@ function Modal({
     <DialogContent
       className="h-[92svh] max-w-3xl sm:h-[80svh]"
       aria-describedby={undefined}
-      // O foco de partida é o próprio documento, e não o botão de fechar: quem
-      // abre isto vem para ler, e assim as setas e o Page Down rolam o texto sem
-      // ser preciso primeiro apanhar o painel com o rato.
+      // Foco de partida no documento, não no botão de fechar — setas e
+      // Page Down rolam o texto sem precisar de clicar no painel primeiro.
       onOpenAutoFocus={(e) => {
         e.preventDefault();
         corpo.current?.focus();

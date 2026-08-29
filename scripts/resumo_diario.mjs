@@ -20,6 +20,7 @@
 import { randomUUID } from "node:crypto";
 import { connect } from "node:net";
 import postgres from "postgres";
+import { EMAIL_REMETENTE_DEFAULT } from "../src/email-remetente-default.mjs";
 
 const TEMPO_LIMITE_MS = 15_000;
 
@@ -34,7 +35,7 @@ const chaveResend = process.env.RESEND_API_KEY;
 const chaveTwilio = process.env.TWILIO_SENDGRID_API_KEY;
 const anfitriaoSmtp = process.env.SMTP_HOST;
 const portaSmtp = Number(process.env.SMTP_PORT || 25);
-const remetente = process.env.EMAIL_REMETENTE || "POC@jmassano.pt";
+const remetente = process.env.EMAIL_REMETENTE || EMAIL_REMETENTE_DEFAULT;
 const emailDono = process.env.EMAIL_NOTIFICACOES;
 const urlBd = process.env.DATABASE_URL;
 const urlBase = (process.env.BETTER_AUTH_URL ?? "https://poc.terlicalabs.com").replace(/\/+$/, "");

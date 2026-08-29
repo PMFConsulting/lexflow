@@ -3,35 +3,15 @@ import { inflateRawSync } from "node:zlib";
 /**
  * Leitor de folhas de cálculo — CSV e XLSX — sem dependências novas.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * Porque não uma biblioteca
+ * Sem SheetJS: as versões no npm ficaram com vulnerabilidades por corrigir, e
+ * o que há para ler é simples — três colunas de texto. Lê só a primeira
+ * folha, valores em cache (não fórmulas), sem datas nem ficheiros protegidos
+ * por palavra-passe; o que não sabe ler vira erro de linha na pré-visualização,
+ * não um valor errado.
  *
- * O candidato óbvio era o SheetJS (`xlsx`). Duas razões para não entrar: as
- * versões publicadas no registo do npm ficaram paradas com vulnerabilidades
- * conhecidas (o projeto passou a distribuir a partir do CDN próprio, que é uma
- * origem a mais para instalar num sistema que guarda documentos de
- * identificação), e o que aqui é preciso ler é a folha mais simples que existe
- * — três colunas de texto, uma linha por pessoa.
- *
- * O que se paga por isso está declarado: isto lê a **primeira folha**, células
- * de texto e de número, partilhadas ou em linha. Não lê fórmulas (lê o valor
- * em cache, que é o que o Excel guarda ao lado), não lê datas como datas e não
- * lê ficheiros protegidos por palavra-passe. Para nomes, emails e papéis, é o
- * suficiente — e o que não conseguir ler aparece como erro de linha na
- * pré-visualização, nunca como um valor errado que passa calado.
- *
- * ─────────────────────────────────────────────────────────────────────────
- * O que um .xlsx é
- *
- * Um ZIP com XML lá dentro. Interessam dois ficheiros:
- *
- *   xl/worksheets/sheet1.xml — as células, cada uma com a sua referência (A1,
- *     B7). As de texto não guardam o texto: guardam `t="s"` e um índice.
- *   xl/sharedStrings.xml — a tabela onde esse índice vai buscar o texto.
- *
- * A descompressão é `deflate` cru, que o `node:zlib` faz de origem
- * (`inflateRawSync`). Não há aqui nada de criptográfico nem de exótico — é
- * leitura de um formato documentado.
+ * Um .xlsx é um ZIP com XML: `sheet1.xml` tem as células (texto vem como
+ * índice `t="s"`) e `sharedStrings.xml` é a tabela desse índice. Descompressão
+ * via `inflateRawSync` do `node:zlib` (deflate cru).
  */
 
 /** Uma linha de folha, já como texto. */
@@ -49,15 +29,9 @@ export class ErroDeFicheiro extends Error {
 /**
  * O separador, adivinhado a partir da primeira linha.
  *
- * O Excel português grava CSV com `;`, porque a vírgula já está a servir de
- * separador decimal. O Excel inglês e toda a gente que exporta de um sistema
- * gravam com `,`. Um ficheiro de três colunas separado pelo caractere errado
- * lê-se como uma coluna só — e o erro que daí sai ("falta o email") manda quem
- * o lê corrigir a coluna errada.
- *
- * Conta-se **fora das aspas**: um nome como `"Silva, Maria"` numa folha
- * separada por `;` tem mais vírgulas do que pontos e vírgulas, e o palpite
- * ingénuo escolhia a vírgula.
+ * PT grava CSV com `;` (a vírgula já é separador decimal); EN grava com `,`.
+ * Conta-se fora das aspas — `"Silva, Maria"` tem mais vírgulas que pontos e
+ * vírgulas, e um palpite ingénuo escolhia a vírgula errada.
  */
 function adivinharSeparador(texto: string) {
   const primeira = texto.split(/\r?\n/)[0] ?? "";
@@ -76,14 +50,12 @@ function adivinharSeparador(texto: string) {
 /**
  * CSV com aspas, à regra do RFC 4180.
  *
- * Escrito à mão e não com um `split(",")` porque as três coisas que o `split`
- * não faz são exatamente as três que aparecem em ficheiros reais: campos com o
- * separador lá dentro, aspas duplicadas a representar uma aspa (`""`), e
- * quebras de linha dentro de um campo entre aspas.
+ * Escrito à mão: `split(",")` não lida com separador dentro de um campo,
+ * aspas duplicadas (`""`) nem quebras de linha dentro de um campo entre aspas.
  */
 export function lerCsv(texto: string): LinhaDaFolha[] {
-  // BOM: o Excel põe-no em UTF-8, e sem isto a primeira coluna do cabeçalho
-  // chama-se "﻿nome" — que não é "nome", e o cabeçalho deixa de casar.
+  // BOM: o Excel grava-o em UTF-8; sem isto o cabeçalho fica "﻿nome" e não
+  // casa com "nome".
   const limpo = texto.replace(/^﻿/, "");
   const separador = adivinharSeparador(limpo);
 
@@ -139,11 +111,10 @@ export function lerCsv(texto: string): LinhaDaFolha[] {
 /**
  * Os ficheiros de um ZIP, pelo nome.
  *
- * Percorre-se o **directório central** (no fim do ficheiro) e não os cabeçalhos
- * locais: o cabeçalho local pode ter os tamanhos a zero e remetê-los para um
- * descritor que vem depois dos dados, e nesse caso não há como saber onde o
- * conteúdo acaba sem descomprimir às cegas. O directório central tem sempre os
- * tamanhos certos.
+ * Lê-se o directório central (fim do ficheiro), não os cabeçalhos locais:
+ * estes podem ter tamanho zero e remeter para um descritor depois dos dados,
+ * e nesse caso não há como saber onde o conteúdo acaba sem descomprimir às
+ * cegas.
  */
 function abrirZip(bytes: Buffer): Map<string, Buffer> {
   const FIM = 0x06054b50; // assinatura do "end of central directory"
@@ -225,10 +196,8 @@ function desescaparXml(texto: string) {
 /**
  * A tabela de strings partilhadas.
  *
- * Cada `<si>` é uma entrada, e pode ter o texto direto (`<t>`) ou partido em
- * vários `<r>` quando há formatação a meio da célula — uma palavra a negrito
- * chega para o Excel partir "Maria Silva" em dois pedaços. Juntam-se todos os
- * `<t>` de dentro do `<si>`, que é o que devolve a célula como ela se lê.
+ * Cada `<si>` é uma entrada, com texto direto (`<t>`) ou partido em vários
+ * `<r>` quando há formatação a meio da célula. Juntam-se todos os `<t>`.
  */
 function lerStringsPartilhadas(xml: string): string[] {
   const entradas: string[] = [];
@@ -279,9 +248,9 @@ function lerFolha(xml: string, partilhadas: string[]): LinhaDaFolha[] {
         }
       }
 
-      // Pela referência e não pela ordem de aparecimento: o Excel **omite** as
-      // células vazias, e sem isto uma linha sem o nome preenchido subia o email
-      // para a coluna do nome e passava a validação a acusar o campo errado.
+      // Pela referência, não pela ordem de aparecimento: o Excel omite células
+      // vazias, e sem isto uma linha sem nome empurrava o email para a coluna
+      // do nome.
       const indice = ref ? indiceDaColuna(ref) : celulas.length;
       while (celulas.length < indice) celulas.push("");
       celulas[indice] = valor;
@@ -300,9 +269,8 @@ export function lerXlsx(bytes: Buffer): LinhaDaFolha[] {
     ? lerStringsPartilhadas(ficheiros.get("xl/sharedStrings.xml")!.toString("utf8"))
     : [];
 
-  // A primeira folha. O nome canónico é `sheet1.xml`, mas um ficheiro que já
-  // passou por outras ferramentas pode ter as folhas noutra numeração — daí a
-  // procura ordenada em vez de exigir o nome exato.
+  // A primeira folha, por ordem — não pelo nome exato "sheet1.xml": um
+  // ficheiro que passou por outras ferramentas pode numerá-las de outra forma.
   const nome =
     [...ficheiros.keys()]
       .filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n))
@@ -318,9 +286,8 @@ export function lerXlsx(bytes: Buffer): LinhaDaFolha[] {
 /**
  * Lê o que vier, decidindo pelo conteúdo e não pela extensão.
  *
- * `PK` são os dois primeiros bytes de qualquer ZIP — e um `.xlsx` é um ZIP.
- * Um ficheiro renomeado (o CSV que alguém gravou como `.xlsx` para o sistema o
- * aceitar, que acontece sempre) lê-se na mesma pelo que é.
+ * `PK` são os dois primeiros bytes de qualquer ZIP. Um CSV renomeado para
+ * `.xlsx` (para o sistema aceitar) lê-se na mesma pelo que é.
  */
 export function lerFolhaDeCalculo(bytes: Buffer): LinhaDaFolha[] {
   if (bytes.length === 0) throw new ErroDeFicheiro("O ficheiro está vazio.");

@@ -8,24 +8,13 @@ import { resolverEmailCliente } from "./obter-modelo";
 import type { processoOnboarding } from "@/db/schema/processo";
 
 /**
- * The welcome email, with its three attachments.
+ * Welcome email with three attachments. Sent on approval now (D20 removed
+ * approval, this brought it back — was sent on submission in between).
  *
- * Shared between submission and approval: until the approval flow was restored
- * (D20 deleted it; this update brings it back) it went out on submission,
- * because there was no second moment at which to welcome anyone. With approval
- * back, that second moment exists — it is the one that now sends this — and the
- * function changes place, not content.
- *
- * The summary of the information is the same `summary.pdf` that goes to the
- * client's folder in the archive — generated from the same place, so the client
- * and the firm do not end up with different versions of the same document. The
- * T&C are a copy of the wording they accepted. The fee proposal is the PDF in
- * `public/`, and it is the only one of the three that is not generated: as long
- * as there is no per-client proposal, it is the same document for everyone.
- *
- * An attachment that fails to generate does not stop the email — it is worth
- * more to arrive with two attachments and an honest list than not to arrive at
- * all.
+ * `summary.pdf` is generated from the same source as the archive copy. T&C
+ * is the accepted wording. The fee proposal is the static PDF in `public/`
+ * until per-client proposals exist. A failed attachment does not block the
+ * email — it sends with whatever generated, and an honest list.
  */
 export async function enviarBoasVindas(
   processo: typeof processoOnboarding.$inferSelect,
@@ -48,8 +37,7 @@ export async function enviarBoasVindas(
     }
   };
 
-  // The labels are those from the client's analysis document: this is the list
-  // they wrote in the body of the welcome email.
+  // Labels come from the client's document, verbatim.
   await juntar(
     "Resumo das informações fornecidas durante o processo de registo",
     "resumo_do_processo.pdf",

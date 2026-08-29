@@ -1,15 +1,8 @@
 /**
- * A moldura das mensagens: paleta, tipografia e as peças de que todos os emails
- * são feitos.
- *
- * Estava dentro de `jmassano.ts`, que era o único ficheiro a mandar emails.
- * Deixou de ser: os convites — o da sociedade e o de cada pessoa que se junta a
- * ela — saem pelo mesmo canal e têm de ter o mesmo aspeto. Copiar a moldura era
- * garantir que os dois conjuntos divergiriam, e o que divergisse seria o
- * interno, que é o menos visto.
- *
- * Nada aqui é público para fora de `lib/emails`: são peças de construção, e um
- * email monta-se com elas num ficheiro de templates, não à solta.
+ * A moldura das mensagens: paleta, tipografia e as peças com que se monta
+ * qualquer email. Estava em `jmassano.ts`; saiu de lá quando os convites
+ * (sociedade e utilizador) passaram a usar o mesmo canal e tinham de ter o
+ * mesmo aspeto. Nada aqui é público fora de `lib/emails`.
  */
 
 export const TINTA = "#101a24";
@@ -27,26 +20,17 @@ export const FONTE_DISPLAY = "'Instrument Serif',Georgia,serif";
 export const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
 
 /**
- * O logótipo, servido por esta instalação.
+ * O logótipo, servido por esta instalação — não hard-coded ao domínio da POC
+ * (qualquer instalação mandaria buscar a imagem ao servidor errado).
  *
- * Estava escrito à mão como `https://poc.terlicalabs.com/lexflow.png`, o que
- * quer dizer que qualquer instalação — a do cliente, a de desenvolvimento, a
- * seguinte — mandava emails a ir buscar a imagem ao servidor da POC. No dia em
- * que essa máquina desaparecer, os emails de toda a gente ficam com um
- * rectângulo partido no cabeçalho.
+ * Sai de `BETTER_AUTH_URL` (mesma fonte dos links, `lib/origem.ts`), não de
+ * `origemPublica()`, que só existe dentro de um pedido — um email também sai
+ * de script (`pnpm email:testar`) ou tarefa sem pedido nenhum.
  *
- * Sai de `BETTER_AUTH_URL`, que é a mesma fonte de onde saem os links que estas
- * mensagens levam (`lib/origem.ts`) — e não de `origemPublica()`, que lê os
- * cabeçalhos do pedido e por isso não existe fora de um: um email também sai de
- * um script (`pnpm email:testar`) e de tarefas sem pedido nenhum por trás.
- *
- * Lido de `process.env` e não pelo `env()`, como o `lib/auth.ts` já faz com a
- * mesma variável: montar o HTML de uma mensagem não pode rebentar por faltar
- * uma variável que nada tem a ver com ela — é a D42 vista deste lado, e o
- * ficheiro tem de continuar a montar-se num teste sem ambiente nenhum.
+ * Lido de `process.env`, não de `env()` (D42): montar o HTML não pode
+ * rebentar por falta de uma variável que nada tem a ver com ele.
  */
-// `.png` e não `.svg`: Gmail recusa SVG em `<img>` sempre, sem exceção, e um
-// logo que não aparece em metade das caixas de entrada não é um logo.
+// `.png` e não `.svg`: Gmail recusa SVG em `<img>` sempre, sem exceção.
 const logotipo = () =>
   `${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/lexflow.png`;
 
@@ -58,10 +42,8 @@ export function urlLogotipoSociedade(org?: {
 } | null): string | null {
   if (!org?.logotipoDados) return null;
   const mime = org.logotipoMime || "image/png";
-  // Mesma razão do fallback acima: um `data:image/svg+xml` nunca aparece no
-  // Gmail. Sem conversão automática ainda disponível (sharp não está nas
-  // dependências), cair para o logo por omissão é melhor do que um `<img>`
-  // que sabidamente não vai renderizar.
+  // Mesmo motivo do fallback acima: Gmail não mostra SVG. Sem conversão
+  // disponível (sharp não é dependência), cai para o logo por omissão.
   if (mime === "image/svg+xml") return null;
   return `data:${mime};base64,${org.logotipoDados}`;
 }
@@ -125,13 +107,10 @@ export const linkCopiavel = (href: string) =>
   );
 
 /**
- * Escapes what comes from outside before it enters the HTML.
- *
- * The body of these emails is our own text, verbatim; the only interpolated
- * value is the `link`, and its host comes from the request headers
- * (`origemPublica`, in `features/processos/acoes.ts`). A `Host` with quotes
- * closed the `href` and the rest of the tag became attributes — cheap to
- * prevent, and there is no reason to trust a header the client controls.
+ * Escapes what comes from outside before it enters the HTML. The only
+ * interpolated value is `link`, whose host comes from the request headers
+ * (`origemPublica`) — a `Host` header with quotes would close `href` early
+ * and turn the rest of the tag into attributes.
  */
 export const escapar = (v: string) =>
   v
@@ -142,16 +121,10 @@ export const escapar = (v: string) =>
     .replace(/'/g, "&#39;");
 
 /**
- * "Caro(a) Sr.(a)," is what the client's document says, and it is still what
- * goes out when the name is unknown — a matter can be born with only the
- * address, and "Caro(a) Sr.(a) ," with the comma left hanging is worse than the
- * neutral form. When the name is known, it goes in: the same email saying
- * "Caro(a) Sr.(a)," to somebody whose name is in the case file reads as a
- * circular, and this is the first message a client receives from the firm.
- *
- * Only the first and last name, which is how one addresses somebody in writing
- * — "Caro(a) Sr.(a) Maria Antónia da Silva Ferreira," is not a form of address,
- * it is the form field dumped into the greeting.
+ * "Caro(a) Sr.(a)," is the client's document wording, used when the name is
+ * unknown (a matter can be born with only the address). When known, only
+ * first + last name go in — the full name read out is a form field dumped
+ * into a greeting, not a form of address.
  */
 export const saudacao = (nome?: string | null) => {
   const partes = (nome ?? "").trim().split(/\s+/).filter(Boolean);
@@ -161,15 +134,7 @@ export const saudacao = (nome?: string | null) => {
   return p(`Caro(a) Sr.(a) ${escapar(tratamento)},`);
 };
 
-/**
- * The matter reference, at the top and in mono, like the "Ref.:" of an official
- * letter.
- *
- * It is the number by which the client and the firm talk about the same case
- * file on the phone. Without it, a person with two open matters does not know
- * which of the two the message concerns — and neither does whoever answers the
- * phone.
- */
+/** The matter reference, at the top in mono — like "Ref.:" on a letter, and the number both sides use on the phone for the same case file. */
 export const refProcesso = (referencia?: string | null) =>
   referencia
     ? `<p style="font-family:${FONTE_MONO};font-size:11px;letter-spacing:0.08em;

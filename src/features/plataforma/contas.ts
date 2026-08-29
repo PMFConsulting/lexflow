@@ -18,49 +18,24 @@ import { origemPublica } from "@/lib/origem";
 import type { Papel } from "@/lib/sessao";
 
 /**
- * Criação de contas — o serviço, partilhado pela interface e pelo script.
+ * Criação de contas — serviço partilhado pela interface e pelo script. As
+ * duas escritas (D2) viviam só em `scripts/criar_utilizador.mjs`; invocar o
+ * script por shell a partir da interface passaria a palavra-passe pela linha
+ * de comandos (visível em `ps`). O script continua a ser o caminho certo para
+ * a primeira conta, criada sem ninguém autenticado.
  *
- * As duas escritas que uma conta precisa (decisão D2) viviam só em
- * `scripts/criar_utilizador.mjs`, e o portal do `super_admin` precisa
- * exatamente das mesmas. A alternativa — a interface a invocar o script por
- * shell — está fora de questão: passava o email e a palavra-passe pela linha de
- * comandos de um processo (o `ps` de qualquer utilizador da máquina mostra os
- * argumentos), e transformava um erro de SQL numa string de stderr para alguém
- * tentar interpretar.
+ * Duas escritas na mesma transação: `user`+`account` (Better Auth, palavra-passe
+ * em `account.provider_id = 'credential'`) e `utilizador` (papel e sociedade)
+ * — sem a segunda, o login passa e a sessão não resolve, sem erro nenhum.
  *
- * O script continua a existir, e continua a ser o caminho certo para o
- * arranque: a primeira conta da plataforma tem de nascer sem ninguém
- * autenticado para a criar.
- *
- * ─────────────────────────────────────────────────────────────────────────
- * As duas escritas, e porque são duas
- *
- *   1. `user` + `account` — o Better Auth. A palavra-passe não vive em `user`:
- *      vive na `account` com `provider_id = 'credential'`, e é lá que o início
- *      de sessão a procura.
- *   2. `utilizador` — o nosso, o que tem papel e sociedade.
- *
- * Sem a segunda, o início de sessão passa e a sessão não resolve —
- * `sessaoAtual()` procura por `auth_user_id` e devolve `null`, o que manda a
- * pessoa de volta para `/entrar` sem uma única mensagem de erro. É o defeito
- * mais confuso que este sistema sabe produzir, e é por isso que as duas correm
- * dentro da mesma transação.
- *
- * O hash vem de `better-auth/crypto` e não de uma reimplementação de scrypt: é
- * a única forma de garantir que os parâmetros não divergem numa atualização da
- * biblioteca. Mesma regra que o script já seguia.
+ * Hash vem de `better-auth/crypto`, não de scrypt reimplementado — garante
+ * que os parâmetros não divergem numa atualização da biblioteca.
  */
 
 /**
- * Palavra-passe gerada por nós — sempre, e sem alternativa.
- *
- * Sem `l`/`I`/`1`/`O`/`0`: isto vai ser lido de um email e escrito à mão numa
- * caixa de palavra-passe, que não mostra o que se escreve. Um alfabeto sem
- * sósias tira ao processo o modo de falha mais irritante que ele tem — a conta
- * que "não funciona" porque alguém leu um `1` onde estava um `l`.
- *
- * `randomInt` do módulo `crypto` e não `Math.random()`: são credenciais de
- * acesso a um sistema com documentos de identificação lá dentro.
+ * Palavra-passe gerada por nós, sempre. Sem `l`/`I`/`1`/`O`/`0` — vai ser
+ * lida de um email e escrita à mão numa caixa que não mostra o que se
+ * escreve. `randomInt` de `crypto`, não `Math.random()`.
  */
 const ALFABETO = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -94,19 +69,11 @@ export type PedidoDeConta = {
 };
 
 /**
- * O que se sabe da conta depois de a criar — e **nunca a palavra-passe**.
- *
- * Era aqui que ela vinha, em claro, para um cartão no ecrã de quem criou a
- * conta. Deixou de vir, e a razão é de produto e não de arrumação: a
- * palavra-passe passava pelas mãos de um terceiro, ficava num ecrã aberto num
- * escritório, e a pessoa a quem ela pertence não era obrigada a trocá-la nunca.
- * O canal passou a ser o email da própria pessoa, e a credencial passou a ser
- * temporária (`utilizador.deve_redefinir_password`).
- *
- * O que fica no lugar é o que quem administra precisa mesmo de saber: **a
- * mensagem saiu?** Sem essa resposta, uma conta criada com um email que não
- * chegou é uma pessoa que não entra e ninguém sabe porquê — que é exactamente o
- * silêncio da D48, deste lado.
+ * O que se sabe da conta depois de a criar — nunca a palavra-passe. Vinha
+ * aqui em claro, para um cartão no ecrã; deixou de vir porque passava pelas
+ * mãos de um terceiro e a pessoa nunca era obrigada a trocá-la. O canal
+ * passou a ser o email dela, com credencial temporária. O que fica é o que
+ * quem administra precisa: a mensagem saiu? (mesmo silêncio da D48, deste lado).
  */
 export type ContaCriada = {
   utilizadorId: string;
@@ -115,35 +82,19 @@ export type ContaCriada = {
   papel: Papel;
   aprovadoEm: Date | null;
   gestorId: string | null;
-  /**
-   * `true` quando a conta de acesso já existia e foi **reaproveitada** — o
-   * caminho da migração 0025: a mesma pessoa a administrar uma sociedade a
-   * mais. Neste caminho a palavra-passe não é tocada e o que sai por email é
-   * um aviso, não credenciais (BUG-022).
-   */
+  /** `true` quando a conta já existia e foi reaproveitada (D64, mesma pessoa a administrar outra sociedade) — palavra-passe intocada, aviso em vez de credenciais. */
   reaproveitada: boolean;
-  /**
-   * `true` — as credenciais saíram; `false` — não saíram, e `erroEmail` diz
-   * porquê; `null` — o envio foi adiado, ainda não aconteceu ou a conta está pendente de aprovação.
-   */
+  /** `true` credenciais saíram; `false` não saíram (`erroEmail` diz porquê); `null` envio adiado ou conta pendente. */
   emailEnviado: boolean | null;
   erroEmail: string | null;
 };
 
 /**
- * Um envio de credenciais à espera da transação que o produziu.
- *
- * As credenciais **não podem sair de dentro de uma transação**: a importação em
- * lote é tudo-ou-nada (é o que impede um ficheiro de trinta linhas de deixar
- * quinze contas criadas), e uma mensagem enviada de lá de dentro é uma
- * palavra-passe entregue para uma conta que o `ROLLBACK` seguinte apagou. Além
- * disso, prender uma transação de Postgres durante trinta chamadas HTTP a um
- * fornecedor de email é o género de coisa que só se descobre com a base a
- * bloquear.
- *
- * A `conta` viaja aqui dentro de propósito: é o mesmo objeto que já foi
- * devolvido a quem chamou, e é nele que o desfecho do envio é escrito quando
- * ele acontecer.
+ * Envio de credenciais à espera da transação que o produziu. Não pode sair de
+ * dentro dela: uma mensagem enviada aí é uma palavra-passe entregue para uma
+ * conta que um ROLLBACK seguinte pode apagar, e prender a transação por trinta
+ * chamadas HTTP bloqueia a base. `conta` viaja aqui porque é o mesmo objeto
+ * já devolvido a quem chamou — o desfecho do envio escreve-se nele.
  */
 export type CredencialPorEnviar = {
   nome: string;
@@ -153,11 +104,7 @@ export type CredencialPorEnviar = {
   conta: ContaCriada;
 };
 
-/**
- * O que `enviarAvisoMultiSociedade` precisa para dizer à pessoa que passou a ser
- * administradora de uma sociedade a mais. Sem palavra-passe: a conta já existe,
- * a credencial é a de sempre e quem está a falar já sabe entrar (BUG-022).
- */
+/** O que o aviso de multi-sociedade precisa — sem palavra-passe, a credencial é a de sempre (D64). */
 type AvisoMultiSociedade = {
   nome: string;
   email: string;
@@ -167,13 +114,9 @@ type AvisoMultiSociedade = {
 };
 
 /**
- * O que pode correr mal e tem resposta em português.
- *
- * Uma classe própria, e não uma `Error` genérica: o Server Action precisa de
- * distinguir "este email já cá está" (que se diz ao utilizador, debaixo da
- * caixa que o causou) de "a base de dados caiu" (que se regista e se resume a
- * um pedido de desculpas). Sem a distinção, ou se mostram detalhes internos ao
- * utilizador ou se esconde dele a única coisa que ele podia corrigir.
+ * O que pode correr mal e tem resposta em português. Classe própria, não
+ * `Error` genérica — distingue "este email já cá está" (mostrar ao
+ * utilizador) de "a base de dados caiu" (só registar).
  */
 export class ErroDeConta extends Error {
   constructor(public readonly motivo: string) {
@@ -182,14 +125,7 @@ export class ErroDeConta extends Error {
   }
 }
 
-/**
- * Valida o par (papel, sociedade) antes de qualquer escrita.
- *
- * A restrição `utilizador_org_por_papel` diz o mesmo na base de dados, e é ela
- * que garante o resultado. Esta função existe para dar a **mensagem**: um
- * `violates check constraint` no ecrã de quem se enganou a escolher a sociedade
- * não é uma resposta.
- */
+/** Valida o par (papel, sociedade) antes de qualquer escrita — a mensagem, já que a restrição `utilizador_org_por_papel` garante o resultado. */
 export function validarPapelESociedade(papel: Papel, organizacaoId: string | null) {
   if (papel === "super_admin" && organizacaoId) {
     return "Um administrador da plataforma não pertence a nenhuma sociedade.";
@@ -201,13 +137,9 @@ export function validarPapelESociedade(papel: Papel, organizacaoId: string | nul
 }
 
 /**
- * Cria (ou repõe) a conta e manda as credenciais **para a pessoa** (se aprovada).
- *
- * A palavra-passe é sempre gerada aqui e nunca vem de fora: quem administra não
- * a escolhe, não a lê e não a entrega.
- *
- * Se a conta nascer pendente de aprovação (`aprovadoEm = null`), o envio de
- * credenciais não ocorre neste momento.
+ * Cria (ou repõe) a conta e manda as credenciais para a pessoa, se aprovada.
+ * Palavra-passe sempre gerada aqui — quem administra não a escolhe, não a lê,
+ * não a entrega. Conta pendente de aprovação não recebe envio agora.
  */
 export type Transacao = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
 
@@ -348,17 +280,9 @@ export async function criarConta(
       throw new ErroDeConta("Já existe uma conta com este email nesta sociedade.");
     }
 
-    /**
-     * Reaproveitar a credencial, não substituí-la.
-     *
-     * Quando a pessoa já tem conta de acesso (migração 0025, multi-sociedade),
-     * regenerar a palavra-passe era substituir uma credencial que ela conhece e
-     * usa por outra que ela não pediu — e meter essa nova no corpo de um email
-     * era exactamente o risco que o canal "palavra-passe temporária por email"
-     * foi desenhado para minimizar. A credencial que já lá está continua a
-     * valer; o que a pessoa recebe é um aviso de que passou a administrar uma
-     * sociedade a mais.
-     */
+    // Reaproveita a credencial em vez de a substituir (D64, migração 0025):
+    // regenerar a palavra-passe de quem já tem conta seria pedir-lhe para
+    // trocar uma que já usa por outra que não pediu.
     const reaproveitada = Boolean(contaExistente);
 
     const [credencial] = await t
@@ -368,7 +292,7 @@ export async function criarConta(
       .limit(1);
 
     if (credencial && reaproveitada) {
-      /* --- o caminho da migração 0025: a credencial que já lá está vale ----- */
+      /* --- credencial existente vale (D64) --------------------------------- */
 
       const utilizadorId = jaExiste?.id ?? uuidv7();
       const gestorIdFinal = pedido.papel === "utilizador" ? (pedido.gestorId ?? null) : null;
@@ -503,13 +427,9 @@ export async function criarConta(
 /* -------------------------------------------------- o envio das credenciais */
 
 /**
- * O endereço de início de sessão desta instalação.
- *
- * `origemPublica()` é a fonte certa e a única de confiança (o anfitrião do
- * pedido não decide para onde vai um link que sai por email), mas rebenta fora
- * de um pedido HTTP e rebenta com `BETTER_AUTH_URL` mal configurada. Um email
- * de credenciais sem botão continua a ser um email de credenciais úteis — o que
- * não pode acontecer é ele não sair por causa do endereço do botão.
+ * Endereço de login desta instalação. `origemPublica()` é a fonte certa mas
+ * rebenta fora de um pedido HTTP — recua para `BETTER_AUTH_URL`, porque um
+ * email de credenciais sem botão continua a ser útil.
  */
 async function enderecoDeEntrada(): Promise<string> {
   try {
@@ -521,13 +441,7 @@ async function enderecoDeEntrada(): Promise<string> {
   }
 }
 
-/**
- * O nome da sociedade, para a mensagem saber de quem fala.
- *
- * Nunca rebenta e nunca impede o envio: um email que diz "foi criada uma conta
- * para si" sem o nome da casa é pior do que um que o diz, e é muitíssimo melhor
- * do que nenhum.
- */
+/** Nome da sociedade, para a mensagem saber de quem fala. Nunca rebenta nem impede o envio. */
 async function dadosDaSociedade(
   organizacaoId: string | null,
 ): Promise<{ nome: string | null; logotipoUrl: string | null }> {
@@ -554,12 +468,9 @@ async function dadosDaSociedade(
 }
 
 /**
- * Manda as credenciais e escreve o desfecho na conta.
- *
- * **Não propaga.** A conta já está criada e nada do que aqui acontece a desfaz
- * (D46); o que interessa é que a resposta diga o que se passou, para o ecrã
- * poder distinguir "está criada e a pessoa já tem como entrar" de "está criada
- * e ninguém lhe consegue chegar" — que se resolvem em sítios diferentes.
+ * Manda as credenciais e escreve o desfecho na conta. Não propaga (D46) — a
+ * conta já está criada; o que importa é o ecrã saber distinguir "criada e
+ * acessível" de "criada e inalcançável".
  */
 export async function enviarCredenciais(envio: CredencialPorEnviar): Promise<void> {
   try {
@@ -568,13 +479,8 @@ export async function enviarCredenciais(envio: CredencialPorEnviar): Promise<voi
       dadosDaSociedade(envio.organizacaoId),
     ]);
 
-    /**
-     * Dois caminhos com o mesmo payload (BUG-022):
-     * - conta NOVA: as credenciais com a palavra-passe temporária;
-     * - conta REAPROVEITADA (migração 0025): um aviso de que a pessoa passou a
-     *   administrar uma sociedade a mais — sem palavra-passe nenhuma no corpo,
-     *   porque a credencial dela não mudou.
-     */
+    // Dois caminhos (D64): conta nova leva a palavra-passe temporária; conta
+    // reaproveitada leva só um aviso, sem palavra-passe no corpo.
     if (envio.conta.reaproveitada) {
       const resultado = await enviarEmail({
         para: envio.email,
@@ -612,23 +518,15 @@ export async function enviarCredenciais(envio: CredencialPorEnviar): Promise<voi
     envio.conta.emailEnviado = resultado.ok;
     envio.conta.erroEmail = resultado.ok ? null : resultado.erro;
   } catch (e) {
-    // `enviarEmail` promete não propagar, e o resto daqui também não devia —
-    // mas o que não pode mesmo acontecer é a conta ficar com `emailEnviado` a
-    // `null`, que é o estado "ainda não se sabe" a passar por "correu bem".
+    // enviarEmail já não propaga, mas emailEnviado não pode ficar em null —
+    // isso passaria por "correu bem" o estado "ainda não se sabe".
     envio.conta.emailEnviado = false;
     envio.conta.erroEmail = e instanceof Error ? e.message : String(e);
     console.error(`[contas] falhou o envio das credenciais para ${envio.email}:`, e);
   }
 }
 
-/**
- * Despeja os envios que ficaram à espera da transação.
- *
- * Em série e não em paralelo: são chamadas HTTP a um fornecedor com quota
- * diária e limite de ritmo, e trinta em simultâneo é a forma mais rápida de
- * apanhar um 429 que põe o canal em pausa (`lib/email.ts`) e deixa metade das
- * contas sem credenciais.
- */
+/** Despeja os envios pendentes, em série — trinta em paralelo é como se apanha um 429 que pausa o canal (lib/email.ts). */
 export async function enviarCredenciaisPendentes(
   pendentes: readonly CredencialPorEnviar[],
 ): Promise<void> {

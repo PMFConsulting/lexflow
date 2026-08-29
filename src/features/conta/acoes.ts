@@ -14,20 +14,12 @@ import { novaPalavraPasseSchema } from "./schemas";
 /**
  * A conta de quem já entrou: definir a palavra-passe própria.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * Porque é uma ação autenticada e não um link de reposição
+ * Ação autenticada, não link de reposição: a pessoa já se autenticou com a
+ * credencial temporária ao chegar aqui, o que já prova que o email é dela.
  *
- * O que isto fecha é a janela entre "recebi credenciais por email" e "tenho uma
- * palavra-passe que só eu conheço". A pessoa **já se autenticou** com a
- * credencial temporária quando chega aqui — é isso que prova que o email é
- * dela — e por isso não há segundo fator a inventar: um link de reposição
- * enviado por email seria autenticar pelo mesmo canal duas vezes, e um pedido da
- * palavra-passe atual seria pedir outra vez o que ela acabou de escrever no
- * ecrã de entrada, três segundos antes.
- *
- * `sessaoAtual()` e não `exigirSessao()`, de propósito: o guard manda para cá
- * toda a gente que tenha a marca `deve_redefinir_password`, e usá-lo aqui era
- * esta ação a redirecionar-se para a página que a chama.
+ * `sessaoAtual()` e não `exigirSessao()`: o guard manda para cá quem tem
+ * `deve_redefinir_password`, e usar o guard aqui criava um redirecionamento
+ * desta ação para si própria.
  */
 
 export type ResultadoRedefinicao =
@@ -56,12 +48,9 @@ export async function redefinirPalavraPasse(dados: unknown): Promise<ResultadoRe
   const { eu, conta } = sessao;
 
   /**
-   * A credencial do Better Auth — `provider_id = 'credential'`, que é onde a
-   * palavra-passe vive (D2/D23). Não é `user`, e não é a nossa `utilizador`.
-   *
-   * Sem linha nenhuma não há nada a atualizar, e escrever a marca a `false`
-   * sobre uma conta sem credencial era destrancar a plataforma a alguém que
-   * continua sem forma de voltar a entrar amanhã.
+   * A credencial do Better Auth — `provider_id = 'credential'`, onde vive a
+   * palavra-passe (D2/D23). Sem linha, nada a atualizar; marcar a `false` sem
+   * credencial destrancava a plataforma sem forma de voltar a entrar.
    */
   const [credencial] = await db()
     .select({ id: account.id, password: account.password })
@@ -82,12 +71,8 @@ export async function redefinirPalavraPasse(dados: unknown): Promise<ResultadoRe
   }
 
   /**
-   * A palavra-passe nova não pode ser a temporária.
-   *
-   * Sem esta verificação, submeter o mesmo valor que veio no email passava —
-   * e o ecrã dizia que estava tudo tratado sobre uma palavra-passe que continua
-   * a existir escrita numa caixa de correio. A redefinição deixava de ser uma
-   * redefinição e passava a ser um clique.
+   * A nova palavra-passe não pode ser a temporária — sem isto, submeter o
+   * mesmo valor do email passava como redefinição sem o ser.
    */
   if (credencial.password) {
     try {
@@ -114,10 +99,9 @@ export async function redefinirPalavraPasse(dados: unknown): Promise<ResultadoRe
   const hash = await hashPassword(lido.data.palavraPasse);
 
   /**
-   * As duas escritas numa transação, pela mesma razão que a criação da conta
-   * (D63): a meio delas não há estado aceitável. Só o hash novo é uma pessoa
-   * presa para sempre no ecrã de definição, com a palavra-passe já trocada; só
-   * a marca é a plataforma aberta com a credencial do email ainda a valer.
+   * As duas escritas numa transação (D63): a meio não há estado aceitável —
+   * só o hash é uma conta presa; só a marca é a plataforma aberta com a
+   * credencial antiga ainda a valer.
    */
   try {
     await db().transaction(async (tx) => {
@@ -137,10 +121,9 @@ export async function redefinirPalavraPasse(dados: unknown): Promise<ResultadoRe
   }
 
   /**
-   * A auditoria regista **que** a palavra-passe foi definida, e nada do que ela
-   * é. A cadeia é por organização (D6) e o `super_admin` não tem nenhuma — para
-   * esse fica o registo no console, que é onde as operações de plataforma já
-   * vivem, em vez de se pendurar o evento numa sociedade a que ele não pertence.
+   * A auditoria regista que a palavra-passe foi definida, não qual é. Cadeia
+   * por organização (D6); `super_admin` não tem uma, por isso vai para o
+   * console em vez de se pendurar numa sociedade a que não pertence.
    */
   const cabecalhos = await headers();
   const ip = cabecalhos.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
@@ -178,14 +161,11 @@ export type ResultadoTrocaSociedade = { ok: true } | { ok: false; erro: string }
 
 /**
  * Muda a sociedade ativa de uma conta que administra mais do que uma
- * (BUG3-002) — grava o cookie que `sessaoAtual()` lê, e nada mais.
+ * (BUG3-002) — grava o cookie que `sessaoAtual()` lê, nada mais.
  *
- * A validação de pertença não é opcional nem cosmética: sem ela, esta ação
- * era uma forma de qualquer conta autenticada escolher entrar em **qualquer**
- * sociedade só por saber o `id` — que não é segredo, aparece em URLs e em
- * exports. `organizacaoId` só é aceite quando existe uma linha `utilizador`
- * ativa e não apagada, desta mesma conta de autenticação, nessa sociedade;
- * qualquer outro valor é recusado, e o cookie não é escrito.
+ * `organizacaoId` só é aceite com linha `utilizador` ativa e não apagada
+ * desta conta nessa sociedade; sem essa validação, qualquer conta escolhia
+ * entrar em qualquer sociedade só por saber o id, que não é segredo.
  */
 export async function trocarSociedade(organizacaoId: string): Promise<ResultadoTrocaSociedade> {
   const sessao = await sessaoAtual();

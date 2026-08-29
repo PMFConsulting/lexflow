@@ -23,24 +23,20 @@ export type Filtros = {
 };
 
 /**
- * A sociedade de quem lê é a primeira condição de todas as listagens.
- *
- * Não é um filtro entre outros: sem ela, uma listagem global devolve processos
- * de outras sociedades a quem abrir a página — e nenhuma das outras condições
- * repara nisso, porque todas elas descrevem o processo e nenhuma descreve o
- * dono. Fica numa constante para as quatro consultas deste ficheiro a
- * escreverem exatamente a mesma coisa.
+ * A sociedade de quem lê é a primeira condição de todas as listagens — sem
+ * ela, uma listagem global vaza processos de outra sociedade. Numa constante
+ * para as quatro consultas usarem exatamente a mesma coisa.
  */
 const daOrganizacao = (organizacaoId: string) =>
   eq(processoOnboarding.organizacaoId, organizacaoId);
 
 /**
- * BUG3-001: o `gestor` é equipa da sociedade, não dono de processos — vê os
- * mesmos processos que `society_admin` e `utilizador`, sem filtro por
- * responsável. `responsavel_id` nunca chegou a ser escrito por caminho
- * nenhum do produto (218 processos em produção, 0 com responsável), e um
- * `exists` sobre uma coluna sempre `NULL` nunca é verdadeiro — era por isso
- * que este papel via sempre zero processos.
+ * BUG3-001: `gestor` é equipa da sociedade, não dono de processos — vê os
+ * mesmos processos que `society_admin`/`utilizador`, sem filtro por
+ * responsável. `responsavel_id` nunca foi escrito por nenhum caminho do
+ * produto (218 processos em produção, 0 com responsável); um `exists` sobre
+ * coluna sempre `NULL` nunca é verdadeiro, por isso este papel via sempre
+ * zero.
  */
 function condicoes(f: Filtros, organizacaoId: string) {
   const partes = [daOrganizacao(organizacaoId), isNull(processoOnboarding.apagadoEm)];
@@ -271,19 +267,15 @@ export async function processoPorId(id: string) {
 /**
  * A proposta comercial viva de um processo, ou `null`.
  *
- * Uma consulta só, partilhada pela rota que a serve ao cliente durante o
- * onboarding e por quem só queira saber se ela existe. Duas consultas com o
- * mesmo propósito divergem, e a que diverge é sempre a que não está no caminho
- * do cliente (D48).
+ * Partilhada pela rota que a serve ao cliente e por quem só quer saber se
+ * existe — duas consultas com o mesmo propósito divergiriam, e sempre do lado
+ * que não está no caminho do cliente (D48).
  *
- * Vive aqui e **não** em `proposta.ts`: esse ficheiro é `"use server"`, e tudo
- * o que se exporte de lá fica alcançável a partir do browser. Uma função que
- * devolve os bytes de um documento não pode ser uma dessas.
+ * Vive aqui e não em `proposta.ts`: esse ficheiro é `"use server"`, e uma
+ * função que devolve bytes de documento não pode ser exportada de lá.
  *
- * `desc(criadoEm)` com `limit(1)` apesar de o carregamento apagar a anterior:
- * a ordenação é a rede de segurança para o caso de duas linhas vivas coexistirem
- * (uma corrida entre dois uploads simultâneos), e nesse caso a mais recente é a
- * resposta certa.
+ * `orderBy(desc) + limit(1)`: rede de segurança para duas linhas vivas
+ * coexistirem (corrida entre uploads simultâneos) — a mais recente vence.
  */
 export async function propostaDoProcesso(processoId: string) {
   const [linha] = await db()

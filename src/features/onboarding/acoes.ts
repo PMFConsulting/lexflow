@@ -50,11 +50,8 @@ import { SCHEMAS } from "./schemas";
 import { passoAplicavel, proximoPasso } from "./passos";
 
 /**
- * Guardar um passo.
- *
- * O token vem do URL e é revalidado aqui: uma Server Action é um endpoint
- * público como qualquer outro, e confiar em quem a chama seria deixar a porta
- * aberta. A validação Zod corre outra vez do lado do servidor pela mesma razão.
+ * Guarda um passo. Token revalidado aqui e Zod repetido no servidor — uma
+ * Server Action é um endpoint público como qualquer outro.
  */
 
 export type Resultado =
@@ -71,13 +68,7 @@ async function contexto() {
   };
 }
 
-/**
- * Os tipos dos documentos vivos de um processo.
- *
- * `isNull(apagadoEm)` porque a remoção pelo cliente é soft delete (a lei manda
- * reter): sem o filtro, anexar o cartão de cidadão e removê-lo a seguir deixava
- * o passo 2 a dar-se por satisfeito com um documento que já não está lá.
- */
+/** Tipos de documentos vivos de um processo — remoção é soft delete (isNull(apagadoEm)), a lei manda reter. */
 async function tiposAnexados(processoId: string): Promise<string[]> {
   const linhas = await db()
     .select({ tipo: documento.tipo })
@@ -86,13 +77,7 @@ async function tiposAnexados(processoId: string): Promise<string[]> {
   return linhas.map((l) => l.tipo);
 }
 
-/**
- * A mesma explicação que a página dá, para a Server Action não dizer outra.
- *
- * Um cliente que veja "o link expirou" no ecrã e "este link já não é válido"
- * ao carregar em Guardar não tem como saber que é o mesmo problema — e a
- * segunda frase, sozinha, não diz o que fazer a seguir.
- */
+/** Mesma explicação que a página dá — evita dizer ao cliente duas frases diferentes para o mesmo problema. */
 function recusaDeAcesso(acesso: AcessoOnboarding): Resultado {
   const { titulo, descricao } = motivoDoAcesso(acesso);
   return { ok: false, erros: {}, mensagem: `${titulo} ${descricao}` };
@@ -122,9 +107,8 @@ export async function guardarPasso(
   const schema = SCHEMAS[n as keyof typeof SCHEMAS];
   if (!schema) return { ok: false, erros: {}, mensagem: "Passo inválido." };
 
-  // O tipo de cliente decide o percurso, e é o passo 1 que o pode mudar a meio
-  // desta chamada — daí a variável, atualizada no `case 1` antes de se calcular
-  // qual é o passo seguinte.
+  // Passo 1 pode mudar o tipo de cliente a meio desta chamada — daí a
+  // variável, atualizada no case 1 antes de calcular o passo seguinte.
   let tipoCliente = processo.tipoCliente;
 
   if (!passoAplicavel(n, tipoCliente)) {
@@ -136,36 +120,18 @@ export async function guardarPasso(
   }
 
   /*
-   * A verificação por email é condição da assinatura, e a pergunta é feita
-   * **antes do Zod**, não depois.
-   *
-   * Não é ordem arbitrária. Enquanto o código não estiver verificado, o ecrã não
-   * desenha o quadro da assinatura — e um campo que não está no ecrã não entra
-   * no `FormData`, por isso o `passo7` recusaria a carga com «Assine no quadro
-   * antes de submeter», que é a resposta certa à pergunta errada: quem lê isso
-   * vai procurar um quadro de assinatura que a plataforma está deliberadamente a
-   * esconder. A primeira coisa que falta é a que tem de ser dita.
-   *
-   * E não chega travar o `submeter`: o que dá prova de quem assinou é a linha em
-   * `assinatura` — com o hash do dossier e o relógio do servidor —, e deixá-la
-   * ser escrita sem verificação era gravar a prova primeiro e pensar no fator de
-   * autenticação depois. O ecrã é conforto; uma Server Action é um endpoint
-   * público como qualquer outro.
+   * Verificação por email antes do Zod, não depois (D57): sem código validado
+   * o ecrã não desenha o quadro de assinatura, e o passo7 recusaria a carga
+   * com "assine no quadro" — resposta certa à pergunta errada. Repete-se aqui
+   * e não só no `submeter`, porque a Server Action é um endpoint público.
    */
   if (n === 7 && !(await verificacaoValida(processo.id))) return RECUSA_SEM_OTP;
 
   /*
-   * O passo 2 é validado contra dois factos que o formulário não tem como
-   * enviar, e não deve: o percurso do processo e os documentos que estão mesmo
-   * anexados.
-   *
-   * O primeiro decide se o NIF leva a régua de pessoa coletiva (primeiro dígito
-   * 5, 6, 8 ou 9); o segundo decide se o passo fecha. Nenhum dos dois pode vir
-   * da carga — o `Anexos` sobe por uma Server Action à parte e o input nem
-   * `name` tem, por isso o `new FormData(form)` nunca soube de ficheiros, e o
-   * `tipoCliente` que a janela mandasse era exatamente o que a regra existe para
-   * não deixar escolher. Vêm daqui, e o que a carga trouxesse com estes nomes é
-   * substituído, não acreditado.
+   * Passo 2 validado contra dois factos que o formulário não pode enviar:
+   * tipoCliente (decide a régua do NIF, D54) e os documentos realmente
+   * anexados (Anexos sobe por Server Action à parte, sem `name`). Injetados
+   * aqui, e o que a carga trouxer com estes nomes é substituído.
    */
   const entrada =
     n === 2 && typeof dados === "object" && dados !== null
@@ -190,8 +156,7 @@ export async function guardarPasso(
   const base = db();
   const { ip, userAgent } = await contexto();
 
-  // O Zod já garantiu a forma; o Drizzle só precisa de acreditar nela. Sem o
-  // cast, cada tabela pedia o objeto literal completo em vez do espalhado.
+  // Zod já garantiu a forma; sem o cast o Drizzle exige o objeto literal completo em vez do espalhado.
   const insere = <T>(extra: Linha) => ({ processoId: processo.id, ...extra }) as T;
 
   switch (n) {
@@ -211,10 +176,9 @@ export async function guardarPasso(
           set: resto as Partial<typeof dadosIdentificacao.$inferInsert>,
         });
 
-      // As nacionalidades são uma lista: substituir é mais simples e correto do
-      // que tentar reconciliar diferenças. Só as do cliente — as do
-      // representante são gravadas no passo 3 e apagá-las aqui fazia com que
-      // voltar atrás para corrigir uma vírgula no nome as levasse com ele.
+      // Substituir a lista é mais simples que reconciliar diferenças. Só as
+      // do cliente — apagar as do representante aqui também as perderia ao
+      // corrigir uma vírgula no nome.
       await base
         .delete(nacionalidade)
         .where(
@@ -239,10 +203,9 @@ export async function guardarPasso(
         .set({ tipoCliente })
         .where(eq(processoOnboarding.id, processo.id));
 
-      // Trocar de empresa para pessoa singular tira o passo 3 do percurso. O
-      // que lá tivesse sido gravado deixa de ter sentido e não pode ficar a
-      // apodrecer no dossier: apareceria no PDF do arquivo e no back-office
-      // como se ainda descrevesse o processo.
+      // Trocar para pessoa singular tira o passo 3 do percurso — o que lá
+      // estivesse gravado apareceria no PDF de arquivo como se ainda
+      // descrevesse o processo, por isso apaga-se.
       if (tipoCliente === "particular") {
         await base
           .delete(representanteLegal)
@@ -264,10 +227,8 @@ export async function guardarPasso(
     }
 
     case 2: {
-      // `tipoCliente` e `documentos` entram no schema para decidir as regras e
-      // não são colunas de `dados_fiscais`: saem antes do INSERT, senão o
-      // Drizzle escreve `insert into dados_fiscais ("tipo_cliente"…)` e rebenta
-      // num campo que o cliente nunca viu.
+      // tipoCliente e documentos entram no schema só para decidir regras — não
+      // são colunas de dados_fiscais, saem antes do INSERT.
       const fiscais = { ...v };
       delete fiscais.tipoCliente;
       delete fiscais.documentos;
@@ -294,17 +255,15 @@ export async function guardarPasso(
         nacionalidades: string[];
       };
 
-      // Um campo que ficou por preencher chega aqui como string vazia, e uma
-      // data vazia numa coluna `date` rebenta — por isso o vazio vira null.
+      // Campo vazio chega como string vazia; numa coluna date isso rebenta — por isso vira null.
       const texto = (campo: string) => {
         const bruto = v[campo];
         return typeof bruto === "string" && bruto ? bruto : null;
       };
 
-      // Com "Sim" — quem preenche é o representante legal — o passo grava-se na
-      // mesma, com o interruptor a `true` e o resto a null. Uma linha em branco
-      // é a prova de que a pergunta foi feita e respondida; a ausência de linha
-      // não distingue isso de "ainda não chegou aqui".
+      // Com "Sim" o passo grava-se à mesma, interruptor true e resto null —
+      // linha em branco prova que a pergunta foi feita; ausência de linha não
+      // distingue isso de "ainda não chegou aqui".
       const valores = {
         eRepresentante,
         relacao: texto("relacao"),
@@ -373,15 +332,10 @@ export async function guardarPasso(
           set: { servicos, origemFundos },
         });
 
-      // Regra de negócio que não é opcional: PPE declarada força risco elevado.
-      //
-      // E o inverso também tem de valer. Antes, o risco só subia: quem
-      // respondesse Sim, voltasse atrás e corrigisse para Não ficava com o
-      // processo marcado como elevado para sempre, com um fator de risco a
-      // dizer "pessoa politicamente exposta declarada" por baixo de uma
-      // declaração que dizia o contrário. O risco não é mostrado em lado
-      // nenhum (D21), o que torna isto ainda mais difícil de apanhar a olho —
-      // mas é o valor gravado, e é dele que qualquer relatório vai viver.
+      // PPE declarada força risco elevado — e o inverso também tem de valer:
+      // antes, corrigir de Sim para Não deixava o processo elevado para
+      // sempre. O risco não aparece em UI (D21), por isso um erro aqui só se
+      // vê num relatório.
       const eraElevado = processo.nivelRisco === "elevado";
 
       if (ppe.ePpe === true) {
@@ -493,20 +447,10 @@ export async function guardarPasso(
       // A assinatura vive na sua tabela; o fecho fica só com a declaração.
       const { assinatura: rubrica, ...fecho } = v as { assinatura: string } & Linha;
 
-      /*
-       * A versão do articulado é gravada **junto** da aceitação.
-       *
-       * Vem de `termosEmVigor`, que é a mesma função que decidiu o que o ecrã
-       * lhe mostrou — não de uma constante nem do que o formulário mandasse.
-       * Sem isto a aceitação dizia que o cliente aceitou e não dizia o quê, e a
-       * D3/D38 avisa exatamente para o que acontece a seguir: uma versão nova
-       * do articulado faz as aceitações antigas parecerem aceitações do texto
-       * novo, e a diferença entre o que ele leu e o que passou a estar escrito
-       * desaparece sem deixar rasto.
-       *
-       * Só quando ele de facto aceitou: gravar a versão numa recusa era
-       * carimbar um documento que ninguém aceitou.
-       */
+      // Versão do articulado gravada junto da aceitação, vinda de
+      // termosEmVigor (a mesma função que decidiu o que o ecrã mostrou) — sem
+      // isto uma versão nova apagava a diferença entre o texto lido e o atual
+      // (D3/D38). Só quando aceitou de facto.
       if (fecho.tcAceitacao) {
         fecho.tcVersao = (await termosEmVigor(processo.organizacaoId)).versao;
       }
@@ -519,9 +463,8 @@ export async function guardarPasso(
           set: fecho as Partial<typeof fechoProposta.$inferInsert>,
         });
 
-      // O que se assina é o conteúdo, não o botão: o hash é do dossier inteiro
-      // no momento da assinatura, em serialização canónica. Se alguém alterar
-      // um campo depois disto, o hash deixa de bater.
+      // O que se assina é o conteúdo, não o botão: hash do dossier inteiro em
+      // serialização canónica — um campo alterado depois disto não bate.
       const dossier = await seccoesDoProcesso(processo.id);
       const hashDocumento = createHash("sha256")
         .update(canonico({ referencia: processo.referencia, dossier }), "utf8")
@@ -578,17 +521,8 @@ export async function guardarPasso(
 
   const seguinte = proximoPasso(n, tipoCliente);
 
-  /*
-   * `passo_atual` é o ponto onde o cliente retoma, e um retomar não anda para
-   * trás.
-   *
-   * Estava `seguinte ?? n` à seca, e isso valia enquanto o formulário só se
-   * percorresse para a frente. Com os links "Corrigir" da revisão a levarem de
-   * volta ao passo 2, gravar lá punha o `passo_atual` a 3 — e quem fechasse o
-   * separador e voltasse a abrir o link caía no passo 3 de um processo que já
-   * ia no 7. O `max` guarda o mais avançado dos dois; o `check` da base de dados
-   * (`between 1 and 7`) continua satisfeito porque nenhum dos dois o excede.
-   */
+  // passo_atual não anda para trás (D58): sem o max, corrigir o passo 2 via
+  // link "Corrigir" da revisão devolvia um processo no passo 7 para o passo 3.
   const marca = Math.max(processo.passoAtual, seguinte ?? n);
 
   await base
@@ -603,32 +537,21 @@ export async function guardarPasso(
 /* ── código de verificação por email (OTP) ───────────────────────────────── */
 
 /**
- * A verificação do fecho.
- *
- * O passo 7 pedia uma caixa marcada, uma rubrica desenhada com o rato e um
- * clique. Nada disso prova **quem** está do outro lado: o link mágico é o único
- * fator, e um link mágico é um segredo que viaja por email, se cola em conversas
- * e fica em históricos de browser. Quem o apanhe assina em nome do cliente, e a
- * assinatura fica gravada com o hash do dossier a dizer que foi ele.
- *
- * O código fecha essa distância no único momento em que ela importa: quem assina
- * tem de provar, no momento de assinar, que continua a ter acesso à caixa de
- * correio para onde a sociedade escreveu. Não é autenticação forte e não se
- * apresenta como tal — é um segundo fator sobre o mesmo canal, e o que ele
- * apanha é o link reencaminhado, que é o caso real.
+ * Verificação do fecho (D57). O link mágico é o único fator até aqui, e é um
+ * segredo que viaja por email e se cola em conversas — quem o apanhe assina em
+ * nome do cliente. O código exige provar, no momento de assinar, acesso à
+ * caixa de correio; não é autenticação forte, é um segundo fator sobre o
+ * mesmo canal, contra o caso real de um link reencaminhado.
  */
 
 /** Quanto tempo o código serve depois de gerado. */
 const VALIDADE_OTP_MINUTOS = 10;
 
 /**
- * Quanto tempo uma verificação bem-sucedida vale.
- *
- * Não é o mesmo prazo do código, e não podia ser: entre acertar no código e
- * carregar em Submeter há a leitura dos T&C, a leitura da proposta e a rubrica,
- * e obrigar a repetir a verificação a meio disso era transformar uma medida de
- * segurança num obstáculo que se contorna pedindo outro código. Uma hora chega
- * para fechar o passo e é curta o suficiente para não valer no dia seguinte.
+ * Prazo da verificação — maior que o do código de propósito: entre acertar o
+ * código e submeter há T&C, proposta e rubrica para ler, e repetir a
+ * verificação a meio disso viraria obstáculo. Uma hora fecha o passo sem valer
+ * no dia seguinte.
  */
 const VALIDADE_VERIFICACAO_MINUTOS = 60;
 
@@ -639,39 +562,24 @@ const MAX_TENTATIVAS_OTP = 5;
 const INTERVALO_REENVIO_S = 60;
 
 /**
- * Teto diário de códigos por processo.
- *
- * O intervalo de 60 segundos limitava o **ritmo** e não o **total**, e a
- * diferença é toda: cinco tentativas por código valem pouco, mas 1440 códigos
- * por dia valem 7200 tentativas — e a paciência de um script é infinita. Com o
- * teto, o orçamento de um dia inteiro passa a ser 5 códigos × 5 tentativas =
- * 25 hipóteses em um milhão. É também o que impede o botão "Enviar código" de
- * ser um gerador de emails à custa da quota da sociedade.
- *
- * Cinco chegam para o percurso real com folga: o cliente pede um, não recebe,
- * pede outro, corrige o email no passo 1 e pede um terceiro.
+ * Teto diário de códigos por processo. O intervalo de 60s limita o ritmo, não
+ * o total — sem teto, 1440 códigos/dia dão 7200 tentativas contra um milhão.
+ * Com 5/dia, o orçamento fica em 25 hipóteses; e o botão "Enviar código" não
+ * vira gerador de emails à custa da quota da sociedade.
  */
 const MAX_CODIGOS_POR_DIA = 5;
 
 /**
- * Verificações por minuto, por processo.
- *
- * O `tentativas` da linha é o limite duro; isto é o amortecedor à frente dele,
- * e existe por duas razões. A primeira é que sem ele um script gasta as cinco
- * tentativas de cada código em milissegundos e passa o dia a pedir códigos
- * novos. A segunda é o custo: cada verificação é uma consulta e uma escrita de
- * auditoria, e um martelo sobre este endpoint é uma negação de serviço barata
- * sobre a base de dados.
+ * Verificações por minuto, por processo — amortecedor à frente do limite duro
+ * de `tentativas`: sem ele, um script esgota as cinco tentativas em
+ * milissegundos, e cada verificação já custa uma consulta e uma escrita de auditoria.
  */
 const MAX_VERIFICACOES_POR_MINUTO = 10;
 
 /**
- * O código nunca é guardado em claro, e o processo entra como sal.
- *
- * Sem o sal, dois processos com o mesmo código de seis dígitos — que acontece,
- * são só um milhão de hipóteses e a POC não vai ter um milhão de fechos —
- * partilhavam o hash, e uma tabela arco-íris de um milhão de linhas resolvia-os
- * todos de uma vez. Mesma regra do token do link mágico (D4).
+ * Código nunca gravado em claro; o processo entra como sal — sem ele, dois
+ * processos com o mesmo código de seis dígitos partilhavam hash e uma tabela
+ * arco-íris de um milhão de linhas resolvia-os todos (mesma regra do token, D4).
  */
 function hashCodigo(processoId: string, codigo: string): string {
   return createHash("sha256").update(`${processoId}:${codigo.trim()}`, "utf8").digest("hex");
@@ -690,12 +598,9 @@ function hashesIguais(a: string, b: string): boolean {
 }
 
 /**
- * `joao.silva@exemplo.pt` → `j••••••••a@exemplo.pt`.
- *
- * O cliente já sabe qual é o seu endereço — escreveu-o no passo 1 —, por isso
- * isto não lhe esconde nada. O que evita é que um link reencaminhado mostre o
- * endereço completo a quem o abrir: quem tem o link não pode ficar a saber para
- * onde é que o código vai.
+ * `joao.silva@exemplo.pt` → `j••••••••a@exemplo.pt`. O cliente já sabe o seu
+ * endereço; isto evita que um link reencaminhado revele o endereço completo a
+ * quem o abrir.
  */
 function mascarar(email: string): string {
   const [local, dominio] = email.split("@");
@@ -743,12 +648,9 @@ async function ultimoCodigo(processoId: string) {
 }
 
 /**
- * Há uma verificação válida para este processo?
- *
- * É esta a pergunta que trava a assinatura e a submissão, e é feita à base de
- * dados e não ao estado do browser — o `submeter` é um endpoint público como
- * qualquer outro, e um cliente que decida nunca lhe chamar `verificarCodigoOtp`
- * não pode ficar em vantagem sobre quem o fez.
+ * Há uma verificação válida para este processo? Pergunta feita à base de
+ * dados, não ao estado do browser — `submeter` é um endpoint público como
+ * qualquer outro.
  */
 async function verificacaoValida(processoId: string): Promise<boolean> {
   const linha = await ultimoCodigo(processoId);
@@ -786,12 +688,9 @@ export type ResultadoOtp =
   | { ok: false; erro: string; esperarSegundos?: number };
 
 /**
- * Gera um código, grava-lhe o hash e manda-o por email.
- *
- * Pedido explícito e não automático ao entrar no passo: o passo 7 é revisitado
- * (o cliente vai corrigir um campo e volta), e um envio por cada visita enchia a
- * caixa do cliente de códigos, gastava a quota do fornecedor e treinava-o a
- * ignorar exatamente a mensagem que ele precisa de ler.
+ * Gera um código, grava o hash e manda por email. Pedido explícito, não
+ * automático ao entrar no passo — o passo 7 é revisitado, e um envio por
+ * visita encheria a caixa do cliente e gastaria a quota do fornecedor.
  */
 export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
   const acesso = await acessoPorToken(bruto);
@@ -818,9 +717,8 @@ export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
     };
   }
 
-  // Um pedido a cada minuto, no máximo. Sem isto, o botão "Enviar código" é um
-  // botão para mandar emails a partir do domínio da sociedade — em nome dela e
-  // à custa da quota dela.
+  // No máximo um pedido por minuto — sem isto o botão vira um gerador de
+  // emails à custa da quota da sociedade.
   const anterior = await ultimoCodigo(processo.id);
   if (anterior) {
     const passaram = (Date.now() - anterior.criadoEm.getTime()) / 1000;
@@ -834,19 +732,8 @@ export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
     }
   }
 
-  /*
-   * O teto do dia, que é o que faltava.
-   *
-   * O intervalo de 60 segundos em cima limita o ritmo e nada mais: quem
-   * esperasse o minuto podia pedir 1440 códigos por dia, e cada um traz cinco
-   * tentativas frescas. Sete mil hipóteses por dia contra um milhão é uma
-   * questão de meses, não de séculos — e é uma conta que se faz num script.
-   * Com o teto, o orçamento diário são 25 hipóteses.
-   *
-   * Conta-se na base de dados e não em memória: o contentor reinicia, e um
-   * limite que se apaga com um reinício é um limite que se contorna com um
-   * pedido bem escolhido.
-   */
+  // Teto diário contado na base de dados, não em memória — um contentor
+  // reinicia, e um limite que se apaga com o reinício contorna-se sozinho.
   const doDia = await codigosDoDia(processo.id);
   if (doDia >= MAX_CODIGOS_POR_DIA) {
     await registarEvento({
@@ -907,10 +794,9 @@ export async function enviarCodigoOtp(bruto: string): Promise<ResultadoOtp> {
 
   const { ip, userAgent } = await contexto();
 
-  // O **código nunca entra em auditoria**, nem mascarado: o registo é imutável
-  // e legível por quem tem o back-office, e um segredo de dez minutos escrito
-  // num sítio que dura sete anos é um segredo mal guardado. O que fica é que
-  // foi pedido, para onde, e se saiu.
+  // Código nunca entra em auditoria, nem mascarado: registo imutável de sete
+  // anos não é sítio para um segredo de dez minutos. Fica só que foi pedido,
+  // para onde, e se saiu.
   await registarEvento({
     organizacaoId: processo.organizacaoId,
     processoId: processo.id,
@@ -983,15 +869,9 @@ export async function verificarCodigoOtp(
     return { ok: false, erro: "Ainda não pediu nenhum código. Carregue em «Enviar código»." };
   }
 
-  /*
-   * Um código já acertado só vale enquanto a verificação valer.
-   *
-   * O que aqui estava devolvia `ok` a qualquer momento depois do acerto, e isso
-   * contrariava o próprio `verificacaoValida` que trava a submissão: a caixa do
-   * passo 7 dizia "verificado" sobre uma verificação de ontem e o `submeter`
-   * recusava-a de seguida, sem explicar porquê. Pior — quem chamasse esta ação
-   * diretamente lia um "ok" que já não era verdade.
-   */
+  // Um código já acertado só vale enquanto a verificação valer — devolver
+  // "ok" sempre depois do acerto contrariava o verificacaoValida que trava a
+  // submissão.
   if (linha.verificadoEm) {
     if (await verificacaoValida(processo.id)) return { ok: true };
     return {
@@ -1004,19 +884,9 @@ export async function verificarCodigoOtp(
     return { ok: false, erro: "Este código expirou. Peça um novo código." };
   }
 
-  /*
-   * A tentativa é consumida **antes** de o código ser comparado, e num só
-   * `UPDATE ... WHERE tentativas < 5`.
-   *
-   * O que estava aqui era um `read-modify-write`: lia-se `tentativas`,
-   * comparava-se com 5, e escrevia-se `tentativas + 1` calculado em JavaScript.
-   * Dez pedidos ao mesmo tempo liam todos `0`, passavam todos a verificação e
-   * escreviam todos `1` — cinco tentativas de limite a valerem tentativas sem
-   * fim, e sem uma única linha fora do sítio a denunciá-lo. Com o incremento no
-   * Postgres e a condição no `WHERE`, o limite é o Postgres a contar: zero
-   * linhas alteradas quer dizer, à letra, "já não havia tentativas", e não é
-   * preciso lê-las primeiro para o saber.
-   */
+  // Tentativa consumida antes da comparação, num só UPDATE ... WHERE
+  // tentativas < 5 — um read-modify-write em JS deixava dez pedidos
+  // simultâneos lerem todos 0 e passarem todos, sem limite real.
   const [consumida] = await db()
     .update(codigoOtp)
     .set({ tentativas: sql`${codigoOtp.tentativas} + 1` })
@@ -1033,9 +903,8 @@ export async function verificarCodigoOtp(
   const tentativas = Number(consumida.tentativas);
 
   if (!hashesIguais(linha.codigoHash, hashCodigo(processo.id, codigo))) {
-    // As tentativas falhadas ficam em auditoria porque são o único sinal de
-    // alguém a martelar o código de outra pessoa — e é um sinal que só se lê
-    // depois, quando já se está a investigar.
+    // Tentativas falhadas ficam em auditoria: único sinal de alguém a
+    // martelar o código de outra pessoa.
     await registarEvento({
       organizacaoId: processo.organizacaoId,
       processoId: processo.id,
@@ -1155,8 +1024,7 @@ export async function submeter(bruto: string): Promise<Resultado> {
     };
   }
 
-  // A rubrica é o que dá prova de quem assinou: sem ela gravada, o processo
-  // não pode ser submetido. A caixa de verificação sozinha não vale nada.
+  // A rubrica é a prova de quem assinou — a caixa de verificação sozinha não vale nada.
   const [ass] = await db()
     .select({ imagemDados: assinatura.imagemDados })
     .from(assinatura)
@@ -1171,27 +1039,21 @@ export async function submeter(bruto: string): Promise<Resultado> {
     };
   }
 
-  // Segunda fechadura na mesma porta. O `guardarPasso` já a exige antes de
-  // escrever a rubrica, mas o `submeter` é uma Server Action à parte e chamável
-  // por si: um processo com uma rubrica antiga na tabela e nenhuma verificação
-  // válida agora não passa por aqui.
+  // Segunda fechadura na mesma porta — submeter é uma Server Action à parte,
+  // chamável por si, e uma rubrica antiga sem verificação válida não passa aqui.
   if (!(await verificacaoValida(processo.id))) return RECUSA_SEM_OTP;
 
   const { ip, userAgent } = await contexto();
 
   // `returning` e não um segundo SELECT: o resumo em PDF precisa da data de
-  // submissão, e a linha que já estava em memória ainda a tem a null.
+  // submissão, e a linha em memória ainda a tem a null.
   //
-  // O estado passa a `aguardar_aprovacao`, não a `submetido`: a POC ganhou de
-  // volta um fluxo de aprovação (a D20 apagou-o; esta atualização repõe-no), e
-  // um processo submetido pelo cliente fica à espera da decisão de um sócio ou
-  // advogado antes de `aprovado` ou `rejeitado`. `submetidoEm` continua a
-  // marcar o momento da submissão em si.
-  // Guarda de estado no próprio UPDATE, não só na verificação lá em cima:
-  // entre o SELECT que resolveu o acesso e este UPDATE, outro pedido pode ter
-  // submetido o mesmo processo (duplo clique, ou dois separadores abertos no
-  // mesmo link). Sem esta condição, o segundo pedido reescrevia
-  // silenciosamente `submetidoEm` por cima do primeiro.
+  // Estado passa a aguardar_aprovacao, não submetido — fluxo de aprovação de
+  // volta (D20 apagou-o, esta atualização repõe-no); espera decisão de sócio
+  // ou advogado.
+  //
+  // Guarda de estado no próprio UPDATE: entre o SELECT do acesso e aqui,
+  // outro pedido (duplo clique, dois separadores) pode ter submetido o mesmo processo.
   const [submetido] = await db()
     .update(processoOnboarding)
     .set({ estado: "aguardar_aprovacao", submetidoEm: new Date() })
@@ -1223,11 +1085,9 @@ export async function submeter(bruto: string): Promise<Resultado> {
     userAgent,
   });
 
-  // Guardado, apesar de o `notificarSubmissao` prometer não lançar: a promessa
-  // já não era verdade (o `env()` do destino do aviso interno lança, e lançava
-  // *antes* de os emails ao cliente estarem sequer na fila), e uma submissão
-  // gravada não pode virar ecrã de erro por causa de um email. O mesmo contrato
-  // do `arquivarNoArmazenamento`, aqui em baixo.
+  // Guardado mesmo que notificarSubmissao lance (o env() do aviso interno já
+  // lançou antes, D46) — uma submissão gravada não pode virar erro por causa
+  // de um email. Mesmo contrato de arquivarNoArmazenamento, abaixo.
   try {
     await notificarSubmissao(processo);
   } catch (e) {
@@ -1240,19 +1100,15 @@ export async function submeter(bruto: string): Promise<Resultado> {
 }
 
 /**
- * Pasta do cliente no destino da sociedade, depois de o processo já estar
- * submetido.
- *
- * Mesmo contrato dos emails, e pela mesma razão: o processo já está gravado, e
- * nada do que aconteça a seguir pode transformar uma submissão bem-sucedida
- * num ecrã de erro. A falha vai para `evento_auditoria` com a ação
- * `armazenamento.erro` e aparece no ecrã de configuração do back-office.
+ * Pasta do cliente no destino da sociedade, após o processo submetido. Mesmo
+ * contrato dos emails: o processo já está gravado, nada aqui pode virar erro.
+ * A falha vai para evento_auditoria (`armazenamento.erro`) e aparece na
+ * configuração do back-office.
  */
 async function arquivarNoArmazenamento(processo: typeof processoOnboarding.$inferSelect) {
   try {
-    // Esperado, e não deitado fora: numa POC alojada em contentor, um
-    // `void promessa()` é morto quando a resposta fecha, e a sincronização
-    // desapareceria a meio sem deixar rasto.
+    // Esperado, não disparado e esquecido: um `void promessa()` morre com a
+    // resposta, e a sincronização desapareceria a meio sem rasto.
     const { sincronizarCliente } = await import("@/lib/storage/sincronizar");
     await sincronizarCliente(processo);
   } catch (e) {
@@ -1262,17 +1118,12 @@ async function arquivarNoArmazenamento(processo: typeof processoOnboarding.$infe
 }
 
 /**
- * Os emails que saem quando um processo é submetido.
+ * Emails da submissão: confirmação de receção ao cliente e aviso à sociedade.
+ * Nenhum impede a submissão — daí Promise.allSettled e nada a lançar.
  *
- * Um para o cliente — a confirmação de receção — e um para a sociedade.
- * Nenhum deles pode impedir a submissão: o processo já está gravado, e um erro
- * do Resend não transforma um formulário bem preenchido num ecrã de erro. Daí
- * o `Promise.allSettled` e o facto de nada aqui lançar.
- *
- * As boas-vindas (com os três anexos) já não vão aqui: com o fluxo de
- * aprovação de volta (D20 apagou-o, esta atualização repõe-no), esse email
- * passa a sair quando o processo é aprovado — `enviarBoasVindas`, em
- * `@/lib/emails/boas-vindas`, partilhada com `aprovarProcesso`.
+ * As boas-vindas (três anexos) não vão aqui: com o fluxo de aprovação de
+ * volta (D20 apagou-o, esta atualização repõe-no), saem em `aprovarProcesso`
+ * (`enviarBoasVindas`, `@/lib/emails/boas-vindas`).
  */
 async function notificarSubmissao(processo: typeof processoOnboarding.$inferSelect) {
   const base = db();
@@ -1291,18 +1142,13 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
 
   const emailCliente = identificacao?.email ?? faturacao?.email;
 
-  // O aviso interno é da **sociedade** dona do processo, e por isso o primeiro
-  // destino é o email geral dela. `EMAIL_NOTIFICACOES` é uma variável única de
-  // instalação: numa plataforma com várias sociedades, mandar por ali todos os
-  // avisos é entregar referências e links de dossiers de umas à caixa de
-  // correio de outra. Fica como recuo — para a sociedade que ainda não
-  // preencheu o contacto no seu onboarding — e não como destino por omissão.
+  // Primeiro destino é o email geral da própria sociedade — EMAIL_NOTIFICACOES
+  // é variável única de instalação, e numa plataforma multi-sociedade
+  // entregaria dossiers de uma à caixa de outra. Fica só como recuo.
   //
-  // Dentro de um `try` porque o `env()` **lança** — valida o ambiente inteiro,
-  // e uma variável qualquer inválida rebentava aqui, três linhas antes de os
-  // dois emails ao cliente entrarem na fila. O aviso interno é o acessório
-  // desta função; deixá-lo derrubar o principal era ter a prioridade ao
-  // contrário. Pela mesma razão a leitura da sociedade também é guardada.
+  // Dentro de try porque env() lança e validaria o ambiente inteiro três
+  // linhas antes dos emails ao cliente entrarem na fila — o aviso interno é
+  // acessório, não pode derrubar o principal.
   let emailSociedade: string | undefined;
   try {
     const [dona] = await base
@@ -1315,11 +1161,8 @@ async function notificarSubmissao(processo: typeof processoOnboarding.$inferSele
     console.error("[email] não foi possível ler o contacto da sociedade", e);
   }
 
-  // Sem valor por omissão. Aqui estava um endereço pessoal escrito à mão, e
-  // numa instalação a que faltasse a variável eram os dados de processos de
-  // clientes — referência, tipo, link para o dossier — a sair para a caixa de
-  // correio de quem escreveu o código. Não havendo destino nenhum, o aviso não
-  // sai: os dois emails ao cliente e o arquivo não dependem disto.
+  // Sem valor por omissão (D37) — sem destino configurado, o aviso simplesmente
+  // não sai; os emails ao cliente e o arquivo não dependem disto.
   let emailBackoffice = emailSociedade;
   if (!emailBackoffice) {
     try {

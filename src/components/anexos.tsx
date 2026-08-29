@@ -14,14 +14,9 @@ export type ResultadoAnexo =
   | { ok: false; erro: string };
 
 /**
- * Os rótulos de **todos** os tipos de documento da plataforma, os de processo e
- * os de sociedade, num mapa só.
- *
- * Dois mapas seria mais arrumado por domínio e pior na prática: este componente
- * recebe a lista de tipos de quem o usa e não sabe de que enum ela veio, e um
- * tipo sem rótulo aparece em cru no ecrã — "certidao_sociedade" numa caixa que
- * uma pessoa vai ler. Sem `Record<string, string>` a fingir exaustividade: o
- * recuo para o próprio valor está no sítio onde se lê.
+ * Rótulos de **todos** os tipos de documento da plataforma, processo e
+ * sociedade, num mapa só — o componente não sabe de que enum vem a lista que
+ * recebe, e um tipo sem rótulo apareceria em cru no ecrã.
  */
 const ROTULOS: Record<string, string> = {
   identificacao: "Documento de identificação",
@@ -41,21 +36,14 @@ const ROTULOS: Record<string, string> = {
 const kb = (b: number) => (b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
 
 /**
- * Anexos de um passo, sem saber a que percurso pertence.
+ * Anexos de um passo, sem saber a que percurso pertence. Pede-se a
+ * categoria porque sem ela o painel não avisa que um documento está a
+ * expirar (§6 do brief).
  *
- * O formulário real tem um dropzone genérico. Aqui pede-se a categoria, porque
- * sem ela o painel não consegue avisar que um documento de identificação está
- * a expirar — e esse aviso é meio ponto do brief.
- *
- * As duas Server Actions entram por parâmetro em vez de serem importadas: o
- * mesmo componente serve os anexos de um processo de cliente, os da sociedade e
- * os de uma pessoa da equipa, e as três escrevem em tabelas diferentes. O que
- * não muda é tudo o resto — e é tudo o resto que custou a acertar: o campo que
- * se limpa no `finally` para se poder voltar a escolher o mesmo ficheiro, o
- * `data-anexos` que diz se o anexo entrou sem se interrogar um campo que se
- * limpa a si próprio, a segunda escolha a meio da primeira a dizer que há um
- * ficheiro a subir em vez de desaparecer calada, os ids de `useId()` (D41). Uma
- * segunda cópia disto perderia metade dessas lições no primeiro mês.
+ * As duas Server Actions entram por parâmetro, não são importadas — o mesmo
+ * componente serve processo de cliente, sociedade e pessoa da equipa, cada
+ * um escrevendo em tabela diferente. O resto (campo que se limpa no
+ * `finally`, `data-anexos`, ids de `useId()` — D41) é comum aos três.
  */
 export function Anexos({
   carregar,
@@ -92,16 +80,10 @@ export function Anexos({
   const entrada = useRef<HTMLInputElement>(null);
 
   /**
-   * Ids gerados, e não `ficheiro-${titulo}`.
-   *
-   * O título é texto português com acentos, e dele saía `id="ficheiro-Documentação"`.
-   * Um id assim é válido, mas é frágil de endereçar: o `ç` e o `ã` têm duas
-   * representações Unicode (NFC e NFD) que se lêem iguais no ecrã e não são a
-   * mesma sequência de code points. `querySelector` compara code points, não
-   * formas canónicas — um seletor que passou por uma ferramenta que normaliza
-   * para NFD não encontra o campo, e quem procura fica a olhar para um elemento
-   * que está lá e não aparece. Todos os outros campos do formulário já usavam
-   * `useId()` (ver `Campo.tsx`); este era o único que não.
+   * Ids gerados, não `ficheiro-${titulo}` (D41). O título com acentos dava
+   * `id="ficheiro-Documentação"` — válido, mas `ç`/`ã` têm duas
+   * representações Unicode (NFC/NFD) que `querySelector` não trata como
+   * iguais. `Campo.tsx` já usava `useId()`; este era o único que não.
    */
   const id = useId();
   const idTipo = `${id}-tipo`;
@@ -111,11 +93,9 @@ export function Anexos({
     const f = lista?.[0];
     if (!f) return;
 
-    // Uma segunda escolha enquanto a primeira ainda sobe não pode desaparecer
-    // sem dizer nada: as duas partilham o `erro` e o campo que se limpa no fim,
-    // e a que chegasse a meio ficava sem sítio para aterrar. Antes o campo era
-    // `disabled` durante a subida, o que resolvia isto escondendo-o — e deixava
-    // o passo com um campo que ora aceita ora não aceita, sem explicação.
+    // Segunda escolha a meio da primeira não pode desaparecer calada. Antes
+    // o campo ficava `disabled` durante a subida — escondia o problema em
+    // vez de o explicar.
     if (aCarregar) {
       setErro("Há um ficheiro a carregar. Aguarde que termine para anexar o seguinte.");
       if (entrada.current) entrada.current.value = "";
@@ -140,28 +120,19 @@ export function Anexos({
       try {
         const r = await carregar(fd);
         if (!r.ok) {
-          // Com o nome do ficheiro à frente: o campo é limpo a seguir, e sem
-          // isto a mensagem ficava a falar de um ficheiro que já não se vê em
-          // lado nenhum — o que se leu como "carregar o ficheiro não faz nada".
+          // Nome do ficheiro à frente: o campo limpa-se a seguir e a
+          // mensagem sozinha pareceria falar de nada.
           setErro(`${f.name} — ${r.erro}`);
           return;
         }
         setAnexos((a) => [...a, { id: r.id, nome: r.nome, tipo, bytes: f.size }]);
       } catch {
-        // Uma Server Action que rebenta — limite de corpo, rede a cair — não
-        // pode deixar o componente mudo e bloqueado. Silêncio é pior do que
-        // uma falha visível.
         setErro("Não foi possível carregar o ficheiro. Tente de novo.");
       } finally {
-        // Limpar o campo é o que permite voltar a escolher o *mesmo* ficheiro
-        // depois de um erro: sem isto o `change` não volta a disparar, porque o
-        // valor não muda.
-        //
-        // Consequência que já custou uma investigação inteira: a seguir a um
-        // upload, `input.files.length` é 0 e `input.value` é "". Esse é o estado
-        // final desejado, não sinal de que o `onChange` não correu. Quem quiser
-        // confirmar que o anexo entrou olha para a lista acima — ou para o
-        // `data-anexos` da secção, que traz a contagem.
+        // Limpar o campo permite reescolher o *mesmo* ficheiro depois de um
+        // erro — sem isto o `change` não volta a disparar. Por isso
+        // `input.files.length === 0` a seguir a um upload é o estado final
+        // esperado, não sinal de falha; a confirmação é o `data-anexos`.
         if (entrada.current) entrada.current.value = "";
       }
     });
@@ -189,16 +160,11 @@ export function Anexos({
         {ajuda && <p className="mt-1 text-sm text-muted-foreground">{ajuda}</p>}
       </div>
 
-      {/* Este `div` é também a âncora do resumo de erros — ver o `input`
-          escondido lá dentro. `alvoDoErro` sobe do campo ao `closest("div")`, e
-          é a este que ele tem de chegar: a lista do que falta é o sítio certo
-          para onde levar quem carregou em "Anexe o documento de identificação",
-          e fica logo por cima da caixa onde se escolhe o ficheiro. */}
+      {/* Âncora do resumo de erros — `alvoDoErro` sobe do input escondido
+          lá dentro até este `closest("div")`. */}
       <div className="flex flex-col gap-3">
-        {/* A lista do que é preciso, com o que já entrou riscado da conta.
-            Estava tudo dito em prosa na linha de ajuda, e em prosa "o documento
-            de identificação e o comprovativo de NIF" lê-se como uma frase, não
-            como uma lista de duas coisas a fazer — e ninguém contava. */}
+        {/* Lista do que é preciso, com o que já entrou riscado — em prosa
+            na linha de ajuda lia-se como uma frase, não duas coisas a fazer. */}
         {obrigatorios.length > 0 && (
           <ul className="border-linha bg-muted flex flex-col gap-1.5 rounded-sm border p-3">
             {obrigatorios.map((t) => {
@@ -228,13 +194,9 @@ export function Anexos({
           </ul>
         )}
 
-        {/* O `name` que o resumo de erros procura. Escondido porque o anexo não
-            é campo do passo — o `carga()` não o lê e o ficheiro nunca entra no
-            `FormData` do formulário —, mas sem ele um erro em `documentos` não
-            tinha para onde saltar (ver `alvoDoErro` em `Formulario.tsx`). Sem
-            `label` por perto de propósito: as mensagens nomeiam-se a si próprias
-            ("Anexe o documento de identificação…") e uma etiqueta à frente delas
-            só acrescentaria ruído. */}
+        {/* `name` que o resumo de erros procura (`alvoDoErro`). Escondido
+            porque o anexo não é campo do passo; sem `label` porque as
+            mensagens já se nomeiam a si próprias. */}
         <input type="hidden" name="documentos" value={anexos.map((a) => a.tipo).join(",")} />
 
         {mensagens.length > 0 && (
@@ -302,11 +264,9 @@ export function Anexos({
           <span className="text-tinta-suave text-sm font-medium">
             Ficheiro
           </span>
-          {/* Sem `name`, e de propósito: o anexo não é campo deste passo. Sobe
-              pela sua própria Server Action (`carregarDocumento`) no `onChange`,
-              e o `passo2` não pede documento nenhum. Pô-lo no `FormData` do
-              formulário seria mandar o ficheiro em cada "Guardar e continuar".
-              O `data-campo` é o que lhe dá um nome estável para o endereçar. */}
+          {/* Sem `name` de propósito: sobe pela própria Server Action
+              (`carregarDocumento`) no `onChange`, não no `FormData` do
+              passo. `data-campo` dá-lhe um nome estável para o endereçar. */}
           <input
             id={idFicheiro}
             data-campo="anexo-ficheiro"

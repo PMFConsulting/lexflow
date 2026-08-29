@@ -39,20 +39,10 @@ import {
 } from "@/lib/emails/notificacoes-dono";
 
 /**
- * As ações do portal da plataforma.
- *
- * Duas regras atravessam este ficheiro:
- *
- * 1. **A autorização é o primeiro passo de cada ação**, e não uma verificação
- *    do layout. Um Server Action é um endereço alcançável a partir do browser:
- *    o guard da página não o protege, e o dia em que alguém descobrir o
- *    identificador de uma destas funções tem de bater no mesmo `redirect`.
- *
- * 2. **A sociedade-alvo nunca vem só do pedido.** Para um `society_admin` é
- *    sempre a dele, e o que vier no formulário é ignorado — sem isso, mudar um
- *    campo escondido criava contas na sociedade de outra pessoa. É o que
- *    `sociedadeAlvo()` resolve, e é a única forma de este par de papéis
- *    partilhar as mesmas ações em segurança.
+ * Ações do portal da plataforma. Duas regras atravessam o ficheiro:
+ * autorização é o primeiro passo de cada ação (o guard da página não protege
+ * a Server Action em si); e a sociedade-alvo nunca vem só do pedido — para
+ * `society_admin` é sempre a dele, resolvido em `sociedadeAlvo()`.
  */
 
 /* --------------------------------------------------------------- contexto */
@@ -66,26 +56,14 @@ async function ambiente() {
 }
 
 /**
- * A sociedade em que esta ação vai escrever.
- *
- * O `super_admin` indica-a (é o que lhe permite criar contas em qualquer uma);
- * o `society_admin` **não a indica** — é sempre a dele, venha o que vier no
- * pedido. Não é paranoia: o formulário do `society_admin` nem sequer tem esse
- * campo, e é exatamente por isso que o valor tem de ser ignorado do lado do
- * servidor em vez de confiado.
+ * Sociedade em que a ação escreve. O `super_admin` indica-a; o
+ * `society_admin` nunca — é sempre a dele, ignorando o que vier no pedido.
  */
 function sociedadeAlvo(eu: { papel: string; organizacaoId: string | null }, pedida?: string | null) {
   return eu.papel === "super_admin" ? (pedida ?? null) : eu.organizacaoId;
 }
 
-/**
- * Regista sem nunca interromper a ação.
- *
- * Mesma regra da D46: a partir do momento em que a escrita passou, nada do que
- * vem a seguir a pode desfazer nem esconder. Uma sociedade criada e um erro no
- * ecrã porque a auditoria falhou é a pior das duas respostas possíveis — a
- * sociedade fica lá, e quem a criou pensa que não.
- */
+/** Regista sem nunca interromper a ação (D46) — falha de auditoria não pode parecer falha da escrita. */
 async function auditar(entrada: Parameters<typeof registarEvento>[0]) {
   try {
     await registarEvento(entrada);
@@ -101,17 +79,12 @@ export type ResultadoSociedade =
   | { ok: false; erros: Record<string, string> };
 
 /**
- * Cria uma sociedade e, se vierem os dados, o primeiro administrador dela.
+ * Cria uma sociedade e, se vierem os dados, o primeiro administrador.
  *
- * **A conta é opcional de propósito.** Quem abre uma sociedade nem sempre sabe
- * ainda quem a vai operar, e obrigar a inventar um endereço para poder avançar
- * produzia contas a apagar. O preço está pago no painel: uma sociedade sem
- * administrador nenhum aparece contada em "sem administrador", que é a única
- * forma de o adiamento não se tornar esquecimento.
- *
- * Se a conta falhar, **a sociedade fica criada na mesma** e o ecrã diz as duas
- * coisas. A alternativa — desfazer tudo — obrigava a repetir os três campos da
- * sociedade por causa de um email repetido, que é o erro mais provável dos dois.
+ * A conta é opcional de propósito — obrigar a inventar um endereço produzia
+ * contas de mentira; o painel mostra "sem administrador" para o adiamento não
+ * virar esquecimento. Se a conta falhar, a sociedade fica criada na mesma e o
+ * ecrã diz as duas coisas.
  */
 export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade> {
   const { eu } = await exigirSuperAdmin();
@@ -231,15 +204,8 @@ export async function atualizarSociedade(
   const colisao = await colisaoDeSociedade(v.nif, v.prefixoReferencia, id);
   if (colisao) return { ok: false, erros: colisao };
 
-  /**
-   * O prefixo muda, as referências já emitidas **não**.
-   *
-   * `PMF-2026-0142` está em emails enviados, em PDFs arquivados e no assunto de
-   * avisos internos; reescrevê-lo na base de dados partia a correspondência
-   * entre o que a sociedade tem em papel e o que a plataforma diz. O prefixo
-   * novo vale para os processos seguintes — e é isso que o ecrã avisa antes de
-   * gravar.
-   */
+  // O prefixo muda, as referências já emitidas não — estão em emails e PDFs
+  // arquivados. O prefixo novo vale só para os processos seguintes.
   try {
     await db()
       .update(organizacao)
@@ -279,12 +245,8 @@ export async function atualizarSociedade(
 }
 
 /**
- * O NIPC e o prefixo já estão noutra sociedade?
- *
- * Os índices únicos da `0016` garantem o resultado; isto existe para dar a
- * **mensagem**, debaixo do campo certo. Um `duplicate key value violates unique
- * constraint "organizacao_prefixo"` no ecrã não diz a ninguém que basta trocar
- * três letras.
+ * NIPC ou prefixo já usados noutra sociedade? Os índices únicos da 0016 já
+ * garantem isto — isto existe só para dar a mensagem debaixo do campo certo.
  */
 async function colisaoDeSociedade(
   nif: string,
@@ -314,12 +276,9 @@ export type ResultadoConta =
   | { ok: false; erros: Record<string, string> };
 
 /**
- * Cria uma conta numa sociedade — manualmente, uma de cada vez.
- *
- * Chamável pelo `super_admin` (para qualquer sociedade) e pelo `society_admin`
- * (só para a dele). O papel `super_admin` não passa pelo schema, e é a
- * fronteira mais importante deste ficheiro: sem ela, quem administra uma
- * sociedade criava-se a si próprio um acesso a todas as outras.
+ * Cria uma conta numa sociedade, uma de cada vez. Chamável por `super_admin`
+ * (qualquer sociedade) e `society_admin` (só a dele) — o papel `super_admin`
+ * não passa pelo schema, fronteira mais importante do ficheiro.
  */
 export async function criarUtilizador(dados: unknown): Promise<ResultadoConta> {
   const { eu } = await exigirGestorDeUtilizadores();
@@ -476,12 +435,9 @@ export async function associarGestor(
 }
 
 /**
- * Cria outra conta de plataforma. Só o `super_admin`, e sem sociedade.
- *
- * Existe porque a primeira conta nasce no servidor
- * (`scripts/criar_utilizador.mjs`) e a segunda não deve obrigar a voltar lá —
- * uma plataforma com um único dono é uma plataforma que fica inacessível no dia
- * em que essa pessoa perde a palavra-passe.
+ * Cria outra conta de plataforma. Só `super_admin`, sem sociedade. A primeira
+ * nasce no servidor (`scripts/criar_utilizador.mjs`); um único dono é um
+ * ponto único de falha se perder a palavra-passe.
  */
 export async function criarAdministradorDePlataforma(dados: unknown): Promise<ResultadoConta> {
   const { eu } = await exigirSuperAdmin();
@@ -525,6 +481,9 @@ export async function criarAdministradorDePlataforma(dados: unknown): Promise<Re
 
 /* ------------------------------------------------------------ importação */
 
+/** Tamanho máximo do ficheiro de importação em lote. */
+const LIMITE_IMPORTACAO_BYTES = 2 * 1024 * 1024;
+
 export type ResultadoImportacao =
   | {
       ok: true;
@@ -534,18 +493,10 @@ export type ResultadoImportacao =
   | { ok: false; erro: string };
 
 /**
- * Importação em lote, a partir de um `.csv` ou `.xlsx`.
- *
- * **Tudo ou nada, para as linhas válidas.** As contas criam-se dentro de uma
- * única transação: um ficheiro de trinta pessoas que rebente na vigésima não
- * pode deixar dezanove contas criadas e onze por criar, porque não há nada no
- * ecrã que diga quais foram quais — e a segunda tentativa passa a bater em
- * "já existe" nas dezanove.
- *
- * As linhas **recusadas** não impedem as outras de entrar. São coisas
- * diferentes: uma linha má é um erro de quem preencheu a folha, e devolvê-la
- * para correção enquanto as boas seguem é o que evita a folha ir e voltar três
- * vezes.
+ * Importação em lote, a partir de `.csv` ou `.xlsx`. Tudo ou nada para as
+ * linhas válidas — uma transação única evita ficheiro de trinta a rebentar na
+ * vigésima e deixar dezanove por saber quais. Linhas recusadas não travam as
+ * boas: são um erro de quem preencheu a folha, corrigível à parte.
  */
 export async function importarUtilizadores(
   organizacaoIdPedida: string | null,
@@ -564,10 +515,10 @@ export async function importarUtilizadores(
 
   if (!sociedade) return { ok: false, erro: "Esta sociedade já não existe." };
 
-  // 2 MB: uma folha de contas com mil linhas não chega a 100 kB. O limite não é
-  // sobre o formato, é sobre o que um Server Action deve aceitar receber.
-  if (ficheiro.size > 2 * 1024 * 1024) {
-    return { ok: false, erro: "O ficheiro é demasiado grande (máximo 2 MB)." };
+  // Uma folha de mil linhas não chega a 100 kB — o limite é sobre o que uma
+  // Server Action deve aceitar receber, não sobre o formato.
+  if (ficheiro.size > LIMITE_IMPORTACAO_BYTES) {
+    return { ok: false, erro: `O ficheiro é demasiado grande (máximo ${LIMITE_IMPORTACAO_BYTES / (1024 * 1024)} MB).` };
   }
 
   const bytes = Buffer.from(await ficheiro.arrayBuffer());
@@ -595,9 +546,7 @@ export async function importarUtilizadores(
 
   let criadas: ContaCriada[];
 
-  /**
-   * Os envios ficam à espera de a transação fechar (caso estejam aprovadas).
-   */
+  /** Envios ficam à espera de a transação fechar (caso estejam aprovadas). */
   const pendentes: CredencialPorEnviar[] = [];
 
   try {
@@ -678,13 +627,9 @@ export async function importarUtilizadores(
 /* -------------------------------------------------------- estado da conta */
 
 /**
- * Liga e desliga uma conta.
- *
- * `ativo = false` e não um apagamento: `sessaoAtual()` já recusa a sessão de
- * quem esteja inativo, e a linha continua a existir para o que ela sustenta —
- * `processo.responsavel_id` aponta para aqui, e `evento_auditoria.ator_id`
- * também. Apagar quem decidiu sobre um processo era apagar a resposta à
- * pergunta "quem aprovou isto", que a lei obriga a manter durante sete anos.
+ * Liga e desliga uma conta. `ativo = false`, nunca apagamento —
+ * `processo.responsavel_id` e `evento_auditoria.ator_id` apontam para esta
+ * linha, e apagá-la perderia a resposta a "quem aprovou isto" (retenção de 7 anos).
  */
 export async function alterarEstadoDaConta(
   utilizadorId: string,
@@ -700,14 +645,12 @@ export async function alterarEstadoDaConta(
 
   if (!alvo) return { ok: false, erro: "Esta conta já não existe." };
 
-  // O `society_admin` só mexe na sua sociedade. Sem esta linha, o identificador
-  // de uma conta de outra sociedade era suficiente para a desligar.
+  // society_admin só mexe na sua sociedade.
   if (eu.papel !== "super_admin" && alvo.organizacaoId !== eu.organizacaoId) {
     return { ok: false, erro: "Esta conta não é da sua sociedade." };
   }
 
-  // Ninguém se desliga a si próprio: era sair da plataforma e ficar sem forma de
-  // voltar a entrar para o desfazer.
+  // Ninguém se desliga a si próprio — não haveria forma de reverter.
   if (alvo.id === eu.id) {
     return { ok: false, erro: "Não pode desativar a sua própria conta." };
   }
@@ -752,17 +695,13 @@ export type ResultadoAprovacao =
   | { ok: false; erro: string };
 
 /**
- * Aprova um utilizador pendente proposto por uma sociedade.
+ * Aprova um utilizador pendente. Só `super_admin`. Gera palavra-passe
+ * temporária, marca `aprovado_em`/`deve_redefinir_password`, envia
+ * credenciais por email.
  *
- * Apenas o `super_admin` da plataforma pode aprovar.
- * Gera uma nova palavra-passe temporária, preenche `aprovado_em = now()`,
- * marca `deve_redefinir_password = true`, e envia as credenciais de acesso por email.
- *
- * A palavra-passe **é gerada aqui e não na criação**: a conta pendente nasceu
- * com uma que ninguém recebeu (é o que a D-aprovação exige — uma conta que pode
- * ser rejeitada não deve ter recebido credenciais), e o email só faz sentido no
- * momento em que a pessoa passa a poder entrar. Mesma regra da `criarConta`:
- * quem administra não a escolhe, não a lê e não a entrega.
+ * Palavra-passe gerada aqui, não na criação — uma conta pendente e rejeitável
+ * não deve ter recebido credenciais nenhumas. Mesma regra de `criarConta`:
+ * quem administra não a escolhe, não a lê, não a entrega.
  */
 export async function aprovarUtilizador(utilizadorId: string): Promise<ResultadoAprovacao> {
   const { eu } = await exigirSuperAdmin();
@@ -775,24 +714,12 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
 
   if (!alvo) return { ok: false, erro: "Este utilizador já não existe." };
 
-  /**
-   * Já aprovada: não se volta a aprovar, e sobretudo **não se diz que as
-   * credenciais saíram**. Dois cliques no mesmo botão, ou dois separadores
-   * abertos sobre a mesma lista, davam um ecrã a garantir um email que ninguém
-   * mandou — e a segunda passagem geraria uma palavra-passe nova, invalidando
-   * a que a pessoa já tinha recebido e possivelmente já trocado.
-   */
+  // Já aprovada: não se repete, e não se diz que credenciais saíram sem
+  // sair — duplo clique geraria palavra-passe nova, invalidando a já trocada.
   if (alvo.aprovadoEm) return { ok: true, jaAprovado: true, emailEnviado: null };
 
-  /**
-   * Sem conta do Better Auth não há onde guardar a palavra-passe.
-   *
-   * Mandar o email na mesma era entregar credenciais que não abrem nada — o
-   * defeito mais confuso deste sistema (a conta que passa o login e não resolve
-   * a sessão) com um email por cima a dizer que está tudo bem. A lista de
-   * utilizadores já assinala estas linhas como "não ligada"; aqui a aprovação
-   * pára e diz o mesmo.
-   */
+  // Sem conta do Better Auth não há onde guardar a palavra-passe — mandar o
+  // email seria entregar credenciais que não abrem nada.
   if (!alvo.authUserId) {
     return {
       ok: false,
@@ -802,23 +729,11 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
 
   const authUserId = alvo.authUserId;
 
-  /**
-   * `auth_user_id` preenchido não garante que a conta do outro lado exista.
-   *
-   * A coluna é `text().unique()` e **não tem chave estrangeira** para `user.id`
-   * (`schema/organizacao.ts`), enquanto `account.userId` apaga em cascata com o
-   * `user`. Apagada a linha do Better Auth, as credenciais vão atrás dela e aqui
-   * fica um identificador pendurado que passa a verificação de cima como se
-   * estivesse tudo bem.
-   *
-   * Sem esta consulta o que acontecia a seguir era: a procura da credencial não
-   * encontrava nada, o `INSERT` de recuperação batia na chave estrangeira de
-   * `account.userId`, e o `catch` da transação respondia «Tente de novo» — um
-   * convite a repetir uma operação que não pode funcionar nenhuma das vezes,
-   * sobre uma conta que ninguém percebe porque não aprova. É o mesmo silêncio da
-   * D46 noutra roupa: a falha é real, e a mensagem manda procurar no sítio
-   * errado.
-   */
+  // auth_user_id preenchido não garante conta do outro lado: a coluna não tem
+  // FK para user.id, e uma linha do Better Auth apagada deixa um identificador
+  // pendurado. Sem esta consulta, o INSERT de recuperação batia na FK de
+  // account.userId e o catch respondia "Tente de novo" para uma operação que
+  // nunca funcionaria.
   const [linhaAuth] = await db()
     .select({ id: user.id })
     .from(user)
@@ -839,25 +754,13 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
   const hash = await hashPassword(palavraPasse);
   const agora = new Date();
 
-  /**
-   * A credencial em falta **recupera-se**, e a recuperação fica escrita.
-   *
-   * Recusar aqui seria trancar para sempre uma conta que se resolve escrevendo
-   * a linha que falta — e a linha só falta em contas que nunca chegaram a ter
-   * palavra-passe, que é exactamente o que esta aprovação existe para dar.
-   * O que não pode é acontecer sem deixar rasto: a auditoria leva
-   * `credencialCriada`, para a diferença entre «trocou-se a palavra-passe» e
-   * «não havia nenhuma para trocar» sobreviver a esta chamada.
-   */
+  // Credencial em falta recupera-se, e a recuperação fica em auditoria
+  // (credencialCriada) — distingue "trocou-se a palavra-passe" de "não havia nenhuma".
   let credencialCriada = false;
 
-  /**
-   * As duas escritas são uma transação, pela mesma razão da D63: entre elas não
-   * há estado aceitável. A palavra-passe trocada numa conta que continua
-   * pendente é uma pessoa que não entra e cujas credenciais no email já não
-   * servem; a conta aprovada sem a palavra-passe nova é o email a anunciar uma
-   * que a base de dados não conhece.
-   */
+  // Duas escritas, uma transação (mesma razão da D63): entre elas não há
+  // estado aceitável — palavra-passe trocada numa conta ainda pendente, ou
+  // conta aprovada sem palavra-passe nova, são ambos estados quebrados.
   try {
     await db().transaction(async (tx) => {
       const [credencial] = await tx
@@ -872,9 +775,8 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
           .set({ password: hash, updatedAt: agora })
           .where(eq(account.id, credencial.id));
       } else {
-        // A linha `account` é onde o Better Auth procura a palavra-passe (D23).
-        // Falta ela, o login passa a não ter com que comparar — e a conta ficava
-        // aprovada com credenciais que não abrem nada.
+        // account é onde o Better Auth procura a palavra-passe (D23) — sem
+        // ela, a conta ficava aprovada com credenciais que não abrem nada.
         credencialCriada = true;
         await tx.insert(account).values({
           id: randomBytes(16).toString("hex"),
@@ -960,22 +862,13 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
 }
 
 /**
- * Rejeita um utilizador **pendente** proposto por uma sociedade.
+ * Rejeita um utilizador pendente. Só `super_admin`. Soft-delete
+ * (`apagado_em`, `ativo = false`) com auditoria.
  *
- * Apenas o `super_admin` da plataforma.
- * Soft-delete da conta (`apagado_em = now()`, `ativo = false`) com auditoria.
- *
- * ─────────────────────────────────────────────────────────────────────────
- * Porque é que a recusa só vale sobre pendentes
- *
- * O ecrã só oferece o botão nas contas que aguardam aprovação, mas um Server
- * Action é um endereço alcançável a partir do browser e o guard da página não o
- * protege — a mesma regra que abre este ficheiro. Sem esta verificação, o
- * identificador de **qualquer** conta da plataforma, incluindo a de um
- * administrador de uma sociedade a trabalhar há meses, era suficiente para a
- * apagar por um caminho chamado "rejeitar", que na auditoria fica a dizer que
- * uma proposta foi recusada. Desligar uma conta em uso tem outro caminho e
- * outro nome (`alterarEstadoDaConta`), e é reversível.
+ * Só vale sobre pendentes: sem essa verificação, o identificador de qualquer
+ * conta (mesmo um admin ativo há meses) bastaria para a apagar por um caminho
+ * chamado "rejeitar". Desligar uma conta em uso é outro caminho, reversível
+ * (`alterarEstadoDaConta`).
  */
 export async function rejeitarUtilizador(
   utilizadorId: string,

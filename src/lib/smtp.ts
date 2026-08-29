@@ -1,15 +1,10 @@
 import { createConnection } from "node:net";
 
 /**
- * Minimal SMTP client for our own channel (postfix on the client's server).
- *
- * The choice is deliberate: the project does not use nodemailer because the
- * dependency registry on Windows is broken, and the VPS's outbound SMTP accepts
- * connections from the Docker network without authentication (`mynetworks` in
- * postfix), which makes the protocol small: EHLO → MAIL FROM → RCPT TO → DATA →
- * QUIT.
- *
- * No authentication and no TLS — for the server's internal network only.
+ * Cliente SMTP mínimo para o canal próprio (postfix no servidor do cliente).
+ * Sem nodemailer (registo de dependências no Windows partido); o SMTP de
+ * saída da VPS aceita ligações da rede Docker sem autenticação, protocolo
+ * pequeno: EHLO → MAIL FROM → RCPT TO → DATA → QUIT. Sem TLS — só rede interna.
  */
 
 export interface MensagemSmtp {
@@ -20,26 +15,20 @@ export interface MensagemSmtp {
   anexos?: { nome: string; conteudoBase64: string }[];
 }
 
-const BOUNDARY = "----=_jmassano_7f3a";
+const BOUNDARY = "----=_limite_7f3a";
 const TIMEOUT_MS = 15_000;
 
 /**
- * The name we greet the relay with. RFC 5321 asks for the client's own FQDN,
- * and the sender's domain is the one this installation actually owns — so it
- * travels with `EMAIL_REMETENTE` instead of being pinned in the code to
- * whichever domain the machine that wrote this happened to be on. An address
- * with no usable domain falls back to `localhost`, which the relay accepts
- * from its own network (this channel is local-only; see the note above).
+ * Nome com que se saúda o relay (RFC 5321 pede o FQDN do cliente). Domínio
+ * vem de `EMAIL_REMETENTE`, não fixo no código; sem domínio utilizável recua
+ * para `localhost`, aceite pelo relay na rede interna.
  */
 function saudacao(de: string): string {
   const dominio = de.split("@")[1]?.trim().toLowerCase() ?? "";
   return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(dominio) ? dominio : "localhost";
 }
 
-/**
- * Sanitiza valores de cabeçalhos de email removendo quebras de linha (\r, \n) e byte NUL (\0)
- * para prevenir injeção CRLF (cabeçalhos SMTP falsificados, como Bcc injetado).
- */
+/** Remove quebras de linha e byte NUL dos cabeçalhos — previne injeção CRLF (Bcc falsificado). */
 export function sanitizarCabecalho(valor: string): string {
   return (valor ?? "").replace(/[\r\n\0]/g, " ").trim();
 }

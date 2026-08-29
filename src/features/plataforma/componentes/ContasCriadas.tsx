@@ -5,32 +5,14 @@ import { Ref } from "@/components/ref-processo";
 import type { ContaCriada } from "../contas";
 
 /**
- * A confirmação das contas acabadas de criar. **Sem palavras-passe.**
+ * A confirmação das contas acabadas de criar. Sem palavras-passe.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * O que aqui estava, e porque saiu
- *
- * Estava um cartão "Credenciais criadas" com o email e a palavra-passe em claro,
- * a mostrar uma vez e a copiar para a área de transferência. A justificação
- * escrita nele era honesta e continua a ser verdade — um convite por email a
- * sério custa uma tabela de convites, expiração, uso único e um ecrã de
- * definição de palavra-passe — mas o que ela não resolvia estava lá dito à
- * frente, e era o essencial: **a palavra-passe passava pelas mãos de quem cria
- * a conta, e a pessoa não era obrigada a trocá-la ao entrar.**
- *
- * As duas fecharam-se, e por isso este cartão deixou de existir. A
- * palavra-passe é gerada pelo servidor, vai por email **para a pessoa a quem
- * pertence**, e é temporária: enquanto não a trocar, ela não passa da página de
- * definição de palavra-passe (`utilizador.deve_redefinir_password`).
- *
- * O que fica no ecrã de quem administra é a única pergunta que lhe diz respeito
- * — **o email saiu?**. Uma conta criada cuja mensagem não saiu é uma pessoa que
- * não entra, e sem esta linha isso descobria-se por telefone, dias depois.
- *
- * Desde a `0021` há uma segunda resposta possível: **ainda não saiu, e não é um
- * defeito** — a conta foi proposta pela sociedade e aguarda aprovação da
- * plataforma. Distingue-se da falha de envio de propósito: uma resolve-se
- * esperando, a outra indo ao fornecedor de email.
+ * Existia aqui um cartão com a palavra-passe em claro, copiável — passava
+ * pelas mãos de quem cria a conta e não obrigava a trocá-la ao entrar. Agora é
+ * gerada pelo servidor, enviada por email à própria pessoa, e temporária
+ * (`utilizador.deve_redefinir_password`). O ecrã só responde à pergunta de
+ * quem administra — o email saiu? — distinguindo, desde a `0021`, "aguarda
+ * aprovação da plataforma" de falha de envio.
  */
 export function ContasCriadas({
   contas,
@@ -95,9 +77,9 @@ export function ContasCriadas({
             A conta está criada: corrija o envio e desative e reative a conta, ou crie-a de novo
             com o email certo.
           </p>
-          {/* O motivo do fornecedor à frente: um 403 por domínio não verificado
-              resolve-se no segundo em que se lê, e «não foi possível enviar»
-              manda quem lê para os registos do servidor (D43). */}
+          {/* Motivo do fornecedor à vista: um 403 por domínio não verificado
+              resolve-se ao ler; "não foi possível enviar" manda para os
+              registos do servidor (D43). */}
           <ul className="mt-1.5 flex flex-col gap-1">
             {falhadas.map((c) => (
               <li key={c.utilizadorId} className="text-2xs text-muted-foreground">

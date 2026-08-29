@@ -13,31 +13,21 @@ import {
 } from "../logotipo-onboarding";
 
 /**
- * Logótipo da sociedade, ainda durante o registo.
+ * Logótipo da sociedade, ainda durante o registo — sem sessão, por isso o
+ * token vai nas chamadas e as Server Actions validam-no contra a base. Fica
+ * na mesma coluna da organização que a página de gestão usa.
  *
- * Ao contrário da versão da página de gestão, aqui não há sessão: quem preenche
- * o registo entrou pelo link mágico. O token vai nas chamadas, e as Server
- * Actions validam-no contra a base. O logótipo fica na organização — a mesma
- * coluna que a página de gestão usa — por isso, uma vez submetido o registo, o
- * portal da sociedade já o mostra.
+ * **Não é um `<form>`, e não pode ser.** Vive dentro do formulário do passo 1
+ * (`FormularioSociedade`), e um `<form>` dentro de outro é HTML inválido: o
+ * `type="submit"` daqui passaria a submeter o formulário de fora, gravando o
+ * passo 1 e saltando para o passo 2 sem logótipo nenhum. Por isso os botões
+ * são `type="button"` e o `FormData` é montado à mão. Pela mesma razão do
+ * `Anexos`, o campo não tem `name` — evita subir 2 MB a cada gravação de
+ * texto do passo.
  *
- * **Isto não é um `<form>`, e não pode ser.** Vive dentro do formulário do
- * passo 1 (`FormularioSociedade`), e um `<form>` dentro de outro é HTML
- * inválido: o parser do browser deita fora a etiqueta de dentro, o React
- * queixa-se na hidratação e — o que custa mesmo — o botão `type="submit"`
- * daqui passa a submeter o formulário **de fora**. Carregar em «Guardar
- * logótipo» gravava o passo 1 e saltava para o passo 2, sem logótipo nenhum.
- * Por isso os botões são `type="button"` e o `FormData` é montado à mão a
- * partir do campo.
- *
- * O campo também não tem `name`, pela mesma razão do `Anexos`: sendo filho do
- * formulário de fora, um `name` metia o ficheiro dentro do `new FormData(form)`
- * do passo — a subir 2 MB de imagem em cada gravação de um campo de texto.
- *
- * A pré-visualização do que está gravado é local (`blob:` do ficheiro
- * escolhido) e não vem do servidor: `/api/sociedade/logotipo` exige sessão, e
- * durante o registo ainda não existe conta nenhuma. O que se mostra do que já
- * está gravado é o nome do ficheiro, que é o que a página sabe.
+ * A pré-visualização é local (`blob:` do ficheiro escolhido), não do
+ * servidor: `/api/sociedade/logotipo` exige sessão, que ainda não existe
+ * durante o registo.
  */
 export function LogotipoOnboarding({
   token,
@@ -60,16 +50,9 @@ export function LogotipoOnboarding({
 
   const emProcessamento = aGuardar || aRemover;
 
-  /*
-   * Um `blob:` que não se revoga fica na memória do separador até ele fechar.
-   *
-   * A revogação vive só aqui, e não também dentro do `setEscolhido`: com a
-   * dependência em `escolhido`, o React corre esta limpeza sempre que o valor
-   * muda — com o **anterior** ainda fechado no closure — e outra vez ao
-   * desmontar. Revogar nos dois sítios era pôr um efeito colateral dentro de
-   * uma função de atualização, que o React se reserva o direito de chamar duas
-   * vezes.
-   */
+  // Um `blob:` não revogado fica em memória até o separador fechar. A
+  // revogação vive só aqui e não dentro do `setEscolhido`, porque o React se
+  // reserva o direito de chamar funções de atualização duas vezes.
   useEffect(() => {
     if (!escolhido) return;
     const url = escolhido.url;
@@ -77,12 +60,8 @@ export function LogotipoOnboarding({
   }, [escolhido]);
 
   /**
-   * Limpa o campo depois de cada tentativa, com ou sem sucesso.
-   *
-   * É a lição do `Anexos` (D41): sem limpar o `value`, escolher **o mesmo**
-   * ficheiro outra vez não dispara `change` — o valor não mudou — e quem
-   * corrigiu a imagem e voltou a escolhê-la ficava com um botão que não fazia
-   * nada.
+   * Limpa o campo depois de cada tentativa. Lição do `Anexos` (D41): sem
+   * limpar o `value`, reescolher o mesmo ficheiro não dispara `change`.
    */
   const limparCampo = () => {
     if (entrada.current) entrada.current.value = "";
@@ -111,14 +90,9 @@ export function LogotipoOnboarding({
       return;
     }
 
-    /*
-     * O tamanho é conferido aqui **e** no servidor, e não é duplicação por
-     * gosto: o limite de corpo de uma Server Action são 6 MB
-     * (`next.config.ts`), e um ficheiro acima disso é recusado pela Next antes
-     * de o nosso código o ver — o que chega ao ecrã é uma exceção sem língua
-     * nem explicação. Recusar aqui dá a mesma frase em português para 2,1 MB e
-     * para 30 MB.
-     */
+    // Conferido aqui e no servidor: o limite de corpo de uma Server Action
+    // são 6 MB (`next.config.ts`) e um ficheiro maior é recusado pela Next
+    // antes de chegar ao nosso código, sem mensagem em português.
     if (ficheiro.size > MAX_TAMANHO_LOGOTIPO) {
       const mb = (ficheiro.size / 1024 / 1024).toFixed(1);
       setErros({
@@ -143,8 +117,8 @@ export function LogotipoOnboarding({
         setSucesso(r.mensagem);
         router.refresh();
       } catch (erro) {
-        // Um `revalidatePath` dentro da ação pode trazer um `redirect()` da
-        // Next disfarçado de exceção: tem de continuar a propagar-se.
+        // `revalidatePath` pode disfarçar um `redirect()` da Next de exceção
+        // — tem de continuar a propagar-se.
         unstable_rethrow(erro);
         setMensagem("O servidor não respondeu. Verifique a ligação e tente de novo.");
       }

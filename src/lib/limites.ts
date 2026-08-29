@@ -1,22 +1,14 @@
 /**
  * In-memory sliding-window rate limiter.
  *
- * No `server-only` and nothing from Node on purpose: this runs in the
- * `middleware` (Edge runtime) and in Server Actions (Node runtime), and the
- * same rule written twice would diverge at the first change.
+ * No `server-only`, nothing Node-specific — runs in `middleware` (Edge) and
+ * in Server Actions (Node), and the rule can't diverge between the two.
  *
- * **What this is, and what it is not.** A `Map` in the process is not a
- * distributed limiter: restarting the container zeroes the counts, and two
- * containers each count on their own. The POC runs in a single container on
- * Coolify, and the alternative — a table and a write per attempt — put Postgres
- * on the critical path of login to solve a problem that does not yet exist.
- * When there is more than one instance, this file changes implementation and
- * nothing else.
- *
- * What it **does** solve is what matters here: a password dictionary or a
- * million six-digit codes thrown from a single IP stop fitting in an afternoon.
- * An attacker who restarts the container between attempts has bigger problems
- * to hand us.
+ * A `Map` in the process, not distributed: restart zeroes it, multiple
+ * containers count separately. Fine for a single-container POC; the
+ * alternative (a table, a write per attempt) puts Postgres on login's
+ * critical path for a problem that doesn't exist yet. Swap implementation
+ * here, nothing else, if that changes.
  */
 
 type Janela = { marcas: number[] };
@@ -25,11 +17,9 @@ type Janela = { marcas: number[] };
 const baldes = new Map<string, Janela>();
 
 /**
- * How many keys are accepted in memory before the oldest is thrown away.
- *
- * With no ceiling, one key per IP is a memory leak with a fake-IP generator in
- * front of it. Ten thousand keys are a few megabytes and more distinct IPs than
- * this POC will see in a month.
+ * Ceiling on keys held in memory before the oldest is dropped — otherwise one
+ * key per IP is a memory leak behind a fake-IP generator. 10k keys is a few
+ * megabytes, more distinct IPs than this POC sees in a month.
  */
 const MAX_CHAVES = 10_000;
 
@@ -41,9 +31,8 @@ function podar(agora: number, janelaMs: number) {
     else janela.marcas = vivas;
     if (baldes.size <= MAX_CHAVES) break;
   }
-  // Still full after pruning (everything inside the window): it is emptied
-  // entirely. Losing counts is preferable to growing without limit — the
-  // "fail open" policy is deliberate in a limiter that is not the only guard.
+  // Still full after pruning (everything inside the window): clear it
+  // entirely. Fail-open is deliberate — this isn't the only guard.
   if (baldes.size > MAX_CHAVES) baldes.clear();
 }
 
@@ -52,11 +41,11 @@ export type Veredicto =
   | { permitido: false; esperarSegundos: number };
 
 /**
- * Records an attempt and says whether it fits within the limit.
+ * Records an attempt and says whether it's within the limit.
  *
- * The mark is only stored when the attempt is allowed: that way a refused burst
- * does not push the window forward indefinitely, and the blocked client is
- * accepted again when the old marks expire — and not when they stop trying.
+ * The mark is stored only when allowed — a refused burst doesn't keep
+ * pushing the window forward, so the client is accepted again once old
+ * marks expire, not once they stop trying.
  */
 export function consumir(chave: string, maximo: number, janelaMs: number, agora = Date.now()): Veredicto {
   const janela = baldes.get(chave) ?? { marcas: [] };

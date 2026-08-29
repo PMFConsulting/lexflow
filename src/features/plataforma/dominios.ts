@@ -11,33 +11,15 @@ import { exigirSuperAdmin } from "@/lib/sessao";
 import { dominioSchema, erros, remetenteSchema } from "./schemas";
 
 /**
- * O email do domínio da própria sociedade — o whitelabel a sério.
+ * Email do domínio da própria sociedade — o whitelabel a sério. Com duas
+ * sociedades, `EMAIL_REMETENTE` global assinaria pedidos de dados da segunda
+ * com o domínio da primeira.
  *
- * Quem contrata com o cliente é a sociedade, e o endereço de onde o pedido de
- * dados sai é dela, não da plataforma. Enquanto houve uma instalação com uma
- * sociedade só, o `EMAIL_REMETENTE` do ambiente bastava; com duas, o cliente da
- * segunda recebe um pedido de documentos de identificação assinado com o
- * domínio da primeira — e não responder é a reação certa dele.
- *
- * Três regras atravessam este ficheiro:
- *
- * 1. **Só o `super_admin`.** Configurar de que endereço uma sociedade escreve é
- *    uma decisão de plataforma: um `society_admin` que a pudesse tomar podia
- *    apontar o remetente da sociedade dele para um domínio que controlasse, e
- *    passar a escrever a clientes de KYC com a aparência da plataforma. O guard
- *    é a primeira linha de cada ação e não do layout — um Server Action é um
- *    endereço alcançável a partir do browser.
- *
- * 2. **A chave nunca sai daqui.** `env().RESEND_API_KEY` entra no header
- *    `Authorization` e em mais lado nenhum: não vai para o `console`, não vai
- *    para a auditoria, e o corpo de erro da Resend que é devolvido ao ecrã é o
- *    dela, não o nosso pedido.
- *
- * 3. **O que fica gravado é o que a Resend disse**, e não o que quisemos que
- *    ela dissesse. `dominio_estado` é um espelho do `status` dela; nenhuma
- *    destas funções escreve `verified` por sua conta. Um estado inventado aqui
- *    era a plataforma a garantir SPF/DKIM que não existem, e o preço disso
- *    aparece semanas depois na caixa de spam de um cliente.
+ * Três regras atravessam o ficheiro: só `super_admin` decide de que endereço
+ * uma sociedade escreve; a chave da Resend nunca sai de `chamarResend`; e o
+ * que fica gravado é o que a Resend disse, nunca o que se quis que dissesse —
+ * `dominio_estado` é espelho do `status` dela, nenhuma função escreve
+ * `verified` por conta própria.
  */
 
 /** Mesmo limite do canal de envio: um pedido que passa disto já falhou. */
@@ -61,15 +43,7 @@ export type EstadoDominio = {
   dominioResendId: string | null;
   dominioEstado: string | null;
   dominioVerificadoEm: Date | null;
-  /**
-   * Os registos vêm da Resend a cada chamada e **não** são guardados.
-   *
-   * Guardá-los era manter uma cópia de uma coisa que só ela sabe: os valores de
-   * DKIM mudam quando ela os roda, e uma tabela nossa com os antigos mandava
-   * alguém colar no DNS registos que já não verificam nada — com a agravante de
-   * parecerem confirmados por estarem gravados. Quem precisa deles pede-os, e
-   * é o botão «Confirmar verificação» que os traz outra vez.
-   */
+  /** Registos vêm da Resend a cada chamada, nunca guardados — DKIM roda, e uma cópia nossa mandaria colar registos já inválidos. */
   registos: RegistoDns[];
 };
 
@@ -91,11 +65,7 @@ async function ambiente() {
   };
 }
 
-/**
- * Regista sem nunca interromper a ação — mesma regra da D46 e do resto deste
- * portal: a partir do momento em que a escrita passou, uma falha da auditoria
- * não a pode desfazer nem esconder.
- */
+/** Regista sem nunca interromper a ação (D46). */
 async function auditar(entrada: Parameters<typeof registarEvento>[0]) {
   try {
     await registarEvento(entrada);
@@ -141,15 +111,7 @@ type RespostaResend = {
   }[];
 };
 
-/**
- * Uma chamada à API da Resend, com o erro já em português e sem a chave em lado
- * nenhum.
- *
- * O corpo do erro dela viaja intacto para o ecrã de propósito: «domain already
- * exists» e «invalid domain name» resolvem-se em sítios diferentes, e resumir
- * as duas a «não foi possível» é o que faz uma configuração de DNS demorar uma
- * tarde em vez de um minuto (D43, aplicada aqui).
- */
+/** Chamada à API da Resend, erro em português, chave nunca exposta. Corpo do erro da Resend viaja intacto — resumir tudo a "não foi possível" custa uma tarde de DNS (D43). */
 async function chamarResend(
   caminho: string,
   opcoes: { metodo: "GET" | "POST"; corpo?: unknown },
@@ -158,9 +120,8 @@ async function chamarResend(
   try {
     chave = env().RESEND_API_KEY;
   } catch (e) {
-    // `env()` valida o ambiente inteiro e rebenta por causa de qualquer
-    // variável — a mesma armadilha da D42. Aqui isso não pode passar a ser uma
-    // falha do botão sem explicação.
+    // env() valida o ambiente inteiro e rebenta por qualquer variável (D42) —
+    // não pode virar falha de botão sem explicação.
     return { ok: false, erro: e instanceof Error ? e.message : String(e) };
   }
 
@@ -213,15 +174,7 @@ function registosDe(dados: RespostaResend): RegistoDns[] {
   }));
 }
 
-/**
- * O domínio já existente na conta, procurado pelo nome.
- *
- * Existe por causa do caso mais provável de todos: alguém carrega em «Criar
- * domínio» duas vezes, ou o domínio já lá estava de outra instalação. A Resend
- * responde 422 e **não devolve o `id`** — sem esta procura, o botão ficava
- * permanentemente a dizer «já existe» e não havia forma nenhuma, pela interface,
- * de chegar ao domínio que já lá está.
- */
+/** Domínio já existente na conta, procurado pelo nome — a Resend responde 422 sem devolver o id, e sem esta procura o botão ficava trancado em "já existe". */
 async function dominioExistente(nome: string): Promise<RespostaResend | null> {
   const r = await chamarResend("/domains", { metodo: "GET" });
   if (!r.ok) return null;
@@ -234,16 +187,7 @@ async function dominioExistente(nome: string): Promise<RespostaResend | null> {
 
 /* ------------------------------------------------------------------- remetente */
 
-/**
- * Grava o endereço `From` da sociedade — ou apaga-o, e ela volta ao global.
- *
- * O endereço é guardado **mesmo antes de o domínio estar verificado**. É a
- * escolha certa: quem configura precisa de ver no ecrã o endereço de que a
- * sociedade vai escrever, e escondê-lo até à verificação tirava a única forma
- * de confirmar que não há uma letra trocada. O preço, se o domínio ainda não
- * verificar, é um 403 da Resend com o remetente à frente — que é uma mensagem
- * que se resolve na primeira leitura.
- */
+/** Grava (ou apaga) o `From` da sociedade — mesmo antes do domínio verificar, para o ecrã mostrar o endereço real; o preço é um 403 resolvido à primeira leitura. */
 export async function guardarRemetente(
   organizacaoId: string,
   emailRemetente: string,
@@ -258,15 +202,9 @@ export async function guardarRemetente(
   const antes = await sociedadeViva(organizacaoId);
   if (!antes) return { ok: false, erros: { _: "Esta sociedade já não existe." } };
 
-  /**
-   * O remetente tem de ser do domínio que está a ser verificado.
-   *
-   * Não é arrumação: é o domínio que carrega o SPF e o DKIM, e um `From` de
-   * outro lado é exatamente o envio que a Resend recusa com 403 — só que a
-   * recusa aparece dias depois, no primeiro processo aberto, e não aqui. A
-   * ordem certa é verificar o domínio e só então escrever o endereço; quem
-   * estiver a mudar de domínio apaga o remetente primeiro.
-   */
+  // Remetente tem de ser do domínio em verificação — um From de outro
+  // domínio é o 403 que a Resend recusa, só que dias depois, no primeiro
+  // processo aberto.
   const doDominio = dominioDe(novo);
   if (novo && antes.dominioEmail && doDominio !== antes.dominioEmail) {
     return {
@@ -308,17 +246,10 @@ export async function guardarRemetente(
 /* --------------------------------------------------------------------- domínio */
 
 /**
- * Cria o domínio na Resend e devolve os registos de DNS a colar.
- *
- * O que sai daqui para o ecrã são SPF (TXT), MX e DKIM (CNAME) — sem eles o
- * domínio nunca passa de `pending`, e é a única parte deste processo que a
- * plataforma não pode fazer sozinha: a zona de DNS é do cliente.
- *
- * O `dominio_resend_id` é gravado **antes** de qualquer verificação. É ele que
- * permite voltar a perguntar o estado mais tarde; sem ele, um domínio criado com
- * sucesso e uma página fechada a seguir ficava criado na Resend e invisível
- * aqui, e a única saída era criá-lo outra vez — que é o 422 que a função
- * seguinte existe para desarmar.
+ * Cria o domínio na Resend e devolve os registos de DNS a colar (SPF, MX,
+ * DKIM) — a zona de DNS é do cliente, a plataforma não pode fazer isto
+ * sozinha. `dominio_resend_id` gravado antes de qualquer verificação, senão
+ * um domínio criado com sucesso e a página fechada a seguir fica invisível aqui.
  */
 export async function iniciarVerificacaoDominio(
   organizacaoId: string,
@@ -334,9 +265,8 @@ export async function iniciarVerificacaoDominio(
   const antes = await sociedadeViva(organizacaoId);
   if (!antes) return { ok: false, erros: { _: "Esta sociedade já não existe." } };
 
-  // O simétrico do guard de `guardarRemetente`: o par (remetente, domínio) só
-  // vale como um par. Trocar o domínio por baixo de um remetente que ficou do
-  // anterior era deixar a sociedade a apontar para SPF/DKIM que não são dela.
+  // Simétrico do guard de guardarRemetente — o par (remetente, domínio) só
+  // vale junto.
   const doRemetente = dominioDe(antes.emailRemetente);
   if (doRemetente && doRemetente !== nome) {
     return {
@@ -379,8 +309,7 @@ export async function iniciarVerificacaoDominio(
         dominioEmail: nome,
         dominioResendId: dados.id,
         dominioEstado: estadoResend,
-        // Um domínio novo não herda a verificação do anterior. Deixar a data lá
-        // era o ecrã a dizer «verificado a 12/08» sobre um domínio criado hoje.
+        // Domínio novo não herda a verificação do anterior.
         dominioVerificadoEm: estadoResend === "verified" ? new Date() : null,
         atualizadoEm: new Date(),
       })
@@ -424,18 +353,9 @@ export async function iniciarVerificacaoDominio(
 }
 
 /**
- * Pergunta à Resend em que estado está o domínio e grava a resposta.
- *
- * Antes do `GET` vai um `POST /domains/{id}/verify`, e o falhanço dele é
- * ignorado de propósito: é o pedido para ela **ir ver o DNS agora**. Sem essa
- * linha, o botão limitava-se a reler um estado que a Resend só reavalia por sua
- * iniciativa — e quem acabou de colar os registos ficava a carregar num botão
- * que dizia `pending` sem nada por trás a acontecer.
- *
- * O que se grava é o `status` dela e mais nada. `dominio_verificado_em` é
- * escrito uma vez só, na primeira vez que ela diz `verified`: é a data em que a
- * verificação passou, e reescrevê-la a cada consulta transformava-a na data da
- * última consulta, que não responde a pergunta nenhuma.
+ * Pergunta à Resend o estado do domínio e grava a resposta. `POST /verify`
+ * antes do `GET`, falhanço ignorado — é o pedido para ela ir ver o DNS agora.
+ * `dominio_verificado_em` só se escreve na primeira vez que diz `verified`.
  */
 export async function confirmarVerificacao(organizacaoId: string): Promise<ResultadoDominio> {
   const { eu } = await exigirSuperAdmin();
@@ -452,9 +372,7 @@ export async function confirmarVerificacao(organizacaoId: string): Promise<Resul
 
   const id = encodeURIComponent(antes.dominioResendId);
 
-  // Best-effort: o resultado não é lido, e não é distração. O que interessa é o
-  // `GET` a seguir; um `verify` recusado (domínio já verificado, limite de
-  // tentativas) não é motivo para não perguntar o estado.
+  // Best-effort: resultado não é lido, o que interessa é o GET a seguir.
   await chamarResend(`/domains/${id}/verify`, { metodo: "POST" });
 
   const consulta = await chamarResend(`/domains/${id}`, { metodo: "GET" });
@@ -478,8 +396,8 @@ export async function confirmarVerificacao(organizacaoId: string): Promise<Resul
     return { ok: false, erros: { _: "Não foi possível gravar o estado. Tente de novo." } };
   }
 
-  // Só a transição interessa à auditoria. Sem esta condição, cada carregada no
-  // botão deixava uma linha igual à anterior num registo que dura sete anos.
+  // Só a transição interessa à auditoria — senão cada clique repete a linha
+  // anterior num registo de sete anos.
   if (estadoResend !== antes.dominioEstado) {
     const { ip, userAgent } = await ambiente();
     await auditar({

@@ -31,17 +31,13 @@ export function normalizarNif(valor: string): string {
 /**
  * The shape a tax number is **stored** in.
  *
- * The validations already tolerate `123 456 789` — rightly so, because that is
- * how the number is printed on the card. What was not right was storing it that
- * way: back-office search compares text (`ilike`), client deduplication groups
- * by tax number (`/clientes`), and the same taxpayer written with spaces on one
- * matter and without spaces on another became two different people.
+ * Validation tolerates `123 456 789` (how it's printed on the card), but
+ * storing it that way breaks `ilike` search and NIF-based dedup in
+ * `/clientes` — the same taxpayer ends up as two.
  *
- * Dots and hyphens are only stripped when what remains is exactly nine digits,
- * that is, when the number is Portuguese. A foreign TIN — which step 2 accepts
- * on purpose, with `nifPortugues = false` — may carry the separator as part of
- * the number, and cleaning it would be ruining a legitimate identifier out of
- * zeal.
+ * Separators are only stripped when exactly nine digits remain (Portuguese).
+ * A foreign TIN (`nifPortugues = false`, accepted at step 2 on purpose) may
+ * need them as part of the number.
  */
 export function normalizarNumeroFiscal(valor: string): string {
   const semEspacos = valor.replace(/\s/g, "");
@@ -74,11 +70,9 @@ export function validarNif(valor: string): Resultado {
   const controlo = resto < 2 ? 0 : 11 - resto;
 
   if (controlo !== Number(nif[8])) {
-    // Saying what the last digit would have to be weakens nothing — mod-11 is
-    // public arithmetic, and the validation exists to catch a transposed digit,
-    // not to authenticate anyone. What changes is that the client learns where
-    // to look: "it is not valid" on its own sends them to reread all nine
-    // digits blind.
+    // mod-11 is public arithmetic — stating the expected digit reveals
+    // nothing, and tells the client which digit to recheck instead of just
+    // "invalid".
     return erro(
       `O NIF não é válido — com estes oito primeiros dígitos, o último teria de ser ${controlo} e não ${nif[8]}. Verifique se trocou algum dígito.`,
     );
@@ -99,22 +93,14 @@ export function validarNif(valor: string): Resultado {
 const PRIMEIRO_DIGITO_COLETIVA = ["5", "6", "8", "9"];
 
 /**
- * NIPC — the tax number of a legal person.
+ * NIPC — tax number of a legal person (D54).
  *
- * `validarNif` answers "is this a valid Portuguese tax number?", and the right
- * answer for an individual's tax number is "yes". Except that, in the place
- * where an **entity's** case file is being opened, that answer is wrong in
- * substance: a 2 or a 3 in the leading digit is somebody's personal number
- * written in the company box, and it is a mistake that passed as good until
- * somebody noticed — when they notice — months later, with the matter already
- * running.
- *
- * The order of the two checks is not indifferent. The prefix comes first
- * because it is the grosser defect: saying "with these eight digits the last
- * one would have to be 4" about a number that is not even a corporate one sends
- * the user to fix the wrong thing, and the client ends up inventing a check
- * digit for a number that could never have served. Length is left to
- * `validarNif`, which already counts it and already says so.
+ * `validarNif` alone would accept an individual's NIF in the entity box — a
+ * leading 2 or 3 is someone's personal number, a mistake that surfaces
+ * months later with the matter already running. Prefix is checked before
+ * the checksum: telling the user "the last digit would have to be 4" on a
+ * number that was never corporate sends them to fix the wrong thing. Length
+ * is already `validarNif`'s job.
  */
 export function validarNipc(valor: string): Resultado {
   const nipc = normalizarNif(valor);
@@ -210,16 +196,12 @@ export function formatarIban(valor: string): string {
 /* --------------------------------------------------------------------- Phone */
 
 /**
- * Strips the Portuguese dialling code from the number, if it is there.
+ * Strips the PT dialling code, if present. Returns `null` when the code
+ * belongs to another country (different from "wrong length").
  *
- * Returns `null` when the dialling code belongs to another country — which is
- * different information from "the number is the wrong length" and deserves a
- * different message.
- *
- * A `351` with neither `+` nor `00` only counts as a dialling code when exactly
- * nine digits remain after it. This is not generosity: no national number
- * starts with 3 (landlines start with 2, mobiles with 9), so there is no
- * legitimate nine-digit number being mutilated by this rule.
+ * A bare `351` only counts as a dialling code when exactly nine digits
+ * remain after it — no national number starts with 3 (landlines start 2,
+ * mobiles 9), so no legitimate number is mutilated by this.
  */
 function semIndicativoPt(tel: string): string | null {
   if (tel.startsWith("+")) {
@@ -233,35 +215,17 @@ function semIndicativoPt(tel: string): string | null {
 }
 
 /**
- * Phone contact — nine digits, with or without the Portuguese dialling code.
+ * Phone number, storage and validation (D55): exactly nine national digits,
+ * with or without +351/00351. The previous `^\+?\d{6,15}$` accepted `123`
+ * and accepted `9123456789` — one digit too many looks like a valid mobile
+ * number and only surfaces when someone tries to call, weeks later.
  *
- * What was here was a `^\+?\d{6,15}$`, and the slack was not neutral: it
- * accepted `123` and it accepted `9123456789`. The first is no number at all;
- * the second is the expensive defect, because one digit too many on a
- * Portuguese mobile looks exactly like a correct number and is only discovered
- * when somebody tries to call — and the one trying to call is the firm, weeks
- * later, ringing a client who is no longer looking at the form.
- *
- * `912 345 678`, `912345678`, `+351 912 345 678`, `00351912345678` and the
- * variants with spaces, hyphens, dots or parentheses are all accepted: they are
- * ways of writing the same number, and refusing the formatting of someone
- * copying off a business card is refusing the right number for the wrong
- * reason.
- *
- * Portuguese numbers only, and this is a POC decision: step 2 accepts a foreign
- * tax number on purpose, but the phone now requires the nine national digits. A
- * foreign dialling code is refused with that reason stated, so it does not read
- * as a counting error.
- */
-/**
- * The shape a phone number is **stored** in: nine digits, nothing else.
- *
- * `+351 912 345 678`, `912-345-678` and `912345678` are the same number written
- * three ways, and storing them as three different strings is what makes a
- * search `ilike` miss a number that is right there. The cleanup only applies
- * when the result is recognisably Portuguese; anything else stays as it came,
- * so as not to mutilate what the validation is about to refuse next with a
- * message of its own.
+ * Formatting (spaces, hyphens, dots, parentheses) is accepted and stripped
+ * on storage, same reasoning as the tax number normaliser above — three
+ * strings for the same number would make `ilike` miss it. A foreign dialling
+ * code is refused with that reason stated, so it doesn't read as a counting
+ * error. PT only, a POC decision — unlike step 2's tax number, which accepts
+ * foreign ones.
  */
 export function normalizarTelefone(valor: string): string {
   const limpo = valor.replace(/[\s\-().]/g, "");

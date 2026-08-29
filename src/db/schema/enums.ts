@@ -3,25 +3,15 @@ import { pgEnum } from "drizzle-orm/pg-core";
 export const tipoCliente = pgEnum("tipo_cliente", ["particular", "empresa"]);
 
 /**
- * `aguardar_aprovacao` was added after the others (see migration 0013) and sits
- * right after `submetido`, which is where it enters the flow: a matter
- * submitted by the client goes on to await a partner's/lawyer's decision before
- * `aprovado` or `rejeitado`. The migration's
- * `ALTER TYPE ... ADD VALUE ... AFTER 'submetido'` has to put the value exactly
- * here — diverging on order makes the next `db:generate` propose a migration
- * fixing what is not broken.
+ * `aguardar_aprovacao` entrou depois dos outros (migração 0013), logo a
+ * seguir a `submetido` — é aí que o `ALTER TYPE ... ADD VALUE ... AFTER` o
+ * coloca; divergir na ordem faz o próximo `db:generate` propor uma migração
+ * a corrigir o que não está partido.
  *
- * Two values with no live write path, kept for existing rows:
- *
- *   · `submetido` — history only, from before migration 0013. The current flow
- *     writes `aguardar_aprovacao` on submission; nothing in `src/` sets
- *     `estado: "submetido"` on `processo_onboarding` anymore (confirmed by
- *     `pnpm grep`, BUG3-003). Rows still carrying it predate the approval flow
- *     and need a data migration, not a code path, to move forward.
- *   · `arquivado` — no action sets it either; archiving a matter today is the
- *     soft delete on `apagadoEm`, not a state transition. `reabrirProcesso`
- *     still accepts it as a source state for whenever an `arquivarProcesso`
- *     action is added (BUG3-007).
+ * Dois valores sem caminho de escrita vivo, mantidos por causa de linhas
+ * existentes: `submetido` é histórico anterior à 0013 (BUG3-003); `arquivado`
+ * não é escrito por ação nenhuma hoje — arquivar é soft delete em `apagadoEm`,
+ * mas `reabrirProcesso` continua a aceitá-lo como estado de origem (BUG3-007).
  */
 export const estadoProcesso = pgEnum("estado_processo", [
   "rascunho",
@@ -37,34 +27,17 @@ export const estadoProcesso = pgEnum("estado_processo", [
 export const nivelRisco = pgEnum("nivel_risco", ["baixo", "medio", "elevado"]);
 
 /**
- * Três níveis, e não os quatro cargos de escritório que aqui estavam
- * (`admin`/`socio`/`advogado`/`assistente`).
+ * Três níveis, não os quatro cargos antigos (`admin`/`socio`/`advogado`/
+ * `assistente`) — a plataforma passou a precisar de um nível acima da
+ * sociedade, que nenhum deles conseguia expressar.
  *
- * A diferença não é de nomes: os quatro antigos descreviam a **hierarquia de
- * uma sociedade** e por isso viviam todos dentro dela. O que a plataforma
- * passou a precisar é de um nível **acima** da sociedade — quem cria as
- * sociedades não pertence a nenhuma, e não havia forma de o dizer com um enum
- * em que todos os valores pressupunham uma.
+ * `super_admin` (`organizacao_id` NULL, fora do âmbito de qualquer
+ * sociedade), `society_admin` (antigo `admin`), `utilizador` (antigos
+ * `socio`/`advogado`/`assistente`). A migração 0016 faz este mapeamento.
  *
- * - `super_admin` — dono da plataforma. `organizacao_id` é **NULL** (ver a
- *   restrição `utilizador_org_por_papel` em `organizacao.ts`), e é essa
- *   ausência, e não o papel sozinho, que o mantém fora do âmbito de qualquer
- *   sociedade: todas as consultas do back-office comparam a organização do
- *   processo com a de quem lê, e `NULL` nunca é igual a nada.
- * - `society_admin` — o que era `admin`: gere a sua sociedade.
- * - `utilizador` — o que eram `socio`, `advogado` e `assistente`.
- *
- * A migração `0016` faz o mapeamento nesse sentido e não noutro. `admin` →
- * `society_admin` porque os três de produção são a equipa da sociedade e não da
- * plataforma; os outros três → `utilizador` porque a alternativa (perder o
- * `advogado` para um nível sem aprovação) tirava capacidade a quem já a tinha,
- * que é o género de migração que só se descobre no dia em que alguém não
- * consegue trabalhar.
- *
- * Ao contrário dos `ADD VALUE` dos outros enums deste ficheiro, aqui há valores
- * a **desaparecer** — e um enum do Postgres não perde valores por ALTER. Daí a
- * migração criar o tipo de raiz e converter a coluna com `USING`; a ordem deste
- * array é a da criação do tipo novo e não a de acrescentos sucessivos.
+ * Ao contrário dos `ADD VALUE` dos outros enums, aqui há valores a
+ * desaparecer — um enum do Postgres não perde valores por ALTER, daí a
+ * migração criar o tipo de raiz e converter com `USING`.
  */
 export const papelUtilizador = pgEnum("papel_utilizador", [
   "super_admin",
@@ -73,7 +46,7 @@ export const papelUtilizador = pgEnum("papel_utilizador", [
   "gestor",
 ]);
 
-/** Types seen at step 2 of the real form. */
+/** Tipos vistos no passo 2 do formulário real. */
 export const tipoDocId = pgEnum("tipo_doc_id", [
   "cartao_cidadao",
   "passaporte",
@@ -81,11 +54,7 @@ export const tipoDocId = pgEnum("tipo_doc_id", [
   "outro",
 ]);
 
-/**
- * The current form has a generic, uncategorised dropzone. We categorise anyway:
- * without a type there are no expiry alerts on the dashboard (docs/CAMPOS.md
- * §2).
- */
+/** Formulário atual tem dropzone genérica; categoriza-se na mesma — sem tipo não há alertas de validade no dashboard (CAMPOS.md §2). */
 export const tipoDocumento = pgEnum("tipo_documento", [
   "identificacao",
   "comprovativo_nif",
@@ -96,23 +65,12 @@ export const tipoDocumento = pgEnum("tipo_documento", [
   "dossier_assinado",
   "outro",
   /**
-   * The commercial proposal the firm attaches to the invitation, in the "Novo
-   * processo" dialog. Unlike the other values in this list, it is not a
-   * document the client uploads: it is a document they **receive** — step 7
-   * shows it in place of the generic proposal, and that is the proposal they
-   * accept.
-   *
-   * At the end of the array because that is where `ALTER TYPE ADD VALUE` puts
-   * it (migration `0015`); diverging on order makes the next `db:generate`
-   * propose a migration fixing what is not broken. Same note as `canal_email`.
+   * Proposta comercial anexada pela sociedade no diálogo "Novo processo" —
+   * não é um documento que o cliente carrega, é um que recebe (passo 7). Fim
+   * do array por ser onde o `ALTER TYPE ADD VALUE` a põe (migração 0015).
    */
   "proposta_comercial",
-  /**
-   * The firm's own Terms and Conditions — the product review's slot (see
-   * `docs/TERMOS_SOCIEDADE.md`). **Nothing writes it yet**: it is reserved for
-   * the day the firm submits its wording, so that day is a UI change and not an
-   * enum migration with the system running.
-   */
+  /** T&C da própria sociedade — slot da revisão de produto (docs/TERMOS_SOCIEDADE.md), nada escreve ainda. */
   "termos_sociedade",
 ]);
 
@@ -142,13 +100,9 @@ export const finalidadeConsentimento = pgEnum("finalidade_consentimento", [
 ]);
 
 /**
- * Que email é que a linha do `email_log` regista.
- *
- * São os três do documento da JMASSANO (D31) mais o aviso interno que sai para
- * a sociedade quando um processo é submetido — esse não é dela, mas sai pelo
- * mesmo canal e falha pelas mesmas razões, e um diário de emails que o omitisse
- * mentia por omissão. `reabertura` é o sexto: o aviso ao cliente quando um
- * processo rejeitado volta a `rascunho` para correção.
+ * Que email a linha do `email_log` regista: os três do documento JMASSANO
+ * (D31), o aviso interno de submissão (mesmo canal, mesmas falhas) e
+ * `reabertura` — aviso ao cliente quando um processo rejeitado volta a rascunho.
  */
 export const templateEmail = pgEnum("template_email", [
   "registo",
@@ -157,66 +111,27 @@ export const templateEmail = pgEnum("template_email", [
   "notificacao_backoffice",
   "rejeicao",
   "reabertura",
-  /**
-   * Sétimo: o código de verificação do fecho. É o único email desta lista que
-   * carrega um segredo de curta duração — daí ficar de fora do `tokenHash` e
-   * nunca levar o código para `email_log`, que guarda assunto e destinatário e
-   * não o corpo (D34).
-   */
+  /** Código de verificação do fecho — único com segredo de curta duração, fora do tokenHash e nunca gravado no corpo do log. */
   "otp",
-  /**
-   * Oitavo e nono: os dois convites que abrem os percursos internos — o da
-   * sociedade (o link que a leva ao seu próprio onboarding) e o de cada pessoa
-   * que se junta a ela. Vão para o mesmo `email_log` que os do cliente, e é o
-   * mesmo motivo: a pergunta "o convite chegou?" tem exatamente a mesma forma
-   * que "o registo chegou?", e um diário que respondesse a uma e não à outra
-   * obrigava a ir ao servidor para metade dos casos.
-   *
-   * No fim do array porque é aí que o `ALTER TYPE ADD VALUE` os põe.
-   */
+  /** Convites que abrem os percursos internos: sociedade e utilizador — mesmo diário, mesma pergunta "chegou?". */
   "convite_sociedade",
   "convite_utilizador",
   /**
-   * Décimo: as credenciais de acesso de uma conta criada por um administrador.
-   *
-   * É o único email da lista que leva uma palavra-passe no corpo, e é por isso
-   * que o corpo não é guardado em lado nenhum — nem aqui (o `email_log` regista
-   * assunto e destinatário, D34), nem em `evento_auditoria`, que dura sete anos.
-   * O que fica registado é a mesma coisa que fica registado para os outros: que
-   * a mensagem foi tentada, para quem, e como correu.
-   *
-   * A palavra-passe que ela transporta é temporária: quem a recebe é obrigado a
-   * definir outra no primeiro início de sessão
-   * (`utilizador.deve_redefinir_password`).
-   *
-   * No fim do array porque é aí que o `ALTER TYPE ADD VALUE` o põe.
+   * Credenciais de acesso de conta criada por admin — único email com
+   * palavra-passe no corpo, por isso o corpo não é guardado em lado nenhum
+   * (D34). Palavra-passe temporária (`deve_redefinir_password`).
    */
   "credenciais_acesso",
-  /**
-   * Décimo primeiro e décimo segundo: notificações operacionais enviadas ao
-   * Dono da plataforma (EMAIL_NOTIFICACOES) aquando da criação de uma sociedade
-   * e da integração de um novo utilizador.
-   */
+  /** Notificações operacionais ao dono da plataforma: sociedade criada e novo utilizador. */
   "notificacao_sociedade_criada",
   "notificacao_novo_utilizador",
 ]);
 
 /**
- * Como correu a mensagem, do pedido ao desfecho.
- *
- * Os dois primeiros são sobre a **aceitação** pelo fornecedor: `erro` é ele a
- * recusar, `enviado` é ele a ficar com a mensagem. `enviado` nunca quis dizer
- * "chegou à caixa", e era esse o problema — num teste de vinte empresas, uma
- * das mensagens ficou em `enviado` e nunca chegou a lado nenhum, e a plataforma
- * não tinha como o dizer.
- *
- * Os três últimos são o desfecho, perguntado ao fornecedor alguns minutos
- * depois (`confirmarEntrega`, em `lib/email.ts`). Uma linha que fique em
- * `enviado` é agora uma afirmação estreita e honesta: aceite, entrega por
- * confirmar.
- *
- * A ordem é a de acrescento no Postgres e não a lógica — `ALTER TYPE ADD VALUE`
- * põe os valores novos no fim, e o array tem de bater certo com o tipo.
+ * Como correu a mensagem, do pedido ao desfecho. Os dois primeiros são sobre
+ * aceitação pelo fornecedor (`enviado` nunca quis dizer "chegou à caixa" —
+ * D50); os três últimos são o desfecho, perguntado minutos depois
+ * (`confirmarEntrega`, `lib/email.ts`). Ordem é a de acrescento no Postgres, não a lógica.
  */
 export const estadoEmail = pgEnum("estado_email", [
   "enviado",
@@ -227,15 +142,8 @@ export const estadoEmail = pgEnum("estado_email", [
 ]);
 
 /**
- * Qual dos fornecedores aceitou a mensagem.
- *
- * Não é diagnóstico de luxo: é o que decide a **quem** se pergunta se a
- * mensagem chegou. O id que o Brevo devolve não existe no Resend, e a consulta
- * de entrega de cada um tem endereço, header e formato de resposta próprios —
- * sem esta coluna, um `mensagem_id` guardado sozinho não se sabe interpretar.
- *
- * `twilio_sendgrid` acrescentado no fim (migração 0022) seguindo o padrão
- * `ALTER TYPE ADD VALUE`.
+ * Qual fornecedor aceitou a mensagem — decide a quem perguntar se chegou,
+ * já que o id do Brevo não existe no Resend. `twilio_sendgrid` no fim (0022).
  */
 export const canalEmail = pgEnum("canal_email", [
   "brevo",
@@ -254,15 +162,10 @@ export const regimeIva = pgEnum("regime_iva", [
 ]);
 
 /**
- * Where a firm's own onboarding stands.
- *
- * `rascunho` is the firm filling in; `submetido` is the data delivered and the
- * first administrator invited; `ativo` is the organisation working normally.
- * The distinction between the last two exists because there is a gap between
- * them that nobody controls — the firm submits, and the administrator only
- * exists once *they* finish their own onboarding. An organisation sitting at
- * `submetido` for a week is a first invitation nobody opened, and that is a
- * thing worth being able to see.
+ * Onde está o onboarding da sociedade: `rascunho` a preencher, `submetido`
+ * dados entregues e primeiro admin convidado, `ativo` a funcionar. A
+ * distinção entre os dois últimos existe porque há um intervalo que ninguém
+ * controla — o admin só existe quando termina o próprio onboarding.
  */
 export const estadoOnboardingSociedade = pgEnum("estado_onboarding_sociedade", [
   "rascunho",
@@ -271,12 +174,9 @@ export const estadoOnboardingSociedade = pgEnum("estado_onboarding_sociedade", [
 ]);
 
 /**
- * Where an invitation stands.
- *
- * `expirado` is deliberately **not** here. Expiry is a date, not a state, and
- * the two disagree the moment nobody runs the job that would flip it — an
- * invitation that expired on Sunday would still read `pendente` on Monday.
- * `expira_em` against the clock is the single source of that answer.
+ * Onde está um convite. `expirado` não entra de propósito — validade é data,
+ * não estado, e sem um job a virá-lo ficaria `pendente` depois de expirar.
+ * `expira_em` contra o relógio é a fonte única dessa resposta.
  */
 export const estadoConvite = pgEnum("estado_convite", [
   "pendente",
@@ -285,22 +185,18 @@ export const estadoConvite = pgEnum("estado_convite", [
 ]);
 
 /**
- * The types of document that belong to the firm or to one of its people, as
- * opposed to a client matter (`tipo_documento`).
- *
- * Two lists and not one because they answer different questions and are shown
- * in different places: nobody attaches a permanent certificate to a lawyer, and
- * nobody attaches a bar card to a matter. Merging them would give every dropdown
- * on both sides a set of options that cannot apply.
+ * Documentos da sociedade ou das suas pessoas, ao contrário de um processo de
+ * cliente (`tipo_documento`) — duas listas porque respondem a perguntas
+ * diferentes; juntá-las daria a cada dropdown opções que não se aplicam.
  */
 export const tipoDocumentoOrganizacao = pgEnum("tipo_documento_organizacao", [
-  /** The firm's own Terms and Conditions — the wording its clients accept. */
+  /** T&C da própria sociedade — o texto que os clientes aceitam. */
   "termos_sociedade",
-  /** A person's identification document, from their onboarding. */
+  /** Documento de identificação de uma pessoa, do seu onboarding. */
   "identificacao",
-  /** The Bar Association card. */
+  /** Cédula profissional da Ordem. */
   "cedula_profissional",
-  /** The firm's permanent certificate. */
+  /** Certidão permanente da sociedade. */
   "certidao_sociedade",
   "outro",
 ]);

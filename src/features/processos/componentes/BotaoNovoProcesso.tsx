@@ -36,27 +36,17 @@ import { carregarPropostaComercial } from "../proposta";
 import type { NovoProcesso } from "../schemas";
 
 /**
- * Cria um processo e mostra o link mágico uma única vez.
+ * Cria um processo e mostra o link mágico uma única vez — o token só existe em
+ * claro aqui; recarregar a página perde-o, porque só o hash fica na BD.
  *
- * Uma única vez a sério: o token só existe em claro aqui. Se a página for
- * recarregada, ele desaparece — na base de dados só há o hash.
+ * Os campos variam com o tipo de cliente: pessoa coletiva pede denominação
+ * social e NIPC, pessoa singular mantém nome e email, os dois opcionais.
  *
- * **Os campos mudam com o tipo de cliente.** Perguntar "Nome do cliente" a uma
- * sociedade comercial era perguntar a coisa errada e ficar sem a certa: uma
- * entidade coletiva identifica-se pela denominação social e pelo NIPC, e são
- * esses dois que a sociedade tem à frente quando abre o dossier. Numa pessoa
- * singular mantém-se o que estava — nome e email, os dois opcionais, porque
- * quem cria o processo pode ter à frente só um endereço.
+ * O email é opcional nos dois casos — o link pode ser entregue por outra via.
+ * Com email preenchido, segue também por "JMASSANO | Registro".
  *
- * Com o email preenchido, o link segue também na mensagem "JMASSANO | Registro".
- * O campo é opcional nos dois percursos de propósito: continua a haver casos em
- * que o link se entrega por outra via, e obrigar a um email para poder criar o
- * processo era trocar uma comodidade por um bloqueio.
- *
- * É uma janela e não um bloco no meio da página: aberto em linha, o formulário
- * empurrava o cabeçalho do painel para baixo e ficava com a largura do sítio
- * onde calhasse estar — encostado à direita no painel, centrado dentro do
- * cartão vazio. Numa janela, o mesmo formulário tem sempre a mesma forma.
+ * Dialog e não bloco inline (D36): aberto em linha, o formulário herdava a
+ * largura e o alinhamento de onde calhasse estar.
  */
 
 const TIPOS = [
@@ -81,14 +71,9 @@ type Resultado = {
   nome: string;
   nif: string;
   /**
-   * O link **que o servidor montou**, o mesmo que seguiu no email.
-   *
-   * Era construído aqui, com `window.location.origin`, enquanto o do email saía
-   * dos cabeçalhos do pedido. Coincidem quase sempre — e quando não coincidem
-   * (back-office aberto por `localhost`, por um túnel, por um IP, por um
-   * segundo domínio a apontar à mesma instalação) passam a existir dois links
-   * para o mesmo processo, e o que a sociedade copia do ecrã não é o que o
-   * cliente consegue abrir.
+   * O link devolvido pelo servidor (D48), não reconstruído aqui com
+   * `window.location.origin` — que diverge quando o back-office abre por
+   * localhost, túnel ou outro domínio.
    */
   link: string;
   /** A falso, o processo existe mas o link não resolve. Ver o aviso. */
@@ -99,11 +84,9 @@ type Resultado = {
   /** O que se escreveu na caixa. */
   para: string;
   /**
-   * O que o **servidor** recebeu. Não é o mesmo que `para`, e é por não ser o
-   * mesmo que esta propriedade existe: um endereço escrito na caixa que não
-   * chega à Server Action produz exatamente o ecrã de um envio falhado, e não
-   * se resolve no mesmo sítio — um é recarregar a página, o outro é ir ao
-   * Resend. Ver a nota do banner.
+   * O endereço que o servidor recebeu (D44), para comparar com `para`: um
+   * email escrito na caixa que não chega à Server Action dá o mesmo ecrã de
+   * envio falhado, mas resolve-se de forma diferente. Ver `AvisoEmail`.
    */
   paraServidor: string | null;
   /**
@@ -136,9 +119,8 @@ export function BotaoNovoProcesso({
         </Button>
       </DialogTrigger>
 
-      {/* Montado só enquanto está aberto: é o que garante que a janela volta a
-          abrir limpa depois de um processo criado, em vez de ficar presa no
-          ecrã do link anterior. */}
+      {/* Montado só quando aberto: garante que reabre limpo, em vez de ficar
+          preso no ecrã do link anterior. */}
       {aberto && (
         <Conteudo
           organizacaoId={organizacaoId}
@@ -150,13 +132,10 @@ export function BotaoNovoProcesso({
 }
 
 /**
- * O cabeçalho da janela: emblema, título e uma linha que diz o que vai
- * acontecer ao carregar no botão.
+ * Cabeçalho da janela: emblema, título e uma linha de contexto.
  *
- * O emblema não é decoração — é o que dá à janela uma âncora visual à esquerda
- * do título e o que distingue de relance o ecrã do formulário do ecrã do
- * processo criado, que partilham a mesma moldura. O tom carrega o sentido: a
- * terracota da marca no formulário, o verde-arquivo no processo já criado.
+ * O tom distingue de relance o ecrã do formulário do ecrã do processo criado —
+ * terracota da marca (D45) num, verde-arquivo no outro.
  */
 function Cabecalho({
   icone: Icone,
@@ -191,27 +170,15 @@ function Cabecalho({
 }
 
 /**
- * Um campo da janela: etiqueta, caixa, e por baixo o erro *ou* a ajuda.
+ * Um campo da janela: etiqueta, caixa e por baixo o erro ou a ajuda.
  *
- * Os três campos escreviam este mesmo bloco à mão, e divergiam — um tinha linha
- * de ajuda, os outros não, e a marca de obrigatório era um "(opcional)" em
- * texto corrido só num deles. Aqui a etiqueta diz sempre o mesmo tipo de coisa
- * no mesmo sítio: `*` a carmim quando é obrigatório, uma pastilha cinzenta
- * "Opcional" quando não é.
+ * Substitui três blocos escritos à mão que divergiam entre si. Pastilha
+ * "Opcional" em vez de "(opcional)" em texto corrido, e caixa de frase em vez
+ * de versalete — dentro de um formulário, versalete lê-se como aviso, não
+ * como rótulo.
  *
- * A pastilha é cinzenta e em caixa de frase de propósito. O que aqui estava —
- * `OPCIONAL` em versalete, mono e espaçado — tinha o peso de um aviso e lia-se
- * com mais força do que o próprio nome do campo, quando a coisa que anuncia é
- * precisamente a menos importante da linha. O versalete continua a ser a voz
- * dos rótulos de arquivo (Carimbos, cabeçalhos de tabela); dentro de um
- * formulário não é.
- *
- * Sem `placeholder` nos campos: a linha de ajuda é o único texto de apoio. Com
- * os dois, "Nome do cliente" tinha por baixo "Nome completo do cliente" dentro
- * da caixa e uma terceira frase por baixo dela — três maneiras de dizer o
- * mesmo, e a única que carrega informação a sério é a de baixo, que é também a
- * única que não desaparece ao começar a escrever e a única que um leitor de
- * ecrã anuncia como ajuda (`aria-describedby`).
+ * Sem `placeholder`: a linha de ajuda é o único texto de apoio, e é a única
+ * que um leitor de ecrã anuncia via `aria-describedby`.
  */
 function Campo({
   id,
@@ -291,12 +258,8 @@ function Conteudo({
   const empresa = tipoCliente === "empresa";
 
   /**
-   * Trocar de tipo apaga os erros, não os valores.
-   *
-   * Os erros são do percurso anterior — um "O NIPC é obrigatório" a ficar por
-   * baixo de um formulário que já não pede NIPC é um bloqueio inventado. Os
-   * valores ficam: quem se enganou no tipo e volta atrás não tem de reescrever
-   * o nome nem o email, que são a mesma pergunta nos dois percursos.
+   * Trocar de tipo limpa os erros do percurso anterior, não os valores —
+   * quem se enganou no tipo não tem de reescrever nome e email.
    */
   const trocarTipo = (v: TipoCliente) => {
     setTipoCliente(v);
@@ -305,12 +268,8 @@ function Conteudo({
   };
 
   /**
-   * Setas a mudar de ficha, e o foco a ir com a escolha.
-   *
-   * Um `role="radiogroup"` promete isto a quem navega por teclado: `Tab` entra
-   * no grupo uma vez e as setas percorrem-no. Sem o `tabIndex` móvel e sem este
-   * `onKeyDown`, o grupo anunciava-se como radiogroup e comportava-se como dois
-   * botões soltos — que é a forma de acessibilidade que engana quem confia nela.
+   * Setas movem entre fichas e levam o foco com elas — o que um
+   * `role="radiogroup"` promete a quem navega por teclado.
    */
   const navegar = (e: KeyboardEvent<HTMLButtonElement>, indice: number) => {
     const avanca = e.key === "ArrowRight" || e.key === "ArrowDown";
@@ -327,10 +286,9 @@ function Conteudo({
     const nomeLimpo = nome.trim();
     const nifLimpo = nif.trim();
 
-    // A validação daqui é conforto — a decisão é do servidor, no mesmo schema.
-    // Vale a pena mesmo assim: um endereço mal escrito chegava ao servidor, o
-    // envio falhava em silêncio e o processo nascia sem que ninguém percebesse
-    // porquê. Um NIPC com um dígito trocado seria pior, porque fica gravado.
+    // Validação de conforto — a decisão fica no schema do servidor. Evita um
+    // envio que falha em silêncio por email mal escrito, e um NIPC com um
+    // dígito trocado, que é pior porque fica gravado.
     const novos: Erros = {};
 
     if (empresa) {
@@ -373,8 +331,7 @@ function Conteudo({
       try {
         const r = await criarProcesso({ ...entrada, organizacaoId });
         if (!r.ok) {
-          // O servidor diz qual foi o campo quando o problema é de um campo. Sem
-          // isso, o aviso ia todo para o fundo da janela e obrigava a procurar.
+          // O servidor diz o campo quando o erro é de um campo específico.
           if (r.campo === "nome" || r.campo === "nif" || r.campo === "email") {
             setErros({ [r.campo]: r.erro });
           } else {
@@ -384,16 +341,10 @@ function Conteudo({
         }
 
         /*
-         * A proposta sobe **depois** de o processo existir, e a falha dela não
-         * desfaz nada.
-         *
-         * Não podia ser de outra maneira: o documento pendura-se num processo, e
-         * antes do INSERT não há processo onde o pendurar. O que isso obriga é a
-         * dizer a verdade no ecrã seguinte — o dossier está aberto, o link é
-         * válido, e a proposta ou entrou ou não entrou. Um upload falhado a
-         * apresentar-se como criação falhada mandava repetir tudo e deixava atrás
-         * um processo órfão; a apresentar-se como silêncio, deixava o cliente
-         * bloqueado sem a proposta comercial.
+         * A proposta sobe depois de o processo existir — sem processo não há
+         * onde a pendurar. Uma falha aqui não desfaz a criação (D52): o ecrã
+         * seguinte mostra o link válido e diz separadamente se a proposta
+         * entrou ou não.
          */
         let estadoProposta: Resultado["proposta"] = null;
         if (proposta) {
@@ -418,10 +369,9 @@ function Conteudo({
           referencia: r.referencia,
           nome: nomeLimpo,
           nif: empresa ? nifLimpo : "",
-          // Só se completa o que o servidor não conseguiu apurar: quando ele
-          // não chegou ao anfitrião, o link vem relativo (`/onboarding/…`) e a
-          // origem desta janela é o melhor palpite que resta. Nos outros casos
-          // usa-se o dele à letra, que é o que o cliente tem na caixa.
+          // Só completa quando o link vem relativo: o servidor não apurou o
+          // anfitrião e esta janela usa o melhor palpite. Nos outros casos usa
+          // o link do servidor tal e qual (D48).
           link: r.link.startsWith("/") ? `${window.location.origin}${r.link}` : r.link,
           linkVerificado: r.linkVerificado,
           emailEnviado: r.emailEnviado,
@@ -431,15 +381,10 @@ function Conteudo({
           proposta: estadoProposta,
         });
       } catch (e) {
-        // Uma Server Action que rebenta rejeita esta promessa, e sem `catch` a
-        // rejeição ficava por tratar dentro da transição: o botão saía de
-        // "A criar…" e não acontecia mais nada — nem link, nem aviso. É este o
-        // silêncio que faz uma falha de servidor parecer um clique perdido.
-        //
-        // O caso mais comum não é sequer um defeito nosso: um separador aberto
-        // de antes de um deploy manda um identificador de ação que o servidor
-        // já não conhece ("Failed to find Server Action…"), e a única saída é
-        // recarregar a página.
+        // Sem catch, a rejeição ficava por tratar dentro da transição: o botão
+        // saía de "A criar…" sem link nem aviso. Causa mais comum: um
+        // separador aberto de antes de um deploy, com um id de ação que o
+        // servidor já não conhece ("Failed to find Server Action…").
         console.error("[novo processo] a Server Action falhou", e);
         setErro(
           "O servidor não respondeu ao pedido. Recarregue a página e tente outra vez — " +
@@ -450,12 +395,8 @@ function Conteudo({
   };
 
   /**
-   * `Enter` numa caixa cria o processo.
-   *
-   * Isto não é um `<form>` — os campos são controlados e a criação passa por uma
-   * Server Action chamada à mão —, e sem este atalho o `Enter` não fazia
-   * absolutamente nada, que é o comportamento que faz um formulário parecer
-   * avariado a quem preenche sem tirar as mãos do teclado.
+   * `Enter` numa caixa cria o processo — não é um `<form>`, os campos são
+   * controlados e a criação passa por Server Action chamada à mão.
    */
   const aoTeclarNoCampo = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "Enter" || aCriar) return;
@@ -503,8 +444,8 @@ function Conteudo({
             )}
           </dl>
 
-          {/* Primeiro que tudo, porque desmente o resto do ecrã: se o link não
-              abre, a referência e o email por baixo dele são detalhes. */}
+          {/* Vem primeiro porque desmente o resto do ecrã: se o link não abre,
+              o resto são detalhes. */}
           {!resultado.linkVerificado && (
             <div
               className="border-selo/40 bg-selo/5 text-selo flex items-start gap-2 rounded-sm border p-3 text-xs"
@@ -627,10 +568,8 @@ function Conteudo({
       </Cabecalho>
 
       <DialogBody>
-        {/* Escolha única, e não dois interruptores: `role="radiogroup"` com
-            setas do teclado é o que um leitor de ecrã espera aqui. As duas
-            fichas repetem o padrão do passo 1 do onboarding — mesma pergunta,
-            mesma forma. */}
+        {/* `role="radiogroup"` com setas do teclado — mesmo padrão do passo 1
+            do onboarding. */}
         <fieldset className="flex flex-col">
           <legend className="text-tinta mb-2.5 text-sm font-medium">
             Quem é o cliente final?
@@ -655,12 +594,8 @@ function Conteudo({
                   tabIndex={escolhido ? 0 : -1}
                   onClick={() => trocarTipo(o.v)}
                   onKeyDown={(e) => navegar(e, i)}
-                  // A borda é `tinta/15` e não `linha`: sobre o branco da janela
-                  // o cinzento-régua do dossier quase não se vê, e uma ficha
-                  // sem contorno não se lê como coisa em que se carrega. A
-                  // escolhida é a terracota da marca — a tinta que aqui estava
-                  // é a cor do texto à volta, e um contorno da cor do texto diz
-                  // "moldura", não "escolhido".
+                  // border-tinta/15 e não `linha`: sobre branco, o cinzento do
+                  // dossier quase não se vê. Escolhido usa a marca (D45).
                   className={cn(
                     "group bg-papel-alto relative flex h-full items-start gap-3 rounded-sm border p-3.5 pr-9 text-left transition-all duration-150 outline-none",
                     "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3",
@@ -669,8 +604,8 @@ function Conteudo({
                       : "border-tinta/15 hover:border-tinta-suave/60 hover:bg-muted/40 hover:shadow-xs",
                   )}
                 >
-                  {/* `mt-px` e não alinhamento ao centro: o emblema encosta à
-                      linha do título, como no cabeçalho da janela. */}
+                  {/* `mt-px`: o emblema encosta à linha do título, como no
+                      cabeçalho da janela. */}
                   <span
                     aria-hidden="true"
                     className={cn(
@@ -698,10 +633,8 @@ function Conteudo({
           </div>
         </fieldset>
 
-        {/* `Enter` em qualquer caixa cria o processo — ver `aoTeclarNoCampo`.
-            A régua por cima separa a escolha do tipo dos campos que ela
-            comanda: sem ela, o "Denominação social" que aparece e desaparece ao
-            trocar de ficha lia-se como parte do mesmo bloco. */}
+        {/* `Enter` em qualquer caixa cria o processo (`aoTeclarNoCampo`). A
+            régua separa a escolha do tipo dos campos que ela comanda. */}
         <div
           className="border-linha flex flex-col gap-4 border-t pt-5"
           onKeyDown={aoTeclarNoCampo}
@@ -711,9 +644,8 @@ function Conteudo({
             etiqueta={empresa ? "Denominação social" : "Nome do cliente"}
             opcional={!empresa}
             erro={erros.nome}
-            // Duas frases inteiras, e não um travessão adentro: a segunda
-            // metade caía sozinha para a linha de baixo e lia-se como um texto
-            // cortado a começar em minúscula.
+            // Duas frases completas: a metade cortada caía sozinha para a
+            // linha de baixo e lia-se como texto truncado.
             ajuda={
               empresa
                 ? "Como consta na certidão permanente, com a forma jurídica incluída."
@@ -733,10 +665,8 @@ function Conteudo({
             />
           </Campo>
 
-          {/* Só à pessoa coletiva, e obrigatório: é pelo NIPC que a sociedade
-              identifica a entidade antes de o cliente tocar no formulário. A
-              uma pessoa singular não se pergunta — o NIF dela vem no passo 2,
-              declarado por ela. */}
+          {/* Só para pessoa coletiva: é pelo NIPC que a sociedade identifica a
+              entidade antes de o cliente tocar no formulário. */}
           {empresa && (
             <Campo
               id={idNif}
@@ -813,10 +743,8 @@ function Conteudo({
         )}
       </DialogBody>
 
-      {/* No telemóvel os dois botões empilham-se a largura inteira (alvo de
-          toque de 44px+), com o "Criar processo" no fundo — é a ação que se
-          quer alcançar com o polegar. Em ecrãs maiores voltam a ficar lado a
-          lado à direita. */}
+      {/* No telemóvel os botões empilham a largura inteira (alvo de toque
+          44px+), com "Criar processo" no fundo, ao alcance do polegar. */}
       <DialogFooter className="flex-col py-4 sm:flex-row">
         <Button
           type="button"
@@ -832,11 +760,8 @@ function Conteudo({
           size="lg"
           onClick={criar}
           disabled={aCriar}
-          // A ação principal da janela pesa mais do que o "Cancelar" ao lado:
-          // mais alta do que a `size="lg"` de série, largura fixa (que não
-          // encolhe ao trocar o rótulo por "A criar…"), respiro nos lados e a
-          // sombra que a levanta do rodapé. Os dois à mesma altura, senão o
-          // rodapé fica com dois patamares.
+          // Ação principal mais alta e com largura fixa, para não encolher ao
+          // trocar o rótulo por "A criar…".
           className="h-11 min-w-40 px-5 font-semibold shadow-sm sm:h-10 sm:w-auto"
         >
           {aCriar ? (
@@ -852,26 +777,13 @@ function Conteudo({
 }
 
 /**
- * O que aconteceu ao email, em três estados e não em dois.
+ * O que aconteceu ao email, em três estados.
  *
- * Os dois estados que aqui estavam — enviado / não enviado — juntavam num só
- * ecrã duas avarias que não se resolvem no mesmo sítio, e foi essa confusão
- * que custou a investigação de 09/08:
- *
- *   · **o servidor não recebeu endereço nenhum.** A caixa tinha um endereço,
- *     a Server Action recebeu `undefined`, o `if (emailCliente)` de
- *     `criarProcesso` nem chegou a abrir e por isso não há linha nenhuma em
- *     `email_log` — o `/emails` fica a «0 mensagens» *com toda a razão*. A
- *     causa é do lado do pedido (quase sempre um separador aberto de antes de
- *     um deploy, que manda uma ação que o servidor já não conhece), e a saída
- *     é recarregar a página. Ir procurar isto no painel do Resend é procurar
- *     no sítio errado durante horas;
- *   · **o servidor recebeu o endereço e o envio falhou.** Há linha no
- *     `/emails`, com o motivo, e é lá e no Resend que se resolve.
- *
- * A comparação é entre o que se escreveu na caixa e o que o servidor devolve
- * ter recebido, e não entre `emailEnviado` e nada — é a única maneira de a
- * janela saber de que lado da linha a mensagem se perdeu.
+ * Servidor sem endereço nenhum (o `if` de `criarProcesso` nem abriu) e
+ * servidor com endereço que falhou a enviar são avarias diferentes, com
+ * resoluções diferentes — juntá-las custou a investigação de 09/08 (D44). A
+ * comparação é entre o que se escreveu na caixa e o que o servidor diz ter
+ * recebido (`paraServidor`).
  */
 function AvisoEmail({ r }: { r: Resultado }) {
   const naoChegouAoServidor = Boolean(r.para) && !r.paraServidor;
@@ -914,10 +826,9 @@ function AvisoEmail({ r }: { r: Resultado }) {
               Não foi possível enviar o email para {r.paraServidor ?? r.para}. Copie o link e
               envie-o à mão — a tentativa fica registada em Emails, com o motivo.
             </span>
-            {/* O motivo à vista, e não só nos logs do contentor. Um domínio por
-                verificar no Resend, uma chave em falta e uma saída para a
-                Internet fechada dizem-se todos "não foi possível enviar", e são
-                três coisas diferentes de resolver. */}
+            {/* Motivo à vista, não só nos logs — domínio por verificar, chave
+                em falta e saída fechada dizem-se todos "não foi possível
+                enviar". */}
             {r.erroEmail && (
               <span className="font-mono break-all opacity-80">{r.erroEmail}</span>
             )}

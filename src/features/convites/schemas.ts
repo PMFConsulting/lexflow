@@ -12,10 +12,8 @@ import { normalizarNif, validarNif } from "@/lib/validacao-pt";
  * Um schema por passo do registo de uma pessoa da equipa, partilhado entre
  * cliente e servidor.
  *
- * Vários passos precisam de saber **o papel** de quem está a preencher, e esse
- * facto não vem da carga: vem do convite, que é onde o administrador o
- * escreveu. Um formulário que pudesse mandar o seu próprio papel era um
- * assistente a promover-se a sócio no caminho para o servidor.
+ * O papel de quem preenche vem do convite, não da carga — senão o formulário
+ * dava para se autopromover a sócio a caminho do servidor.
  */
 
 /** O NIF de uma pessoa singular — nove dígitos com o mod-11. */
@@ -53,14 +51,9 @@ export const passoConvite1 = z.object({
 /* ── passo 2 — dados profissionais ────────────────────────────────────── */
 
 /**
- * A cédula é obrigatória para quem exerce advocacia e não existe para quem não
- * exerce.
- *
- * `exerce` é injetado pelo servidor a partir do papel do convite — o que a
- * carga trouxesse com este nome é substituído, não acreditado. Sem a distinção,
- * o passo era impossível de fechar para um assistente, que legitimamente não
- * tem cédula: a mesma classe de problema que o passo 3 do cliente tinha antes
- * da D28.
+ * A cédula é obrigatória para quem exerce advocacia. `exerce` vem do servidor
+ * (papel do convite), não da carga — sem a distinção, um assistente sem
+ * cédula nunca conseguia fechar o passo (mesma classe de bug que a D28).
  */
 export const passoConvite2 = z
   .object({
@@ -130,25 +123,11 @@ export const passoConvite3 = z
 /* ── passo 4 — RGPD e sigilo profissional ─────────────────────────────── */
 
 /**
- * O passo que a validação jurídica procura primeiro.
- *
- * As três respostas não são do mesmo tipo, e tratá-las como se fossem é o erro
- * clássico:
- *
- *   · `informacaoRgpd` é **tomada de conhecimento**, não consentimento. A
- *     sociedade trata os dados dos seus advogados ao abrigo do contrato e de
- *     obrigações legais; pedir consentimento onde o consentimento não é a base
- *     legal produz um consentimento inválido — e, pior, faz a pessoa acreditar
- *     que o pode retirar. Fica `z.literal(true)` porque o dever de informação
- *     (artigos 13.º/14.º) tem de ser cumprido, mas o que se regista é que a
- *     informação foi prestada, e não que foi consentida.
- *
- *   · `sigiloProfissional` é uma **declaração**, e obrigatória. Quem entra aqui
- *     vai ver documentos de identificação de clientes, declarações de PPE e
- *     origens de fundos.
- *
- *   · `comunicacoesInternas` é o único que é mesmo consentimento — e é por isso
- *     o único que pode ficar a `false` sem impedir o passo de fechar.
+ * As três respostas não são do mesmo tipo (D61): `informacaoRgpd` é tomada de
+ * conhecimento e não consentimento (a base legal é o contrato/obrigação
+ * legal — pedir consentimento aqui seria inválido e sugeriria que dá para
+ * retirar); `sigiloProfissional` é declaração obrigatória; `comunicacoesInternas`
+ * é o único consentimento real, e por isso o único que pode ficar a `false`.
  */
 export const passoConvite4 = z.object({
   informacaoRgpd: z.literal(true, {
@@ -174,12 +153,9 @@ export const passoConvite5 = z.object({
 /* ── passo 6 — palavra-passe ──────────────────────────────────────────── */
 
 /**
- * Doze caracteres, que é o mínimo que o Better Auth aceita no login
- * (`minPasswordLength: 12`, em `lib/auth.ts`).
- *
- * O mesmo número nos dois sítios e não por acaso: uma palavra-passe aceite aqui
- * e recusada no login deixa a pessoa com uma conta criada em que não consegue
- * entrar, e nada no ecrã que o explique.
+ * Doze caracteres — o mínimo que o Better Auth aceita no login
+ * (`minPasswordLength: 12`, em `lib/auth.ts`). Mesmo número nos dois sítios:
+ * divergir deixaria uma conta criada em que a pessoa não consegue entrar.
  */
 export const passoConvite6 = z
   .object({

@@ -23,12 +23,10 @@ import { exigirAdministracao } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
 
 /**
- * As ações do portal de administração da sociedade.
+ * Ações do portal de administração da sociedade.
  *
- * **Todas** começam por `exigirAdministracao()`, e não por confiança em quem
- * chama. Uma Server Action é um endpoint público como qualquer outro: esconder
- * o botão na navegação é cortesia, não segurança, e é exatamente a lição da D35
- * aplicada a operações que escrevem em vez de lerem.
+ * Todas começam por `exigirAdministracao()` — uma Server Action é um endpoint
+ * público como outro qualquer, esconder o botão não é segurança (D35).
  */
 
 async function contexto() {
@@ -56,11 +54,8 @@ export type ResultadoConvidar =
 /**
  * Convida uma pessoa para a sociedade.
  *
- * O link é devolvido **sempre**, tenha o email saído ou não. É a lição da D48:
- * um link que só existe dentro de uma mensagem que pode nunca chegar é um
- * convite que ninguém consegue destrancar — e o administrador que o enviou não
- * tem como saber que assim ficou. Com o link no ecrã, um envio falhado
- * resolve-se copiando o endereço e mandando-o por outra via.
+ * O link é sempre devolvido, mesmo que o email falhe (D48) — sem ele no ecrã,
+ * um envio falhado deixava o convite inacessível e o administrador sem saber.
  */
 export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvidar> {
   const { eu } = await exigirAdministracao();
@@ -79,15 +74,8 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
   const email = r.data.email.trim().toLowerCase();
   const base = db();
 
-  /*
-   * Já lá está, ou já foi convidado?
-   *
-   * As duas perguntas têm respostas diferentes e saídas diferentes: uma pessoa
-   * que já é da equipa não se convida (muda-se-lhe o papel), e um convite
-   * pendente não se duplica — duplicá-lo dava dois links válidos para o mesmo
-   * endereço, e quem os recebesse não saberia qual usar. O que sobra é
-   * reenviar, que é outra ação.
-   */
+  // Já está na equipa (muda-se-lhe o papel) ou já tem convite pendente
+  // (reenvia-se): duplicar dava dois links válidos para o mesmo endereço.
   const [jaNaEquipa] = await base
     .select({ id: utilizador.id })
     .from(utilizador)
@@ -161,15 +149,9 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
     .where(eq(organizacao.id, eu.organizacaoId))
     .limit(1);
 
-  /*
-   * A partir daqui, cada passo no seu próprio `try` (D46).
-   *
-   * O convite está gravado. O que vem a seguir — montar o link, enviar o email,
-   * escrever a auditoria — não pode transformar um convite criado numa ação que
-   * rebentou e não disse nada: era exatamente a forma do defeito do
-   * `criarProcesso`, com o registo na base e o ecrã a dizer que o servidor não
-   * respondeu.
-   */
+  // A partir daqui, cada passo no seu próprio `try` (D46): o convite já está
+  // gravado, e montar o link, enviar o email ou escrever a auditoria não pode
+  // fazer parecer que a ação toda falhou.
   let link = "";
   let emailEnviado = false;
   let erroEmail: string | undefined;
@@ -177,9 +159,8 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
   try {
     link = `${await origemPublica()}/convite/${token}`;
   } catch (e) {
-    // Sem `origemPublica` não há link para mostrar nem para enviar. Devolve-se
-    // o token em bruto, que é melhor do que nada: quem administra sabe colar o
-    // domínio à frente, e o alternativo era um convite inalcançável.
+    // Sem `origemPublica`, devolve-se o token em bruto — quem administra
+    // completa o domínio à mão em vez de ficar com um convite inalcançável.
     console.error("[admin] origemPublica failed", { erro: String(e) });
     link = `/convite/${token}`;
   }
@@ -197,8 +178,7 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
       }),
       template: "convite_utilizador",
       organizacaoId: eu.organizacaoId,
-      // O hash e nunca o token em claro: quem tiver leitura do `email_log` não
-      // fica com a chave de nenhum convite (D4/D34).
+      // Hash e não o token em claro — leitura do `email_log` não dá acesso a convites (D4/D34).
       tokenHash: hash,
     });
     emailEnviado = envio.ok;
@@ -240,11 +220,9 @@ export type ResultadoReenvio =
   | { ok: false; mensagem: string };
 
 /**
- * Reenvia um convite — com um **token novo**.
- *
- * O token antigo deixa de servir, e é de propósito: reenviar o mesmo link não
- * resolve o caso mais comum, que é o convite ter expirado, e no caso de um
- * endereço trocado deixaria um link válido na caixa de correio errada.
+ * Reenvia um convite com token novo. O antigo deixa de servir — reenviar o
+ * mesmo link não resolve expiração, e num endereço trocado deixaria um link
+ * válido na caixa errada.
  */
 export async function reenviarConvite(conviteId: string): Promise<ResultadoReenvio> {
   const { eu } = await exigirAdministracao();
@@ -395,9 +373,8 @@ const esquemaPapel = z.object({
 /**
  * Muda o perfil de alguém da equipa.
  *
- * A guarda que importa não é a de quem chama — é a de **não ficar sem
- * administradores**. Um administrador que se despromova a assistente fecha a
- * porta da administração por dentro, e a única saída passa a ser o servidor.
+ * A guarda que importa é não ficar sem administradores — despromover o
+ * último fecha a administração por dentro, sem saída que não seja o servidor.
  */
 export async function alterarPapel(dados: unknown) {
   const { eu } = await exigirAdministracao();
@@ -473,13 +450,9 @@ async function contarAdministradores(organizacaoId: string, exceto: string) {
 }
 
 /**
- * Ativa ou desativa alguém.
- *
- * Desativar não apaga: `sessaoAtual()` deixa de resolver a sessão dessa pessoa
- * e ela deixa de entrar, mas tudo o que ela escreveu — passos gravados,
- * documentos carregados, linhas de auditoria — continua a apontar para ela. Num
- * sistema sujeito a sete anos de retenção, apagar o autor de um ato é apagar
- * metade do ato.
+ * Ativa ou desativa alguém. Desativar não apaga: `sessaoAtual()` deixa de
+ * resolver a sessão, mas tudo o que a pessoa escreveu continua a apontar para
+ * ela — com sete anos de retenção, apagar o autor apagaria metade do ato.
  */
 export async function alterarEstadoUtilizador(utilizadorId: string, ativo: boolean) {
   const { eu } = await exigirAdministracao();
@@ -549,15 +522,10 @@ export type ResultadoTermos =
 /**
  * Publica uma versão nova dos Termos e Condições da sociedade.
  *
- * A regra que esta função existe para defender é a da D3/D38: a versão **tem de
- * mudar** quando o documento muda. Substituir o PDF mantendo a versão apaga a
- * diferença entre o que cada cliente e cada advogado aceitou e o que passou a
- * estar escrito — que é precisamente a prova que esta parte do sistema existe
- * para guardar. Por isso a versão é obrigatória, e por isso repeti-la é
- * recusado com a versão em vigor à frente.
- *
- * O documento anterior fica em soft delete e as aceitações antigas continuam a
- * apontar para a versão que quem as deu viu de facto.
+ * A versão tem de mudar quando o documento muda (D3/D38) — repetir a versão
+ * em vigor é recusado, senão apaga-se a diferença entre o que já foi aceite e
+ * o que passa a estar escrito. O documento anterior fica em soft delete; as
+ * aceitações antigas continuam a apontar para a versão que viram de facto.
  */
 export async function publicarTermosSociedade(formData: FormData): Promise<ResultadoTermos> {
   const { eu } = await exigirAdministracao();
@@ -644,9 +612,8 @@ export async function publicarTermosSociedade(formData: FormData): Promise<Resul
 
   const hash = createHash("sha256").update(bytes).digest("hex");
 
-  // Um documento de T&C vivo por sociedade (mesma regra da D52): duas linhas
-  // vivas obrigariam a escolher uma por ordenação, que é como um cliente acaba
-  // a aceitar o articulado errado sem ninguém dar por isso.
+  // Um documento de T&C vivo por sociedade (mesma regra da D52) — duas linhas
+  // vivas obrigariam a escolher uma por ordenação.
   await base
     .update(documentoOrganizacao)
     .set({ apagadoEm: new Date() })

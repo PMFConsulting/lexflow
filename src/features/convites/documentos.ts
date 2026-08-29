@@ -19,15 +19,10 @@ import { acessoConvitePorToken, motivoDoAcessoConvite } from "./dados";
 /**
  * Upload dos documentos de quem se está a registar.
  *
- * As regras de formato, tamanho e magic bytes vêm do mesmo `formatos.ts` do
- * percurso do cliente — um ficheiro que diz ser PDF e não é é o mesmo problema
- * em qualquer percurso, e ter duas listas de formatos aceites foi o defeito da
- * D39.
- *
- * A diferença que importa está no `convite_id`: estes documentos pertencem a
- * uma **pessoa**, não à sociedade. Sem essa coluna preenchida, o cartão de
- * cidadão de um advogado ficava a pertencer à sociedade inteira e aparecia na
- * lista de documentos dela.
+ * Formato, tamanho e magic bytes vêm do mesmo `formatos.ts` do percurso do
+ * cliente — duas listas divergentes foi o defeito da D39. O que importa aqui
+ * é o `convite_id`: sem ele, o documento da pessoa ficava a pertencer à
+ * sociedade inteira.
  */
 
 const MAX_BYTES = 4 * 1024 * 1024;
