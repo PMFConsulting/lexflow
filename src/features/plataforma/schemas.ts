@@ -168,6 +168,9 @@ export const sociedadeComAdminSchema = sociedadeSchema
   .extend({
     adminNome: z.string().trim().max(160).optional(),
     adminEmail: z.string().trim().optional(),
+    confirmarMultiSociedade: z
+      .union([z.boolean(), z.string().transform((v) => v === "true")])
+      .optional(),
   })
   .superRefine((v, ctx) => {
     const temNome = Boolean(v.adminNome);

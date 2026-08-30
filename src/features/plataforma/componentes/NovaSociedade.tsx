@@ -116,10 +116,29 @@ export function NovaSociedade() {
             <>
               <DialogBody className="flex flex-col gap-3">
                 <p className="text-sm">Sociedade criada, com o primeiro administrador.</p>
+                {criada.avisoMultiSociedade && (
+                  <div
+                    className="border-selo/40 bg-selo/10 text-selo flex items-start gap-2.5 rounded-sm border p-3 text-sm"
+                    role="alert"
+                  >
+                    <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                    <div className="flex flex-col gap-1 text-xs">
+                      <p className="font-medium text-sm text-selo">
+                        Aviso de administrador multi-sociedade
+                      </p>
+                      <p>
+                        Este email já administra a sociedade{" "}
+                        <strong>{criada.sociedadeExistenteNome ?? "existente"}</strong>. Vão ser
+                        criadas credenciais separadas (a nova substitui a anterior até à primeira
+                        redefinição).
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <ContasCriadas contas={[criada]} titulo="Administrador da sociedade" />
               </DialogBody>
               <DialogFooter>
-                <Button onClick={() => fechar(false)}>Concluir</Button>
+                <Button onClick={() => fechar(false)}>Continuar</Button>
               </DialogFooter>
             </>
           ) : (

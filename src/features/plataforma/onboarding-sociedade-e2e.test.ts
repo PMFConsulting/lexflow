@@ -137,7 +137,8 @@ const tabelaDe = (t: unknown) => {
 type Condicao = [coluna: string, valor: unknown, op?: string];
 
 const clausulaSobre = (cond: unknown, coluna: string): Condicao | undefined => {
-  if (!Array.isArray(cond)) return undefined;
+  if (!Array.isArray(cond) || cond.length === 0) return undefined;
+  if (typeof cond[0] === "string") return cond[0] === coluna ? (cond as Condicao) : undefined;
   for (const item of cond) {
     if (Array.isArray(item)) {
       if (item[0] === coluna) return item as Condicao;
@@ -163,7 +164,7 @@ const consultar = (t: unknown, cond?: unknown): Linha[] => {
   if (porAuth) filtradas = filtradas.filter((r) => r.authUserId === porAuth[1]);
 
   const porEmail = clausulaSobre(cond, "col_email");
-  if (porEmail) filtradas = filtradas.filter((r) => !r.email || r.email === porEmail[1]);
+  if (porEmail) filtradas = filtradas.filter((r) => r.email === porEmail[1]);
 
   const porOrg = clausulaSobre(cond, "col_org");
   if (porOrg) {
@@ -474,6 +475,9 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
     };
 
     // Já existe utilizador noutra sociedade com o mesmo email
+    linhas["organizacao"] = [
+      { id: "org-1", nome: "Primeira Sociedade", nif: "501999884", prefixoReferencia: "PRI" },
+    ];
     linhas["user"] = [{ id: "auth-admin-existente", email: "admin.multi@sociedade.pt" }];
     linhas["utilizador"].push({
       id: "u-sociedade-1",
@@ -485,7 +489,7 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
       aprovadoEm: new Date(),
     });
 
-    // Criar uma segunda sociedade com o MESMO adminEmail (NIF válido: 500000000)
+    // Criar uma segunda sociedade com o MESMO adminEmail (NIF válido: 500000000) - sem confirmação prévia
     const resultado2 = await criarSociedade({
       nome: "Segunda Sociedade",
       nif: "500000000",
@@ -500,6 +504,37 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
     expect(resultado2.admin).not.toBeNull();
     expect(resultado2.avisoAdmin).toBeNull();
     expect(resultado2.admin?.email).toBe("admin.multi@sociedade.pt");
+    expect(resultado2.avisoMultiSociedade).toBe(true);
+    expect(resultado2.sociedadeExistenteNome).toBe("Primeira Sociedade");
+
+    // Criar terceira sociedade com confirmação explícita (confirmarMultiSociedade: true)
+    const resultado3 = await criarSociedade({
+      nome: "Terceira Sociedade",
+      nif: "509999999",
+      prefixoReferencia: "TER",
+      adminNome: "Admin Multi",
+      adminEmail: "admin.multi@sociedade.pt",
+      confirmarMultiSociedade: true,
+    });
+
+    expect(resultado3.ok).toBe(true);
+    if (!resultado3.ok) return;
+    expect(resultado3.avisoMultiSociedade).toBe(false);
+    expect(resultado3.sociedadeExistenteNome).toBeNull();
+
+    // Criar quarta sociedade com email NOVO - sem aviso
+    const resultadoNovo = await criarSociedade({
+      nome: "Quarta Sociedade",
+      nif: "502999888",
+      prefixoReferencia: "QUA",
+      adminNome: "Admin Novo",
+      adminEmail: "novo.admin@quarta.pt",
+    });
+
+    expect(resultadoNovo.ok).toBe(true);
+    if (!resultadoNovo.ok) return;
+    expect(resultadoNovo.avisoMultiSociedade).toBe(false);
+    expect(resultadoNovo.sociedadeExistenteNome).toBeNull();
 
     // Frente P: Notificação in-app e fila do resumo diário para segunda sociedade
     const notifSegunda = inseridos.find(

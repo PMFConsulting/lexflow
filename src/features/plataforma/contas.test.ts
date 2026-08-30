@@ -81,18 +81,24 @@ vi.mock("@/lib/origem", () => ({
  * email); as outras continuam a ser strings. `String(objeto)` daria
  * `"[object Object]"` para todas, que é o mesmo balde para tabelas diferentes.
  */
-const tabelaDe = (t: unknown) => (typeof t === "object" ? "utilizador" : String(t));
+const tabelaDe = (t: unknown) => {
+  if (typeof t === "object" && t !== null) {
+    if ("papel" in t || "authUserId" in t) return "utilizador";
+    if ("id" in t && (t as Record<string, unknown>).id === "col_org_id") return "organizacao";
+    return "utilizador";
+  }
+  return String(t);
+};
 
 /**
  * O `drizzle-orm` simulado devolve cada comparação como `[coluna, valor, op]` e o
  * `and(...)` como um array delas.
  */
-type Condicao = [coluna: string, valor: unknown, op?: string];
-
-const clausulaSobre = (cond: unknown, coluna: string): Condicao | undefined =>
-  Array.isArray(cond)
-    ? cond.find((c): c is Condicao => Array.isArray(c) && c[0] === coluna)
-    : undefined;
+const clausulaSobre = (cond: unknown, coluna: string): [string, unknown, ...unknown[]] | undefined => {
+  if (!Array.isArray(cond) || cond.length === 0) return undefined;
+  if (typeof cond[0] === "string") return cond[0] === coluna ? (cond as [string, unknown, ...unknown[]]) : undefined;
+  return cond.find((c): c is [string, unknown, ...unknown[]] => Array.isArray(c) && c[0] === coluna);
+};
 
 const consultar = (t: unknown, cond: unknown): Linha[] => {
   const list = linhas[tabelaDe(t)] ?? [];
@@ -102,6 +108,9 @@ const consultar = (t: unknown, cond: unknown): Linha[] => {
 
   const porId = clausulaSobre(cond, "col_id");
   if (porId) filtradas = filtradas.filter((r) => r.id === porId[1]);
+
+  const porOrgId = clausulaSobre(cond, "col_org_id");
+  if (porOrgId) filtradas = filtradas.filter((r) => r.id === porOrgId[1]);
 
   const porAuth = clausulaSobre(cond, "col_auth");
   if (porAuth) filtradas = filtradas.filter((r) => r.authUserId === porAuth[1]);
@@ -313,6 +322,7 @@ describe("criarConta", () => {
   it("permite criar conta society_admin quando o email já pertence a outra sociedade (multi-sociedade)", async () => {
     linhas["user"] = [{ id: "auth-existente" }];
     linhas["utilizador"] = [{ id: "u-outra-org", email: "maria@exemplo.pt", organizacaoId: "org-outra" }];
+    linhas["organizacao"] = [{ id: "org-outra", nome: "Sociedade Anterior" }];
 
     const conta = await criarConta({
       nome: "Maria Admin",
@@ -323,8 +333,58 @@ describe("criarConta", () => {
 
     expect(conta.email).toBe("maria@exemplo.pt");
     expect(conta.papel).toBe("society_admin");
+    expect(conta.avisoMultiSociedade).toBe(true);
+    expect(conta.sociedadeExistenteNome).toBe("Sociedade Anterior");
     expect(inseridoEm("utilizador")!.authUserId).toBe("auth-existente");
     expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-nova");
+  });
+
+  it("FINAL-004 (a): criar conta society_admin com email já existente devolve avisoMultiSociedade e o nome da sociedade", async () => {
+    linhas["user"] = [{ id: "auth-existente" }];
+    linhas["utilizador"] = [{ id: "u-outra-org", email: "admin@outrasociedade.pt", organizacaoId: "org-1" }];
+    linhas["organizacao"] = [{ id: "org-1", nome: "Sociedade Alpha" }];
+
+    const conta = await criarConta({
+      nome: "Admin Existente",
+      email: "admin@outrasociedade.pt",
+      papel: "society_admin",
+      organizacaoId: "org-2",
+    });
+
+    expect(conta.avisoMultiSociedade).toBe(true);
+    expect(conta.sociedadeExistenteNome).toBe("Sociedade Alpha");
+    expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-2");
+  });
+
+  it("FINAL-004 (b): com o caminho de confirmacao (confirmarMultiSociedade: true), cria sem re-verificar nem devolver aviso", async () => {
+    linhas["user"] = [{ id: "auth-existente" }];
+    linhas["utilizador"] = [{ id: "u-outra-org", email: "admin@outrasociedade.pt", organizacaoId: "org-1" }];
+    linhas["organizacao"] = [{ id: "org-1", nome: "Sociedade Alpha" }];
+
+    const conta = await criarConta({
+      nome: "Admin Existente",
+      email: "admin@outrasociedade.pt",
+      papel: "society_admin",
+      organizacaoId: "org-2",
+      confirmarMultiSociedade: true,
+    });
+
+    expect(conta.avisoMultiSociedade).toBe(false);
+    expect(conta.sociedadeExistenteNome).toBeNull();
+    expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-2");
+  });
+
+  it("FINAL-004 (c): com email NOVO, cria sem avisoMultiSociedade (caminho normal intacto)", async () => {
+    const conta = await criarConta({
+      nome: "Admin Novo",
+      email: "novo.admin@novasociedade.pt",
+      papel: "society_admin",
+      organizacaoId: "org-2",
+    });
+
+    expect(conta.avisoMultiSociedade).toBe(false);
+    expect(conta.sociedadeExistenteNome).toBeNull();
+    expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-2");
   });
 
   /**

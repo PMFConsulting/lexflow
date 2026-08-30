@@ -75,7 +75,14 @@ async function auditar(entrada: Parameters<typeof registarEvento>[0]) {
 /* ------------------------------------------------------------ sociedades */
 
 export type ResultadoSociedade =
-  | { ok: true; id: string; admin: ContaCriada | null; avisoAdmin: string | null }
+  | {
+      ok: true;
+      id: string;
+      admin: ContaCriada | null;
+      avisoAdmin: string | null;
+      avisoMultiSociedade: boolean;
+      sociedadeExistenteNome: string | null;
+    }
   | { ok: false; erros: Record<string, string> };
 
 /**
@@ -141,6 +148,7 @@ export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade
         email: v.adminEmail,
         papel: "society_admin",
         organizacaoId: id,
+        confirmarMultiSociedade: v.confirmarMultiSociedade,
       });
 
       await auditar({
@@ -179,7 +187,14 @@ export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade
   });
 
   revalidatePath("/admin");
-  return { ok: true, id, admin, avisoAdmin };
+  return {
+    ok: true,
+    id,
+    admin,
+    avisoAdmin,
+    avisoMultiSociedade: admin?.avisoMultiSociedade ?? false,
+    sociedadeExistenteNome: admin?.sociedadeExistenteNome ?? null,
+  };
 }
 
 export async function atualizarSociedade(
