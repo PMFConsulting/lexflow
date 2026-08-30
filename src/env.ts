@@ -11,6 +11,13 @@ const esquema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL tem de ser um URL de ligação Postgres"),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET precisa de pelo menos 32 caracteres"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
+  /**
+   * Extra hosts accepted by the origin allowlist (comma-separated), for
+   * domain migrations — e.g. the old domain still serving requests while
+   * links already point at the new one. Widens only; never changes the
+   * origin built into links.
+   */
+  ORIGENS_ADICIONAIS: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   /** Alternative to Resend (Brevo, 300 emails/day on the free plan). If present, it takes priority. */
   BREVO_API_KEY: z.string().optional(),

@@ -20,15 +20,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let cabecalhos = new Headers();
 let urlConfigurado = "https://poc.terlicalabs.com";
+let origensAdicionais: string | undefined;
 
 vi.mock("next/headers", () => ({ headers: async () => cabecalhos }));
-vi.mock("@/env", () => ({ env: () => ({ BETTER_AUTH_URL: urlConfigurado }) }));
+vi.mock("@/env", () => ({
+  env: () => ({ BETTER_AUTH_URL: urlConfigurado, ORIGENS_ADICIONAIS: origensAdicionais }),
+}));
 
 const { origemPublica } = await import("./origem");
 
 beforeEach(() => {
   cabecalhos = new Headers();
   urlConfigurado = "https://poc.terlicalabs.com";
+  origensAdicionais = undefined;
 });
 
 describe("origemPublica", () => {
@@ -81,5 +85,27 @@ describe("origemPublica", () => {
    */
   it("sem cabeçalho de anfitrião, usa o configurado sem se queixar", async () => {
     expect(await origemPublica()).toBe("https://poc.terlicalabs.com");
+  });
+
+  describe("ORIGENS_ADICIONAIS (migração de domínio)", () => {
+    beforeEach(() => {
+      urlConfigurado = "https://lexflow.terlicalabs.com";
+      origensAdicionais = "poc.terlicalabs.com";
+    });
+
+    it("um pedido pelo host antigo é aceite e recebe links do host novo", async () => {
+      cabecalhos = new Headers({ host: "poc.terlicalabs.com" });
+      expect(await origemPublica()).toBe("https://lexflow.terlicalabs.com");
+    });
+
+    it("o host antigo com a porta implícita do esquema também é aceite", async () => {
+      cabecalhos = new Headers({ host: "poc.terlicalabs.com:443" });
+      expect(await origemPublica()).toBe("https://lexflow.terlicalabs.com");
+    });
+
+    it("um host fora da lista continua a falhar fechado", async () => {
+      cabecalhos = new Headers({ host: "atacante.pt" });
+      await expect(origemPublica()).rejects.toThrow("Anfitrião não reconhecido");
+    });
   });
 });

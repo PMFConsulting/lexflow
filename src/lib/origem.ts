@@ -11,16 +11,27 @@ import { env } from "@/env";
  * days (D4) — into an attacker-controlled URL. Same header poisoned the
  * internal back-office notice too.
  *
- * One-value allowlist: the configured host. Any other throws — no link at
- * all — and the caller already handles it (`criarProcesso` falls back to
- * the relative link and logs it, D46). `x-forwarded-proto` is ignored as
- * well; the protocol comes from the same place as the host.
+ * Allowlist: the configured host, plus hosts explicitly added in
+ * `ORIGENS_ADICIONAIS` (comma-separated) for domain migrations — during the
+ * poc → lexflow transition both must be accepted. `ORIGENS_ADICIONAIS` only
+ * WIDENS the list (never replaces the configured host) and it never changes
+ * the origin built into links: that always comes from `BETTER_AUTH_URL`, so
+ * a request arriving via an old host still gets links pointing at the new
+ * one. Any other host throws — no link at all — and the caller already
+ * handles it (`criarProcesso` falls back to the relative link and logs it,
+ * D46). `x-forwarded-proto` is ignored as well; the protocol comes from the
+ * same place as the host.
  */
 
 /** The host (with port, if it has one) of a configured URL. */
-function anfitriaoConfigurado(): { origem: string; host: string } {
+function anfitriaoConfigurado(): { origem: string; host: string; extra: Set<string> } {
   const url = new URL(env().BETTER_AUTH_URL);
-  return { origem: `${url.protocol}//${url.host}`, host: url.host.toLowerCase() };
+  const extra = new Set<string>();
+  for (const bruto of (env().ORIGENS_ADICIONAIS ?? "").split(",")) {
+    const limpo = bruto.trim().toLowerCase();
+    if (limpo) extra.add(limpo);
+  }
+  return { origem: `${url.protocol}//${url.host}`, host: url.host.toLowerCase(), extra };
 }
 
 /**
@@ -37,7 +48,7 @@ function anfitriaoDoPedido(bruto: string | null, protocolo: string): string | nu
 }
 
 export async function origemPublica(): Promise<string> {
-  const { origem, host } = anfitriaoConfigurado();
+  const { origem, host, extra } = anfitriaoConfigurado();
   const protocolo = new URL(origem).protocol;
   const esperado = anfitriaoDoPedido(host, protocolo) ?? host;
 
@@ -46,7 +57,7 @@ export async function origemPublica(): Promise<string> {
 
   // No host header — a call outside an HTTP request (script, task) — and the
   // configured value is the only possible answer.
-  if (recebido && recebido !== esperado) {
+  if (recebido && recebido !== esperado && !extra.has(recebido)) {
     throw new Error(
       `Anfitrião não reconhecido: o pedido chegou como "${recebido}" e esta instalação está configurada para "${esperado}" (BETTER_AUTH_URL). Nenhum link é montado a partir de um anfitrião fora da lista.`,
     );
