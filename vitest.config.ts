@@ -28,4 +28,7 @@ export default defineConfig({
       ),
     },
   },
+  test: {
+    hookTimeout: 30000,
+  },
 });

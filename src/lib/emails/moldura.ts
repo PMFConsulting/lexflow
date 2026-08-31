@@ -34,18 +34,27 @@ export const FONTE_MONO = "'IBM Plex Mono','Courier New',monospace";
 const logotipo = () =>
   `${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/lexflow.png`;
 
+/**
+ * Devolve o URL público do logótipo da sociedade para utilização em emails.
+ *
+ * Em vez de data-URI (que o Gmail Mobile bloqueia/adia por poupança de dados),
+ * devolve o URL público estável `/api/sociedade/logotipo/[id]`.
+ *
+ * Se a sociedade não tiver logótipo configurado (ou for SVG, que o Gmail recusa
+ * em <img>), devolve o URL público do logótipo padrão LexFlow (`/lexflow.png`).
+ */
 export function urlLogotipoSociedade(org?: {
-  id: string;
+  id?: string | null;
   logotipoDados?: string | null;
   logotipoMime?: string | null;
   logotipoAtualizadoEm?: Date | string | null;
-} | null): string | null {
-  if (!org?.logotipoDados) return null;
+} | null): string {
+  const base = (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  if (!org?.id || !org?.logotipoDados) return `${base}/lexflow.png`;
   const mime = org.logotipoMime || "image/png";
-  // Mesmo motivo do fallback acima: Gmail não mostra SVG. Sem conversão
-  // disponível (sharp não é dependência), cai para o logo por omissão.
-  if (mime === "image/svg+xml") return null;
-  return `data:${mime};base64,${org.logotipoDados}`;
+  // Mesmo motivo do fallback acima: Gmail não mostra SVG em <img>.
+  if (mime === "image/svg+xml") return `${base}/lexflow.png`;
+  return `${base}/api/sociedade/logotipo/${org.id}`;
 }
 
 export const moldura = (

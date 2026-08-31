@@ -143,6 +143,7 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
       id: organizacao.id,
       nome: organizacao.nome,
       logotipoDados: organizacao.logotipoDados,
+      logotipoMime: organizacao.logotipoMime,
       logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
     })
     .from(organizacao)
