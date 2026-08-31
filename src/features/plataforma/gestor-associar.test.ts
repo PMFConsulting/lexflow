@@ -124,7 +124,14 @@ vi.mock("@/db", () => {
       }),
       update: () => ({
         set: (valores: Linha) => ({
-          where: () => {
+          where: (cond: unknown) => {
+            const alvoId =
+              cond && typeof cond === "object" && "val" in cond && typeof (cond as { val: unknown }).val === "string"
+                ? (cond as { val: string }).val
+                : undefined;
+            if (alvoId && utilizadoresDb[alvoId]) {
+              utilizadoresDb[alvoId] = { ...utilizadoresDb[alvoId], ...valores };
+            }
             return {
               then: (cb: (v: unknown) => unknown) => Promise.resolve(valores).then(cb),
             };
@@ -196,6 +203,23 @@ describe("Gestão de Gestores (Regra do Diogo)", () => {
           organizacaoId: ORG_ID,
           atorId: "user-actor-1",
           valorNovo: { gestorId: GESTOR_2_ID },
+        }),
+      );
+    });
+
+    it("remove o gestor de um utilizador (associarGestor com null)", async () => {
+      expect(utilizadoresDb[USER_1_ID].gestorId).toBe(GESTOR_1_ID);
+
+      const res = await associarGestor(USER_1_ID, null);
+
+      expect(res).toEqual({ ok: true });
+      expect(utilizadoresDb[USER_1_ID].gestorId).toBeNull();
+      expect(auditados).toContainEqual(
+        expect.objectContaining({
+          acao: "utilizador.gestor_atualizado",
+          organizacaoId: ORG_ID,
+          atorId: "user-actor-1",
+          valorNovo: { gestorId: null },
         }),
       );
     });
