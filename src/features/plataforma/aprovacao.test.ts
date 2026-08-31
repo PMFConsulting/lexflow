@@ -176,6 +176,7 @@ vi.mock("@/lib/sessao", () => ({
 }));
 
 const { aprovarUtilizador, criarUtilizador, rejeitarUtilizador } = await import("./acoes");
+const { ASSUNTO_CREDENCIAIS, ASSUNTO_AVISO_MULTI_SOCIEDADE } = await import("@/lib/emails/credenciais");
 
 describe("fluxo de aprovação e criação de utilizadores", () => {
   beforeEach(() => {
@@ -276,6 +277,7 @@ describe("fluxo de aprovação e criação de utilizadores", () => {
     const res = await aprovarUtilizador(USER_ID);
     expect(res.ok).toBe(true);
     expect(emailsEnviados).toHaveLength(1);
+    expect(emailsEnviados[0]).toMatchObject({ assunto: ASSUNTO_CREDENCIAIS });
     expect(atualizados).toContainEqual(
       expect.objectContaining({
         tabela: "utilizador",
@@ -285,11 +287,126 @@ describe("fluxo de aprovação e criação de utilizadores", () => {
         }),
       }),
     );
+    expect(atualizados).toContainEqual(
+      expect.objectContaining({
+        tabela: "account",
+        valores: expect.objectContaining({ password: expect.any(String) }),
+      }),
+    );
     expect(eventosAuditados).toContainEqual(
       expect.objectContaining({
         acao: "utilizador.aprovado",
         entidadeId: USER_ID,
       }),
+    );
+  });
+
+  /**
+   * BUG LFD2: `reaproveitada` estava sempre `true`, e uma conta nova nunca
+   * recebia a palavra-passe temporária — só o aviso de "adicionado a outra
+   * sociedade". `reaproveitada` só é `true` quando outra sociedade já tem
+   * uma linha APROVADA a apontar para o mesmo `authUserId` (D64); esta conta
+   * é a primeira aprovação sobre esta credencial, por isso gera e envia.
+   */
+  it("aprova conta nova sem nenhuma outra sociedade aprovada: gera e envia palavra-passe (reaproveitada=false)", async () => {
+    linhas.utilizador = [
+      {
+        id: USER_ID,
+        nome: "Joana Colaboradora",
+        email: "joana@sociedade.pt",
+        papel: "utilizador",
+        organizacaoId: ORG_ID,
+        authUserId: "auth-joana",
+        aprovadoEm: null,
+        apagadoEm: null,
+        gestorId: null,
+      },
+    ];
+    linhas.user = [{ id: "auth-joana" }];
+    linhas.account = [
+      {
+        id: "acc-joana",
+        userId: "auth-joana",
+        providerId: "credential",
+      },
+    ];
+
+    const res = await aprovarUtilizador(USER_ID);
+
+    expect(res.ok).toBe(true);
+    expect(emailsEnviados).toHaveLength(1);
+    expect(emailsEnviados[0]).toMatchObject({ assunto: ASSUNTO_CREDENCIAIS });
+    expect(atualizados).toContainEqual(
+      expect.objectContaining({
+        tabela: "utilizador",
+        valores: expect.objectContaining({ deveRedefinirPassword: true }),
+      }),
+    );
+    expect(atualizados).toContainEqual(
+      expect.objectContaining({
+        tabela: "account",
+        valores: expect.objectContaining({ password: expect.any(String) }),
+      }),
+    );
+  });
+
+  /**
+   * A mesma pessoa já é `society_admin` aprovado noutra sociedade (mesmo
+   * `authUserId`), e é agora convidada para uma segunda — linha pendente
+   * criada por `criarConta` com a credencial intocada (D64). Aprovar não
+   * pode gerar palavra-passe nova (partiria o login que já usa) nem
+   * prometer credenciais que não saíram: só o aviso.
+   */
+  it("aprova conta cuja credencial já foi entregue noutra sociedade: preserva a palavra-passe e manda o aviso (reaproveitada=true)", async () => {
+    linhas.utilizador = [
+      {
+        id: USER_ID,
+        nome: "Rui Partilhado",
+        email: "rui@sociedade-b.pt",
+        papel: "society_admin",
+        organizacaoId: ORG_ID,
+        authUserId: "auth-partilhado",
+        aprovadoEm: null,
+        apagadoEm: null,
+        gestorId: null,
+      },
+      {
+        id: "0197a1c0-0000-7000-8000-000000000099",
+        nome: "Rui Partilhado",
+        email: "rui@sociedade-a.pt",
+        papel: "society_admin",
+        organizacaoId: "0197a1c0-0000-7000-8000-000000000098",
+        authUserId: "auth-partilhado",
+        aprovadoEm: new Date("2026-01-01T09:00:00Z"),
+        apagadoEm: null,
+        gestorId: null,
+      },
+    ];
+    linhas.user = [{ id: "auth-partilhado" }];
+    linhas.account = [
+      {
+        id: "acc-partilhada",
+        userId: "auth-partilhado",
+        providerId: "credential",
+      },
+    ];
+
+    const res = await aprovarUtilizador(USER_ID);
+
+    expect(res.ok).toBe(true);
+    expect(emailsEnviados).toHaveLength(1);
+    expect(emailsEnviados[0]).toMatchObject({ assunto: ASSUNTO_AVISO_MULTI_SOCIEDADE });
+    expect(atualizados).toContainEqual(
+      expect.objectContaining({
+        tabela: "utilizador",
+        valores: expect.objectContaining({
+          aprovadoEm: expect.any(Date),
+          deveRedefinirPassword: false,
+        }),
+      }),
+    );
+    expect(atualizados).not.toContainEqual(
+      expect.objectContaining({ tabela: "account" }),
     );
   });
 

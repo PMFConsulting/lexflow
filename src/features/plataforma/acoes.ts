@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import { uuidv7 } from "uuidv7";
 import { db } from "@/db";
@@ -710,9 +710,11 @@ export type ResultadoAprovacao =
   | { ok: false; erro: string };
 
 /**
- * Aprova um utilizador pendente. Só `super_admin`. Gera palavra-passe
- * temporária, marca `aprovado_em`/`deve_redefinir_password`, envia
- * credenciais por email.
+ * Aprova um utilizador pendente. Só `super_admin`. Marca
+ * `aprovado_em`/`deve_redefinir_password` e envia por email o que for
+ * apropriado: palavra-passe temporária nova numa conta nunca antes entregue,
+ * ou o aviso de multi-sociedade (D64) numa conta cuja credencial já foi
+ * entregue por outra sociedade — nunca as duas coisas, e nunca nenhuma.
  *
  * Palavra-passe gerada aqui, não na criação — uma conta pendente e rejeitável
  * não deve ter recebido credenciais nenhumas. Mesma regra de `criarConta`:
@@ -765,6 +767,30 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
     };
   }
 
+  // Reaproveitada (D64) só quando esta credencial já foi entregue nalguma
+  // aprovação anterior — outra sociedade com uma linha JÁ APROVADA a apontar
+  // para o mesmo authUserId. A mera existência da credencial não chega como
+  // critério: uma conta pendente tem sempre uma linha em `account`, criada
+  // em `criarConta` com uma palavra-passe gerada e descartada (nunca
+  // entregue, porque `aprovadoEm` ficou `null`) — só o histórico de
+  // aprovações distingue "nunca entregue" de "já em uso noutra sociedade".
+  const outrasContasComMesmaCredencial = await db()
+    .select({ id: utilizador.id, aprovadoEm: utilizador.aprovadoEm })
+    .from(utilizador)
+    .where(
+      and(
+        eq(utilizador.authUserId, authUserId),
+        isNull(utilizador.apagadoEm),
+        isNotNull(utilizador.aprovadoEm),
+        ne(utilizador.id, alvo.id),
+      ),
+    )
+    .limit(1);
+
+  const reaproveitada = outrasContasComMesmaCredencial.some(
+    (u) => u.id !== alvo.id && u.aprovadoEm !== null,
+  );
+
   const palavraPasse = gerarPalavraPasse();
   const hash = await hashPassword(palavraPasse);
   const agora = new Date();
@@ -772,6 +798,10 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
   // Credencial em falta recupera-se, e a recuperação fica em auditoria
   // (credencialCriada) — distingue "trocou-se a palavra-passe" de "não havia nenhuma".
   let credencialCriada = false;
+  // Só gera e escreve palavra-passe nova quando não é reaproveitada — regenerar
+  // a de uma conta já em uso noutra sociedade partiria o login que a pessoa já
+  // tem (mesma razão da D64 em `criarConta`).
+  let passwordGerada = false;
 
   // Duas escritas, uma transação (mesma razão da D63): entre elas não há
   // estado aceitável — palavra-passe trocada numa conta ainda pendente, ou
@@ -784,15 +814,12 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
         .where(and(eq(account.userId, authUserId), eq(account.providerId, "credential")))
         .limit(1);
 
-      if (credencial) {
-        await tx
-          .update(account)
-          .set({ password: hash, updatedAt: agora })
-          .where(eq(account.id, credencial.id));
-      } else {
+      if (!credencial) {
         // account é onde o Better Auth procura a palavra-passe (D23) — sem
         // ela, a conta ficava aprovada com credenciais que não abrem nada.
+        // Credencial recriada de raiz: ninguém a conhece, gera-se sempre.
         credencialCriada = true;
+        passwordGerada = true;
         await tx.insert(account).values({
           id: randomBytes(16).toString("hex"),
           accountId: authUserId,
@@ -802,13 +829,20 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
           createdAt: agora,
           updatedAt: agora,
         });
+      } else if (!reaproveitada) {
+        passwordGerada = true;
+        await tx
+          .update(account)
+          .set({ password: hash, updatedAt: agora })
+          .where(eq(account.id, credencial.id));
       }
+      // else: credencial existente e já entregue noutra sociedade — preserva-se (D64).
 
       await tx
         .update(utilizador)
         .set({
           aprovadoEm: agora,
-          deveRedefinirPassword: true,
+          deveRedefinirPassword: passwordGerada,
           atualizadoEm: agora,
         })
         .where(eq(utilizador.id, utilizadorId));
@@ -825,9 +859,10 @@ export async function aprovarUtilizador(utilizadorId: string): Promise<Resultado
     papel: alvo.papel,
     aprovadoEm: agora,
     gestorId: alvo.gestorId,
-    // Conta que já existia e está a ser aprovada: a palavra-passe dela não
-    // mudou, portanto não é o caminho das credenciais novas.
-    reaproveitada: true,
+    // Espelha o que realmente aconteceu à palavra-passe: só é reaproveitada
+    // quando não se gerou nenhuma (D64) — nesse caso `enviarCredenciais` manda
+    // o aviso de multi-sociedade; caso contrário manda a palavra-passe nova.
+    reaproveitada: !passwordGerada,
     emailEnviado: null,
     erroEmail: null,
   };
