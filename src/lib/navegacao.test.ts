@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { navegacaoDoPapel } from "./layout";
+import { navegacaoDoPapel } from "./navegacao";
 import type { Papel } from "@/lib/sessao";
 
 /**
@@ -8,6 +8,12 @@ import type { Papel } from "@/lib/sessao";
  * filtro testava `podeVerEmails`, uma função sobre outra pergunta, em vez do
  * papel. `navegacaoDoPapel` é função pura e exportada por isso: testa-se a
  * regra sem sessão, sem cookies e sem base de dados.
+ *
+ * BUG7-001: a barra do portal `/meus-processos` tinha uma segunda lista, com
+ * duas entradas em vez de cinco — a mesma pessoa via barras diferentes
+ * consoante a página. As entradas mudaram-se para aqui (`src/lib/navegacao.ts`)
+ * e os dois layouts passaram a chamar esta função; este ficheiro seguiu-as, e
+ * é o que fixa a lista que ambos mostram.
  *
  * Desde o brief 3, `navegacaoDoPapel` devolve GRUPOS ({label, entradas}) para
  * separar o trabalho sobre clientes ("Trabalho") de quem trabalha
@@ -65,6 +71,39 @@ describe("navegacaoDoPapel", () => {
   it("nenhum papel vê a entrada Painel — foi removida da barra (BUG3-011)", () => {
     for (const papel of ["society_admin", "gestor", "utilizador", "super_admin"] as const) {
       expect(titulos(papel)).not.toContain("Painel");
+    }
+  });
+
+  /**
+   * BUG7-001: os dois layouts que montam esta barra — `(backoffice)/layout.tsx`
+   * e `(portal)/meus-processos/layout.tsx` — chamam esta mesma função, e por
+   * isso a barra de `/meus-processos` é, entrada a entrada, a das restantes
+   * páginas do `utilizador`. O que se fixa aqui é a lista que ele vê nas duas.
+   */
+  it("utilizador: a barra do portal traz as cinco entradas, incluindo Processos, Notificações e A minha conta", () => {
+    const t = titulos("utilizador");
+    expect(t).toContain("Processos");
+    expect(t).toContain("Notificações");
+    expect(t).toContain("A minha conta");
+    expect(t).toHaveLength(5);
+  });
+
+  it("utilizador: o href de cada entrada é o da rota que já existe", () => {
+    const entradas = navegacaoDoPapel("utilizador").flatMap((g) => g.entradas);
+    expect(entradas.map((e) => e.href)).toEqual([
+      "/meus-processos",
+      "/processos",
+      "/clientes",
+      "/notificacoes",
+      "/advogado",
+    ]);
+  });
+
+  it("cada entrada tem ícone — a barra do portal não perde o seu ao partilhar a lista", () => {
+    for (const papel of ["society_admin", "gestor", "utilizador"] as const) {
+      for (const entrada of navegacaoDoPapel(papel).flatMap((g) => g.entradas)) {
+        expect(entrada.icone).toBeTruthy();
+      }
     }
   });
 });

@@ -1,6 +1,6 @@
-import { Bell, Building2, FileText, LayoutDashboard, UserRound, Users } from "lucide-react";
-import { PortalShell, ROTULO_DO_PAPEL, type EntradaDeMenu } from "@/components/portal-shell";
-import { exigirEquipaDaSociedade, type Papel } from "@/lib/sessao";
+import { PortalShell, ROTULO_DO_PAPEL } from "@/components/portal-shell";
+import { exigirEquipaDaSociedade } from "@/lib/sessao";
+import { navegacaoDoPapel } from "@/lib/navegacao";
 import { sociedadeDe, sociedadesPorIds } from "@/features/administracao/consultas";
 import { contarNotificacoesNaoLidas } from "@/features/notificacoes/consultas";
 
@@ -29,82 +29,11 @@ import { contarNotificacoesNaoLidas } from "@/features/notificacoes/consultas";
  * `society_admin` continua a aterrar em "/" depois de entrar —
  * `portalDoPapel`; só deixa de estar fixo na barra) e "Os meus processos"
  * passou a exigir `utilizador`.
- */
-
-type Entrada = EntradaDeMenu & {
-  /** Entradas só para o administrador da sociedade. */
-  soSocietyAdmin?: boolean;
-  /** Entradas só para o papel de gestor. */
-  soGestor?: boolean;
-  /** Entradas só para o papel de utilizador. */
-  soUtilizador?: boolean;
-};
-
-/**
- * O trabalho sobre clientes.
  *
- * "Os meus processos" é a página de entrada do `utilizador` — sem ela, um
- * `utilizador` que abrisse `/processos` a partir da barra ficava sem forma de
- * voltar ao portal dele a não ser pelo logótipo.
+ * As entradas e o filtro por papel vivem em `@/lib/navegacao`: esta barra é
+ * montada por dois layouts — este e o do portal `/meus-processos` — e a lista
+ * tem de ser uma só (ver o comentário nesse ficheiro).
  */
-const NAVEGACAO: Entrada[] = [
-  {
-    titulo: "Os meus processos",
-    href: "/meus-processos",
-    icone: LayoutDashboard,
-    soUtilizador: true,
-  },
-  { titulo: "Processos", href: "/processos", icone: FileText },
-  { titulo: "A minha equipa", href: "/equipa", icone: Users, soGestor: true },
-  { titulo: "Clientes", href: "/clientes", icone: Users },
-  { titulo: "Notificações", href: "/notificacoes", icone: Bell },
-];
-
-/**
- * A sociedade e a pessoa — um grupo à parte, e não mais entradas na lista de
- * cima.
- *
- * São coisas de natureza diferente: acima está o trabalho sobre clientes,
- * aqui está quem trabalha. Misturá-las dava uma barra lateral em que
- * «Utilizadores» aparecia a seguir a «Clientes», e essas duas palavras já são
- * difíceis de distinguir sem as pôr lado a lado.
- *
- * «A minha conta» é o portal de cada pessoa da equipa: é onde um advogado sem
- * funções de administração vai buscar o que lhe diz respeito. «Administração»
- * é o portal de gestão da sociedade (T&C, conformidade, convites) — só para o
- * `society_admin`.
- */
-const NAVEGACAO_SOCIEDADE: Entrada[] = [
-  { titulo: "A minha conta", href: "/advogado", icone: UserRound },
-  { titulo: "Administração", href: "/gestao", icone: Building2, soSocietyAdmin: true },
-];
-
-/**
- * O filtro por papel, testado diretamente contra `eu.papel` — não contra uma
- * função de capacidade emprestada para outra pergunta (ver BUG3-011 acima).
- * Função pura e exportada: testa-se sem sessão nem base de dados, só com um
- * papel à entrada.
- */
-export function navegacaoDoPapel(papel: Papel): { label: string; entradas: Entrada[] }[] {
-  const visivel = (item: Entrada) => {
-    if (item.soSocietyAdmin && papel !== "society_admin") return false;
-    if (item.soGestor && papel !== "gestor") return false;
-    if (item.soUtilizador && papel !== "utilizador") return false;
-    return true;
-  };
-  
-  const trabalho = NAVEGACAO.filter(visivel);
-  const sociedade = NAVEGACAO_SOCIEDADE.filter(visivel);
-  
-  const grupos = [];
-  if (trabalho.length > 0) grupos.push({ label: "Trabalho", entradas: trabalho });
-  if (sociedade.length > 0) {
-    const temAdmin = sociedade.some(e => e.href === "/gestao");
-    grupos.push({ label: temAdmin ? "Administração" : "A minha conta", entradas: sociedade });
-  }
-  
-  return grupos;
-}
 
 /**
  * Nada aqui é pré-renderizável: cada página depende da sessão de quem a abre.
