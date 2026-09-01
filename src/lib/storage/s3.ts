@@ -67,12 +67,18 @@ function caminhoCanonico(chaveObjeto: string): string {
   return `/${codificado}`;
 }
 
+/**
+ * `query` is the canonical query string for an S3 subresource (e.g.
+ * `"versioning="`) — empty for every plain object PUT/HEAD, which is why the
+ * two existing call sites never had to know it exists.
+ */
 function assinar(
   p: ParametrosS3,
   metodo: string,
   chaveObjeto: string,
   corpo: Buffer,
   extra: Record<string, string> = {},
+  query = "",
 ): { url: string; headers: Record<string, string> } {
   const agora = new Date();
   const { completa, curta } = dataAmz(agora);
@@ -91,7 +97,7 @@ function assinar(
   const listaCabecalhos = nomes.join(";");
   const caminho = caminhoCanonico(chaveObjeto);
 
-  const pedidoCanonico = [metodo, caminho, "", cabecalhosCanonicos, listaCabecalhos, hashCorpo].join(
+  const pedidoCanonico = [metodo, caminho, query, cabecalhosCanonicos, listaCabecalhos, hashCorpo].join(
     "\n",
   );
 
@@ -104,7 +110,7 @@ function assinar(
     `SignedHeaders=${listaCabecalhos}, Signature=${assinatura}`;
 
   return {
-    url: `https://${host}${caminho}`,
+    url: `https://${host}${caminho}${query ? `?${query}` : ""}`,
     headers: { ...cabecalhos, Authorization: autorizacao },
   };
 }
@@ -113,14 +119,22 @@ function mensagemDoErro(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-async function pedido(
+/**
+ * Exported for `criar-bucket.ts`: bucket-level administration (create the
+ * bucket, block public access, turn on encryption and versioning) signs with
+ * the exact same SigV4 as an object PUT, over the bucket's root path plus a
+ * subresource in the query string — reusing this is what keeps that logic in
+ * one place instead of growing a second signer.
+ */
+export async function pedido(
   p: ParametrosS3,
   metodo: string,
   chaveObjeto: string,
   corpo: Buffer,
   extra?: Record<string, string>,
+  query?: string,
 ): Promise<Response> {
-  const { url, headers } = assinar(p, metodo, chaveObjeto, corpo, extra);
+  const { url, headers } = assinar(p, metodo, chaveObjeto, corpo, extra, query);
   try {
     return await fetch(url, {
       method: metodo,

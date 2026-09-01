@@ -8,9 +8,13 @@ import { hashPassword } from "better-auth/crypto";
 import { uuidv7 } from "uuidv7";
 import { db } from "@/db";
 import { account, user } from "@/db/schema/auth";
+import { armazenamentoSociedade } from "@/db/schema/armazenamento";
 import { organizacao, utilizador } from "@/db/schema/organizacao";
 import { registarEvento } from "@/features/auditoria/registar";
 import { ORGANIZACAO_PLATAFORMA_ID } from "@/features/auditoria/constantes";
+import { cifrar, chaveDeAmbiente } from "@/lib/storage/cifra";
+import { criarBucketSociedade } from "@/lib/storage/criar-bucket";
+import { parametrosS3 } from "@/lib/storage/tipos";
 import {
   exigirGestorDeUtilizadores,
   exigirSuperAdmin,
@@ -80,10 +84,64 @@ export type ResultadoSociedade =
       id: string;
       admin: ContaCriada | null;
       avisoAdmin: string | null;
+      avisoBucket: string | null;
       avisoMultiSociedade: boolean;
       sociedadeExistenteNome: string | null;
     }
   | { ok: false; erros: Record<string, string> };
+
+/**
+ * O bucket S3 dedicado da sociedade, criado no mesmo instante em que ela
+ * nasce — regra do dono, verbatim: *"that process cannot be a manual process
+ * ... Please make it be automatic"*. Nunca decide se a sociedade é criada:
+ * `criarSociedade` trata uma exceção daqui exatamente como já tratava a
+ * conta de administrador em falta (D46) — a sociedade fica, o aviso viaja.
+ *
+ * Sem gravar linha nenhuma em caso de falha: a única leitura que
+ * `armazenamento_sociedade` pode ter é "o bucket que lá está foi mesmo
+ * criado", nunca "tentámos e talvez".
+ */
+async function criarArmazenamentoAutomatico(
+  organizacaoId: string,
+  nomeSociedade: string,
+): Promise<string> {
+  const regiao = process.env.AWS_REGION;
+  const accessKeyId = process.env.LEXFLOW_S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.LEXFLOW_S3_SECRET_ACCESS_KEY;
+  if (!regiao || !accessKeyId || !secretAccessKey) {
+    throw new Error(
+      "AWS_REGION / LEXFLOW_S3_ACCESS_KEY_ID / LEXFLOW_S3_SECRET_ACCESS_KEY em falta no ambiente.",
+    );
+  }
+
+  const chave = chaveDeAmbiente();
+  if (!chave) {
+    throw new Error("ARMAZENAMENTO_CHAVE em falta — não é possível cifrar as credenciais do bucket.");
+  }
+
+  const bucket = await criarBucketSociedade(nomeSociedade, organizacaoId, {
+    regiao,
+    accessKeyId,
+    secretAccessKey,
+  });
+
+  const parametros = parametrosS3.parse({ regiao, bucket, accessKeyId, secretAccessKey });
+
+  // A organização acabou de nascer: nunca há linha existente para esta
+  // `organizacaoId` em `armazenamento_sociedade` (índice único), por isso um
+  // `insert` chega — ao contrário de `scripts/armazenamento.ts configurar`,
+  // que reconfigura uma sociedade já existente e por isso decide entre
+  // inserir e atualizar.
+  await db().insert(armazenamentoSociedade).values({
+    id: uuidv7(),
+    organizacaoId,
+    bucketS3: bucket,
+    ativo: false,
+    parametros: cifrar(parametros, chave),
+  });
+
+  return bucket;
+}
 
 /**
  * Cria uma sociedade e, se vierem os dados, o primeiro administrador.
@@ -135,6 +193,37 @@ export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade
     ip,
     userAgent,
   });
+
+  /* --- o bucket S3 dedicado, automático (regra do dono) ------------------ */
+
+  let avisoBucket: string | null = null;
+
+  try {
+    const bucket = await criarArmazenamentoAutomatico(id, v.nome);
+    await auditar({
+      organizacaoId: id,
+      atorId: eu.id,
+      acao: "armazenamento.bucket_criado",
+      entidade: "armazenamento_sociedade",
+      entidadeId: id,
+      valorNovo: { bucketS3: bucket },
+      ip,
+      userAgent,
+    });
+  } catch (e) {
+    avisoBucket = e instanceof Error ? e.message : "Não foi possível criar o bucket da sociedade.";
+    console.error("[plataforma] sociedade criada, bucket S3 não:", e);
+    await auditar({
+      organizacaoId: id,
+      atorId: eu.id,
+      acao: "armazenamento.bucket_falhou",
+      entidade: "armazenamento_sociedade",
+      entidadeId: id,
+      valorNovo: { motivo: avisoBucket },
+      ip,
+      userAgent,
+    });
+  }
 
   /* --- o primeiro administrador, se veio --------------------------------- */
 
@@ -192,6 +281,7 @@ export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade
     id,
     admin,
     avisoAdmin,
+    avisoBucket,
     avisoMultiSociedade: admin?.avisoMultiSociedade ?? false,
     sociedadeExistenteNome: admin?.sociedadeExistenteNome ?? null,
   };

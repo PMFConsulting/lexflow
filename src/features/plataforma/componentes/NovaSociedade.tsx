@@ -41,6 +41,7 @@ export function NovaSociedade() {
   const [erros, setErros] = useState<Record<string, string>>({});
   const [criada, setCriada] = useState<ContaCriada | null>(null);
   const [avisoAdmin, setAvisoAdmin] = useState<string | null>(null);
+  const [avisoBucket, setAvisoBucket] = useState<string | null>(null);
   const [aGravar, transicao] = useTransition();
   const base = useId();
 
@@ -49,6 +50,7 @@ export function NovaSociedade() {
     const fd = new FormData(ev.currentTarget);
     setErros({});
     setAvisoAdmin(null);
+    setAvisoBucket(null);
 
     transicao(async () => {
       try {
@@ -66,9 +68,10 @@ export function NovaSociedade() {
         }
 
         setAvisoAdmin(r.avisoAdmin);
+        setAvisoBucket(r.avisoBucket);
         if (r.admin) {
           setCriada(r.admin);
-        } else if (!r.avisoAdmin) {
+        } else if (!r.avisoAdmin && !r.avisoBucket) {
           setAberta(false);
         }
       } catch (e) {
@@ -87,6 +90,7 @@ export function NovaSociedade() {
       setErros({});
       setCriada(null);
       setAvisoAdmin(null);
+      setAvisoBucket(null);
     }
   };
 
@@ -116,6 +120,15 @@ export function NovaSociedade() {
             <>
               <DialogBody className="flex flex-col gap-3">
                 <p className="text-sm">Sociedade criada, com o primeiro administrador.</p>
+                {avisoBucket && (
+                  <p className="text-selo flex items-center gap-1.5 text-xs" role="alert">
+                    <TriangleAlert className="size-3.5 shrink-0" />
+                    <span>
+                      Bucket de armazenamento não criado: {avisoBucket} Configure-o mais tarde com{" "}
+                      <span className="font-mono">pnpm armazenamento configurar</span>.
+                    </span>
+                  </p>
+                )}
                 {criada.avisoMultiSociedade && (
                   <div
                     className="border-selo/40 bg-selo/10 text-selo flex items-start gap-2.5 rounded-sm border p-3 text-sm"
@@ -155,6 +168,16 @@ export function NovaSociedade() {
                     <span>
                       A sociedade <strong>foi criada</strong>, mas a conta do administrador não:{" "}
                       {avisoAdmin} Crie-a a partir da página da sociedade.
+                    </span>
+                  </p>
+                )}
+
+                {avisoBucket && (
+                  <p className="text-selo flex items-center gap-1.5 text-xs" role="alert">
+                    <TriangleAlert className="size-3.5 shrink-0" />
+                    <span>
+                      Bucket de armazenamento não criado: {avisoBucket} Configure-o mais tarde com{" "}
+                      <span className="font-mono">pnpm armazenamento configurar</span>.
                     </span>
                   </p>
                 )}
