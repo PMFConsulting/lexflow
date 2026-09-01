@@ -8,16 +8,27 @@ import type { Papel } from "@/lib/sessao";
  * filtro testava `podeVerEmails`, uma função sobre outra pergunta, em vez do
  * papel. `navegacaoDoPapel` é função pura e exportada por isso: testa-se a
  * regra sem sessão, sem cookies e sem base de dados.
+ *
+ * Desde o brief 3, `navegacaoDoPapel` devolve GRUPOS ({label, entradas}) para
+ * separar o trabalho sobre clientes ("Trabalho") de quem trabalha
+ * ("Administração" / "A minha conta"). Os testes achatam os grupos para
+ * verificar os títulos e o agrupamento.
  */
 
-const titulos = (papel: Papel) => navegacaoDoPapel(papel).map((e) => e.titulo);
+const achatar = (grupos: { label: string; entradas: { titulo: string }[] }[]) =>
+  grupos.flatMap((g) => g.entradas.map((e) => e.titulo));
+
+const titulos = (papel: Papel) => achatar(navegacaoDoPapel(papel));
+const grupos = (papel: Papel) => navegacaoDoPapel(papel).map((g) => g.label);
 
 describe("navegacaoDoPapel", () => {
-  it("society_admin: sem Painel, sem Os meus processos", () => {
+  it("society_admin: sem Painel, sem Os meus processos; vê Trabalho + Administração", () => {
     const t = titulos("society_admin");
     expect(t).not.toContain("Painel");
     expect(t).not.toContain("Os meus processos");
-    expect(t).toEqual(["A minha conta", "Administração", "Processos", "Clientes", "Notificações"]);
+    expect(t).not.toContain("A minha equipa");
+    expect(t).toEqual(["Processos", "Clientes", "Notificações", "A minha conta", "Administração"]);
+    expect(grupos("society_admin")).toEqual(["Trabalho", "Administração"]);
   });
 
   it("gestor: vê A minha equipa, não vê Administração nem Os meus processos", () => {
@@ -25,7 +36,8 @@ describe("navegacaoDoPapel", () => {
     expect(t).toContain("A minha equipa");
     expect(t).not.toContain("Administração");
     expect(t).not.toContain("Os meus processos");
-    expect(t).toEqual(["A minha conta", "Processos", "A minha equipa", "Clientes", "Notificações"]);
+    expect(t).toEqual(["Processos", "A minha equipa", "Clientes", "Notificações", "A minha conta"]);
+    expect(grupos("gestor")).toEqual(["Trabalho", "A minha conta"]);
   });
 
   it("utilizador: vê Os meus processos, não vê Administração nem A minha equipa", () => {
@@ -34,12 +46,13 @@ describe("navegacaoDoPapel", () => {
     expect(t).not.toContain("Administração");
     expect(t).not.toContain("A minha equipa");
     expect(t).toEqual([
-      "A minha conta",
       "Os meus processos",
       "Processos",
       "Clientes",
       "Notificações",
+      "A minha conta",
     ]);
+    expect(grupos("utilizador")).toEqual(["Trabalho", "A minha conta"]);
   });
 
   it("super_admin: nunca alcança esta barra (exigirEquipaDaSociedade bloqueia-o), mas a função não lhe entrega nenhuma entrada de gestão se for chamada", () => {

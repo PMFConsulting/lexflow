@@ -5,6 +5,27 @@ let estadoProcesso: string = "rascunho";
 let documentos: Record<string, unknown>[] = [];
 let condicoesSelect: unknown[] = [];
 
+/**
+ * O destino de armazenamento da organização, tal como `destinoDaOrganizacao`
+ * o devolveria: `null` quando não há S3 ativo (recusa o upload — D66), ou um
+ * destino com `enviar` espiado para confirmar que o ficheiro é mesmo enviado
+ * antes de o `documento` ser gravado.
+ */
+let semDestinoS3 = false;
+const enviarMock = vi.fn(
+  async (_segmentos: string[], _ficheiro: { nome: string; mime: string; conteudo: Buffer }) => {},
+);
+
+vi.mock("@/lib/storage", () => ({
+  destinoDaOrganizacao: async () => {
+    if (semDestinoS3) return null;
+    return {
+      destino: { enviar: enviarMock },
+      config: { bucketS3: "lexflow-jmassano" },
+    };
+  },
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -50,6 +71,8 @@ vi.mock("./dados", () => ({
   motivoDoAcesso: () => ({ titulo: "Link expirado.", descricao: "Peça um novo." }),
 }));
 
+let ultimoInsert: Record<string, unknown> | null = null;
+
 vi.mock("@/db", () => ({
   db: () => ({
     select: () => ({
@@ -63,9 +86,10 @@ vi.mock("@/db", () => ({
       }),
     }),
     insert: () => ({
-      values: (v: Record<string, unknown>) => ({
-        returning: async () => [{ id: "doc-novo", nome: v.nomeOriginal }],
-      }),
+      values: (v: Record<string, unknown>) => {
+        ultimoInsert = v;
+        return { returning: async () => [{ id: "doc-novo", nome: v.nomeOriginal }] };
+      },
     }),
     update: () => ({
       set: () => ({
@@ -93,6 +117,9 @@ beforeEach(() => {
   estadoProcesso = "rascunho";
   documentos = [];
   condicoesSelect = [];
+  semDestinoS3 = false;
+  ultimoInsert = null;
+  enviarMock.mockClear();
 });
 
 describe("removerDocumento — Guardas de Estado (BUG-004)", () => {
@@ -201,6 +228,54 @@ describe("carregarDocumento — Deduplicação por Tipo (BUG-005)", () => {
     const r = await carregarDocumento("tok-1", fd);
 
     expect(r.ok).toBe(true);
+  });
+});
+
+describe("carregarDocumento — nenhum documento na base de dados (D66)", () => {
+  it("envia o ficheiro para o S3 da sociedade e grava dados=null", async () => {
+    documentos = [];
+
+    const fd = criarFormData("identificacao.pdf", "identificacao");
+    const r = await carregarDocumento("tok-1", fd);
+
+    expect(r.ok).toBe(true);
+    expect(enviarMock).toHaveBeenCalledTimes(1);
+
+    const [segmentos, ficheiro] = enviarMock.mock.calls[0] as [string[], { nome: string }];
+    expect(segmentos).toEqual(["Sistema", "processos", "proc-1"]);
+    expect(ficheiro.nome).toContain("identificacao.pdf");
+
+    expect(ultimoInsert).not.toBeNull();
+    expect(ultimoInsert?.dados).toBeNull();
+    expect(String(ultimoInsert?.chaveStorage)).toBe(
+      `Sistema/processos/proc-1/${ficheiro.nome}`,
+    );
+  });
+
+  it("recusa o upload quando a sociedade não tem S3 ativo, sem tocar na base de dados", async () => {
+    documentos = [];
+    semDestinoS3 = true;
+
+    const fd = criarFormData("identificacao.pdf", "identificacao");
+    const r = await carregarDocumento("tok-1", fd);
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.erro).toContain("armazenamento");
+    }
+    expect(enviarMock).not.toHaveBeenCalled();
+    expect(ultimoInsert).toBeNull();
+  });
+
+  it("recusa o upload quando o envio ao S3 falha, sem gravar o documento", async () => {
+    documentos = [];
+    enviarMock.mockRejectedValueOnce(new Error("S3 respondeu 403"));
+
+    const fd = criarFormData("identificacao.pdf", "identificacao");
+    const r = await carregarDocumento("tok-1", fd);
+
+    expect(r.ok).toBe(false);
+    expect(ultimoInsert).toBeNull();
   });
 });
 

@@ -40,8 +40,7 @@ export default async function LayoutPortal({
 
   return (
     <PortalShell
-      entradas={NAVEGACAO}
-      grupo="Trabalho"
+      gruposDeMenu={[{ label: "Trabalho", entradas: NAVEGACAO }]}
       cabecalho="Onboarding de clientes"
       legendaDaMarca="Processos"
       utilizador={{ nome: eu.nome, papel: ROTULO_DO_PAPEL[eu.papel] ?? eu.papel }}

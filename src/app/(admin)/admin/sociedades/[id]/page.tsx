@@ -6,12 +6,15 @@ import { AprovacoesUtilizadores } from "@/features/plataforma/componentes/Aprova
 import { EditarSociedade } from "@/features/plataforma/componentes/EditarSociedade";
 import { EmailsDaSociedade } from "@/features/plataforma/componentes/EmailsDaSociedade";
 import { GestaoUtilizadores } from "@/features/plataforma/componentes/GestaoUtilizadores";
+import { ConvitesDaSociedade } from "@/features/plataforma/componentes/ConvitesDaSociedade";
 import { ProcessosDaSociedade } from "@/features/plataforma/componentes/ProcessosDaSociedade";
 import {
   listarUtilizadoresPendentes,
   sociedadePorId,
   utilizadoresDaSociedade,
 } from "@/features/plataforma/consultas";
+import { listarConvites } from "@/features/administracao/consultas";
+import { perfisDosConvites } from "@/features/convites/dados";
 import { env } from "@/env";
 
 export const dynamic = "force-dynamic";
@@ -33,9 +36,11 @@ export default async function Sociedade({ params }: { params: Promise<{ id: stri
   const sociedade = await sociedadePorId(id);
   if (!sociedade) notFound();
 
-  const [contas, pendentes] = await Promise.all([
+  const [contas, pendentes, convites, perfis] = await Promise.all([
     utilizadoresDaSociedade(id),
     listarUtilizadoresPendentes(id),
+    listarConvites(id),
+    perfisDosConvites(id),
   ]);
 
   return (
@@ -100,6 +105,12 @@ export default async function Sociedade({ params }: { params: Promise<{ id: stri
         organizacaoId={sociedade.id}
         contas={contas}
         podeGerirGestores={false}
+      />
+
+      <ConvitesDaSociedade
+        organizacaoId={sociedade.id}
+        convites={convites}
+        perfis={perfis}
       />
     </div>
   );

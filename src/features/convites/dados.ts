@@ -168,3 +168,72 @@ export function passosConviteGravados(
   // `aceite` e este percurso não se volta a abrir.
   return feitos;
 }
+
+/**
+ * O que já está preenchido na ficha de cada convite de uma sociedade, por
+ * `conviteId`.
+ *
+ * Uma consulta e não uma por linha: a lista de convites por aceitar mostra o
+ * botão de preencher em todas, e o diálogo abre com o que lá está — sem isto,
+ * quem corrigisse um campo apagava por omissão os outros que já estavam
+ * escritos, que é o pior modo de falhar de um formulário pré-preenchido.
+ *
+ * Só as colunas dos passos 1 e 2 — as que um administrador pode preencher por
+ * outrem. As dos passos 4 e 5 (sigilo, RGPD, T&C) não entram aqui de
+ * propósito: não há ecrã de administração que as escreva.
+ */
+export type PerfilAdiantado = {
+  nomeCompleto: string | null;
+  dataNascimento: string | null;
+  nif: string | null;
+  telefone: string | null;
+  docTipo: string | null;
+  docNumero: string | null;
+  docValidade: string | null;
+  morada: string | null;
+  pais: string | null;
+  localidade: string | null;
+  codigoPostal: string | null;
+  freguesia: string | null;
+  concelho: string | null;
+  distrito: string | null;
+  cargo: string | null;
+  cedulaProfissional: string | null;
+  conselhoRegional: string | null;
+  dataInscricaoOa: string | null;
+  areasPratica: string | null;
+};
+
+export async function perfisDosConvites(
+  organizacaoId: string,
+): Promise<Record<string, PerfilAdiantado>> {
+  const linhas = await db()
+    .select({
+      conviteId: perfilUtilizador.conviteId,
+      nomeCompleto: perfilUtilizador.nomeCompleto,
+      dataNascimento: perfilUtilizador.dataNascimento,
+      nif: perfilUtilizador.nif,
+      telefone: perfilUtilizador.telefone,
+      docTipo: perfilUtilizador.docTipo,
+      docNumero: perfilUtilizador.docNumero,
+      docValidade: perfilUtilizador.docValidade,
+      morada: perfilUtilizador.morada,
+      pais: perfilUtilizador.pais,
+      localidade: perfilUtilizador.localidade,
+      codigoPostal: perfilUtilizador.codigoPostal,
+      freguesia: perfilUtilizador.freguesia,
+      concelho: perfilUtilizador.concelho,
+      distrito: perfilUtilizador.distrito,
+      cargo: perfilUtilizador.cargo,
+      cedulaProfissional: perfilUtilizador.cedulaProfissional,
+      conselhoRegional: perfilUtilizador.conselhoRegional,
+      dataInscricaoOa: perfilUtilizador.dataInscricaoOa,
+      areasPratica: perfilUtilizador.areasPratica,
+    })
+    .from(perfilUtilizador)
+    .where(eq(perfilUtilizador.organizacaoId, organizacaoId));
+
+  const saida: Record<string, PerfilAdiantado> = {};
+  for (const { conviteId, ...resto } of linhas) saida[conviteId] = resto;
+  return saida;
+}

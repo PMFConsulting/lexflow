@@ -8,6 +8,9 @@ import { z } from "zod";
 import { db } from "@/db";
 import { documento } from "@/db/schema/documentos";
 import { registarEvento } from "@/features/auditoria/registar";
+import { destinoDaOrganizacao } from "@/lib/storage";
+import { mensagemSegura } from "@/lib/storage/sanitizacao";
+import { chaveObjeto, nomeSeguroDeFicheiro } from "@/lib/storage/tipos";
 import { acessoPorToken, motivoDoAcesso } from "./dados";
 import { assinaturaConfere, MENSAGEM_FORMATO, mensagemConteudo, mimeAceite } from "./formatos";
 
@@ -123,6 +126,49 @@ export async function carregarDocumento(
     return { ok: false, erro: "Este ficheiro já foi carregado." };
   }
 
+  /*
+   * Nenhum documento vive na base de dados — instrução do dono, verbatim:
+   * "No documents have to be in the database. No documents, everything in
+   * its own S3." Isso só é possível quando a sociedade já tem o bucket S3
+   * ativo (D65): sem destino, não há para onde o ficheiro ir.
+   *
+   * Decisão: sem S3 ativo, o upload é recusado — não cai para `dados` como
+   * antes. Gravar na base de dados "só desta vez" era exatamente o desvio
+   * que a instrução do dono proíbe, e o carregamento de documentos já é um
+   * portão obrigatório do passo 2 (D56): recusar aqui não é diferente, em
+   * espécie, de recusar um ficheiro com o formato errado.
+   *
+   * A chave grava-se em `Sistema/processos/<processoId>/…` — "Sistema" e não
+   * "Clientes", porque esta é a cópia técnica de que a própria tabela
+   * `documento` depende (via `chaveStorage`); a cópia legível por humanos,
+   * dentro da pasta do cliente, é escrita à parte por `sincronizar.ts` na
+   * submissão, a partir desta mesma cópia — nunca as duas mãos escrevendo o
+   * mesmo ficheiro em paralelo.
+   */
+  const ligacao = await destinoDaOrganizacao(processo.organizacaoId);
+  if (!ligacao || !ligacao.config.bucketS3) {
+    return {
+      ok: false,
+      erro:
+        "O armazenamento desta sociedade ainda não está pronto para receber documentos. " +
+        "Contacte o administrador.",
+    };
+  }
+
+  const nomeObjeto = `${hash}-${nomeSeguroDeFicheiro(ficheiro.name)}`;
+  const segmentos = ["Sistema", "processos", processo.id];
+  const chave = chaveObjeto([...segmentos, nomeObjeto]);
+
+  try {
+    await ligacao.destino.enviar(segmentos, { nome: nomeObjeto, mime, conteudo: bytes });
+  } catch (e) {
+    console.error(
+      `[documento] ${processo.referencia}: envio de "${ficheiro.name}" para o armazenamento falhou`,
+      mensagemSegura(e),
+    );
+    return { ok: false, erro: "Não foi possível guardar o ficheiro. Tente novamente." };
+  }
+
   const [linha] = await base
     .insert(documento)
     .values({
@@ -132,9 +178,8 @@ export async function carregarDocumento(
       mime,
       tamanhoBytes: ficheiro.size,
       hashSha256: hash,
-      // Chave futura: quando houver bucket, fica aqui e `dados` some.
-      chaveStorage: `processos/${processo.id}/${hash}`,
-      dados: bytes.toString("base64"),
+      chaveStorage: chave,
+      dados: null,
     })
     .returning({ id: documento.id, nome: documento.nomeOriginal });
 

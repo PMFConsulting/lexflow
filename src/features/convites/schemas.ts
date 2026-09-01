@@ -29,6 +29,14 @@ const nifPessoal = z
 
 /* ── passo 1 — dados pessoais ─────────────────────────────────────────── */
 
+/** Os tipos de documento de identificação aceites — um sítio só, partilhado com o esquema de preenchimento por administrador. */
+export const TIPOS_DOC_CONVITE = [
+  "cartao_cidadao",
+  "passaporte",
+  "titulo_residencia",
+  "outro",
+] as const;
+
 export const passoConvite1 = z.object({
   nomeCompleto: obrigatorio("O nome completo").max(200, "Máximo 200 caracteres."),
   dataNascimento: dataPassada(
@@ -37,7 +45,7 @@ export const passoConvite1 = z.object({
   ),
   nif: nifPessoal,
   telefone,
-  docTipo: z.enum(["cartao_cidadao", "passaporte", "titulo_residencia", "outro"], {
+  docTipo: z.enum(TIPOS_DOC_CONVITE, {
     message: "Escolha o tipo de documento.",
   }),
   docNumero: obrigatorio("O número do documento"),
@@ -169,6 +177,86 @@ export const passoConvite6 = z
     path: ["confirmacao"],
     message: "As duas palavras-passe não coincidem.",
   });
+
+
+/* ── preenchimento por administrador ──────────────────────────────────── */
+
+/**
+ * Um campo que o administrador pode deixar por preencher.
+ *
+ * O `preprocess` trata a string vazia como ausência: quem preenche metade da
+ * ficha de alguém envia o resto vazio, e um `optional()` que receba `""`
+ * recusa-o com uma mensagem sobre uma caixa que ninguém abriu — a forma mais
+ * difícil de reconhecer de «falta corrigir um campo» (a mesma lição do
+ * `regimeIva` no passo 2 do cliente).
+ *
+ * O que **não** afrouxa é a regra de cada campo: um NIF escrito aqui passa
+ * pelo mesmo mod-11 do passo 1, e uma validade de documento no passado é
+ * recusada aqui como lá. Dois esquemas para as mesmas colunas com regras
+ * diferentes acabam sempre no mesmo sítio — a ficha entra pelo lado mais
+ * permissivo e o próprio dono dela nunca a consegue fechar.
+ */
+const opcional = <T extends z.ZodType>(esquema: T) =>
+  z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    esquema.optional(),
+  );
+
+/**
+ * Os dados que um administrador pode preencher **por** quem foi convidado.
+ *
+ * São os dos passos 1 e 2 — factos sobre a pessoa, que quem convida
+ * normalmente já tem no processo de admissão — e **nenhum** dos passos 3 a 6:
+ * os anexos, a declaração de sigilo, a aceitação dos T&C e a palavra-passe são
+ * atos da própria pessoa, e um administrador que os pudesse dar por ela
+ * produzia uma declaração sem declarante — que é pior do que não a ter, porque
+ * parece válida.
+ *
+ * Tudo opcional: preenchido tudo, a pessoa confirma; preenchido só o nome, o
+ * resto continua a ser trabalho dela. O que ela vê é o formulário dela, com os
+ * campos já lá — e sempre editáveis, porque a última palavra sobre os próprios
+ * dados é dela.
+ */
+export const perfilConvidadoSchema = z
+  .object({
+    nomeCompleto: opcional(
+      obrigatorio("O nome completo").max(200, "Máximo 200 caracteres."),
+    ),
+    dataNascimento: opcional(
+      dataPassada("A data de nascimento", "A data de nascimento não pode estar no futuro."),
+    ),
+    nif: opcional(nifPessoal),
+    telefone: opcional(telefone),
+    docTipo: opcional(
+      z.enum(TIPOS_DOC_CONVITE, { message: "Escolha o tipo de documento." }),
+    ),
+    docNumero: opcional(obrigatorio("O número do documento")),
+    docValidade: opcional(
+      dataFutura(
+        "A data de validade",
+        "O documento está fora de validade. Renove-o antes de continuar.",
+      ),
+    ),
+    morada: opcional(morada.morada),
+    pais: opcional(morada.pais),
+    localidade: opcional(morada.localidade),
+    codigoPostal: opcional(morada.codigoPostal),
+    freguesia: opcional(morada.freguesia),
+    concelho: opcional(morada.concelho),
+    distrito: opcional(morada.distrito),
+    cargo: opcional(obrigatorio("O cargo").max(120, "Máximo 120 caracteres.")),
+    cedulaProfissional: opcional(z.string().trim().max(60, "Máximo 60 caracteres.")),
+    conselhoRegional: opcional(z.string().trim().max(120, "Máximo 120 caracteres.")),
+    dataInscricaoOa: opcional(
+      dataPassada("A data de inscrição", "A data de inscrição não pode estar no futuro."),
+    ),
+    areasPratica: opcional(z.string().trim().max(400, "Máximo 400 caracteres.")),
+  })
+  .refine((v) => Object.values(v).some((valor) => valor !== undefined), {
+    message: "Preencha pelo menos um campo antes de gravar.",
+  });
+
+export type PerfilConvidado = z.infer<typeof perfilConvidadoSchema>;
 
 export const SCHEMAS_CONVITE = {
   1: passoConvite1,

@@ -136,6 +136,41 @@ describe("criarDestinoS3 — garantirPasta", () => {
   });
 });
 
+describe("criarDestinoS3 — ler", () => {
+  it("pede o objeto com GET e devolve os bytes", async () => {
+    const espia = espiarFetch(async () => new Response(Buffer.from("conteudo do ficheiro")));
+
+    const bytes = await criarDestinoS3(PARAMETROS_LEXFLOW).ler!(
+      "Sistema/processos/proc-1/abc-doc.pdf",
+    );
+
+    expect(bytes.toString()).toBe("conteudo do ficheiro");
+    const [url, opcoes] = espia.mock.calls[0] as [string, RequestInit];
+    expect(opcoes.method).toBe("GET");
+    expect(url).toBe(
+      "https://lexflow-jmassano.s3.eu-central-1.amazonaws.com/Sistema/processos/proc-1/abc-doc.pdf",
+    );
+  });
+
+  it("trata uma resposta de erro do S3 como ErroServidor", async () => {
+    espiarFetch(async () => new Response("Not Found", { status: 404 }));
+
+    await expect(
+      criarDestinoS3(PARAMETROS_LEXFLOW).ler!("Sistema/processos/proc-1/inexistente.pdf"),
+    ).rejects.toBeInstanceOf(ErroServidor);
+  });
+
+  it("trata uma falha de rede como ErroServidor", async () => {
+    espiarFetch(async () => {
+      throw new Error("ECONNREFUSED");
+    });
+
+    await expect(criarDestinoS3(PARAMETROS_LEXFLOW).ler!("qualquer/chave")).rejects.toBeInstanceOf(
+      ErroServidor,
+    );
+  });
+});
+
 describe("criarDestinoS3 — verificar", () => {
   it("confirma o bucket com um HEAD, sem escrever nada", async () => {
     const espia = espiarFetch(async () => new Response(null, { status: 200 }));

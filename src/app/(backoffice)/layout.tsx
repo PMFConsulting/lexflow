@@ -85,14 +85,25 @@ const NAVEGACAO_SOCIEDADE: Entrada[] = [
  * Função pura e exportada: testa-se sem sessão nem base de dados, só com um
  * papel à entrada.
  */
-export function navegacaoDoPapel(papel: Papel): Entrada[] {
+export function navegacaoDoPapel(papel: Papel): { label: string; entradas: Entrada[] }[] {
   const visivel = (item: Entrada) => {
     if (item.soSocietyAdmin && papel !== "society_admin") return false;
     if (item.soGestor && papel !== "gestor") return false;
     if (item.soUtilizador && papel !== "utilizador") return false;
     return true;
   };
-  return [...NAVEGACAO_SOCIEDADE.filter(visivel), ...NAVEGACAO.filter(visivel)];
+  
+  const trabalho = NAVEGACAO.filter(visivel);
+  const sociedade = NAVEGACAO_SOCIEDADE.filter(visivel);
+  
+  const grupos = [];
+  if (trabalho.length > 0) grupos.push({ label: "Trabalho", entradas: trabalho });
+  if (sociedade.length > 0) {
+    const temAdmin = sociedade.some(e => e.href === "/gestao");
+    grupos.push({ label: temAdmin ? "Administração" : "A minha conta", entradas: sociedade });
+  }
+  
+  return grupos;
 }
 
 /**
@@ -116,7 +127,7 @@ export default async function LayoutBackoffice({
     sociedadesPorIds(outrasOrganizacoes),
   ]);
 
-  const entradas = navegacaoDoPapel(eu.papel);
+  const grupos = navegacaoDoPapel(eu.papel);
 
   const logotipoUrl = org?.logotipoDados
     ? `/api/sociedade/logotipo?t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
@@ -124,8 +135,7 @@ export default async function LayoutBackoffice({
 
   return (
     <PortalShell
-      entradas={entradas}
-      grupo="Onboarding"
+      gruposDeMenu={grupos}
       cabecalho="Onboarding de clientes"
       legendaDaMarca="Processos"
       utilizador={{ nome: eu.nome, papel: ROTULO_DO_PAPEL[eu.papel] ?? eu.papel }}

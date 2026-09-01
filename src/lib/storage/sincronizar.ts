@@ -119,13 +119,41 @@ export async function sincronizarCliente(
         nome: documento.nomeOriginal,
         mime: documento.mime,
         dados: documento.dados,
+        chaveStorage: documento.chaveStorage,
       })
       .from(documento)
       .where(and(eq(documento.processoId, processo.id), isNull(documento.apagadoEm)));
 
     const usados = new Set<string>([SUMARIO.toLowerCase(), CAPA.toLowerCase()]);
     for (const anexo of anexos) {
-      if (!anexo.dados) continue;
+      // `dados` preenchido é o documento antigo (de antes do S3, ou de uma
+      // sociedade ainda em SFTP): serve-se dali, sem tocar em rede. `dados` a
+      // NULL é a regra nova (D66) — o ficheiro só existe no bucket desta
+      // sociedade, na cópia técnica que `carregarDocumento` escreveu em
+      // `Sistema/processos/…`, e é essa cópia que aqui se lê para produzir a
+      // segunda cópia, legível por humanos, dentro da pasta do cliente.
+      let conteudo: Buffer;
+      if (anexo.dados) {
+        conteudo = Buffer.from(anexo.dados, "base64");
+      } else if (destino.ler) {
+        try {
+          conteudo = await destino.ler(anexo.chaveStorage);
+        } catch (e) {
+          console.error(
+            `[storage] failed to read attachment "${anexo.nome}" from S3 for ${processo.referencia}: ${mensagemSegura(e)}`,
+          );
+          continue;
+        }
+      } else {
+        // Não devia acontecer: sem S3 ativo, `carregarDocumento` recusa o
+        // upload e nunca grava `dados` a NULL. Se acontecer mesmo assim (uma
+        // sociedade que passou de S3 para SFTP depois do upload), salta este
+        // ficheiro em vez de fazer toda a sincronização falhar por ele.
+        console.error(
+          `[storage] attachment "${anexo.nome}" of ${processo.referencia} has no dados and no S3 reader — skipped.`,
+        );
+        continue;
+      }
 
       // Two attachments with the same name cannot overwrite each other inside
       // the folder.
@@ -140,11 +168,7 @@ export async function sincronizarCliente(
       }
       usados.add(nome.toLowerCase());
 
-      ficheiros.push({
-        nome,
-        mime: anexo.mime,
-        conteudo: Buffer.from(anexo.dados, "base64"),
-      });
+      ficheiros.push({ nome, mime: anexo.mime, conteudo });
     }
 
     // The cover is the last to be generated and the first to enter the folder:

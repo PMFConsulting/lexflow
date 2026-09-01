@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { email, morada, obrigatorio, telefone } from "@/lib/campos";
+import { email, morada, obrigatorio, telefone, website } from "@/lib/campos";
 import { normalizarNumeroFiscal, validarNipc } from "@/lib/validacao-pt";
 
 /**
@@ -59,23 +59,8 @@ export const passoSociedade2 = z.object({
   ...morada,
   emailGeral: email,
   telefone,
-  /**
-   * Opcional, e vazio significa mesmo vazio.
-   *
-   * O `""` que um campo por preencher envia não é um URL, e um `z.url()`
-   * optional recusa-o com «URL inválido» sobre uma caixa que ninguém abriu — a
-   * forma mais irritante de «Falta corrigir um campo», e a mesma que o
-   * `regimeIva` já tinha mostrado no passo 2 do cliente.
-   */
-  website: z
-    .string()
-    .trim()
-    .optional()
-    .transform((v) => (v ? v : undefined))
-    .refine(
-      (v) => v === undefined || /^https?:\/\/.+\..+/.test(v),
-      "Indique o endereço completo, começado por https://.",
-    ),
+  /** Opcional, e vazio significa mesmo vazio — a definição está em `lib/campos.ts`, partilhada com a edição dos dados da sociedade. */
+  website,
 });
 
 /* ── passo 3 — documentos ─────────────────────────────────────────────── */

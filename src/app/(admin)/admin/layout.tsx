@@ -35,8 +35,7 @@ export default async function LayoutAdmin({
 
   return (
     <PortalShell
-      entradas={NAVEGACAO}
-      grupo="Plataforma"
+      gruposDeMenu={[{ label: "Plataforma", entradas: NAVEGACAO }]}
       cabecalho="Administração da plataforma"
       legendaDaMarca="Plataforma"
       utilizador={{ nome: eu.nome, papel: ROTULO_DO_PAPEL[eu.papel] ?? eu.papel }}

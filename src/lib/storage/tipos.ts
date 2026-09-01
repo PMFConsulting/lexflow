@@ -105,6 +105,13 @@ export interface Destino {
   enviar(segmentos: string[], ficheiro: Ficheiro): Promise<void>;
   /** Touches the destination without writing anything — feeds the back-office status. */
   verificar(): Promise<Verificacao>;
+  /**
+   * Reads an object back, by the exact key `enviar`/`chaveObjeto` produced.
+   * Optional: SFTP has no reader today — a document uploaded to a firm still
+   * on SFTP keeps living in `documento.dados` (see `carregarDocumento`), and
+   * this method never gets called for it. Only S3 implements it.
+   */
+  ler?(chave: string): Promise<Buffer>;
 }
 
 /** Common failure for any destination adapter (SFTP, S3, …) — sync catches this, never the transport's own error type. */
@@ -193,4 +200,19 @@ export function caminho(segmentos: string[]): string {
       .filter(Boolean)
       .join("/")
   );
+}
+
+/**
+ * The same joining as `caminho`, but without the leading slash — the shape an
+ * S3 object key wants, and what `documento.chaveStorage` stores from now on.
+ * Shared between the S3 driver (which builds the key it signs) and whoever
+ * writes `chaveStorage` in the database, so the two can never name the same
+ * file two different ways.
+ */
+export function chaveObjeto(segmentos: string[]): string {
+  return segmentos
+    .flatMap((s) => s.split("/"))
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join("/");
 }

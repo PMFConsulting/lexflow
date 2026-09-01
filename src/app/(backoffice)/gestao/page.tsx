@@ -11,11 +11,11 @@ export const dynamic = "force-dynamic";
 
 const CARTOES = [
   {
-    href: "/gestao/sociedade",
-    titulo: "Sociedade",
+    href: "/gestao/configuracoes",
+    titulo: "Configurações da sociedade",
     icone: Building2,
     descricao:
-      "Dados da sociedade e os Termos e Condições em vigor — o mesmo que os clientes e a equipa aceitam.",
+      "Dados da sociedade, logótipo, modelos de email, Termos e Condições e conformidade. Agrupa tudo o que é configurável na sociedade.",
   },
   {
     href: "/gestao/utilizadores",
@@ -23,23 +23,6 @@ const CARTOES = [
     icone: Users,
     descricao:
       "Quem tem acesso, com que perfil, e os convites por aceitar. É por aqui que entra alguém de novo.",
-  },
-  {
-    href: "/gestao/conformidade",
-    titulo: "Conformidade",
-    icone: ShieldCheck,
-    descricao:
-      "As aceitações de Termos e Condições, com versão, data e endereço. É o que se mostra numa validação jurídica.",
-  },
-  {
-    // Herdado de "Configuração" (BUG3-011) — o resto dessa página duplicava
-    // "A minha conta" e "Sociedade"; isto era o único conteúdo que não vivia
-    // em mais nenhum sítio.
-    href: "/configuracao/emails",
-    titulo: "Modelos de Email",
-    icone: Mail,
-    descricao:
-      "O assunto e o corpo das mensagens enviadas aos clientes — boas-vindas, confirmação de receção, rejeição e reabertura.",
   },
 ];
 
@@ -80,7 +63,7 @@ export default async function Administracao() {
           <p className="mt-1 text-sm text-muted-foreground">
             Enquanto não houver, os vossos clientes aceitam o texto genérico da plataforma — que é
             texto de demonstração e não o contrato da sociedade.{" "}
-            <Link href="/gestao/sociedade" className="underline underline-offset-2">
+            <Link href="/gestao/configuracoes" className="underline underline-offset-2">
               Publicar Termos e Condições
             </Link>
             .
@@ -102,17 +85,6 @@ export default async function Administracao() {
             <p className="text-sm text-muted-foreground">{c.descricao}</p>
           </Link>
         ))}
-
-        <div className="border-linha bg-muted/40 flex flex-col gap-2 rounded-sm border border-dashed p-4">
-          <div className="flex items-center gap-2">
-            <ScrollText className="text-tinta-suave size-4" />
-            <h2 className="text-lg">Onboarding da sociedade</h2>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            O registo inicial da sociedade é feito uma vez, por link próprio, e já está concluído.
-            Os dados que lá foram indicados alteram-se em «Sociedade».
-          </p>
-        </div>
       </div>
     </div>
   );

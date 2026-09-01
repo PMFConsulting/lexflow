@@ -42,8 +42,7 @@ export type EntradaDeMenu = {
 };
 
 export function PortalShell({
-  entradas,
-  grupo,
+  gruposDeMenu,
   cabecalho,
   legendaDaMarca,
   utilizador,
@@ -54,8 +53,7 @@ export function PortalShell({
   outrasSociedades,
   children,
 }: {
-  entradas: EntradaDeMenu[];
-  grupo: string;
+  gruposDeMenu: { label: string; entradas: EntradaDeMenu[] }[];
   cabecalho: string;
   legendaDaMarca: string;
   utilizador: { nome: string; papel: string };
@@ -85,7 +83,7 @@ export function PortalShell({
                 a marca, e a legenda sairia por cima do ícone seguinte. O
                 `shrink-0` impede a alternativa — encolher só a largura e
                 entregar o logo esticado. */}
-            <Link href={entradas[0]?.href ?? "/"} className="flex min-w-0 items-center gap-2.5">
+            <Link href={gruposDeMenu[0]?.entradas[0]?.href ?? "/"} className="flex min-w-0 items-center gap-2.5">
               {logotipoUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -103,23 +101,25 @@ export function PortalShell({
           </SidebarHeader>
 
           <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>{grupo}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {entradas.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild tooltip={item.titulo}>
-                        <Link href={item.href}>
-                          <item.icone />
-                          <span>{item.titulo}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            {gruposDeMenu.map((grupo) => (
+              <SidebarGroup key={grupo.label}>
+                <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {grupo.entradas.map((item) => (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton asChild tooltip={item.titulo}>
+                          <Link href={item.href}>
+                            <item.icone />
+                            <span>{item.titulo}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
           </SidebarContent>
 
           <SidebarFooter className="gap-2 px-3 py-3">

@@ -17,12 +17,13 @@ import {
 } from "@/db/schema/sociedade";
 import { registarEvento } from "@/features/auditoria/registar";
 import { termosEmVigor } from "@/lib/termos-sociedade";
+import { exigirGestorDeUtilizadores, podeAcederSociedade } from "@/lib/sessao";
 import {
   acessoConvitePorToken,
   motivoDoAcessoConvite,
   type AcessoConvite,
 } from "./dados";
-import { SCHEMAS_CONVITE } from "./schemas";
+import { SCHEMAS_CONVITE, perfilConvidadoSchema } from "./schemas";
 import {
   exerceAdvocacia,
   proximoPassoConvite,
@@ -569,4 +570,144 @@ export async function concluirConvite(
   }
 
   return { ok: true, email };
+}
+
+
+export type ResultadoPerfilConvidado =
+  | { ok: true; campos: string[] }
+  | { ok: false; erros: Record<string, string[]>; mensagem?: string };
+
+/**
+ * Preenche (ou corrige) os dados de quem foi convidado, em nome dela.
+ *
+ * `exigirGestorDeUtilizadores` — `super_admin` e `society_admin`, a mesma
+ * fronteira de quem cria contas. A sociedade-alvo **não vem do pedido**: sai
+ * do próprio convite, e `podeAcederSociedade` fecha a porta ao
+ * `society_admin` que passe o id de um convite de outra casa. Sem essa
+ * verificação, um id adivinhado dava para escrever na ficha de alguém de
+ * outra sociedade — o isolamento que toda a plataforma assenta em comparar
+ * `organizacao_id`.
+ */
+export async function preencherPerfilConvidado(
+  conviteId: string,
+  dados: unknown,
+): Promise<ResultadoPerfilConvidado> {
+  const { eu } = await exigirGestorDeUtilizadores();
+
+  if (typeof conviteId !== "string" || conviteId.trim() === "") {
+    return { ok: false, erros: {}, mensagem: "Convite inválido." };
+  }
+
+  const base = db();
+
+  const [convite] = await base
+    .select()
+    .from(conviteUtilizador)
+    .where(
+      and(eq(conviteUtilizador.id, conviteId), isNull(conviteUtilizador.apagadoEm)),
+    )
+    .limit(1);
+
+  if (!convite) return { ok: false, erros: {}, mensagem: "Convite não encontrado." };
+
+  if (!podeAcederSociedade(eu, convite.organizacaoId)) {
+    // A mesma mensagem que um convite inexistente: dizer «existe, mas não é
+    // seu» confirma a existência de um registo noutra sociedade.
+    return { ok: false, erros: {}, mensagem: "Convite não encontrado." };
+  }
+
+  // Um convite aceite já tem conta do outro lado, e a pessoa passa a
+  // administrar os seus próprios dados no portal dela; um cancelado não vai
+  // ser percorrido por ninguém. Escrever em qualquer dos dois é escrever numa
+  // ficha que já não é lida por este caminho.
+  if (convite.estado !== "pendente") {
+    return {
+      ok: false,
+      erros: {},
+      mensagem:
+        convite.estado === "aceite"
+          ? "Este convite já foi aceite — a conta existe e é a própria pessoa que altera os seus dados."
+          : "Este convite foi cancelado. Envie um convite novo antes de preencher a ficha.",
+    };
+  }
+
+  const r = perfilConvidadoSchema.safeParse(dados);
+  if (!r.success) {
+    const erros: Record<string, string[]> = {};
+    for (const problema of r.error.issues) {
+      const campo = problema.path.join(".") || "_";
+      (erros[campo] ??= []).push(problema.message);
+    }
+    return { ok: false, erros, mensagem: "Falta corrigir um campo." };
+  }
+
+  // Só os campos que vieram. Um `undefined` não pode virar `null` no UPDATE:
+  // gravar a ficha com o cargo por preencher apagaria o cargo que a pessoa já
+  // tinha escrito — quem preenche por outrem acrescenta, não limpa.
+  const valores = Object.fromEntries(
+    Object.entries(r.data).filter(([, valor]) => valor !== undefined),
+  );
+
+  if (Object.keys(valores).length === 0) {
+    return {
+      ok: false,
+      erros: { _: ["Preencha pelo menos um campo antes de gravar."] },
+      mensagem: "Preencha pelo menos um campo antes de gravar.",
+    };
+  }
+
+  const [antes] = await base
+    .select()
+    .from(perfilUtilizador)
+    .where(eq(perfilUtilizador.conviteId, convite.id))
+    .limit(1);
+
+  try {
+    await base
+      .insert(perfilUtilizador)
+      .values({
+        organizacaoId: convite.organizacaoId,
+        conviteId: convite.id,
+        ...valores,
+      } as typeof perfilUtilizador.$inferInsert)
+      .onConflictDoUpdate({
+        target: perfilUtilizador.conviteId,
+        set: {
+          ...(valores as Partial<typeof perfilUtilizador.$inferInsert>),
+          atualizadoEm: new Date(),
+        },
+      });
+  } catch (e) {
+    console.error("[admin] falhou a gravar o perfil do convidado:", e);
+    return { ok: false, erros: {}, mensagem: "Não foi possível gravar. Tente de novo." };
+  }
+
+  const campos = Object.keys(valores);
+  const anterior: Record<string, unknown> = {};
+  if (antes) {
+    for (const campo of campos) {
+      anterior[campo] = (antes as Record<string, unknown>)[campo] ?? null;
+    }
+  }
+
+  // Quem preencheu fica escrito. Um dado da ficha de uma pessoa que ela nunca
+  // escreveu tem de ser distinguível daquilo que ela declarou — é a diferença
+  // entre «declarou» e «foi-lhe atribuído», e é ela que uma revisão jurídica
+  // procura sete anos depois (D60, do lado da equipa).
+  const { ip, userAgent } = await contexto();
+  await registarEvento({
+    organizacaoId: convite.organizacaoId,
+    atorId: eu.id,
+    acao: "utilizador.dados_preenchidos_por_admin",
+    entidade: "perfil_utilizador",
+    entidadeId: convite.id,
+    valorAnterior: antes ? anterior : null,
+    valorNovo: { email: convite.email, papel: convite.papel, campos, ...valores },
+    ip,
+    userAgent,
+  }).catch((e) => console.error("[admin] audit write failed", { erro: String(e) }));
+
+  revalidatePath("/gestao/utilizadores");
+  revalidatePath(`/admin/sociedades/${convite.organizacaoId}`);
+  return { ok: true, campos };
 }

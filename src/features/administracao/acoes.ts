@@ -7,8 +7,13 @@ import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { organizacao, utilizador } from "@/db/schema/organizacao";
-import { conviteUtilizador, documentoOrganizacao } from "@/db/schema/sociedade";
+import {
+  conviteUtilizador,
+  documentoOrganizacao,
+  perfilUtilizador,
+} from "@/db/schema/sociedade";
 import { registarEvento } from "@/features/auditoria/registar";
+import { perfilConvidadoSchema } from "@/features/convites/schemas";
 import {
   assinaturaConfere,
   mensagemConteudo,
@@ -19,8 +24,13 @@ import { enviarEmail } from "@/lib/email";
 import { ASSUNTO_CONVITE_UTILIZADOR, emailConviteUtilizador } from "@/lib/emails/convites";
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import { origemPublica } from "@/lib/origem";
-import { exigirAdministracao } from "@/lib/sessao";
+import { exigirAdministracao, exigirGestorDeUtilizadores } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
+import {
+  CAMPOS_MAE,
+  dadosSociedadeSchema,
+  MENSAGEM_CAMPOS_MAE,
+} from "./schemas";
 
 /**
  * Ações do portal de administração da sociedade.
@@ -45,10 +55,29 @@ const esquemaConvite = z.object({
   nome: obrigatorio("O nome").max(200, "Máximo 200 caracteres."),
   email: campoEmail,
   papel: z.enum(PAPEIS, { message: "Escolha o perfil desta pessoa." }),
+  /**
+   * A ficha da pessoa, já preenchida por quem convida — opcional.
+   *
+   * Quem convida tem quase sempre o processo de admissão em cima da mesa, e
+   * obrigar a pessoa a reescrever o que a sociedade já sabe é a razão por que
+   * um convite fica parado no passo 1. O que ela recebe é o formulário dela
+   * com os campos já lá, editáveis: os dados são dela, a última palavra
+   * também. Nada disto substitui os passos 3 a 6 — anexos, sigilo, T&C e
+   * palavra-passe são atos próprios (`perfilConvidadoSchema`).
+   */
+  perfil: perfilConvidadoSchema.optional(),
 });
 
 export type ResultadoConvidar =
-  | { ok: true; link: string; email: string; emailEnviado: boolean; erroEmail?: string }
+  | {
+      ok: true;
+      link: string;
+      email: string;
+      emailEnviado: boolean;
+      erroEmail?: string;
+      /** `true` quando veio ficha adiantada e ela ficou gravada. */
+      perfilGravado: boolean;
+    }
   | { ok: false; erros: Record<string, string[]>; mensagem?: string };
 
 /**
@@ -70,7 +99,7 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
     return { ok: false, erros };
   }
 
-  const { nome, papel } = r.data;
+  const { nome, papel, perfil } = r.data;
   const email = r.data.email.trim().toLowerCase();
   const base = db();
 
@@ -150,6 +179,37 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
     .where(eq(organizacao.id, eu.organizacaoId))
     .limit(1);
 
+  // A ficha adiantada, se veio — no seu próprio `try` (D46): o convite já
+  // existe e é acessível, e um perfil por gravar não pode fazer parecer que o
+  // convite falhou. O ecrã diz as duas coisas em separado.
+  let perfilGravado = false;
+  if (perfil && convite) {
+    const valores = Object.fromEntries(
+      Object.entries(perfil).filter(([, valor]) => valor !== undefined),
+    );
+    if (Object.keys(valores).length > 0) {
+      try {
+        await base.insert(perfilUtilizador).values({
+          organizacaoId: eu.organizacaoId,
+          conviteId: convite.id,
+          ...valores,
+        } as typeof perfilUtilizador.$inferInsert);
+        perfilGravado = true;
+
+        await registarEvento({
+          organizacaoId: eu.organizacaoId,
+          atorId: eu.id,
+          acao: "utilizador.dados_preenchidos_por_admin",
+          entidade: "perfil_utilizador",
+          entidadeId: convite.id,
+          valorNovo: { email, papel, campos: Object.keys(valores), ...valores },
+        }).catch((e) => console.error("[admin] audit write failed", { erro: String(e) }));
+      } catch (e) {
+        console.error("[admin] convite criado, perfil adiantado não:", e);
+      }
+    }
+  }
+
   // A partir daqui, cada passo no seu próprio `try` (D46): o convite já está
   // gravado, e montar o link, enviar o email ou escrever a auditoria não pode
   // fazer parecer que a ação toda falhou.
@@ -211,7 +271,7 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
     // Fora de um contexto de pedido não é motivo para falhar um convite criado.
   }
 
-  return { ok: true, link, email, emailEnviado, erroEmail };
+  return { ok: true, link, email, emailEnviado, erroEmail, perfilGravado };
 }
 
 /* ------------------------------------------------------------- reenviar */
@@ -664,6 +724,149 @@ export async function publicarTermosSociedade(formData: FormData): Promise<Resul
     userAgent,
   }).catch((e) => console.error("[admin] audit write failed", { erro: String(e) }));
 
-  revalidatePath("/gestao/sociedade");
+  revalidatePath("/gestao/configuracoes");
   return { ok: true, versao };
+}
+
+/* ------------------------------------------------- dados da sociedade */
+
+export type ResultadoDadosSociedade =
+  | { ok: true }
+  | { ok: false; erros: Record<string, string[]>; mensagem?: string };
+
+/** Os campos que esta ação escreve — a lista existe uma vez e serve o UPDATE e a auditoria. */
+const COLUNAS_EDITAVEIS = [
+  "naturezaJuridica",
+  "numeroOrdem",
+  "emailGeral",
+  "telefone",
+  "website",
+  "morada",
+  "pais",
+  "localidade",
+  "codigoPostal",
+  "freguesia",
+  "concelho",
+  "distrito",
+] as const;
+
+/**
+ * Atualiza os dados **não-mãe** da sociedade.
+ *
+ * Quem administra a sociedade corrige a sede, os contactos, a forma jurídica e
+ * o número de inscrição na Ordem sem passar pelo suporte — era o que a página
+ * dizia para fazer, e o que fazia dela um ecrã de leitura sobre dados que
+ * envelhecem. O que continua fechado são os três campos de identidade
+ * (`CAMPOS_MAE`), que só `atualizarSociedade` (super_admin, em `/admin`) muda.
+ *
+ * `exigirGestorDeUtilizadores` e não `exigirAdministracao`: o super_admin
+ * também os pode corrigir — indicando a sociedade —, pela mesma regra que já
+ * vale para criar contas. Para o `society_admin` a sociedade-alvo **nunca vem
+ * do pedido**: é sempre a dele, ignorando o que venha em `organizacaoId`.
+ */
+export async function atualizarDadosSociedade(
+  dados: unknown,
+): Promise<ResultadoDadosSociedade> {
+  const { eu } = await exigirGestorDeUtilizadores();
+
+  if (typeof dados !== "object" || dados === null) {
+    return { ok: false, erros: {}, mensagem: "Pedido inválido." };
+  }
+  const carga = dados as Record<string, unknown>;
+
+  // Os campos mãe recusam-se em vez de serem ignorados em silêncio: um pedido
+  // que os traz está a pedir outra coisa, e deixá-lo passar «com sucesso» sem
+  // os gravar é a forma de alguém acreditar que mudou o NIPC.
+  const maeNoPedido = CAMPOS_MAE.filter((campo) => campo in carga);
+  if (maeNoPedido.length > 0) {
+    return {
+      ok: false,
+      erros: Object.fromEntries(maeNoPedido.map((campo) => [campo, [MENSAGEM_CAMPOS_MAE]])),
+      mensagem: MENSAGEM_CAMPOS_MAE,
+    };
+  }
+
+  const alvo =
+    eu.papel === "super_admin"
+      ? typeof carga.organizacaoId === "string"
+        ? carga.organizacaoId
+        : null
+      : eu.organizacaoId;
+
+  if (!alvo) {
+    return {
+      ok: false,
+      erros: { organizacaoId: ["Indique a sociedade a atualizar."] },
+      mensagem: "Indique a sociedade a atualizar.",
+    };
+  }
+
+  const r = dadosSociedadeSchema.safeParse(carga);
+  if (!r.success) {
+    const erros: Record<string, string[]> = {};
+    for (const problema of r.error.issues) {
+      const campo = problema.path.join(".") || "_";
+      (erros[campo] ??= []).push(problema.message);
+    }
+    return { ok: false, erros, mensagem: "Falta corrigir um campo." };
+  }
+
+  const base = db();
+
+  const [antes] = await base
+    .select()
+    .from(organizacao)
+    .where(and(eq(organizacao.id, alvo), isNull(organizacao.apagadoEm)))
+    .limit(1);
+
+  if (!antes) return { ok: false, erros: {}, mensagem: "Esta sociedade já não existe." };
+
+  // `website` é o único opcional: vazio grava `null`, que é como se apaga um
+  // endereço que deixou de servir.
+  const valores = {
+    naturezaJuridica: r.data.naturezaJuridica,
+    numeroOrdem: r.data.numeroOrdem,
+    emailGeral: r.data.emailGeral,
+    telefone: r.data.telefone,
+    website: r.data.website ?? null,
+    morada: r.data.morada,
+    pais: r.data.pais,
+    localidade: r.data.localidade,
+    codigoPostal: r.data.codigoPostal,
+    freguesia: r.data.freguesia,
+    concelho: r.data.concelho,
+    distrito: r.data.distrito,
+  };
+
+  try {
+    await base
+      .update(organizacao)
+      .set({ ...valores, atualizadoEm: new Date() })
+      .where(eq(organizacao.id, alvo));
+  } catch (e) {
+    console.error("[admin] falhou a atualizar os dados da sociedade:", e);
+    return { ok: false, erros: {}, mensagem: "Não foi possível gravar. Tente de novo." };
+  }
+
+  const anterior: Record<string, unknown> = {};
+  for (const coluna of COLUNAS_EDITAVEIS) {
+    anterior[coluna] = (antes as Record<string, unknown>)[coluna] ?? null;
+  }
+
+  const { ip, userAgent } = await contexto();
+  await registarEvento({
+    organizacaoId: alvo,
+    atorId: eu.id,
+    acao: "sociedade.dados_atualizados",
+    entidade: "organizacao",
+    entidadeId: alvo,
+    valorAnterior: anterior,
+    valorNovo: valores,
+    ip,
+    userAgent,
+  }).catch((e) => console.error("[admin] audit write failed", { erro: String(e) }));
+
+  revalidatePath("/gestao/configuracoes");
+  revalidatePath(`/admin/sociedades/${alvo}`);
+  return { ok: true };
 }
