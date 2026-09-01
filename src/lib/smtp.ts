@@ -39,7 +39,7 @@ function codificarMensagem(m: MensagemSmtp): string {
   const assunto = sanitizarCabecalho(m.assunto);
 
   const cabecalhos = [
-    `From: JMASSANO <${de}>`,
+    `From: LexFlow <${de}>`,
     `To: <${para}>`,
     `Subject: ${assunto}`,
     "MIME-Version: 1.0",

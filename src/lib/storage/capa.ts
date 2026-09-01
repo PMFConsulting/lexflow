@@ -148,7 +148,7 @@ export async function gerarCapaPdf(d: DadosCapa): Promise<Buffer> {
 
   /* ---------------------------------------------------------------- header */
 
-  escrever("JMASSANO · DADOS DO CLIENTE", MARGEM.x, y, corpo, 8, LATAO, 2.2);
+  escrever("LexFlow · DADOS DO CLIENTE", MARGEM.x, y, corpo, 8, LATAO, 2.2);
   y -= 26;
 
   escrever(d.nome, MARGEM.x, y, serifa, 22);

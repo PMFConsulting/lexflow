@@ -27,7 +27,7 @@ export const TERMOS_CONDICOES: SeccaoTermos[] = [
   {
     titulo: "1. Objeto",
     paragrafos: [
-      "As presentes condições regulam a prestação de serviços jurídicos pela JMASSANO — Escritório de Advogado (adiante, a Sociedade) ao cliente identificado no processo de onboarding a que este documento diz respeito.",
+      "As presentes condições regulam a prestação de serviços jurídicos pela sociedade aderente (adiante, a Sociedade), através da plataforma LexFlow ao cliente identificado no processo de onboarding a que este documento diz respeito.",
       "Os serviços concretos a prestar são os indicados pelo cliente no passo relativo à relação de negócio e os que venham a ser acordados por escrito entre as partes, incluindo por correio eletrónico.",
       "A aceitação destas condições não constitui, por si só, aceitação de mandato: a Sociedade reserva-se o direito de recusar a constituição da relação quando as diligências de identificação e de diligência devida não puderem ser concluídas.",
     ],

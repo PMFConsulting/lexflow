@@ -111,9 +111,9 @@ vi.mock("@/lib/email", () => ({
 }));
 
 vi.mock("@/lib/emails/jmassano", () => ({
-  ASSUNTO_REGISTO: "JMASSANO | Registro",
+  ASSUNTO_REGISTO: "LexFlow | Registro",
   emailRegisto: ({ link }: { link: string }) => `<a href="${link}">link</a>`,
-  ASSUNTO_REJEICAO: "JMASSANO | Feedback Registro",
+  ASSUNTO_REJEICAO: "LexFlow | Feedback Registro",
   emailRejeicao: () => "<p>rejeição</p>",
 }));
 
@@ -195,7 +195,7 @@ describe("reenviarLinkProcesso", () => {
         expect.objectContaining({
           para: "cliente@exemplo.pt",
           template: "registo",
-          assunto: "JMASSANO | Registro",
+          assunto: "LexFlow | Registro",
         }),
       );
     },

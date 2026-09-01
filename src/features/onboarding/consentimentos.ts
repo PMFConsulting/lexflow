@@ -23,13 +23,13 @@ const TEXTOS: Record<string, { chave: string; versao: string; conteudo: string }
     chave: "rgpd.newsletter",
     versao: "2026-08-08.1",
     conteudo:
-      "Autorizo a JMASSANO — Escritório de Advogado a enviar-me comunicações informativas e newsletters para os endereços de email que indiquei. Posso retirar esta autorização a qualquer momento.",
+      "Autorizo a sociedade representada pela LexFlow a enviar-me comunicações informativas e newsletters para os endereços de email que indiquei. Posso retirar esta autorização a qualquer momento.",
   },
   convites_iniciativas: {
     chave: "rgpd.convites",
     versao: "2026-08-08.1",
     conteudo:
-      "Autorizo a JMASSANO — Escritório de Advogado a convidar-me para iniciativas — formações, webinars, workshops e outros eventos — através dos contactos que indiquei. Posso retirar esta autorização a qualquer momento.",
+      "Autorizo a sociedade representada pela LexFlow a convidar-me para iniciativas — formações, webinars, workshops e outros eventos — através dos contactos que indiquei. Posso retirar esta autorização a qualquer momento.",
   },
   declaracao_veracidade: {
     chave: "declaracao_veracidade",

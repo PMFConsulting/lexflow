@@ -199,7 +199,7 @@ function Modal({
         <header className="mb-6 flex items-center gap-3.5">
           <Logotipo className="h-10 w-auto" />
           <span className="text-2xs font-mono tracking-[0.22em] text-latao uppercase">
-            JMASSANO Escritório de Advogados
+            LexFlow · Plataforma de Onboarding
           </span>
         </header>
         <div className="bg-marca/85 mb-6 h-[3px] w-full rounded-full" />

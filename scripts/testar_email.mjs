@@ -61,7 +61,7 @@ console.log(`  EMAIL_NOTIFICACOES ${process.env.EMAIL_NOTIFICACOES || "(vazia �
 console.log(`  DATABASE_URL      ${urlBd ? "definida" : "(vazia)"}`);
 console.log("");
 
-const assunto = `JMASSANO | Teste de envio ${new Date().toISOString()}`;
+const assunto = `LexFlow | Teste de envio ${new Date().toISOString()}`;
 const html = `<p>Mensagem de teste do <code>scripts/testar_email.mjs</code>.</p>
 <p>Se a está a ler, o caminho de envio da plataforma funciona: chave aceite,
 remetente verificado e saída para a Internet aberta.</p>`;
@@ -78,7 +78,7 @@ if (resultado.ok) {
     console.error(
       `\n  Um 403 é quase sempre o domínio: «${remetente.split("@")[1]}» tem de estar verificado\n` +
         "  na conta do fornecedor (resend.com/domains, ou Senders & IP no Brevo). Enquanto\n" +
-        "  não estiver, nenhum dos três emails da JMASSANO sai.",
+        "  não estiver, nenhum dos três emails da LexFlow sai.",
     );
   }
 }
@@ -123,7 +123,7 @@ async function enviar() {
       corpo: {
         Messages: [
           {
-            From: { Email: remetente, Name: "JMASSANO" },
+            From: { Email: remetente, Name: "LexFlow" },
             To: [{ Email: destino }],
             Subject: assunto,
             HTMLPart: html,
@@ -258,7 +258,7 @@ function tentarSmtp(canal) {
   return new Promise((resolver) => {
     const socket = connect({ host: canal.anfitriao, port: canal.porta });
     const corpo = [
-      `From: JMASSANO <${remetente}>`,
+      `From: LexFlow <${remetente}>`,
       `To: <${destino}>`,
       `Subject: ${assunto}`,
       "MIME-Version: 1.0",

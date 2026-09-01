@@ -43,7 +43,7 @@ import type { NovoProcesso } from "../schemas";
  * social e NIPC, pessoa singular mantém nome e email, os dois opcionais.
  *
  * O email é opcional nos dois casos — o link pode ser entregue por outra via.
- * Com email preenchido, segue também por "JMASSANO | Registro".
+ * Com email preenchido, segue também por "LexFlow | Registro".
  *
  * Dialog e não bloco inline (D36): aberto em linha, o formulário herdava a
  * largura e o alinhamento de onde calhasse estar.
@@ -694,7 +694,7 @@ function Conteudo({
             etiqueta="Email para enviar o link"
             opcional
             erro={erros.email}
-            ajuda="Com email, o link segue na mensagem «JMASSANO | Registro». Sem email, fica só neste ecrã para copiar."
+            ajuda="Com email, o link segue na mensagem «LexFlow | Registro». Sem email, fica só neste ecrã para copiar."
           >
             <Input
               id={idEmail}
@@ -805,7 +805,7 @@ function AvisoEmail({ r }: { r: Resultado }) {
         <TriangleAlert className="mt-px size-3.5 shrink-0" />
       )}
       <div className="flex min-w-0 flex-col gap-1">
-        {bom && <span>Email «JMASSANO | Registro» enviado para {r.para}.</span>}
+        {bom && <span>Email «LexFlow | Registro» enviado para {r.para}.</span>}
 
         {!bom && naoChegouAoServidor && (
           <>

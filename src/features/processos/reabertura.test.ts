@@ -99,11 +99,11 @@ vi.mock("@/lib/email", () => ({
 }));
 
 vi.mock("@/lib/emails/jmassano", () => ({
-  ASSUNTO_REGISTO: "JMASSANO | Registro",
+  ASSUNTO_REGISTO: "LexFlow | Registro",
   emailRegisto: ({ link }: { link: string }) => `<a href="${link}">link</a>`,
-  ASSUNTO_REJEICAO: "JMASSANO | Feedback Registro",
+  ASSUNTO_REJEICAO: "LexFlow | Feedback Registro",
   emailRejeicao: () => "<p>rejeição</p>",
-  ASSUNTO_REABERTURA: "JMASSANO | Reabertura do Processo",
+  ASSUNTO_REABERTURA: "LexFlow | Reabertura do Processo",
   emailReabertura: () => "<p>reabertura</p>",
 }));
 
@@ -181,7 +181,7 @@ describe("reabrirProcesso", () => {
       expect.objectContaining({
         para: "cliente@exemplo.pt",
         template: "reabertura",
-        assunto: "JMASSANO | Reabertura do Processo",
+        assunto: "LexFlow | Reabertura do Processo",
       }),
     );
   });
