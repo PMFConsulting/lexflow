@@ -60,10 +60,32 @@ export const parametrosServidor = z.object({
 
 export type ParametrosServidor = z.infer<typeof parametrosServidor>;
 
-export type Parametros = ParametrosServidor;
+/**
+ * The firm's S3 bucket — one per society, dedicated, never shared. `bucket`
+ * travels inside this envelope alongside the credentials (and is also kept in
+ * the plain `bucket_s3` column, which is what decides whether a firm's
+ * destination is S3 or SFTP: see `armazenamentoSociedade`). Keeping both is
+ * deliberate — the column is what routing reads without decrypting anything,
+ * this is what the driver receives once it does.
+ */
+export const parametrosS3 = z.object({
+  protocolo: z.literal("s3").default("s3"),
+  regiao: z.string().min(1, "região em falta"),
+  bucket: z.string().min(1, "bucket em falta"),
+  accessKeyId: z.string().min(1, "access key em falta"),
+  secretAccessKey: z.string().min(1, "secret key em falta"),
+});
+
+export type ParametrosS3 = z.infer<typeof parametrosS3>;
+
+export type Parametros = ParametrosServidor | ParametrosS3;
 
 export function validarParametros(valor: unknown): Parametros {
-  return parametrosServidor.parse(valor);
+  const protocolo =
+    valor && typeof valor === "object" && "protocolo" in valor
+      ? (valor as { protocolo?: unknown }).protocolo
+      : undefined;
+  return protocolo === "s3" ? parametrosS3.parse(valor) : parametrosServidor.parse(valor);
 }
 
 /* ------------------------------------------------------------- destinations */
@@ -83,6 +105,14 @@ export interface Destino {
   enviar(segmentos: string[], ficheiro: Ficheiro): Promise<void>;
   /** Touches the destination without writing anything — feeds the back-office status. */
   verificar(): Promise<Verificacao>;
+}
+
+/** Common failure for any destination adapter (SFTP, S3, …) — sync catches this, never the transport's own error type. */
+export class ErroServidor extends Error {
+  constructor(mensagem: string) {
+    super(mensagem);
+    this.name = "ErroServidor";
+  }
 }
 
 /* ------------------------------------------------------------------- names */

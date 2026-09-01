@@ -3,8 +3,9 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { armazenamentoSociedade } from "@/db/schema/armazenamento";
 import { chaveDeAmbiente, decifrar } from "./cifra";
+import { criarDestinoS3 } from "./s3";
 import { criarDestinoServidor } from "./servidor";
-import { parametrosServidor, type Destino } from "./tipos";
+import { parametrosS3, parametrosServidor, type Destino } from "./tipos";
 
 export type ConfiguracaoArmazenamento = typeof armazenamentoSociedade.$inferSelect;
 
@@ -66,11 +67,19 @@ export async function destinoDaOrganizacao(organizacaoId: string): Promise<{
   }
 
   const claros = decifrar(config.parametros, chave);
-  return { destino: criarDestino(claros), config };
+  return { destino: criarDestino(claros, config.bucketS3), config };
 }
 
-/** The factory. The parameters are revalidated here: they came from outside the code. */
-export function criarDestino(parametros: unknown): Destino {
+/**
+ * The factory. The parameters are revalidated here: they came from outside
+ * the code. `bucketS3` — the plain column, not anything inside the encrypted
+ * envelope — is what decides the destination: filled in, S3; null, SFTP as
+ * before it existed. That is the entire "swap for S3" the day it happens.
+ */
+export function criarDestino(parametros: unknown, bucketS3?: string | null): Destino {
+  if (bucketS3) {
+    return criarDestinoS3(parametrosS3.parse(parametros));
+  }
   return criarDestinoServidor(parametrosServidor.parse(parametros));
 }
 

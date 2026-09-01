@@ -732,6 +732,30 @@ canvas back (D57).
 and no provider is configured here — the code is a ten-minute secret that is deliberately written
 to no log (D57), so there is no way to read it from this side.
 
+### Update — S3 driver prepared, no documents moved (01/09/2026)
+
+Owner's instruction, verbatim: *"Do not migrate already the documents please as this is a
+demonstration as of now that into the next week we will deploy the documents to the AWS."* This
+PR (`feat/s3-por-sociedade`) is only the code side of that: a second storage driver next to
+`servidor.ts`, so that turning it on for a firm is a configuration change and not a rewrite.
+**Nothing existing moves.** The 96 identification PDFs and the signature images already in the
+database stay there; migrating them is a dedicated script, deliberately left for next week (D65).
+
+`src/lib/storage/s3.ts` signs PUT/HEAD requests with SigV4 by hand (`node:crypto` + `fetch`), the
+same call as `servidor.ts` made for curl over an SSH library: the two request shapes this driver
+needs do not justify `@aws-sdk/client-s3`'s dependency weight in the build. `armazenamento_sociedade.bucket_s3`
+(migration `0027`, additive, nullable) is the switch `criarDestino` reads — filled in, S3; null,
+SFTP exactly as before. `scripts/armazenamento.ts configurar --protocolo s3 --bucket <nome>` wires
+an already-created bucket to a society; creating the bucket itself stays manual, in the AWS
+console, while there are only five of them.
+
+**Verified in this session:** `pnpm typecheck` clean, `pnpm test` 880 green (up from 874 — the new
+S3 driver tests, mocked at `fetch`, never talk to AWS), `pnpm build` clean, `pnpm db:validar`
+applying `0027` (38 tables). Not walked against a real bucket — the five buckets already created
+(`lexflow-pmf-consulting`, `lexflow-andrade-costa`, `lexflow-mota-associados`,
+`lexflow-bernardino-lopes`, `lexflow-pinto-costa`) are referenced in the driver's tests and in
+`docs/ARQUITETURA.md`, not touched by this session.
+
 ## Infrastructure — ~€65/year for unlimited POCs
 
 Complete guide in [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -847,6 +871,7 @@ this** — it changes what is built around it.
 | D62 | A API dos onboardings **não tem lógica própria**: cada rota chama exatamente a função que o ecrã chama, e o que acrescenta é transporte. É a única disciplina que impede o que sempre acontece a uma segunda porta para a mesma casa — a validação apertar de um lado e não do outro. Autenticação em duas camadas: o token do link mágico diz *qual* registo, a `API_CHAVE` diz *quem* chama; não são redundantes, porque um token de link vive num email e um email reencaminha-se, e há diferença entre ele abrir um formulário e abrir uma porta programática percorrida em segundos sem olhos humanos pelo meio. **Sem `API_CHAVE` a API responde 503 e não fica aberta** — um recuo permissivo seria a instalação que esqueceu a variável a servir dados de KYC a quem os peça. Não cria registos, não valida códigos OTP e não devolve dados pessoais preenchidos | `docs/API.md` |
 | D63 | A conta de uma pessoa da equipa nasce **no último passo do registo dela**, e as três escritas (`user`, `account`, `utilizador`) são uma transação. Uma conta criada à cabeça é uma conta que entra na plataforma sem ninguém se ter identificado; e a meio das três escritas não há estado intermédio aceitável — um `user` sem `account` é uma conta sem palavra-passe a ocupar o email para sempre, um `account` sem `utilizador` é um login que passa e uma sessão que não resolve, e as duas dão a mesma coisa a quem lá está: um convite gasto e nenhuma maneira de entrar. As verificações dos cinco passos anteriores repetem-se dentro do `concluirConvite` e não só no ecrã, porque uma Server Action é chamável à mão | `src/features/convites/acoes.ts` |
 | D64 | BUG-022 (migração `0025`): uma conta de acesso já existente, ao ser associada a uma segunda sociedade, reaproveita a credencial em vez de a substituir — regenerar a palavra-passe entregaria a alguém uma credencial que já usa e não pediu. A pessoa recebe um aviso ("foi adicionado como administrador de uma nova sociedade"), sem palavra-passe nenhuma no corpo | `src/features/plataforma/contas.ts` |
+| D65 | Um bucket S3 por sociedade (`armazenamento_sociedade.bucket_s3`, coluna nula por omissão), nunca um bucket partilhado — o mesmo princípio do D32 (um único destino por sociedade, sem ambiguidade), estendido a um segundo tipo de destino. `criarDestino` decide pela coluna, não pelas credenciais decifradas: uma sociedade sem `bucket_s3` continua em SFTP sem tocar em nada. O driver assina SigV4 à mão (`node:crypto` + `fetch`) em vez de trazer `@aws-sdk/client-s3` — duas formas de pedido (PUT, HEAD) não pagam o peso da dependência no bundle, a mesma escolha que pôs o `curl` a falar SFTP em vez de uma biblioteca SSH. Este PR não migra nenhum documento existente — instrução direta do dono, verbatim na secção acima —, só prepara o código para a troca ser uma linha de configuração quando a migração acontecer, a semana seguinte | `src/lib/storage/s3.ts` |
 
 ## Open decisions
 
