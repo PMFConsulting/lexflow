@@ -149,6 +149,7 @@ describe("passo 2 — percurso Empresa", () => {
     cae: "62010",
     codigoCertidaoPermanente: "12345",
     regimeIva: "normal",
+    ccDeclarado: true,
   };
 
   const campos = (dados: Record<string, unknown>) => {
@@ -592,6 +593,7 @@ describe("passo 2 — documento de identificação", () => {
     // propõem medir — que é o documento de identificação declarado, não o
     // ficheiro anexado. A trava tem testes próprios, em «percurso Empresa».
     documentos: ["identificacao", "comprovativo_nif"],
+    ccDeclarado: true,
   };
 
   const campos = (dados: Record<string, unknown>) => {

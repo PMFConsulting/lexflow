@@ -230,8 +230,10 @@ export async function guardarPasso(
       // tipoCliente e documentos entram no schema só para decidir regras — não
       // são colunas de dados_fiscais, saem antes do INSERT.
       const fiscais = { ...v };
+      const ccDeclarado = fiscais.ccDeclarado;
       delete fiscais.tipoCliente;
       delete fiscais.documentos;
+      delete fiscais.ccDeclarado;
 
       if (tipoCliente !== "empresa") {
         fiscais.cae = null;
@@ -246,6 +248,20 @@ export async function guardarPasso(
           target: dadosFiscais.processoId,
           set: fiscais as Partial<typeof dadosFiscais.$inferInsert>,
         });
+
+      if (fiscais.docTipo === "cartao_cidadao" && ccDeclarado) {
+        // Log the CC declaration specifically for the audit log
+        await registarEvento({
+          organizacaoId: processo.organizacaoId,
+          processoId: processo.id,
+          acao: "documento.cc_declarado",
+          entidade: "processo_onboarding",
+          entidadeId: processo.id,
+          valorNovo: { finalidade: "Identificação (AML)" },
+          ip,
+          userAgent,
+        });
+      }
       break;
     }
 

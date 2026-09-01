@@ -226,6 +226,7 @@ export function CampoEscolha({
   opcoes,
   valorInicial = "",
   className,
+  onChange,
 }: {
   etiqueta: string;
   nome: string;
@@ -234,6 +235,7 @@ export function CampoEscolha({
   opcoes: { valor: string; texto: string }[];
   valorInicial?: string;
   className?: string;
+  onChange?: (v: string) => void;
 }) {
   return (
     <Campo
@@ -248,6 +250,7 @@ export function CampoEscolha({
           id={id}
           name={nome}
           defaultValue={valorInicial}
+          onChange={(e) => onChange?.(e.target.value)}
           aria-invalid={invalido}
           aria-describedby={descrito || undefined}
           className={classeSelect}

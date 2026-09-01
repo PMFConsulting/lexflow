@@ -51,16 +51,69 @@ export async function enviarBoasVindas(
     "Termos e Condições de Prestação de Serviços (T&C)",
     "termos_e_condicoes.pdf",
     async () => {
+      const { termosEmVigor } = await import("@/lib/termos-sociedade");
+      const termos = await termosEmVigor(processo.organizacaoId);
+      
+      if (termos.forma === "documento") {
+        const { documentoOrganizacao } = await import("@/db/schema/sociedade");
+        const { and, isNull } = await import("drizzle-orm");
+        
+        const [doc] = await db()
+          .select({ dados: documentoOrganizacao.dados })
+          .from(documentoOrganizacao)
+          .where(
+            and(
+              eq(documentoOrganizacao.id, termos.documentoId),
+              eq(documentoOrganizacao.organizacaoId, processo.organizacaoId),
+              isNull(documentoOrganizacao.apagadoEm)
+            )
+          )
+          .limit(1);
+
+        if (doc?.dados) {
+          return Buffer.from(doc.dados, "base64");
+        }
+      }
+      
       const { gerarTermosPdf } = await import("@/lib/storage/termos-pdf");
       return gerarTermosPdf(new Date());
     },
   );
 
-  await juntar("Proposta de Honorários", "proposta_de_honorarios.pdf", async () => {
-    const { readFile } = await import("node:fs/promises");
-    const { join } = await import("node:path");
-    return readFile(join(process.cwd(), "public", "custos.pdf"));
-  });
+  const { documento } = await import("@/db/schema/documentos");
+  const { and, isNull } = await import("drizzle-orm");
+  const [proposta] = await db()
+    .select({ nome: documento.nomeOriginal, dados: documento.dados, chaveStorage: documento.chaveStorage })
+    .from(documento)
+    .where(
+      and(
+        eq(documento.processoId, processo.id),
+        eq(documento.tipo, "proposta_comercial"),
+        isNull(documento.apagadoEm)
+      )
+    )
+    .limit(1);
+
+  if (proposta) {
+    await juntar("Proposta de Honorários", proposta.nome, async () => {
+      if (proposta.dados) {
+        return Buffer.from(proposta.dados, "base64");
+      } else {
+        const { destinoDaOrganizacao } = await import("@/lib/storage");
+        const ligacao = await destinoDaOrganizacao(processo.organizacaoId);
+        if (ligacao?.destino.ler) {
+          return ligacao.destino.ler(proposta.chaveStorage);
+        }
+        throw new Error("Não foi possível ler a proposta comercial do S3");
+      }
+    });
+  } else {
+    await juntar("Proposta de Honorários", "proposta_de_honorarios.pdf", async () => {
+      const { readFile } = await import("node:fs/promises");
+      const { join } = await import("node:path");
+      return readFile(join(process.cwd(), "public", "custos.pdf"));
+    });
+  }
 
   const [org] = await db()
     .select({
