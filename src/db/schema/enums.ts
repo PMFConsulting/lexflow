@@ -100,7 +100,7 @@ export const finalidadeConsentimento = pgEnum("finalidade_consentimento", [
 ]);
 
 /**
- * Que email a linha do `email_log` regista: os três do documento JMASSANO
+ * Que email a linha do `email_log` regista: os três do documento LexFlow
  * (D31), o aviso interno de submissão (mesmo canal, mesmas falhas) e
  * `reabertura` — aviso ao cliente quando um processo rejeitado volta a rascunho.
  */

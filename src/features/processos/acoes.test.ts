@@ -173,7 +173,7 @@ vi.mock("@/lib/email", () => ({
 }));
 
 vi.mock("@/lib/emails/jmassano", () => ({
-  ASSUNTO_REGISTO: "JMASSANO | Registro",
+  ASSUNTO_REGISTO: "LexFlow | Registro",
   emailRegisto: ({ link }: { link: string }) => `<a href="${link}">link</a>`,
 }));
 

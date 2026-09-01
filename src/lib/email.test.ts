@@ -72,7 +72,7 @@ const { confirmarEntrega, enviarEmail, limparPausasDeQuota, verificarEntrega } =
 
 const base = {
   para: "cliente@exemplo.pt",
-  assunto: "JMASSANO | Registro",
+  assunto: "LexFlow | Registro",
   html: "<p>olá</p>",
   template: "registo" as const,
 };

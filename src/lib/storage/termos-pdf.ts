@@ -49,7 +49,7 @@ export async function gerarTermosPdf(geradoEm: Date): Promise<Buffer> {
   const rodape = () => {
     pagina.drawText(
       paraWinAnsi(
-        `JMASSANO - Escritorio de Advogado · Termos e Condicoes · Versao ${VERSAO_TERMOS}`,
+        `LexFlow · Termos e Condicoes · Versao ${VERSAO_TERMOS}`,
       ),
       { x: MARGEM.x, y: MARGEM.fundo - 18, font: corpo, size: 8, color: RODAPE },
     );

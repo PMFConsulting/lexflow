@@ -233,9 +233,9 @@ vi.mock("@/lib/email", () => ({
 }));
 
 vi.mock("@/lib/emails/jmassano", () => ({
-  ASSUNTO_CONFIRMACAO: "JMASSANO | Confirmação de Receção dos seus Dados",
-  ASSUNTO_BOAS_VINDAS: "Bem-vindo à JMASSANO Escritório de Advogado",
-  ASSUNTO_OTP: "JMASSANO | Código de verificação",
+  ASSUNTO_CONFIRMACAO: "LexFlow | Confirmação de Receção dos seus Dados",
+  ASSUNTO_BOAS_VINDAS: "Bem-vindo à LexFlow",
+  ASSUNTO_OTP: "LexFlow | Código de verificação",
   emailConfirmacaoRececao: () => "<p>confirmação</p>",
   emailBoasVindas: () => "<p>boas-vindas</p>",
   emailCodigoOtp: () => "<p>código</p>",

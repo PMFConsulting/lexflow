@@ -157,7 +157,7 @@ describe("emailsDoProcesso", () => {
     const linha = {
       id: "1",
       para: "cliente@exemplo.pt",
-      assunto: "JMASSANO | Registro",
+      assunto: "LexFlow | Registro",
       template: "registo",
       estado: "entregue",
       erro: null,

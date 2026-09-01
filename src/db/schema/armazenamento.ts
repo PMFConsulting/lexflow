@@ -6,7 +6,7 @@ import { organizacao } from "./organizacao";
 /**
  * Where each firm keeps its clients' case files.
  *
- * One row per organisation: today JMASSANO, tomorrow other firms, each with
+ * One row per organisation: today one firm, tomorrow others, each with
  * their own server. The row always exists — what may be missing are the
  * credentials, and that is what distinguishes "to be configured" from
  * "connected".

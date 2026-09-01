@@ -75,7 +75,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
     await enviarEmail({
       para: "cliente@exemplo.pt",
       html: "<p>x</p>",
-      assunto: "JMASSANO | Acesso ao seu processo",
+      assunto: "LexFlow | Acesso ao seu processo",
       template: "registo",
       organizacaoId: "org-1",
       processoId: "proc-1",
@@ -97,7 +97,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
     await enviarEmail({
       para: "cliente@exemplo.pt",
       html: "<p>x</p>",
-      assunto: "JMASSANO | Confirmação de receção",
+      assunto: "LexFlow | Confirmação de receção",
       template: "confirmacao_rececao",
       organizacaoId: "org-1",
       processoId: "proc-1",
@@ -113,7 +113,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
     await enviarEmail({
       para: "cliente@exemplo.pt",
       html: "<p>x</p>",
-      assunto: "JMASSANO | Processo aprovado — Boas-vindas",
+      assunto: "LexFlow | Processo aprovado — Boas-vindas",
       template: "boas_vindas",
       organizacaoId: "org-1",
       processoId: "proc-1",
@@ -131,7 +131,7 @@ describe("Frente P: Contagem rigorosa de emails por processo", () => {
     await enviarEmail({
       para: "cliente@exemplo.pt",
       html: "<p>x</p>",
-      assunto: "JMASSANO | Código de verificação OTP",
+      assunto: "LexFlow | Código de verificação OTP",
       template: "otp",
       organizacaoId: "org-1",
       processoId: "proc-1",

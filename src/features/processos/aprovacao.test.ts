@@ -133,9 +133,9 @@ vi.mock("@/lib/emails/boas-vindas", () => ({
 }));
 
 vi.mock("@/lib/emails/jmassano", () => ({
-  ASSUNTO_REGISTO: "JMASSANO | Registro",
+  ASSUNTO_REGISTO: "LexFlow | Registro",
   emailRegisto: ({ link }: { link: string }) => `<a href="${link}">link</a>`,
-  ASSUNTO_REJEICAO: "JMASSANO | Feedback Registro",
+  ASSUNTO_REJEICAO: "LexFlow | Feedback Registro",
   emailRejeicao: () => "<p>rejeição</p>",
 }));
 
@@ -329,7 +329,7 @@ describe("rejeitarProcesso", () => {
       {
         para: "maria@exemplo.pt",
         template: "rejeicao",
-        assunto: "JMASSANO | Feedback Registro",
+        assunto: "LexFlow | Feedback Registro",
         html: "<p>rejeição</p>",
         organizacaoId: "org-1",
         processoId: "proc-1",
