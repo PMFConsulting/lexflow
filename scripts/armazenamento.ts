@@ -23,8 +23,12 @@
  * O nome do bucket (`--bucket`) não é segredo nenhum e por isso não vem do
  * ambiente: é o próprio argumento que fica gravado, em claro, na coluna
  * `bucket_s3` — é essa coluna, e não as credenciais cifradas, que decide o
- * destino. A criação do bucket em si fica fora deste script (manual, na
- * consola da AWS) enquanto só houver um punhado de sociedades.
+ * destino. A criação do próprio bucket já não é este script: nasce sozinha
+ * dentro de `criarSociedade` sempre que o super_admin abre uma sociedade
+ * nova (`src/lib/storage/criar-bucket.ts`). Este comando serve para o que
+ * fica de fora disso — reconfigurar uma sociedade já existente, ou apontar
+ * `--bucket` a um já criado à mão quando a criação automática falhou (por
+ * exemplo, a policy do IAM ainda sem `s3:CreateBucket`).
  */
 import { config } from "dotenv";
 import { asc, eq } from "drizzle-orm";

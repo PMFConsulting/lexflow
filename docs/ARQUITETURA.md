@@ -213,7 +213,7 @@ design; **the per-role guards land in Phase 3**.
 A declared PEP forces `nivel_risco = elevado` and blocks automatic approval. It is not
 configurable: it is what the law requires.
 
-### Document storage — S3, one bucket per firm
+### Document storage — S3, one bucket per firm, created automatically
 
 `src/lib/storage/` picks the destination per organisation, from
 `armazenamento_sociedade`: SFTP to the firm's own server (the original, still the default),
@@ -221,20 +221,49 @@ or an S3 bucket when `bucket_s3` is filled in — never both, and never a bucket
 firms. The column, not a type enum, is the switch: a row written before S3 existed keeps
 reading exactly as it did, with no backfill required.
 
-Each firm's bucket lives in **`eu-central-1`**, with **SSE (AES-256)** requested on every
-upload and **versioning** expected to be turned on at creation — both configured on the
-bucket itself, in the AWS console, alongside creating it. `src/lib/storage/s3.ts` signs
-requests with SigV4 over `fetch` and `node:crypto`, not the official SDK: the driver only
-ever needs a PUT and a HEAD, and pulling in the SDK's own dependency tree for those two
-requests would be felt in the build's bundle for no gain — the same reasoning that put curl
-behind the SFTP driver instead of an SSH library.
+**Bucket creation is automatic, not manual, and only `super_admin` can trigger it** — the
+same restriction that already governs `criarSociedade` itself, since a society cannot exist
+without one. Owner's instruction, verbatim: *"that process cannot be a manual process, that
+needs to be automatic process when you create a new society which only can the super admin do."*
+`criarSociedade` (`src/features/plataforma/acoes.ts`) calls `criarBucketSociedade`
+(`src/lib/storage/criar-bucket.ts`) right after the `organizacao` row is inserted and before
+the optional first administrator: the bucket is named `lexflow-<slug>`, where `<slug>` is the
+society's own name normalised (lowercase, `a-z0-9-`, accents stripped, capped at 63
+characters — S3's own limit); on a name collision (bucket names are unique across every AWS
+account, not just ours) it retries once with a short suffix derived from the organisation's
+id. `src/lib/storage/cifra.ts` then encrypts the AWS credentials with `ARMAZENAMENTO_CHAVE`
+into `armazenamento_sociedade.parametros`, the same envelope SFTP credentials already use;
+`ativo` starts `false`, same as any newly configured destination.
 
-Bucket creation stays manual, in the AWS console, while there are only a handful of firms;
-`pnpm armazenamento configurar --protocolo s3 --bucket <nome>` only points an already-created
-bucket at a society, it does not create one. **This PR prepares the driver and does not move
-any existing document.** The 96 identification PDFs and the signature images that already
-live in the database stay there — migrating them is a separate, dedicated script, planned for
-the following week once a firm's bucket is confirmed reachable end to end.
+Each firm's bucket lives in **`eu-central-1`**, with **public access fully blocked**, **SSE
+(AES-256)** and **versioning** all applied by the same call that creates it — not a manual
+follow-up step in the AWS console anymore. `src/lib/storage/s3.ts` signs requests with SigV4
+over `fetch` and `node:crypto`, not the official SDK: the driver only ever needs a PUT and a
+HEAD for documents, and pulling in the SDK's own dependency tree for those two requests would
+be felt in the build's bundle for no gain — the same reasoning that put curl behind the SFTP
+driver instead of an SSH library. `criar-bucket.ts` reuses that same signer (`pedido`, now
+exported) for the four bucket-administration calls (create, public-access-block, encryption,
+versioning) instead of duplicating SigV4.
+
+**Never blocks the society.** If bucket creation fails — missing credentials, the AWS policy
+not yet granting `s3:CreateBucket`, S3 unreachable — `criarSociedade` still creates the
+society, records `armazenamento.bucket_falhou` in the audit trail, logs the failure with
+`console.error`, and returns the reason in `ResultadoSociedade.avisoBucket`, shown as a
+discrete line in the "Nova sociedade" dialog. No `armazenamento_sociedade` row is written on
+failure — a row existing is meant to mean the bucket really was created, never "we tried".
+
+**Known gap, documented rather than worked around:** the IAM user `lexflow-app` currently has
+`Put`/`Get`/`List` on `lexflow-*` but not `s3:CreateBucket`. Without that permission every
+automatic creation fails with 403 and falls into the `avisoBucket` path above — the society
+still gets created, just without a bucket, exactly as designed. Widening the policy (scoped to
+the `lexflow-*` prefix) is an AWS-console change made by whoever administers that account, not
+a code change, and is out of scope for this PR.
+
+**This PR does not move any existing document.** The 96 identification PDFs and the signature
+images already in the database stay there — migrating them is a separate, dedicated script,
+left for once a firm's bucket is confirmed reachable end to end. The five buckets created by
+hand before this automation existed (`lexflow-pmf-consulting`, `lexflow-andrade-costa`,
+`lexflow-mota-associados`, `lexflow-bernardino-lopes`, `lexflow-pinto-costa`) are untouched.
 
 ### Retention
 
