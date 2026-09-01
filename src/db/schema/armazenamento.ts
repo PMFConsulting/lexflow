@@ -11,9 +11,10 @@ import { organizacao } from "./organizacao";
  * credentials, and that is what distinguishes "to be configured" from
  * "connected".
  *
- * There is no type column: the destination is always the firm's dedicated
- * server, over SFTP. The choice between destinations existed while OneDrive was
- * on the table, and left with it.
+ * The destination is the firm's dedicated server over SFTP, unless
+ * `bucketS3` is filled in — an S3 bucket dedicated to that society, never
+ * shared. A null `bucketS3` is what keeps every row written before S3 existed
+ * reading exactly as it did.
  */
 export const armazenamentoSociedade = pgTable(
   "armazenamento_sociedade",
@@ -35,6 +36,13 @@ export const armazenamentoSociedade = pgTable(
     parametros: jsonb("parametros").$type<EnvelopeCifrado | null>(),
     /** Root of the client folders, inside the chosen destination. */
     pastaRaiz: text("pasta_raiz").notNull().default("/Clientes"),
+    /**
+     * The society's dedicated S3 bucket name, e.g. `lexflow-jmassano`. Null
+     * means the destination is SFTP, as before S3 existed — this column, not
+     * a type enum, is what `sincronizar.ts` reads to choose. Not secret: the
+     * bucket name carries no credential, unlike `parametros`.
+     */
+    bucketS3: text("bucket_s3"),
     /**
      * The firm's switch. Kept separate from the credentials on purpose: it
      * allows switching the sync off without deleting the configuration.

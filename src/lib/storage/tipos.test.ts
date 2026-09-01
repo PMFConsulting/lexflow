@@ -3,6 +3,7 @@ import {
   caminho,
   nomeSeguro,
   nomeSeguroDeFicheiro,
+  parametrosS3,
   parametrosServidor,
   validarParametros,
 } from "./tipos";
@@ -127,6 +128,38 @@ describe("validação dos parâmetros", () => {
 
     expect(() =>
       parametrosServidor.parse({ protocolo: "webdav", host: "h", utilizador: "u" }),
+    ).toThrow();
+  });
+
+  it("aceita um bucket S3 completo quando o protocolo vem explícito", () => {
+    expect(
+      validarParametros({
+        protocolo: "s3",
+        regiao: "eu-central-1",
+        bucket: "lexflow-jmassano",
+        accessKeyId: "AKIA...",
+        secretAccessKey: "segredo",
+      }),
+    ).toMatchObject({ protocolo: "s3", bucket: "lexflow-jmassano" });
+  });
+
+  it("recusa um bucket S3 sem região ou sem bucket", () => {
+    expect(() =>
+      parametrosS3.parse({
+        protocolo: "s3",
+        bucket: "lexflow-jmassano",
+        accessKeyId: "AKIA...",
+        secretAccessKey: "segredo",
+      }),
+    ).toThrow();
+
+    expect(() =>
+      parametrosS3.parse({
+        protocolo: "s3",
+        regiao: "eu-central-1",
+        accessKeyId: "AKIA...",
+        secretAccessKey: "segredo",
+      }),
     ).toThrow();
   });
 });

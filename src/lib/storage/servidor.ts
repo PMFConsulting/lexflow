@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import type { Destino, Ficheiro, ParametrosServidor, Verificacao } from "./tipos";
-import { caminho } from "./tipos";
+import { caminho, ErroServidor } from "./tipos";
+
+export { ErroServidor };
 
 /**
  * The firm's dedicated server, over SFTP on SSH.
@@ -22,13 +24,6 @@ const executar = promisify(execFile);
 
 /** An upload cannot hang holding up a matter's submission. */
 const TEMPO_LIMITE_MS = 60_000;
-
-export class ErroServidor extends Error {
-  constructor(mensagem: string) {
-    super(mensagem);
-    this.name = "ErroServidor";
-  }
-}
 
 /* -------------------------------------------------------------------- SFTP */
 

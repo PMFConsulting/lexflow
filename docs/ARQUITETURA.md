@@ -213,6 +213,29 @@ design; **the per-role guards land in Phase 3**.
 A declared PEP forces `nivel_risco = elevado` and blocks automatic approval. It is not
 configurable: it is what the law requires.
 
+### Document storage — S3, one bucket per firm
+
+`src/lib/storage/` picks the destination per organisation, from
+`armazenamento_sociedade`: SFTP to the firm's own server (the original, still the default),
+or an S3 bucket when `bucket_s3` is filled in — never both, and never a bucket shared across
+firms. The column, not a type enum, is the switch: a row written before S3 existed keeps
+reading exactly as it did, with no backfill required.
+
+Each firm's bucket lives in **`eu-central-1`**, with **SSE (AES-256)** requested on every
+upload and **versioning** expected to be turned on at creation — both configured on the
+bucket itself, in the AWS console, alongside creating it. `src/lib/storage/s3.ts` signs
+requests with SigV4 over `fetch` and `node:crypto`, not the official SDK: the driver only
+ever needs a PUT and a HEAD, and pulling in the SDK's own dependency tree for those two
+requests would be felt in the build's bundle for no gain — the same reasoning that put curl
+behind the SFTP driver instead of an SSH library.
+
+Bucket creation stays manual, in the AWS console, while there are only a handful of firms;
+`pnpm armazenamento configurar --protocolo s3 --bucket <nome>` only points an already-created
+bucket at a society, it does not create one. **This PR prepares the driver and does not move
+any existing document.** The 96 identification PDFs and the signature images that already
+live in the database stay there — migrating them is a separate, dedicated script, planned for
+the following week once a firm's bucket is confirmed reachable end to end.
+
 ### Retention
 
 The right to erasure cannot delete what Lei 83/2017 requires to be kept for seven years. The

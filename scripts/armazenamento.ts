@@ -1,5 +1,6 @@
 /**
- * Configuração do armazenamento de uma sociedade — o servidor dedicado, por SFTP.
+ * Configuração do armazenamento de uma sociedade — o servidor dedicado, por
+ * SFTP, ou um bucket S3 dedicado a essa sociedade.
  *
  * As credenciais entram por aqui e não por um formulário no back-office: uma
  * palavra-passe colada numa caixa de texto passa pelo browser, pelo proxy e
@@ -9,13 +10,21 @@
  *   pnpm armazenamento estado
  *   pnpm armazenamento testar
  *   pnpm armazenamento configurar --pasta /Clientes
+ *   pnpm armazenamento configurar --protocolo s3 --bucket lexflow-jmassano
  *   pnpm armazenamento desligar
  *
  * O `configurar` lê os parâmetros do ambiente, nunca de argumentos da linha de
  * comandos — `ps aux` mostra argumentos, e o histórico da shell guarda-os:
  *
- *   SERVIDOR_HOST, SERVIDOR_PORTA, SERVIDOR_UTILIZADOR, SERVIDOR_SEGREDO,
- *   SERVIDOR_CHAVE_PRIVADA, SERVIDOR_IMPRESSAO_HOST, SERVIDOR_CAMINHO_BASE
+ *   SFTP:  SERVIDOR_HOST, SERVIDOR_PORTA, SERVIDOR_UTILIZADOR, SERVIDOR_SEGREDO,
+ *          SERVIDOR_CHAVE_PRIVADA, SERVIDOR_IMPRESSAO_HOST, SERVIDOR_CAMINHO_BASE
+ *   S3:    AWS_REGION, LEXFLOW_S3_ACCESS_KEY_ID, LEXFLOW_S3_SECRET_ACCESS_KEY
+ *
+ * O nome do bucket (`--bucket`) não é segredo nenhum e por isso não vem do
+ * ambiente: é o próprio argumento que fica gravado, em claro, na coluna
+ * `bucket_s3` — é essa coluna, e não as credenciais cifradas, que decide o
+ * destino. A criação do bucket em si fica fora deste script (manual, na
+ * consola da AWS) enquanto só houver um punhado de sociedades.
  */
 import { config } from "dotenv";
 import { asc, eq } from "drizzle-orm";
@@ -25,8 +34,9 @@ import { uuidv7 } from "uuidv7";
 import { armazenamentoSociedade } from "../src/db/schema/armazenamento";
 import { organizacao } from "../src/db/schema/organizacao";
 import { cifrar, decifrar, lerChave } from "../src/lib/storage/cifra";
+import { criarDestinoS3 } from "../src/lib/storage/s3";
 import { criarDestinoServidor } from "../src/lib/storage/servidor";
-import { parametrosServidor, type Destino } from "../src/lib/storage/tipos";
+import { parametrosS3, parametrosServidor, type Destino } from "../src/lib/storage/tipos";
 
 config({ path: ".env" });
 
@@ -77,7 +87,7 @@ async function sociedade(base: Base) {
   return linhas[0];
 }
 
-function parametrosDoAmbiente() {
+function parametrosSftpDoAmbiente() {
   return parametrosServidor.parse({
     protocolo: "sftp",
     host: process.env.SERVIDOR_HOST,
@@ -90,8 +100,20 @@ function parametrosDoAmbiente() {
   });
 }
 
-function destinoDe(parametros: unknown): Destino {
-  return criarDestinoServidor(parametrosServidor.parse(parametros));
+function parametrosS3DoAmbiente(bucket: string) {
+  return parametrosS3.parse({
+    protocolo: "s3",
+    regiao: process.env.AWS_REGION,
+    bucket,
+    accessKeyId: process.env.LEXFLOW_S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.LEXFLOW_S3_SECRET_ACCESS_KEY,
+  });
+}
+
+function destinoDe(parametros: unknown, bucketS3: string | null): Destino {
+  return bucketS3
+    ? criarDestinoS3(parametrosS3.parse(parametros))
+    : criarDestinoServidor(parametrosServidor.parse(parametros));
 }
 
 async function linhaDe(base: Base, organizacaoId: string) {
@@ -115,7 +137,9 @@ async function estado(base: Base) {
     return;
   }
 
-  console.log(`Destino:   servidor da sociedade (SFTP)`);
+  console.log(
+    `Destino:   ${linha.bucketS3 ? `bucket S3 dedicado (${linha.bucketS3})` : "servidor da sociedade (SFTP)"}`,
+  );
   console.log(`Pasta:     ${linha.pastaRaiz}`);
   console.log(`Credenciais: ${linha.parametros ? "gravadas (cifradas)" : "por gravar"}`);
   console.log(`Ativo:     ${linha.ativo ? "sim" : "não"}`);
@@ -128,17 +152,28 @@ async function estado(base: Base) {
 
 async function configurar(base: Base) {
   const org = await sociedade(base);
-  const parametros = parametrosDoAmbiente();
+  const protocolo = argumento("protocolo") === "s3" ? "s3" : "sftp";
+  const bucket = argumento("bucket") || undefined;
+
+  if (protocolo === "s3" && !bucket) {
+    console.error(
+      "--bucket é obrigatório com --protocolo s3 (um bucket dedicado por sociedade, nunca partilhado).",
+    );
+    process.exit(1);
+  }
+
+  const parametros = protocolo === "s3" ? parametrosS3DoAmbiente(bucket!) : parametrosSftpDoAmbiente();
   const envelope = cifrar(parametros, chave());
   const pastaRaiz = argumento("pasta") ?? "/Clientes";
   const ativo = argumento("ativo") !== "false";
+  const bucketS3 = protocolo === "s3" ? bucket! : null;
 
   const existente = await linhaDe(base, org.id);
 
   if (existente) {
     await base
       .update(armazenamentoSociedade)
-      .set({ parametros: envelope, pastaRaiz, ativo, ultimoErro: null })
+      .set({ parametros: envelope, pastaRaiz, ativo, bucketS3, ultimoErro: null })
       .where(eq(armazenamentoSociedade.id, existente.id));
   } else {
     await base.insert(armazenamentoSociedade).values({
@@ -147,10 +182,12 @@ async function configurar(base: Base) {
       parametros: envelope,
       pastaRaiz,
       ativo,
+      bucketS3,
     });
   }
 
-  console.log(`✓ ${org.nome}: SFTP em ${pastaRaiz}, ${ativo ? "ativo" : "desativado"}.`);
+  const descricaoDestino = protocolo === "s3" ? `S3 (bucket ${bucket})` : "SFTP";
+  console.log(`✓ ${org.nome}: ${descricaoDestino} em ${pastaRaiz}, ${ativo ? "ativo" : "desativado"}.`);
   console.log("  As credenciais ficaram cifradas com ARMAZENAMENTO_CHAVE.");
   console.log("  Confirma com: pnpm armazenamento testar");
 }
@@ -164,7 +201,7 @@ async function testar(base: Base) {
     process.exit(1);
   }
 
-  const destino = destinoDe(decifrar(linha.parametros, chave()));
+  const destino = destinoDe(decifrar(linha.parametros, chave()), linha.bucketS3);
   const r = await destino.verificar();
   console.log(`${r.ok ? "✓" : "✗"} ${r.detalhe}`);
   if (!r.ok) process.exit(1);
