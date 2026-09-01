@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { Building2, Mail, ScrollText, ShieldCheck, Users } from "lucide-react";
 import { exigirAdministracao } from "@/lib/sessao";
 import {
   resumoEquipa,
@@ -30,6 +30,16 @@ const CARTOES = [
     icone: ShieldCheck,
     descricao:
       "As aceitações de Termos e Condições, com versão, data e endereço. É o que se mostra numa validação jurídica.",
+  },
+  {
+    // Herdado de "Configuração" (BUG3-011) — o resto dessa página duplicava
+    // "A minha conta" e "Sociedade"; isto era o único conteúdo que não vivia
+    // em mais nenhum sítio.
+    href: "/configuracao/emails",
+    titulo: "Modelos de Email",
+    icone: Mail,
+    descricao:
+      "O assunto e o corpo das mensagens enviadas aos clientes — boas-vindas, confirmação de receção, rejeição e reabertura.",
   },
 ];
 
