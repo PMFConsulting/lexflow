@@ -24,11 +24,11 @@ export default async function PaginaModelosEmail() {
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
       <div>
         <Link
-          href="/configuracao"
+          href="/gestao"
           className="text-tinta-suave hover:text-foreground inline-flex items-center gap-1.5 text-xs transition-colors"
         >
           <ArrowLeft className="size-3.5" />
-          Voltar à Configuração
+          Voltar à Administração
         </Link>
         <div className="mt-2 flex items-center gap-3">
           <div className="border-linha bg-papel-alto flex size-10 items-center justify-center rounded-sm border">
