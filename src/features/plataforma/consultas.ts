@@ -432,25 +432,3 @@ export async function metadadosProcessosDaSociedade(organizacaoId: string, limit
     .orderBy(desc(processoOnboarding.atualizadoEm))
     .limit(limite);
 }
-
-/** Utilizadores que o gestor pode associar a si proprio (sem gestor e ativos). */
-export async function listarUtilizadoresElegiveisParaGestor(organizacaoId: string) {
-  return db()
-    .select({
-      id: utilizador.id,
-      nome: utilizador.nome,
-      email: utilizador.email,
-    })
-    .from(utilizador)
-    .where(
-      and(
-        eq(utilizador.organizacaoId, organizacaoId),
-        eq(utilizador.papel, "utilizador"),
-        eq(utilizador.ativo, true),
-        isNull(utilizador.apagadoEm),
-        isNull(utilizador.gestorId),
-      ),
-    )
-    .orderBy(asc(utilizador.nome));
-}
-
