@@ -120,7 +120,7 @@ export async function guardarModeloEmail(dados: unknown): Promise<ResultadoGuard
     console.error("[email_modelo] Falha ao registar auditoria", e);
   }
 
-  revalidatePath("/configuracao/emails");
+  revalidatePath("/gestao/configuracoes");
   return { ok: true, template };
 }
 
@@ -188,6 +188,6 @@ export async function reverterModeloEmail(dados: unknown): Promise<ResultadoReve
     console.error("[email_modelo] Falha ao registar auditoria de reversão", e);
   }
 
-  revalidatePath("/configuracao/emails");
+  revalidatePath("/gestao/configuracoes");
   return { ok: true, template };
 }

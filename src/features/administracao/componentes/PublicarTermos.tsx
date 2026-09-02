@@ -161,7 +161,7 @@ export function PublicarTermos({
         <div className="flex flex-wrap items-center justify-between gap-3">
           {versaoAtual && (
             <a
-              href="/gestao/sociedade/termos"
+              href="/advogado/termos"
               target="_blank"
               rel="noopener"
               className="text-xs text-muted-foreground underline underline-offset-2"

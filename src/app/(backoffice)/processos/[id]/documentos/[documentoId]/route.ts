@@ -5,15 +5,19 @@ import { documento } from "@/db/schema/documentos";
 import { processoOnboarding } from "@/db/schema/processo";
 import { registarEvento } from "@/features/auditoria/registar";
 import { exigirEquipaOuSuperAdmin, podeAcederSociedade } from "@/lib/sessao";
+import { destinoDaOrganizacao } from "@/lib/storage";
+import { mensagemSegura } from "@/lib/storage/sanitizacao";
 
 /**
  * Descarrega um documento anexado a um processo.
  *
- * Enquanto não há object storage, o ficheiro vive em base64 na base de dados
- * (`documento.dados`) e esta rota serve-o diretamente — é o que permite ao
- * painel ver o que o cliente carregou sem depender do armazenamento dedicado.
- * Quando `dados` estiver vazio (ficheiro só no bucket), a rota devolve 404 com
- * a indicação de que o download passa pelo URL assinado do armazenamento.
+ * Um documento carregado depois de a sociedade ter S3 ativo não tem `dados`
+ * (D66 — nenhum documento novo vive na base de dados); esta rota lê-o do
+ * bucket da própria sociedade através de `chaveStorage`. Um documento antigo,
+ * de antes desta mudança ou de uma sociedade ainda em SFTP, continua a ter
+ * `dados` preenchido e é servido dali, sem tocar em rede nenhuma — os dois
+ * caminhos coexistem porque migrar os 215+ processos já em produção é uma
+ * decisão à parte, deliberadamente adiada (ver `scripts/migrar-documentos-s3.ts`).
  *
  * Autorização: utilizadores da organização ou super_admin (dono da plataforma).
  */
@@ -79,6 +83,7 @@ export async function GET(
       mime: documento.mime,
       tipo: documento.tipo,
       dados: documento.dados,
+      chaveStorage: documento.chaveStorage,
     })
     .from(documento)
     .where(
@@ -93,14 +98,29 @@ export async function GET(
   if (!doc) {
     return NextResponse.json({ erro: "Documento não encontrado." }, { status: 404 });
   }
-  if (!doc.dados) {
-    return NextResponse.json(
-      { erro: "O documento só está acessível no armazenamento dedicado." },
-      { status: 404 },
-    );
+
+  let bytes: Buffer;
+  if (doc.dados) {
+    bytes = Buffer.from(doc.dados, "base64");
+  } else {
+    const ligacao = await destinoDaOrganizacao(processo.organizacaoId);
+    if (!ligacao?.destino.ler) {
+      return NextResponse.json(
+        { erro: "O documento está no armazenamento dedicado, que não está acessível de momento." },
+        { status: 404 },
+      );
+    }
+    try {
+      bytes = await ligacao.destino.ler(doc.chaveStorage);
+    } catch (e) {
+      console.error(`[documento] falha ao ler "${doc.nome}" do armazenamento`, mensagemSegura(e));
+      return NextResponse.json(
+        { erro: "Não foi possível obter o documento do armazenamento." },
+        { status: 502 },
+      );
+    }
   }
 
-  const bytes = new Uint8Array(Buffer.from(doc.dados, "base64"));
   if (bytes.length === 0) {
     return NextResponse.json({ erro: "O ficheiro está vazio ou corrompido." }, { status: 404 });
   }
@@ -123,7 +143,11 @@ export async function GET(
     userAgent: pedido.headers.get("user-agent") ?? null,
   });
 
-  return new Response(bytes, {
+  // `Buffer.from` volta a fixar o parâmetro genérico em `ArrayBuffer`: tanto
+  // `Buffer.from(base64)` como o `Buffer` devolvido por `destino.ler` chegam
+  // aqui tipados como `Buffer<ArrayBufferLike>`, que o `BodyInit` do DOM
+  // recusa — o mesmo padrão já usado nas outras rotas de download.
+  return new Response(Buffer.from(bytes), {
     headers: {
       // O MIME foi normalizado contra a lista dos aceites à entrada
       // (`formatos.ts`), mas o `nosniff` fecha o caso de um ficheiro antigo,

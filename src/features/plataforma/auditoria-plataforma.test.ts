@@ -4,7 +4,7 @@ type Linha = Record<string, unknown>;
 
 const eventosAuditados: Linha[] = [];
 let linhas: Record<string, Linha[]> = {};
-let utilizadoresInseridos: Linha[] = [];
+const utilizadoresInseridos: Linha[] = [];
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),

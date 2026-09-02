@@ -5,6 +5,7 @@ import {
   sociedadeDe,
 } from "@/features/administracao/consultas";
 import { GestaoEquipa } from "@/features/administracao/componentes/GestaoEquipa";
+import { perfisDosConvites } from "@/features/convites/dados";
 
 export const metadata = { title: "Utilizadores" };
 export const dynamic = "force-dynamic";
@@ -14,10 +15,11 @@ export default async function Utilizadores() {
   // lateral não fecha o endereço a quem o escreva à mão (D35).
   const { eu } = await exigirAdministracao();
 
-  const [equipa, convites, org] = await Promise.all([
+  const [equipa, convites, org, perfis] = await Promise.all([
     listarEquipa(eu.organizacaoId),
     listarConvites(eu.organizacaoId),
     sociedadeDe(eu.organizacaoId),
+    perfisDosConvites(eu.organizacaoId),
   ]);
 
   return (
@@ -33,6 +35,7 @@ export default async function Utilizadores() {
       <GestaoEquipa
         equipa={equipa}
         convites={convites}
+        perfis={perfis}
         versaoTermos={org?.termosVersao ?? null}
         euId={eu.id}
       />

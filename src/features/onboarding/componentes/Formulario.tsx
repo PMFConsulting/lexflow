@@ -136,6 +136,7 @@ function carga(n: number, fd: FormData): unknown {
         docTipo: txt(fd, "docTipo"),
         docNumero: txt(fd, "docNumero"),
         docValidade: txt(fd, "docValidade"),
+        ccDeclarado: bool(fd, "ccDeclarado"),
         cae: txt(fd, "cae") || undefined,
         codigoCertidaoPermanente: txt(fd, "codigoCertidaoPermanente") || undefined,
         regimeIva: txt(fd, "regimeIva") || undefined,
@@ -266,6 +267,8 @@ export function Formulario({
     if (!campos.length) {
       // Sem `{}` novo quando já estava vazio, senão o primeiro render de cada
       // passo pedia um segundo sem nada ter mudado.
+      // Só limpar quando já não está vazio evita o 2.º render do 1.º passo.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRotulos((atuais) => (Object.keys(atuais).length ? {} : atuais));
       return;
     }
@@ -304,6 +307,8 @@ export function Formulario({
   const [newsletter, setNewsletter] = useState(seccoes.preferencias?.newsletter ?? null);
   const [convites, setConvites] = useState(seccoes.preferencias?.convitesIniciativas ?? null);
   const [otpVerificado, setOtpVerificado] = useState(otp.verificado);
+  const [docTipo, setDocTipo] = useState(seccoes.fiscais?.docTipo ?? "");
+  const [ccDeclarado, setCcDeclarado] = useState(false);
 
   const anterior = passoAnterior(n, tipoCliente);
   const passo = PASSOS.find((p) => p.n === n)!;
@@ -626,10 +631,28 @@ export function Formulario({
           <Separator />
           <h2 className="text-lg">Documento de identificação</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <CampoEscolha etiqueta="Tipo de documento" nome="docTipo" erros={erros} obrigatorio opcoes={DOCUMENTOS} valorInicial={seccoes.fiscais?.docTipo ?? ""} />
+            <CampoEscolha etiqueta="Tipo de documento" nome="docTipo" erros={erros} obrigatorio opcoes={DOCUMENTOS} valorInicial={docTipo} onChange={setDocTipo} />
             <CampoTexto etiqueta="Número do documento" nome="docNumero" erros={erros} obrigatorio mono valorInicial={seccoes.fiscais?.docNumero ?? ""} />
             <CampoTexto etiqueta="Data de validade" nome="docValidade" tipo="date" erros={erros} obrigatorio valorInicial={seccoes.fiscais?.docValidade ?? ""} />
           </div>
+
+          {docTipo === "cartao_cidadao" && (
+            <div className="mt-4 border-latao/40 bg-latao/5 flex flex-col gap-3 rounded-sm border p-4 text-sm">
+              <p className="flex items-start gap-2 text-tinta-suave">
+                <Info className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  A recolha da imagem do Cartão de Cidadão é feita exclusivamente para o cumprimento das obrigações de identificação previstas na Lei n.º 83/2017 (Branqueamento de Capitais e Financiamento do Terrorismo), conforme exigido pelo art. 5.º da Lei n.º 7/2007.
+                </span>
+              </p>
+              <CampoCaixa
+                nome="ccDeclarado"
+                etiqueta="Tomei conhecimento de que a imagem do meu Cartão de Cidadão será recolhida e conservada para as referidas finalidades legais."
+                erros={erros}
+                valorInicial={ccDeclarado}
+                onChange={setCcDeclarado}
+              />
+            </div>
+          )}
 
           <Separator />
           <Anexos

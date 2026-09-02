@@ -26,6 +26,9 @@ import {
   reenviarConvite,
 } from "../acoes";
 import type { LinhaConvite, LinhaEquipa } from "../consultas";
+import { PreencherPerfil } from "@/features/convites/componentes/PreencherPerfil";
+import { exerceAdvocacia } from "@/features/convites/passos";
+import type { PerfilAdiantado } from "@/features/convites/dados";
 import { rotuloDoPapel } from "@/components/portal-shell";
 import { formatarDataCurta } from "@/lib/datas";
 
@@ -46,11 +49,14 @@ const PAPEIS = [
 export function GestaoEquipa({
   equipa,
   convites,
+  perfis,
   versaoTermos,
   euId,
 }: {
   equipa: LinhaEquipa[];
   convites: LinhaConvite[];
+  /** O que já está preenchido na ficha de cada convite, por `conviteId`. */
+  perfis: Record<string, PerfilAdiantado>;
   /** A versão do articulado em vigor — para dizer quem ainda não a aceitou. */
   versaoTermos: string | null;
   /** Quem está a ver, para o ecrã não lhe oferecer desativar-se a si próprio. */
@@ -230,6 +236,14 @@ export function GestaoEquipa({
                       {c.criadoPor ? ` · convidado por ${c.criadoPor}` : ""}
                     </p>
                   </div>
+
+                  <PreencherPerfil
+                    conviteId={c.id}
+                    nome={c.nome}
+                    email={c.email}
+                    exerce={exerceAdvocacia(c.papel)}
+                    inicial={perfis[c.id] ?? null}
+                  />
 
                   <Button
                     type="button"

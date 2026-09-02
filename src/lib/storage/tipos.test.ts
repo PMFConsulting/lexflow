@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   caminho,
+  chaveObjeto,
   nomeSeguro,
   nomeSeguroDeFicheiro,
   parametrosS3,
@@ -90,6 +91,28 @@ describe("caminho", () => {
     expect(caminho(["Clientes", "Ana Silva"])).toBe("/Clientes/Ana Silva");
     expect(caminho(["/Clientes/", "", "  ", "PMF-2026-0001"])).toBe("/Clientes/PMF-2026-0001");
     expect(caminho([])).toBe("/");
+  });
+});
+
+/**
+ * `chaveObjeto` é o que garante que a chave S3 assinada em `s3.ts` e a
+ * gravada em `documento.chaveStorage` são sempre a mesma string — as duas
+ * vêm desta função.
+ */
+describe("chaveObjeto", () => {
+  it("junta segmentos e nome do ficheiro sem barra inicial", () => {
+    expect(chaveObjeto(["Sistema", "processos", "proc-1", "abc-doc.pdf"])).toBe(
+      "Sistema/processos/proc-1/abc-doc.pdf",
+    );
+  });
+
+  it("ignora segmentos vazios e espaços", () => {
+    expect(chaveObjeto(["Sistema", "", "  ", "proc-1"])).toBe("Sistema/proc-1");
+  });
+
+  it("não tem barra a abrir, ao contrário de caminho()", () => {
+    expect(chaveObjeto(["Clientes", "Ana"])).toBe("Clientes/Ana");
+    expect(caminho(["Clientes", "Ana"])).toBe("/Clientes/Ana");
   });
 });
 

@@ -22,6 +22,29 @@ import { DetalheProcesso } from "@/features/processos/componentes/DetalheProcess
 
 export const dynamic = "force-dynamic";
 
+/**
+ * O título do separador leva a referência do processo.
+ *
+ * Sem isto, cada detalhe abria como "LexFlow — Processos" (o `default` do
+ * layout de raiz): com meia dúzia de processos abertos em separadores, todos
+ * se chamavam o mesmo, e o histórico do browser guardava-os todos com o
+ * mesmo nome. A referência é o identificador por que o processo é procurado
+ * em todo o lado — é ela que aqui serve.
+ *
+ * Um `id` que não resolve devolve o título genérico e não `notFound()`: quem
+ * decide que a página não existe é a página, e uma exceção lançada daqui
+ * trocava o ecrã de 404 por um erro.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const processo = await processoPorId(id);
+  return { title: processo ? `Processo ${processo.referencia}` : "Processo" };
+}
+
 export default async function Processo({
   params,
 }: {

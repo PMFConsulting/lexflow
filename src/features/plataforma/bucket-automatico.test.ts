@@ -116,7 +116,10 @@ describe("criarSociedade — bucket S3 automático", () => {
     const linhaArmazenamento = inseridos.find((i) => i.tabela === armazenamentoSociedade);
     expect(linhaArmazenamento).toBeDefined();
     expect(linhaArmazenamento?.valores.bucketS3).toBe("lexflow-jmassano");
-    expect(linhaArmazenamento?.valores.ativo).toBe(false);
+    // Nasce ativo (regra do dono): um bucket criado e desativo obrigava a um
+    // comando manual antes do primeiro upload — e, com a D66, o upload do
+    // cliente é recusado enquanto não houver S3 ativo.
+    expect(linhaArmazenamento?.valores.ativo).toBe(true);
     expect(linhaArmazenamento?.valores.organizacaoId).toBe(r.id);
     // A cifra é real (D34/D65): o que fica gravado nunca é a credencial em claro.
     expect(JSON.stringify(linhaArmazenamento?.valores.parametros)).not.toContain("segredo-de-teste");

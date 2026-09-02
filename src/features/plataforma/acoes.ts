@@ -132,11 +132,18 @@ async function criarArmazenamentoAutomatico(
   // `insert` chega — ao contrário de `scripts/armazenamento.ts configurar`,
   // que reconfigura uma sociedade já existente e por isso decide entre
   // inserir e atualizar.
+  //
+  // `ativo: true` (regra do dono, verbatim: *"every bucket needs to be working
+  // ... that bucket needs to be working"*). A linha só chega aqui depois de
+  // `criarBucketSociedade` ter devolvido — o bucket existe e as credenciais
+  // estão cifradas, e nascer desativa obrigava a um comando manual antes do
+  // primeiro upload, que é exatamente o que a D66 recusa: sem S3 ativo, o
+  // upload do cliente é recusado e o onboarding fica trancado.
   await db().insert(armazenamentoSociedade).values({
     id: uuidv7(),
     organizacaoId,
     bucketS3: bucket,
-    ativo: false,
+    ativo: true,
     parametros: cifrar(parametros, chave),
   });
 

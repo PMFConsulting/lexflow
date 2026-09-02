@@ -64,6 +64,29 @@ export const pais = z
   .length(2, "Escolha um país da lista.")
   .transform((v) => v.toUpperCase());
 
+/**
+ * O sítio da sociedade — opcional, e vazio significa mesmo vazio.
+ *
+ * O `""` que um campo por preencher envia não é um URL, e um `z.url()`
+ * optional recusa-o com «URL inválido» sobre uma caixa que ninguém abriu — a
+ * forma mais irritante de «Falta corrigir um campo», e a mesma que o
+ * `regimeIva` já tinha mostrado no passo 2 do cliente.
+ *
+ * Vive aqui desde que passou a ser pedido em dois sítios — o passo 2 do
+ * registo da sociedade e a edição dos dados dela no portal de administração.
+ * Duas cópias divergiriam, e a que divergisse seria a do percurso menos
+ * percorrido.
+ */
+export const website = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v ? v : undefined))
+  .refine(
+    (v) => v === undefined || /^https?:\/\/.+\..+/.test(v),
+    "Indique o endereço completo, começado por https://.",
+  );
+
 export const codigoPostal = z
   .string()
   .trim()

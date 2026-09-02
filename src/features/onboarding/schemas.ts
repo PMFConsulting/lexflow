@@ -60,6 +60,7 @@ const documentoIdentificacao = {
       (v) => new Date(v) > new Date(),
       "O documento está fora de validade. Renove-o antes de continuar.",
     ),
+  ccDeclarado: z.boolean().default(false),
 };
 
 /* ── passo 1 — identificação ──────────────────────────────────────────── */
@@ -181,6 +182,14 @@ export const passo2 = z
     if (v.nifPortugues) {
       const r = v.tipoCliente === "empresa" ? validarNipc(v.nif) : validarNif(v.nif);
       if (!r.valido) ctx.addIssue({ code: "custom", path: ["nif"], message: r.mensagem });
+    }
+
+    if (v.docTipo === "cartao_cidadao" && !v.ccDeclarado) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ccDeclarado"],
+        message: "Tem de declarar que tomou conhecimento da finalidade da recolha do Cartão de Cidadão.",
+      });
     }
 
     // Um erro por documento em falta, não um "faltam anexos" genérico — três

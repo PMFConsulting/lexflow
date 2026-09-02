@@ -299,6 +299,7 @@ const PASSO_2 = {
   docTipo: "cartao_cidadao",
   docNumero: "12345678",
   docValidade: "2999-01-01",
+  ccDeclarado: true,
 };
 
 const PASSO_4 = {

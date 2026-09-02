@@ -1,6 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
 import type { Destino, Ficheiro, ParametrosS3, Verificacao } from "./tipos";
-import { ErroServidor } from "./tipos";
+import { chaveObjeto, ErroServidor } from "./tipos";
 
 /**
  * The firm's dedicated S3 bucket, one per society, signed directly with
@@ -45,21 +45,8 @@ function anfitriao(p: ParametrosS3): string {
   return `${p.bucket}.s3.${p.regiao}.amazonaws.com`;
 }
 
-/**
- * Object key from folder segments — no leading slash, which is an S3
- * convention and not a filesystem path. The segments arrive already sanitised
- * by `nomeSeguro`; this only joins them.
- */
-function chaveDoObjeto(segmentos: string[]): string {
-  return segmentos
-    .flatMap((s) => s.split("/"))
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .join("/");
-}
-
-function caminhoCanonico(chaveObjeto: string): string {
-  const codificado = chaveObjeto
+function caminhoCanonico(chave: string): string {
+  const codificado = chave
     .split("/")
     .filter(Boolean)
     .map(encodeURIComponent)
@@ -157,8 +144,8 @@ export function criarDestinoS3(p: ParametrosS3): Destino {
     },
 
     async enviar(segmentos, ficheiro: Ficheiro) {
-      const chaveObjeto = chaveDoObjeto([...segmentos, ficheiro.nome]);
-      const resposta = await pedido(p, "PUT", chaveObjeto, ficheiro.conteudo, {
+      const chave = chaveObjeto([...segmentos, ficheiro.nome]);
+      const resposta = await pedido(p, "PUT", chave, ficheiro.conteudo, {
         "content-type": ficheiro.mime,
         "x-amz-server-side-encryption": "AES256",
       });
@@ -168,6 +155,16 @@ export function criarDestinoS3(p: ParametrosS3): Destino {
           `Envio de "${ficheiro.nome}" falhou (S3 respondeu ${resposta.status}).`,
         );
       }
+    },
+
+    async ler(chave: string): Promise<Buffer> {
+      const resposta = await pedido(p, "GET", chave, Buffer.alloc(0));
+
+      if (!resposta.ok) {
+        throw new ErroServidor(`Leitura de "${chave}" falhou (S3 respondeu ${resposta.status}).`);
+      }
+
+      return Buffer.from(await resposta.arrayBuffer());
     },
 
     async verificar(): Promise<Verificacao> {

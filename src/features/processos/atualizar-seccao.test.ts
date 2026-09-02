@@ -16,7 +16,7 @@ type Linha = Record<string, unknown>;
 
 const auditados: { acao: string; valorAnterior?: Linha; valorNovo?: Linha }[] = [];
 let linhas: Record<string, Linha[]> = {};
-let upserts: { tabela: string; valores: Linha }[] = [];
+const upserts: { tabela: string; valores: Linha }[] = [];
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 

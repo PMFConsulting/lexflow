@@ -164,9 +164,8 @@ export async function alterarPreferenciaNotificacaoSubmissoes(
     userAgent,
   });
 
-  revalidatePath("/configuracao");
-  revalidatePath("/configuracao/emails");
-  revalidatePath("/gestao/sociedade");
+  revalidatePath("/gestao/configuracoes");
+  revalidatePath("/", "layout");
 
   return { ok: true, valor: ativar };
 }

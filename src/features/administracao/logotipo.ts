@@ -27,7 +27,7 @@ export type ResultadoRemoverLogotipo =
   | { ok: false; mensagem: string };
 
 function revalidarLogotipoAdministracao() {
-  revalidatePath("/gestao/sociedade");
+  revalidatePath("/gestao/configuracoes");
   revalidatePath("/", "layout");
 }
 

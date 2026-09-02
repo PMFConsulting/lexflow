@@ -756,6 +756,69 @@ applying `0027` (38 tables). Not walked against a real bucket — the five bucke
 `lexflow-bernardino-lopes`, `lexflow-pinto-costa`) are referenced in the driver's tests and in
 `docs/ARQUITETURA.md`, not touched by this session.
 
+### Update — client documents leave the database, S3 becomes the only writer (01/09/2026)
+
+Owner's instruction, verbatim: *"No documents have to be in the database. No documents, everything
+in its own S3."* The previous session (D65) prepared the S3 driver but every write still landed in
+`documento.dados`, the placeholder from before object storage existed. This session closes that
+gap for the client path — see D66.
+
+**The client's own upload (`carregarDocumento`) writes straight to the bucket.** It resolves
+`destinoDaOrganizacao`, and if the firm has no S3 bucket active, **the upload is refused** — a
+technical message, not a silent fallback to the database. That was the one real decision here: the
+alternative (keep writing `dados` when there is nowhere else to put the file) is exactly the
+back door the owner's instruction closes, and a document is already a hard gate at step 2 (D56) —
+refusing here is not a new category of blocking, just the same gate for a new reason. The object
+key is `Sistema/processos/<processoId>/<hash>-<nome>`, and `documento.dados` is left `null`.
+
+**S3 gained a reader.** `Destino.ler?(chave)` (optional — SFTP has none) rounds out the driver
+that until now only wrote and HEAD-checked; it reuses the same SigV4 `pedido()`. The download route
+under `/processos/[id]/documentos/[documentoId]` now branches on `dados`: present, serve it exactly
+as before (a document from before this change, or from a firm still on SFTP); absent, fetch it
+from the bucket by `chaveStorage`. `chaveObjeto()` moved out of `s3.ts` into `tipos.ts` so the
+exact string the driver signs is the same one written to the database — two functions computing
+"the same" key was the shape of defect D39 already closed once, in the accepted-formats list.
+
+**`Sistema/` and `Clientes/` stay two different things inside the same bucket, on purpose.** The
+upload above writes to `Sistema/processos/…` — the technical copy `documento.chaveStorage` always
+trusts, immutable regardless of what the firm's staff do by hand. `sincronizar.ts` still writes the
+human-browsable `Clientes/<Nome (NIF)>/<Referência>/` folder at submission, with `summary.pdf`,
+`dados_cliente.pdf`, and now a *copy* of each attachment — read through `destino.ler` when
+`dados` is null, from `dados` directly when it isn't. Two copies of the same file in one bucket,
+not two buckets: platform-generated PDFs never had anywhere else to live, and mixing them into a
+shared cross-firm location was never how this worked (D65 already gives every firm its own
+bucket) — the risk the brief asked to guard against was two *layouts* inside one bucket getting
+confused with each other, which the `Sistema/` vs `Clientes/` split is what answers.
+
+**`scripts/migrar-documentos-s3.ts`, prepared and not run.** For each existing `documento.dados`
+row, once its firm has S3 active: uploads to the key already sitting in `chave_storage` (does not
+invent a new one), only zeroes `dados` after that upload confirms. Same owner's instruction as
+D65 — the 215+ processes already in production are a migration for "next week", not this session.
+
+**Left alone, on purpose:** `documentoOrganizacao` (the firm's own T&C and a team member's
+documents, in `src/features/sociedade/documentos.ts` and `src/features/convites/documentos.ts`)
+still writes to `dados` exactly as before. The brief's file list and deliverables named the client
+path specifically; the same treatment there is mechanical but adds a second table, two more upload
+call sites and a download surface that does not exist yet — a follow-up, not folded in silently.
+`assinatura.imagemDados` (the signature image) is the same kind of leftover, untouched here.
+
+**Risk, and it is the operational one:** PMF's own `armazenamento_sociedade` row has `bucket_s3`
+empty and `ativo = false` (as of this session) — under the new rule, client document uploads on
+`poc.terlicalabs.com` will be **refused** until someone runs
+`pnpm armazenamento configurar --org <PMF> --protocolo s3 --bucket lexflow-pmf-consulting --ativo true`
+(the bucket already exists; the AWS keys already sit in the container's `.env`, per D65). This has
+to happen before this change deploys, not after — deploying first breaks onboarding uploads in
+production until that command runs.
+
+**Verified in this session:** `pnpm typecheck` clean, `pnpm test` 920 green (up from 880 — 40 new
+tests: `s3.test.ts`'s `ler`, `tipos.test.ts`'s `chaveObjeto`, `documentos.test.ts`'s S3
+upload/rejection, a new `sincronizar.test.ts`, a new route test for the download endpoint),
+`pnpm build` clean. `pnpm lint` still fails, same shape as before this session (pre-existing
+errors in unrelated files) plus four new warnings on intentionally-unused mock parameters — the
+same underscore-prefixed pattern already used elsewhere in the test suite, not a new problem.
+**Not run:** `scripts/migrar-documentos-s3.ts`, by instruction, and no walkthrough against a real
+bucket — this session had no AWS credentials.
+
 ## Infrastructure — ~€65/year for unlimited POCs
 
 Complete guide in [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -872,6 +935,7 @@ this** — it changes what is built around it.
 | D63 | A conta de uma pessoa da equipa nasce **no último passo do registo dela**, e as três escritas (`user`, `account`, `utilizador`) são uma transação. Uma conta criada à cabeça é uma conta que entra na plataforma sem ninguém se ter identificado; e a meio das três escritas não há estado intermédio aceitável — um `user` sem `account` é uma conta sem palavra-passe a ocupar o email para sempre, um `account` sem `utilizador` é um login que passa e uma sessão que não resolve, e as duas dão a mesma coisa a quem lá está: um convite gasto e nenhuma maneira de entrar. As verificações dos cinco passos anteriores repetem-se dentro do `concluirConvite` e não só no ecrã, porque uma Server Action é chamável à mão | `src/features/convites/acoes.ts` |
 | D64 | BUG-022 (migração `0025`): uma conta de acesso já existente, ao ser associada a uma segunda sociedade, reaproveita a credencial em vez de a substituir — regenerar a palavra-passe entregaria a alguém uma credencial que já usa e não pediu. A pessoa recebe um aviso ("foi adicionado como administrador de uma nova sociedade"), sem palavra-passe nenhuma no corpo | `src/features/plataforma/contas.ts` |
 | D65 | Um bucket S3 por sociedade (`armazenamento_sociedade.bucket_s3`, coluna nula por omissão), nunca um bucket partilhado — o mesmo princípio do D32 (um único destino por sociedade, sem ambiguidade), estendido a um segundo tipo de destino. `criarDestino` decide pela coluna, não pelas credenciais decifradas: uma sociedade sem `bucket_s3` continua em SFTP sem tocar em nada. O driver assina SigV4 à mão (`node:crypto` + `fetch`) em vez de trazer `@aws-sdk/client-s3` — duas formas de pedido (PUT, HEAD) não pagam o peso da dependência no bundle, a mesma escolha que pôs o `curl` a falar SFTP em vez de uma biblioteca SSH. Este PR não migra nenhum documento existente — instrução direta do dono, verbatim na secção acima —, só prepara o código para a troca ser uma linha de configuração quando a migração acontecer, a semana seguinte | `src/lib/storage/s3.ts` |
+| D66 | `carregarDocumento` recusa o upload do cliente quando a sociedade não tem S3 ativo, em vez de continuar a gravar em `documento.dados` — a instrução do dono ("no documents have to be in the database") não deixa margem para um recurso silencioso, e um documento já é um portão obrigatório do passo 2 (D56): recusar aqui não muda de espécie. A chave grava-se em `Sistema/processos/<processoId>/<hash>-<nome>` — "Sistema" e não "Clientes" porque é a cópia técnica de que `chaveStorage` depende sempre, distinta da cópia legível por humanos que `sincronizar.ts` continua a escrever em `/Clientes/…` à submissão (lendo `dados` quando existe, o bucket via `destino.ler` quando não existe). Um documento anterior a esta mudança, ou de uma sociedade ainda em SFTP, continua a servir-se de `dados` — os dois caminhos coexistem porque migrar os 215+ processos já em produção é uma decisão à parte, deliberadamente adiada (`scripts/migrar-documentos-s3.ts`, preparado e não corrido) | `src/features/onboarding/documentos.ts` |
 
 ## Open decisions
 

@@ -32,12 +32,16 @@ export const documento = pgTable(
     hashSha256: text("hash_sha256").notNull(),
     chaveStorage: text("chave_storage").notNull(),
     /**
-     * The file in base64, while there is no object storage.
-     *
-     * The same compromise as the signature, and for the same reason: the right
-     * answer is a private bucket with the key here. Base64 adds 33% to the
-     * size, hence the 4 MB per-file limit. It holds up for a POC; it does not
-     * hold up for an archive.
+     * Deprecated (D66). While the firm's bucket is active, `carregarDocumento`
+     * never fills this in — the file goes straight to S3 and `chaveStorage` is
+     * the only pointer that exists. It stays here, nullable, for two reasons
+     * only: the 215+ existing matters uploaded before this change, still
+     * carrying their file here (migration prepared in
+     * `scripts/migrar-documentos-s3.ts`, deliberately not run yet), and a
+     * firm still on SFTP, which has no per-document reader — see
+     * `destinoDaOrganizacao`. `dados !== null` is exactly how the download
+     * route and `sincronizar.ts` tell "legacy, read from here" from "current,
+     * read from the bucket".
      */
     dados: text("dados"),
     /** Feeds the dashboard's expiry alerts. */
