@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * 7. Notificações ao Dono em `criarUtilizador`, `concluirConvite` e `importarUtilizadores`.
  */
 
-type Linha = Record<string, any>;
+type Linha = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const inseridos: { tabela: string; valores: Linha }[] = [];
 const atualizados: { tabela: string; valores: Linha }[] = [];

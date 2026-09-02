@@ -267,6 +267,8 @@ export function Formulario({
     if (!campos.length) {
       // Sem `{}` novo quando já estava vazio, senão o primeiro render de cada
       // passo pedia um segundo sem nada ter mudado.
+      // Só limpar quando já não está vazio evita o 2.º render do 1.º passo.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRotulos((atuais) => (Object.keys(atuais).length ? {} : atuais));
       return;
     }

@@ -76,7 +76,6 @@ export function enviarSmtp(anfitriao: string, porta: number, mensagem: MensagemS
     const paraSeguro = sanitizarCabecalho(mensagem.para);
     const socket = createConnection({ host: anfitriao, port: porta });
     const corpo = codificarMensagem(mensagem);
-    let pausa = false;
     let encerrado = false;
 
     const terminar = (ok: boolean, erro?: string) => {

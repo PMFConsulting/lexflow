@@ -79,7 +79,7 @@ export function LogotipoSociedade({
   };
 
   const urlLogotipo = temLogotipo
-    ? `/api/sociedade/logotipo?t=${atualizadoEm ? new Date(atualizadoEm).getTime() : Date.now()}`
+    ? `/api/sociedade/logotipo?t=${atualizadoEm ? new Date(atualizadoEm).getTime() : 0}`
     : null;
 
   return (

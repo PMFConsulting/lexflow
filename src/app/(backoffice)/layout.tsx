@@ -59,7 +59,7 @@ export default async function LayoutBackoffice({
   const grupos = navegacaoDoPapel(eu.papel);
 
   const logotipoUrl = org?.logotipoDados
-    ? `/api/sociedade/logotipo?t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
+    ? `/api/sociedade/logotipo?t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : 0}`
     : null;
 
   return (

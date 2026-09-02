@@ -149,7 +149,11 @@ function Modal({
   // `aoChegarAoFim` chega numa função nova a cada render — numa dependência
   // de efeito isso corria sem parar. Guardado em ref, o efeito corre uma vez.
   const avisar = useRef(aoChegarAoFim);
-  avisar.current = aoChegarAoFim;
+  // A callback chega nova a cada render; guardada em ref, mas só dentro de um
+  // efeito — escrever `ref.current` durante o render é o que react-hooks/refs nega.
+  useEffect(() => {
+    avisar.current = aoChegarAoFim;
+  });
 
   const verificar = () => {
     const el = corpo.current;

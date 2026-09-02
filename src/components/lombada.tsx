@@ -76,6 +76,9 @@ export function Lombada({
     sessionStorage.removeItem(CHAVE_CARIMBO);
     const passo = Number(marca);
     if (!Number.isInteger(passo)) return;
+    // Ler sessionStorage uma vez ao montar e mostrar o carimbo é o padrão
+    // correto; a regra react-hooks/set-state-in-effect é restritiva demais aqui.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCarimbo({ passo, quando: new Date() });
     const t = setTimeout(() => setCarimbo(null), 3200);
     return () => clearTimeout(t);

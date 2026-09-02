@@ -40,7 +40,7 @@ export default async function LayoutPortal({
     sociedadesPorIds(outrasOrganizacoes),
   ]);
   const logotipoUrl = org?.logotipoDados
-    ? `/api/sociedade/logotipo?t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : Date.now()}`
+    ? `/api/sociedade/logotipo?t=${org.logotipoAtualizadoEm ? new Date(org.logotipoAtualizadoEm).getTime() : 0}`
     : null;
 
   return (
