@@ -167,6 +167,7 @@ export async function criarConta(
   }
 
   if (!nome) throw new ErroDeConta("Indique o nome.");
+  if (nome.length > 200) throw new ErroDeConta("O nome é demasiado longo (máx. 200 caracteres).");
 
   const hash = await hashPassword(palavraPasse);
 
@@ -318,7 +319,12 @@ export async function criarConta(
       }
 
       authUserId = contaExistente.id;
-      await t.update(user).set({ name: nome, updatedAt: new Date() }).where(eq(user.id, authUserId));
+      // FIX de segurança (ALTO): `user.name` é um campo partilhado por TODAS as
+      // sociedades. Numa conta já existente NÃO o sobrescrevemos com o nome do
+      // pedido — isso clobraria o nome global trans-sociedades. O nome da
+      // sociedade é o do `utilizador`, definido abaixo; o nome global só é
+      // definido no arranque (ramo de inserção).
+      await t.update(user).set({ updatedAt: new Date() }).where(eq(user.id, authUserId));
     } else {
       authUserId = idAuth();
       await t.insert(user).values({
