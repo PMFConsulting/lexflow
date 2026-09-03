@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   aplicarPlaceholders,
+  aplicarPlaceholdersTexto,
   escaparHtml,
   PLACEHOLDERS_DISPONIVEIS,
   sanitizarHtmlEmail,
@@ -109,6 +110,52 @@ describe("aplicarPlaceholders", () => {
 describe("escaparHtml", () => {
   it("escapa &, <, >, \", e '", () => {
     expect(escaparHtml(`& < > " '`)).toBe("&amp; &lt; &gt; &quot; &#39;");
+  });
+});
+
+/**
+ * O assunto não é HTML.
+ *
+ * O defeito que isto fecha não dá erro nenhum e vê-se à primeira vista na
+ * caixa de correio: uma sociedade chamada «Andrade & Costa» produzia o assunto
+ * «Processo de Andrade &amp; Costa», porque nenhum leitor de email interpreta
+ * entidades HTML num cabeçalho `Subject`.
+ */
+describe("aplicarPlaceholdersTexto", () => {
+  it("não escapa & nem apóstrofos — o assunto vai para um cabeçalho", () => {
+    expect(
+      aplicarPlaceholdersTexto("Processo de {{nome_sociedade}}", {
+        nome_sociedade: "Andrade & Costa 'Lda'",
+      }),
+    ).toBe("Processo de Andrade & Costa 'Lda'");
+  });
+
+  it("substitui, tolera espaços e deixa o desconhecido literal, como a versão HTML", () => {
+    expect(
+      aplicarPlaceholdersTexto("{{ referencia }} · {{nome_cliente}} · {{inexistente}}", {
+        referencia: "PMF-2026-0142",
+        nome_cliente: "Maria Silva",
+      }),
+    ).toBe("PMF-2026-0142 · Maria Silva · {{inexistente}}");
+  });
+
+  /**
+   * Tirar o escape de HTML sem tirar os fins de linha era trocar um defeito
+   * cosmético por uma injeção de cabeçalhos: um `\r\n` num `Subject` é o que
+   * separa um cabeçalho do seguinte.
+   */
+  it("colapsa fins de linha e caracteres de controlo — um cabeçalho é uma linha só", () => {
+    expect(
+      aplicarPlaceholdersTexto("Assunto {{nome_cliente}}", {
+        nome_cliente: "Maria\r\nBcc: outro@exemplo.pt",
+      }),
+    ).toBe("Assunto Maria Bcc: outro@exemplo.pt");
+  });
+
+  it("lida com texto vazio ou nulo com segurança", () => {
+    expect(aplicarPlaceholdersTexto("", { a: "b" })).toBe("");
+    expect(aplicarPlaceholdersTexto(null, { a: "b" })).toBe("");
+    expect(aplicarPlaceholdersTexto(undefined, { a: "b" })).toBe("");
   });
 });
 

@@ -321,8 +321,19 @@ export async function reenviarConvite(conviteId: string): Promise<ResultadoReenv
     })
     .where(eq(conviteUtilizador.id, convite.id));
 
+  // Os mesmos campos que o convite original lê (`criarConvite`): sem o
+  // logotipo, o reenvio saía com a marca da plataforma enquanto o primeiro
+  // convite tinha saído com a da sociedade — a mesma pessoa a receber duas
+  // mensagens de origens aparentemente diferentes é o que faz um convite
+  // legítimo parecer uma burla.
   const [org] = await base
-    .select({ nome: organizacao.nome })
+    .select({
+      id: organizacao.id,
+      nome: organizacao.nome,
+      logotipoDados: organizacao.logotipoDados,
+      logotipoMime: organizacao.logotipoMime,
+      logotipoAtualizadoEm: organizacao.logotipoAtualizadoEm,
+    })
     .from(organizacao)
     .where(eq(organizacao.id, eu.organizacaoId))
     .limit(1);
@@ -346,6 +357,7 @@ export async function reenviarConvite(conviteId: string): Promise<ResultadoReenv
         sociedade: org?.nome ?? "a sociedade",
         link,
         papel: convite.papel,
+        logotipoUrl: urlLogotipoSociedade(org),
       }),
       template: "convite_utilizador",
       organizacaoId: eu.organizacaoId,

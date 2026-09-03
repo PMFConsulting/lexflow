@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { emailModelo } from "@/db/schema/email";
 import {
   aplicarPlaceholders,
+  aplicarPlaceholdersTexto,
   comporHtmlPersonalizado,
   METADADOS_TEMPLATES,
   type TemplateEditavel,
@@ -94,7 +95,10 @@ export async function resolverEmailCliente(
 
   if (modelo) {
     const metadados = METADADOS_TEMPLATES[p.template];
-    const assunto = aplicarPlaceholders(modelo.assunto, p.variaveis);
+    // O assunto vai para um cabeçalho, não para o corpo: sem escape de HTML,
+    // senão um `&` ou um apóstrofo no nome da sociedade chegava à caixa de
+    // correio como `&amp;` / `&#39;`.
+    const assunto = aplicarPlaceholdersTexto(modelo.assunto, p.variaveis);
     const corpoSemMoldura = aplicarPlaceholders(modelo.corpoHtml, p.variaveis);
     const html = comporHtmlPersonalizado(
       corpoSemMoldura,

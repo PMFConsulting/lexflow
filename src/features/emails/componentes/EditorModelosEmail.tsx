@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   aplicarPlaceholders,
+  aplicarPlaceholdersTexto,
   comporHtmlPersonalizado,
   PLACEHOLDERS_DISPONIVEIS,
   sanitizarHtmlEmail,
@@ -163,7 +164,10 @@ export function EditorModelosEmail({
   };
 
   // Pré-visualização com dados simulados
-  const assuntoPrevisualizacao = aplicarPlaceholders(assuntoAtual, DADOS_EXEMPLO);
+  // O assunto não é HTML — a pré-visualização usa a mesma função que o envio
+  // (`aplicarPlaceholdersTexto`), senão o que aqui se lê («&amp;») não é o que
+  // chega à caixa de correio.
+  const assuntoPrevisualizacao = aplicarPlaceholdersTexto(assuntoAtual, DADOS_EXEMPLO);
   const corpoPrevisualizacao = comporHtmlPersonalizado(
     sanitizarHtmlEmail(aplicarPlaceholders(corpoAtual, DADOS_EXEMPLO)),
     modeloAtual.corAcento,

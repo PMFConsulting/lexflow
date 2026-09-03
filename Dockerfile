@@ -65,6 +65,19 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrar.mjs ./scripts/migr
 # deixa lixo na base de dados.
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/testar_email.mjs ./scripts/testar_email.mjs
 
+# O remetente por omissão, que os dois scripts de email acima importam
+# (`../src/email-remetente-default.mjs`). O `output: standalone` não o traz — a
+# aplicação chega lá por `src/env.ts`, os scripts não passam pelo bundle — e sem
+# ele o `node scripts/testar_email.mjs` morre em ERR_MODULE_NOT_FOUND dentro do
+# contentor, que é precisamente o único sítio onde ele serve para alguma coisa.
+COPY --from=builder --chown=nextjs:nodejs /app/src/email-remetente-default.mjs ./src/email-remetente-default.mjs
+
+# O Resumo Diário ao dono da plataforma. A aplicação agenda-o sozinha
+# (src/instrumentation.ts) — este é o caminho manual, para o correr fora de hora
+# ou para o ver sem enviar (`--dry-run`), que é o que responde a "houve
+# sociedades novas ontem e eu não recebi nada?" sem abrir um psql.
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/resumo_diario.mjs ./scripts/resumo_diario.mjs
+
 # O arranque de uma base de dados nova. Sem estes dois na imagem não há maneira
 # nenhuma de a plataforma sair do zero: o registo público não existe (D23), o
 # primeiro `super_admin` não tem quem o crie pela interface — não há ninguém

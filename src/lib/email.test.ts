@@ -23,6 +23,12 @@ let ambienteRebenta: Error | null = null;
  * antes do whitelabel.
  */
 let remetenteDaOrg: string | null = null;
+/**
+ * O `dominio_estado` da organização, espelho do `status` da Resend. Só
+ * `"verified"` deixa o remetente da sociedade sair; `null` é a sociedade que
+ * nunca começou a verificação.
+ */
+let estadoDominioDaOrg: string | null = "verified";
 let leituraDaOrgRebenta = false;
 
 vi.mock("@/env", () => ({
@@ -42,7 +48,7 @@ vi.mock("@/db", () => ({
         where: () => ({
           limit: async () => {
             if (leituraDaOrgRebenta) throw new Error('relation "organizacao" does not exist');
-            return [{ de: remetenteDaOrg }];
+            return [{ de: remetenteDaOrg, estado: estadoDominioDaOrg }];
           },
         }),
       }),
@@ -87,6 +93,7 @@ beforeEach(() => {
   atualizacaoRebenta = false;
   ambienteRebenta = null;
   remetenteDaOrg = null;
+  estadoDominioDaOrg = "verified";
   leituraDaOrgRebenta = false;
   ambiente = { RESEND_API_KEY: "re_teste", EMAIL_REMETENTE: "POC@jmassano.pt" };
   vi.spyOn(console, "info").mockImplementation(() => {});
@@ -372,8 +379,9 @@ describe("enviarEmail", () => {
 /**
  * O remetente, agora por sociedade.
  *
- * A regra numa linha: **o da sociedade quando ela tem um, o da instalação
- * quando não tem**. O defeito que isto fecha não dá erro nenhum — dá um cliente
+ * A regra numa linha: **o da sociedade quando ela tem um e o domínio dele está
+ * verificado, o da instalação em qualquer outro caso**. O defeito que isto fecha
+ * não dá erro nenhum — dá um cliente
  * da segunda sociedade a receber um pedido de documentos de identificação
  * assinado com o domínio da primeira, e a não responder, que é o que ele deve
  * fazer.
@@ -434,6 +442,65 @@ describe("remetente por sociedade", () => {
     await enviarEmail({ ...base, organizacaoId: "org-1" });
 
     expect(corpoEnviado(espia, "resend").from).toBe("POC@jmassano.pt");
+  });
+
+  /**
+   * A porta do domínio verificado.
+   *
+   * O remetente resolve-se **uma vez** e segue igual para todos os canais do
+   * recuo, e a verificação de domínio vive na conta da Resend — o Mailjet e o
+   * Brevo não sabem nada dela. Sem esta porta, um domínio por verificar dava um
+   * 403 legível na Resend e, no canal seguinte, um envio *aceite* com um `From`
+   * que o destinatário não consegue autenticar: SPF e DKIM falham, e o
+   * `email_log` fica a dizer «Aceite» sobre uma mensagem que ninguém recebeu.
+   */
+  it("com o domínio por verificar, o remetente da sociedade não sai", async () => {
+    remetenteDaOrg = "geral@andradecosta.pt";
+    estadoDominioDaOrg = "pending";
+    const espia = responde(200, '{"id":"abc"}');
+
+    await enviarEmail({ ...base, organizacaoId: "org-1" });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("POC@jmassano.pt");
+    expect(consolaAviso).toHaveBeenCalledWith(
+      expect.stringContaining("its domain is"),
+    );
+  });
+
+  it("com o domínio nunca configurado, o remetente da sociedade não sai", async () => {
+    remetenteDaOrg = "geral@andradecosta.pt";
+    estadoDominioDaOrg = null;
+    const espia = responde(200, '{"id":"abc"}');
+
+    await enviarEmail({ ...base, organizacaoId: "org-1" });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("POC@jmassano.pt");
+  });
+
+  /**
+   * O caso que a porta existe para fechar, visto do fim: com o domínio por
+   * verificar, nenhum dos canais do recuo leva o endereço da sociedade.
+   */
+  it("com o domínio por verificar, nem o Mailjet nem o Brevo levam o endereço da sociedade", async () => {
+    remetenteDaOrg = "geral@andradecosta.pt";
+    estadoDominioDaOrg = "failed";
+    ambiente = {
+      RESEND_API_KEY: "re_teste",
+      MAILJET_API_KEY: "mj_chave",
+      MAILJET_SECRET_KEY: "mj_segredo",
+      BREVO_API_KEY: "xkeysib-teste",
+      EMAIL_REMETENTE: "POC@jmassano.pt",
+    };
+    const espia = espiarFetch(async (url) => {
+      if (url.includes("brevo")) return new Response('{"messageId":"<1@brevo>"}', { status: 201 });
+      return new Response("recusado", { status: 401 });
+    });
+
+    await enviarEmail({ ...base, organizacaoId: "org-1" });
+
+    expect(corpoEnviado(espia, "resend").from).toBe("POC@jmassano.pt");
+    expect(corpoEnviado(espia, "mailjet").Messages[0].From.Email).toBe("POC@jmassano.pt");
+    expect(corpoEnviado(espia, "brevo").sender.email).toBe("POC@jmassano.pt");
   });
 
   /**
