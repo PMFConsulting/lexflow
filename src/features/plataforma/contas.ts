@@ -88,8 +88,6 @@ export type ContaCriada = {
   reaproveitada: boolean;
   /** `true` quando o email já administrava outra sociedade e foi criada nova sociedade sem confirmação prévia. */
   avisoMultiSociedade?: boolean;
-  /** Nome da sociedade que o administrador já geria previamente, se aplicável. */
-  sociedadeExistenteNome?: string | null;
   /** `true` credenciais saíram; `false` não saíram (`erroEmail` diz porquê); `null` envio adiado ou conta pendente. */
   emailEnviado: boolean | null;
   erroEmail: string | null;
@@ -202,7 +200,6 @@ export async function criarConta(
     /* --- verificação de colisão global --------------------------------- */
 
     let avisoMultiSociedade = false;
-    let sociedadeExistenteNome: string | null = null;
 
     if (pedido.papel !== "society_admin") {
       const [noutraSociedade] = await t
@@ -248,12 +245,6 @@ export async function criarConta(
 
       if (noutraSociedade && noutraSociedade.organizacaoId) {
         avisoMultiSociedade = true;
-        const [soc] = await t
-          .select({ nome: organizacao.nome })
-          .from(organizacao)
-          .where(eq(organizacao.id, noutraSociedade.organizacaoId))
-          .limit(1);
-        sociedadeExistenteNome = soc?.nome ?? null;
       }
     }
 
@@ -309,12 +300,6 @@ export async function criarConta(
 
         if (noutraPorAuth && noutraPorAuth.organizacaoId) {
           avisoMultiSociedade = true;
-          const [soc] = await t
-            .select({ nome: organizacao.nome })
-            .from(organizacao)
-            .where(eq(organizacao.id, noutraPorAuth.organizacaoId))
-            .limit(1);
-          sociedadeExistenteNome = soc?.nome ?? null;
         }
       }
 
@@ -414,7 +399,6 @@ export async function criarConta(
         gestorId: gestorIdFinal,
         reaproveitada: true,
         avisoMultiSociedade,
-        sociedadeExistenteNome,
         emailEnviado: null,
         erroEmail: null,
       };
@@ -479,7 +463,6 @@ export async function criarConta(
       gestorId: gestorIdFinal,
       reaproveitada: false,
       avisoMultiSociedade,
-      sociedadeExistenteNome,
       emailEnviado: null,
       erroEmail: null,
     };

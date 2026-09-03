@@ -86,7 +86,6 @@ export type ResultadoSociedade =
       avisoAdmin: string | null;
       avisoBucket: string | null;
       avisoMultiSociedade: boolean;
-      sociedadeExistenteNome: string | null;
     }
   | { ok: false; erros: Record<string, string> };
 
@@ -290,7 +289,6 @@ export async function criarSociedade(dados: unknown): Promise<ResultadoSociedade
     avisoAdmin,
     avisoBucket,
     avisoMultiSociedade: admin?.avisoMultiSociedade ?? false,
-    sociedadeExistenteNome: admin?.sociedadeExistenteNome ?? null,
   };
 }
 
