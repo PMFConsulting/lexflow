@@ -174,7 +174,7 @@ describe("prepararImportacao", () => {
         numero: 3,
         bruto: "Carlos Costa · carlos@outra.pt · utilizador",
         motivo:
-          "Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.",
+          "Já existe uma conta com este email.",
       },
     ]);
   });

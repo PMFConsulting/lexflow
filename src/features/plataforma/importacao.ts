@@ -192,11 +192,11 @@ export function prepararImportacao(
       continue;
     }
     if (existentes.has(email)) {
-      recusar(`Já existe uma conta com o email ${email} nesta sociedade.`);
+      recusar("Já existe uma conta com este email.");
       continue;
     }
     if (noutras.has(email) && papel !== "society_admin") {
-      recusar("Esta pessoa já tem conta noutra sociedade. Um email só pode estar associado a uma sociedade.");
+      recusar("Já existe uma conta com este email.");
       continue;
     }
 

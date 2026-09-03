@@ -505,7 +505,6 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
     expect(resultado2.avisoAdmin).toBeNull();
     expect(resultado2.admin?.email).toBe("admin.multi@sociedade.pt");
     expect(resultado2.avisoMultiSociedade).toBe(true);
-    expect(resultado2.sociedadeExistenteNome).toBe("Primeira Sociedade");
 
     // Criar terceira sociedade com confirmação explícita (confirmarMultiSociedade: true)
     const resultado3 = await criarSociedade({
@@ -520,7 +519,6 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
     expect(resultado3.ok).toBe(true);
     if (!resultado3.ok) return;
     expect(resultado3.avisoMultiSociedade).toBe(false);
-    expect(resultado3.sociedadeExistenteNome).toBeNull();
 
     // Criar quarta sociedade com email NOVO - sem aviso
     const resultadoNovo = await criarSociedade({
@@ -534,7 +532,6 @@ describe("Frente O: E2E do fluxo completo da sociedade e notificações ao Dono"
     expect(resultadoNovo.ok).toBe(true);
     if (!resultadoNovo.ok) return;
     expect(resultadoNovo.avisoMultiSociedade).toBe(false);
-    expect(resultadoNovo.sociedadeExistenteNome).toBeNull();
 
     // Frente P: Notificação in-app e fila do resumo diário para segunda sociedade
     const notifSegunda = inseridos.find(

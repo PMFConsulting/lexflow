@@ -334,7 +334,6 @@ describe("criarConta", () => {
     expect(conta.email).toBe("maria@exemplo.pt");
     expect(conta.papel).toBe("society_admin");
     expect(conta.avisoMultiSociedade).toBe(true);
-    expect(conta.sociedadeExistenteNome).toBe("Sociedade Anterior");
     expect(inseridoEm("utilizador")!.authUserId).toBe("auth-existente");
     expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-nova");
   });
@@ -352,7 +351,6 @@ describe("criarConta", () => {
     });
 
     expect(conta.avisoMultiSociedade).toBe(true);
-    expect(conta.sociedadeExistenteNome).toBe("Sociedade Alpha");
     expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-2");
   });
 
@@ -370,7 +368,6 @@ describe("criarConta", () => {
     });
 
     expect(conta.avisoMultiSociedade).toBe(false);
-    expect(conta.sociedadeExistenteNome).toBeNull();
     expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-2");
   });
 
@@ -383,7 +380,6 @@ describe("criarConta", () => {
     });
 
     expect(conta.avisoMultiSociedade).toBe(false);
-    expect(conta.sociedadeExistenteNome).toBeNull();
     expect(inseridoEm("utilizador")!.organizacaoId).toBe("org-2");
   });
 

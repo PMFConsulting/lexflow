@@ -140,8 +140,7 @@ export function NovaSociedade() {
                         Aviso de administrador multi-sociedade
                       </p>
                       <p>
-                        Este email já administra a sociedade{" "}
-                        <strong>{criada.sociedadeExistenteNome ?? "existente"}</strong>. Vão ser
+                        Este email já administra outra sociedade. Vão ser
                         criadas credenciais separadas (a nova substitui a anterior até à primeira
                         redefinição).
                       </p>
