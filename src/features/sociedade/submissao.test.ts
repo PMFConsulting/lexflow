@@ -103,6 +103,9 @@ beforeEach(() => {
     adminNome: "Admin Silva",
     adminEmail: "admin@sociedade.pt",
     declaracaoVinculo: true,
+    // O consentimento de privacidade já foi dado no passo 6 (RGPD).
+    consentimentoPrivacidadeEm: new Date("2026-09-03T10:00:00.000Z"),
+    consentimentoPrivacidadeVersao: "2026.09.1",
     estado: "rascunho",
   };
   docsMock = [{ id: "doc-1", nome: "certidao.pdf", tipo: "certidao_sociedade", bytes: 1000, criadoEm: new Date() }];

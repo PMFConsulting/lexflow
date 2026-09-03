@@ -147,16 +147,30 @@ describe("passo 6 — declaração", () => {
       declaracaoNome: "Ana",
       declaracaoCargo: "Sócia",
       declaracaoVinculo: false,
+      consentimentoPrivacidade: false,
     });
     expect(erros?.declaracaoVinculo).toBeDefined();
   });
 
-  it("aceita a declaração completa", () => {
+  it("não aceita o registo sem o consentimento de privacidade", () => {
+    // O consentimento é obrigatório antes da submissão — e não chega um
+    // `true` na declaração de vínculo para o dispensar.
+    const erros = campos(SCHEMAS_SOCIEDADE[6], {
+      declaracaoNome: "Ana",
+      declaracaoCargo: "Sócia",
+      declaracaoVinculo: true,
+      consentimentoPrivacidade: false,
+    });
+    expect(erros?.consentimentoPrivacidade?.[0]).toMatch(/Política de Privacidade/);
+  });
+
+  it("aceita a declaração completa, com consentimento", () => {
     expect(
       SCHEMAS_SOCIEDADE[6].safeParse({
         declaracaoNome: "Ana",
         declaracaoCargo: "Sócia",
         declaracaoVinculo: true,
+        consentimentoPrivacidade: true,
       }).success,
     ).toBe(true);
   });

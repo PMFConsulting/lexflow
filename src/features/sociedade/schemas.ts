@@ -144,6 +144,19 @@ export const passoSociedade6 = z.object({
     message:
       "Confirme que tem poderes para vincular a sociedade. Sem essa declaração não podemos aceitar o registo.",
   }),
+  /**
+   * Consentimento de tratamento de dados da plataforma (RGPD, artigos 6.º e
+   * 7.º), obrigatório antes da submissão. O texto da caixa aponta para a
+   * Política de Privacidade e os Termos de Utilização; no servidor, o `true`
+   * é traduzido na gravação do momento (`consentimento_privacidade_em`) e da
+   * versão dos documentos (`consentimento_privacidade_versao`) — nunca um
+   * booleano, porque um "não" não pode ficar gravado como dado (mesmo padrão
+   * da declaração de vínculo acima).
+   */
+  consentimentoPrivacidade: z.literal(true, {
+    message:
+      "Tem de confirmar que leu e aceita a Política de Privacidade e os Termos de Utilização para submeter o registo.",
+  }),
 });
 
 export const SCHEMAS_SOCIEDADE = {

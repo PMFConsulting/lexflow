@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import { Anexos } from "@/components/anexos";
 import { alvoDoErro } from "@/components/formulario-erros";
@@ -53,6 +54,8 @@ export type DadosSociedade = {
   declaracaoNome: string | null;
   declaracaoCargo: string | null;
   declaracaoVinculo: boolean;
+  /** `true` quando o consentimento de privacidade já foi dado (tem data gravada). */
+  consentimentoPrivacidade: boolean;
   logotipoNome: string | null;
 };
 
@@ -108,6 +111,7 @@ function carga(n: number, fd: FormData): Record<string, unknown> {
         declaracaoNome: txt(fd, "declaracaoNome"),
         declaracaoCargo: txt(fd, "declaracaoCargo"),
         declaracaoVinculo: bool(fd, "declaracaoVinculo"),
+        consentimentoPrivacidade: bool(fd, "consentimentoPrivacidade"),
       };
     default:
       return {};
@@ -627,6 +631,43 @@ export function FormularioSociedade({
                   Declaro que tenho poderes para vincular a sociedade, que os dados indicados são
                   verdadeiros e que o documento anexado no passo 4 corresponde aos Termos e
                   Condições em vigor da sociedade.
+                </>
+              }
+            />
+          </Bloco>
+
+          <Bloco titulo="Privacidade e dados pessoais">
+            <p className="text-sm text-muted-foreground">
+              Os dados indicados neste registo — da sociedade e da pessoa que o submete — são
+              tratados pela plataforma LexFlow para criar e gerir a conta. O consentimento fica
+              registado com data e hora no momento da submissão.
+            </p>
+            <CampoCaixa
+              nome="consentimentoPrivacidade"
+              erros={erros}
+              valorInicial={dados.consentimentoPrivacidade}
+              etiqueta={
+                <>
+                  Li e aceito a{" "}
+                  <Link
+                    href="/privacidade"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    Política de Privacidade
+                  </Link>{" "}
+                  e os{" "}
+                  <Link
+                    href="/termos"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    Termos de Utilização
+                  </Link>{" "}
+                  da plataforma e autorizo o tratamento dos dados pessoais indicados para a criação
+                  e gestão da conta da sociedade.
                 </>
               }
             />

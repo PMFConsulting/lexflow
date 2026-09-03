@@ -16,6 +16,7 @@ import { origemPublica } from "@/lib/origem";
 import { enviarEmail } from "@/lib/email";
 import { ASSUNTO_CONVITE_UTILIZADOR, emailConviteUtilizador } from "@/lib/emails/convites";
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
+import { VERSAO_POLITICA_PRIVACIDADE } from "@/lib/documentos-plataforma";
 import {
   acessoSociedadePorToken,
   documentosDaSociedade,
@@ -211,10 +212,47 @@ export async function guardarPassoSociedade(
     }
 
     case 6: {
+      // A caixa de consentimento vem `true` (o schema é `z.literal(true)`);
+      // o que se grava não é o booleano — é o momento em que foi dado e a
+      // versão dos documentos que a pessoa viu (mesma regra de prova da D3).
+      const { consentimentoPrivacidade: _caixa, ...resto } = v as {
+        consentimentoPrivacidade: boolean;
+      } & Record<string, unknown>;
+
+      // Só na primeira concessão: voltar a este passo para corrigir outro
+      // campo não pode reescrever quando o consentimento foi dado, nem trocá-lo
+      // por uma versão que a pessoa nunca viu.
+      const consentimentoNovo =
+        !onboarding.consentimentoPrivacidadeEm
+          ? {
+              consentimentoPrivacidadeEm: new Date(),
+              consentimentoPrivacidadeVersao: VERSAO_POLITICA_PRIVACIDADE,
+            }
+          : {};
+
       await base
         .update(onboardingSociedade)
-        .set(v as Partial<typeof onboardingSociedade.$inferInsert>)
+        .set({ ...resto, ...consentimentoNovo } as Partial<typeof onboardingSociedade.$inferInsert>)
         .where(eq(onboardingSociedade.id, onboarding.id));
+
+      if (consentimentoNovo.consentimentoPrivacidadeEm) {
+        await registarEvento({
+          organizacaoId: org.id,
+          acao: "sociedade.consentimento_privacidade",
+          entidade: "onboarding_sociedade",
+          entidadeId: onboarding.id,
+          valorNovo: { versao: consentimentoNovo.consentimentoPrivacidadeVersao },
+          ip,
+          userAgent,
+        }).catch((e) => {
+          // A auditoria não pode interromper o resto (D46) — e aqui o passo já
+          // está gravado; um evento perdido é mau, um formulário que não guarda
+          // porque a auditoria falhou é pior.
+          console.error("[sociedade] consentimento audit write failed", {
+            erro: String(e),
+          });
+        });
+      }
       break;
     }
   }
@@ -314,6 +352,13 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
     return {
       ok: false,
       mensagem: "Confirme a declaração do passo 6 antes de submeter.",
+    };
+  }
+  if (!onboarding.consentimentoPrivacidadeEm) {
+    return {
+      ok: false,
+      mensagem:
+        "Confirme a aceitação da Política de Privacidade e dos Termos de Utilização (passo 6) antes de submeter.",
     };
   }
   if (!onboarding.adminNome || !onboarding.adminEmail) {
