@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 import { db } from "@/db";
 import { eventoAuditoria } from "@/db/schema/auditoria";
+import { minimizarPii } from "@/lib/redigir";
 import { calcularHash, type EntradaAuditoria } from "./hash";
 
 /**
@@ -53,8 +54,14 @@ export async function registarEvento(
     acao: entrada.acao,
     entidade: entrada.entidade,
     entidadeId: entrada.entidadeId ?? null,
-    valorAnterior: entrada.valorAnterior ?? null,
-    valorNovo: entrada.valorNovo ?? null,
+    // Minimização antes de qualquer outra coisa, e em particular **antes** de
+    // `calcularHash`: o que é gravado e o que é assinado têm de ser o mesmo
+    // objeto, senão a cadeia deixa de fechar contra o que está na tabela.
+    // Redigir aqui e não em cada sítio que chama é o que garante que um
+    // caminho de escrita novo não pode nascer sem passar por isto — a mesma
+    // disciplina do `email_log` escrito dentro de `enviarEmail` (D34).
+    valorAnterior: minimizarPii(entrada.valorAnterior),
+    valorNovo: minimizarPii(entrada.valorNovo),
     ip: entrada.ip ?? null,
     userAgent: entrada.userAgent ?? null,
     criadoEm,

@@ -5,8 +5,46 @@ import { db } from "@/db";
 import { emailLog } from "@/db/schema/email";
 import type { canalEmail, estadoEmail, templateEmail } from "@/db/schema/enums";
 import { organizacao } from "@/db/schema/organizacao";
+import { mascararEmail } from "@/lib/redigir";
 import { enviarSmtp } from "@/lib/smtp";
 import { env, type Ambiente } from "@/env";
+
+/**
+ * INVENTÁRIO DE SUBCONTRATANTES — canal de email (RGPD, artigo 28.º e artigo 30.º).
+ *
+ * Cada um destes fornecedores recebe, no momento do envio, o endereço do
+ * destinatário, o assunto, o corpo HTML e os anexos — o que inclui
+ * `summary.pdf` e `dados_cliente.pdf`, com dados de identificação. São, por
+ * isso, subcontratantes de tratamento e não meros fornecedores técnicos: cada
+ * um precisa de contrato de subcontratação e de entrada no registo de
+ * atividades de tratamento.
+ *
+ * Ativos neste ficheiro, pela ordem de tentativa de `tentarEnviar`:
+ *
+ * | Canal            | Variável de ambiente que o liga            | Onde trata      |
+ * |------------------|--------------------------------------------|-----------------|
+ * | Resend           | `RESEND_API_KEY`                           | EUA (Resend Inc.) |
+ * | Mailjet          | `MAILJET_API_KEY` + `MAILJET_SECRET_KEY`   | UE (Sinch/França) |
+ * | Brevo            | `BREVO_API_KEY`                            | UE (França)     |
+ * | Twilio SendGrid  | `TWILIO_SENDGRID_API_KEY`                  | EUA (Twilio Inc.) |
+ * | SMTP próprio     | `SMTP_HOST` (+ `SMTP_PORT`)                | onde o servidor estiver |
+ *
+ * Fora deste ficheiro, no mesmo inventário: **SFTP** para o servidor da
+ * sociedade e **AWS S3** (um bucket por sociedade, D65) — ver
+ * `src/lib/storage/index.ts`, que tem a outra metade desta lista.
+ *
+ * Duas consequências práticas, e é por elas que este comentário existe:
+ * 1. Um canal **configurado** é um canal por onde os dados podem sair, mesmo
+ *    que nunca tenha sido o primeiro a responder — o recuo entre canais é
+ *    automático. Desligar um subcontratante é tirar-lhe a variável de
+ *    ambiente, não contar com a ordem.
+ * 2. Resend e SendGrid tratam fora da UE. Uma sociedade que não os tenha nas
+ *    suas cláusulas de transferência internacional não deve ter essas chaves
+ *    configuradas na instalação dela.
+ *
+ * Acrescentar um canal aqui é acrescentar um subcontratante: a linha na tabela
+ * acima faz parte da mudança, não é documentação a posteriori.
+ */
 
 export type CanalEmail = (typeof canalEmail.enumValues)[number];
 export type EstadoEmail = (typeof estadoEmail.enumValues)[number];
@@ -99,7 +137,7 @@ async function registar(
     return linhaId;
   } catch (e) {
     console.error(
-      `[email] FAILED to write to email_log template=${p.template} para=${p.para} ` +
+      `[email] FAILED to write to email_log template=${p.template} para=${mascararEmail(p.para)} ` +
         `estado=${resultado.ok ? "enviado" : "erro"}`,
       e,
     );
@@ -133,12 +171,12 @@ export async function enviarEmail(p: ParametrosEmail): Promise<ResultadoEnvio> {
   // Uma linha por tentativa, sempre — mesmo que a escrita seguinte falhe.
   if (resultado.ok) {
     console.info(
-      `[email] aceite por ${resultado.canal} template=${p.template} para=${p.para} ` +
+      `[email] aceite por ${resultado.canal} template=${p.template} para=${mascararEmail(p.para)} ` +
         `id=${resultado.mensagemId ?? "(sem id)"}`,
     );
   } else {
     console.error(
-      `[email] não enviado template=${p.template} para=${p.para}: ${resultado.erro}`,
+      `[email] não enviado template=${p.template} para=${mascararEmail(p.para)}: ${resultado.erro}`,
     );
   }
 
@@ -154,13 +192,13 @@ export async function enviarEmail(p: ParametrosEmail): Promise<ResultadoEnvio> {
       para: p.para,
       template: p.template,
     }).catch((e) =>
-      console.error(`[email] delivery confirmation blew up for ${p.para}`, e),
+      console.error(`[email] delivery confirmation blew up for ${mascararEmail(p.para)}`, e),
     );
   } else if (resultado.ok) {
     // Sem id não há a quem perguntar depois — dito aqui, senão a linha em
     // "enviado" lê-se como "por confirmar" quando nunca vai ser confirmada.
     console.warn(
-      `[email] no provider id for ${p.para} (template=${p.template}) — ` +
+      `[email] no provider id for ${mascararEmail(p.para)} (template=${p.template}) — ` +
         "delivery of this message will not be confirmable.",
     );
   }
@@ -222,9 +260,9 @@ async function remetenteDaOrganizacao(
       // verificação continua a receber emails enviados, só que assinados pela
       // plataforma — sem esta linha, a diferença não aparece em lado nenhum.
       console.warn(
-        `[email] organisation ${organizacaoId} has sender ${de} but its domain is ` +
+        `[email] organisation ${organizacaoId} has sender ${mascararEmail(de)} but its domain is ` +
           `"${linha?.estado ?? "(por configurar)"}" and not "${DOMINIO_VERIFICADO}" — ` +
-          `falling back to ${global}.`,
+          `falling back to ${mascararEmail(global)}.`,
       );
       return global;
     }
@@ -233,7 +271,7 @@ async function remetenteDaOrganizacao(
   } catch (e) {
     console.warn(
       `[email] could not read the sender of organisation ${organizacaoId} — ` +
-        `falling back to ${global}.`,
+        `falling back to ${mascararEmail(global)}.`,
       e,
     );
     return global;
@@ -290,7 +328,7 @@ async function tentarEnviar(p: ParametrosEmail): Promise<ResultadoEnvio> {
 
   if (canais.length === 0) {
     const lista = p.anexos?.length ? ` anexos=${p.anexos.map((a) => a.nome).join(",")}` : "";
-    console.log(`[email] (no key) to=${p.para} subject="${p.assunto}"${lista}`);
+    console.log(`[email] (no key) to=${mascararEmail(p.para)} subject="${p.assunto}"${lista}`);
     return {
       ok: false,
       erro:
@@ -1005,7 +1043,7 @@ export async function confirmarEntrega(p: {
       // Não muda o estado: uma consulta falhada nada diz sobre a mensagem —
       // marcar a linha aqui seria transformar uma falha nossa numa acusação ao destinatário.
       console.warn(
-        `[email] could not confirm delivery to ${p.para} ` +
+        `[email] could not confirm delivery to ${mascararEmail(p.para)} ` +
           `(${p.canal} ${p.mensagemId}): ${r.erro}`,
       );
       continue;
@@ -1017,10 +1055,10 @@ export async function confirmarEntrega(p: {
     await marcarEntrega(p.linhaId, r.evento, r.motivo);
 
     if (r.evento === "entregue") {
-      console.info(`[email] delivered to ${p.para} (${p.canal} ${p.mensagemId})`);
+      console.info(`[email] delivered to ${mascararEmail(p.para)} (${p.canal} ${p.mensagemId})`);
     } else {
       console.error(
-        `[email] ${r.evento === "devolvido" ? "BOUNCED" : "COMPLAINT"} — ${p.para} ` +
+        `[email] ${r.evento === "devolvido" ? "BOUNCED" : "COMPLAINT"} — ${mascararEmail(p.para)} ` +
           `template=${p.template} (${p.canal} ${p.mensagemId}): ${r.motivo ?? "no reason"}`,
       );
     }
@@ -1028,7 +1066,7 @@ export async function confirmarEntrega(p: {
   }
 
   console.warn(
-    `[email] delivery unconfirmed for ${p.para} (${p.canal} ${p.mensagemId}) ` +
+    `[email] delivery unconfirmed for ${mascararEmail(p.para)} (${p.canal} ${p.mensagemId}) ` +
       `after ${esperas.length} attempt(s)${ultimoMotivo ? `; last state: ${ultimoMotivo}` : ""}. ` +
       "The row stays at «enviado» — run `pnpm email:conferir` later.",
   );

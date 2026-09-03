@@ -10,6 +10,7 @@ import { utilizador } from "@/db/schema/organizacao";
 import { registarEvento } from "@/features/auditoria/registar";
 import { COOKIE_SOCIEDADE_ATIVA, sessaoAtual } from "@/lib/sessao";
 import { novaPalavraPasseSchema } from "./schemas";
+import { mascararEmail } from "@/lib/redigir";
 
 /**
  * A conta de quem já entrou: definir a palavra-passe própria.
@@ -92,7 +93,7 @@ export async function redefinirPalavraPasse(dados: unknown): Promise<ResultadoRe
     } catch (e) {
       // Um hash que não se consegue ler não é razão para impedir a pessoa de
       // definir uma palavra-passe nova: é razão para a definir.
-      console.warn(`[conta] não foi possível comparar o hash de ${eu.email}`, e);
+      console.warn(`[conta] não foi possível comparar o hash de ${mascararEmail(eu.email)}`, e);
     }
   }
 
@@ -116,7 +117,7 @@ export async function redefinirPalavraPasse(dados: unknown): Promise<ResultadoRe
         .where(eq(utilizador.id, eu.id));
     });
   } catch (e) {
-    console.error(`[conta] falhou a definir a palavra-passe de ${eu.email}:`, e);
+    console.error(`[conta] falhou a definir a palavra-passe de ${mascararEmail(eu.email)}:`, e);
     return { ok: false, erros: { _: "Não foi possível gravar. Tente de novo." } };
   }
 

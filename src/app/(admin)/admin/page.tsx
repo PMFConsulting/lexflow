@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Ref } from "@/components/ref-processo";
 import { cn } from "@/lib/utils";
 import { NovaSociedade } from "@/features/plataforma/componentes/NovaSociedade";
+import { exigirSuperAdmin } from "@/lib/sessao";
 import {
   listarSociedades,
   numerosDaPlataforma,
@@ -22,6 +23,10 @@ export const metadata = { title: "Plataforma" };
  * comodidade que só se pode dar tendo este contador.
  */
 export default async function PainelDaPlataforma() {
+  // Guard próprio, e não só o do layout: em Next uma página é um módulo que
+  // pode ser alcançado sem o layout ter corrido (RSC payload pedido à mão), e
+  // este portal é o único sítio sem filtro por sociedade.
+  await exigirSuperAdmin();
   const [n, sociedades, reparticao] = await Promise.all([
     numerosDaPlataforma(),
     listarSociedades(),

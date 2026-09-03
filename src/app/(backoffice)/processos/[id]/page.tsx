@@ -16,6 +16,7 @@ import {
   podeReabrirProcesso,
   podeReenviarLinkProcesso,
   podeVerPpe,
+  sessaoAtual,
 } from "@/lib/sessao";
 import { registarEvento } from "@/features/auditoria/registar";
 import { DetalheProcesso } from "@/features/processos/componentes/DetalheProcesso";
@@ -34,6 +35,17 @@ export const dynamic = "force-dynamic";
  * Um `id` que não resolve devolve o título genérico e não `notFound()`: quem
  * decide que a página não existe é a página, e uma exceção lançada daqui
  * trocava o ecrã de 404 por um erro.
+ *
+ * A referência **só sai depois da mesma verificação que a página faz**. Sem
+ * isso, o título do separador era uma via lateral para ler a referência de um
+ * processo de outra sociedade: o `generateMetadata` corre no seu próprio
+ * pedido, o guard do componente não o cobre, e um `id` adivinhado devolvia
+ * `Processo XX-2026-0007` a quem nunca teria a página.
+ *
+ * `sessaoAtual()` e não `exigirEquipaOuSuperAdmin()`: os guards redirecionam, e
+ * um redirect lançado de dentro do `generateMetadata` estraga o ecrã que a
+ * página ia mostrar. Aqui a falta de sessão vale o título genérico — a página,
+ * essa, continua a recusar o acesso por si.
  */
 export async function generateMetadata({
   params,
@@ -41,8 +53,18 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const generico = { title: "Processo" };
+
+  const sessao = await sessaoAtual();
+  if (!sessao) return generico;
+
   const processo = await processoPorId(id);
-  return { title: processo ? `Processo ${processo.referencia}` : "Processo" };
+  if (!processo) return generico;
+
+  const superAdmin = sessao.eu.papel === "super_admin";
+  if (!superAdmin && processo.organizacaoId !== sessao.eu.organizacaoId) return generico;
+
+  return { title: `Processo ${processo.referencia}` };
 }
 
 export default async function Processo({

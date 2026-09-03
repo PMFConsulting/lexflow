@@ -10,6 +10,7 @@ import { listarProcessosPlataforma } from "@/features/processos/consultas";
 import { listarSociedades } from "@/features/plataforma/consultas";
 import { cn } from "@/lib/utils";
 import { formatarData } from "@/lib/datas";
+import { exigirSuperAdmin } from "@/lib/sessao";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,10 @@ export default async function ProcessosPlataforma({
   searchParams: Promise<{ q?: string; sociedade?: string; estado?: string }>;
 }) {
   const { q, sociedade, estado } = await searchParams;
+  // Guard próprio, e não só o do layout: em Next uma página é um módulo que
+  // pode ser alcançado sem o layout ter corrido (RSC payload pedido à mão), e
+  // este portal é o único sítio sem filtro por sociedade.
+  await exigirSuperAdmin();
 
   const [{ linhas: processos, total }, sociedades] = await Promise.all([
     listarProcessosPlataforma(

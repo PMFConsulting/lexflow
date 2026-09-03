@@ -16,6 +16,7 @@ import {
 import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import { origemPublica } from "@/lib/origem";
 import type { Papel } from "@/lib/sessao";
+import { mascararEmail } from "@/lib/redigir";
 
 /**
  * Criação de contas — serviço partilhado pela interface e pelo script. As
@@ -585,7 +586,7 @@ export async function enviarCredenciais(envio: CredencialPorEnviar): Promise<voi
     // isso passaria por "correu bem" o estado "ainda não se sabe".
     envio.conta.emailEnviado = false;
     envio.conta.erroEmail = e instanceof Error ? e.message : String(e);
-    console.error(`[contas] falhou o envio das credenciais para ${envio.email}:`, e);
+    console.error(`[contas] falhou o envio das credenciais para ${mascararEmail(envio.email)}:`, e);
   }
 }
 

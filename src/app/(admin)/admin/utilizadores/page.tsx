@@ -6,6 +6,7 @@ import { NovoAdminPlataforma } from "@/features/plataforma/componentes/NovoAdmin
 import { listarUtilizadores } from "@/features/plataforma/consultas";
 import { rotuloDoPapel } from "@/components/portal-shell";
 import { formatarDataCurta } from "@/lib/datas";
+import { exigirSuperAdmin } from "@/lib/sessao";
 
 export const metadata = { title: "Utilizadores" };
 export const dynamic = "force-dynamic";
@@ -24,6 +25,10 @@ export default async function Utilizadores({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
+  // Guard próprio, e não só o do layout: em Next uma página é um módulo que
+  // pode ser alcançado sem o layout ter corrido (RSC payload pedido à mão), e
+  // este portal é o único sítio sem filtro por sociedade.
+  await exigirSuperAdmin();
   const contas = await listarUtilizadores(q);
 
   return (

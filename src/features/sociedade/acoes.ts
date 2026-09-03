@@ -26,6 +26,7 @@ import {
 } from "./dados";
 import { SCHEMAS_SOCIEDADE } from "./schemas";
 import { proximoPassoSociedade, TOTAL_PASSOS_SOCIEDADE } from "./passos";
+import { mascararEmail } from "@/lib/redigir";
 
 /**
  * As Server Actions do onboarding da sociedade.
@@ -454,7 +455,7 @@ export async function submeterSociedade(bruto: string): Promise<ResultadoSubmiss
   } catch (e) {
     erroEmail = String(e);
     console.error("[sociedade] admin invitation email failed", {
-      email: adminEmail,
+      email: mascararEmail(adminEmail),
       erro: erroEmail,
     });
   }

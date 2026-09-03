@@ -7,6 +7,27 @@ import { criarDestinoS3 } from "./s3";
 import { criarDestinoServidor } from "./servidor";
 import { parametrosS3, parametrosServidor, type Destino } from "./tipos";
 
+/**
+ * INVENTÁRIO DE SUBCONTRATANTES — armazenamento (RGPD, artigo 28.º e artigo 30.º).
+ *
+ * A outra metade da lista que está em `src/lib/email.ts`. O que sai por aqui
+ * são os documentos de identificação, o `summary.pdf` e o `dados_cliente.pdf`
+ * — a categoria de dados mais sensível que a plataforma trata.
+ *
+ * | Destino  | Ligado por                                  | Quem é o subcontratante |
+ * |----------|---------------------------------------------|-------------------------|
+ * | SFTP     | `armazenamento_sociedade.parametros`         | a própria sociedade (servidor dela) — não há terceiro |
+ * | AWS S3   | `armazenamento_sociedade.bucket_s3` (D65)    | Amazon Web Services, um bucket por sociedade |
+ *
+ * O SFTP é o caso em que **não** há subcontratante novo: os ficheiros vão para
+ * o servidor da própria sociedade, que é a responsável pelo tratamento. O S3 é
+ * o caso em que há — e a região do bucket é o que decide se houve transferência
+ * internacional.
+ *
+ * `criarDestino` decide pela coluna `bucket_s3` e não pelas credenciais
+ * decifradas: é aí que se vê, por sociedade, qual dos dois está em uso.
+ */
+
 export type ConfiguracaoArmazenamento = typeof armazenamentoSociedade.$inferSelect;
 
 /**

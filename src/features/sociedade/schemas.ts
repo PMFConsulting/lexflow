@@ -125,6 +125,26 @@ export const passoSociedade4 = z
 export const passoSociedade5 = z.object({
   adminNome: obrigatorio("O nome do administrador").max(200, "Máximo 200 caracteres."),
   adminEmail: email,
+  /**
+   * NOTA DE MINIMIZAÇÃO (RGPD, artigo 5.º, n.º 1, alínea c).
+   *
+   * `adminTelefone` é obrigatório no ecrã, fica gravado em
+   * `onboarding_sociedade.admin_telefone` — e **não é lido por ninguém**. A
+   * criação da conta do primeiro administrador (`submeterSociedade`) usa
+   * `adminNome` e `adminEmail`; o convite sai por email e o link vive no
+   * `conviteUtilizador`. O telefone não entra em nenhum dos dois.
+   *
+   * É, portanto, um dado pessoal recolhido sem finalidade a servir — que é
+   * exatamente o que a minimização proíbe. Duas saídas, e é uma decisão de
+   * produto e não técnica:
+   *   a) dar-lhe finalidade (contacto de recuperação quando o email do convite
+   *      não chega — o caso que já custou caro, ver a nota de 25/08 sobre o
+   *      convite do primeiro administrador), e escrevê-la na política; ou
+   *   b) tornar o campo opcional, ou tirá-lo do passo.
+   *
+   * Fica assinalado e não alterado: mexer nele muda o formulário e invalida
+   * registos a meio, e a escolha entre (a) e (b) não é para ser feita aqui.
+   */
   adminTelefone: telefone,
 });
 

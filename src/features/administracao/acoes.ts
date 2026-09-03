@@ -26,6 +26,7 @@ import { urlLogotipoSociedade } from "@/lib/emails/moldura";
 import { origemPublica } from "@/lib/origem";
 import { exigirAdministracao, exigirGestorDeUtilizadores } from "@/lib/sessao";
 import { expiraDaquiA, novoTokenAcesso } from "@/lib/token";
+import { mascararEmail } from "@/lib/redigir";
 import {
   CAMPOS_MAE,
   dadosSociedadeSchema,
@@ -246,7 +247,7 @@ export async function convidarUtilizador(dados: unknown): Promise<ResultadoConvi
     if (!envio.ok) erroEmail = envio.erro;
   } catch (e) {
     erroEmail = e instanceof Error ? e.message : String(e);
-    console.error("[admin] invitation email blew up", { email, erro: erroEmail });
+    console.error("[admin] invitation email blew up", { email: mascararEmail(email), erro: erroEmail });
   }
 
   try {
