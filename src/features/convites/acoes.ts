@@ -30,6 +30,7 @@ import {
   TOTAL_PASSOS_CONVITE,
 } from "./passos";
 import { notificarDonoNovoUtilizador } from "@/lib/emails/notificacoes-dono";
+import { mascararEmail } from "@/lib/redigir";
 
 /**
  * Server Actions do registo de uma pessoa da equipa.
@@ -524,7 +525,7 @@ export async function concluirConvite(
       return id;
     });
   } catch (e) {
-    console.error("[convite] account creation failed", { email, erro: String(e) });
+    console.error("[convite] account creation failed", { email: mascararEmail(email), erro: String(e) });
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("Esta pessoa já tem conta noutra sociedade")) {
       return {

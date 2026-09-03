@@ -16,11 +16,13 @@ import {
 import { listarConvites } from "@/features/administracao/consultas";
 import { perfisDosConvites } from "@/features/convites/dados";
 import { env } from "@/env";
+import { exigirSuperAdmin } from "@/lib/sessao";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await exigirSuperAdmin();
   const sociedade = await sociedadePorId(id);
   return { title: sociedade?.nome ?? "Sociedade" };
 }
@@ -32,6 +34,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
  */
 export default async function Sociedade({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Guard próprio, e não só o do layout: em Next uma página é um módulo que
+  // pode ser alcançado sem o layout ter corrido (RSC payload pedido à mão), e
+  // este portal é o único sítio sem filtro por sociedade.
+  await exigirSuperAdmin();
 
   const sociedade = await sociedadePorId(id);
   if (!sociedade) notFound();

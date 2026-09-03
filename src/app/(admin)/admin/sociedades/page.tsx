@@ -6,6 +6,7 @@ import { Ref } from "@/components/ref-processo";
 import { NovaSociedade } from "@/features/plataforma/componentes/NovaSociedade";
 import { listarSociedades } from "@/features/plataforma/consultas";
 import { formatarDataCurta } from "@/lib/datas";
+import { exigirSuperAdmin } from "@/lib/sessao";
 
 export const metadata = { title: "Sociedades" };
 
@@ -22,6 +23,10 @@ export default async function Sociedades({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
+  // Guard próprio, e não só o do layout: em Next uma página é um módulo que
+  // pode ser alcançado sem o layout ter corrido (RSC payload pedido à mão), e
+  // este portal é o único sítio sem filtro por sociedade.
+  await exigirSuperAdmin();
   const sociedades = await listarSociedades(q);
 
   return (
