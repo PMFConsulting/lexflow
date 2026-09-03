@@ -210,10 +210,15 @@ export async function criarConta(
         .where(
           pedido.organizacaoId
             ? and(
+              eq(utilizador.email, email),
+              ne(utilizador.organizacaoId, pedido.organizacaoId),
+              isNull(utilizador.apagadoEm),
+            )
+            : and(
                 eq(utilizador.email, email),
-                ne(utilizador.organizacaoId, pedido.organizacaoId),
-              )
-            : isNotNull(utilizador.organizacaoId),
+                isNotNull(utilizador.organizacaoId),
+                isNull(utilizador.apagadoEm),
+              ),
         )
         .limit(1);
 
@@ -271,8 +276,13 @@ export async function criarConta(
               ? and(
                   eq(utilizador.authUserId, contaExistente.id),
                   ne(utilizador.organizacaoId, pedido.organizacaoId),
+                  isNull(utilizador.apagadoEm),
                 )
-              : isNotNull(utilizador.organizacaoId),
+                : and(
+                    eq(utilizador.authUserId, contaExistente.id),
+                    isNotNull(utilizador.organizacaoId),
+                    isNull(utilizador.apagadoEm),
+                  ),
           )
           .limit(1);
 
