@@ -55,6 +55,20 @@ export const onboardingSociedade = pgTable(
     declaracaoVinculo: boolean("declaracao_vinculo").notNull().default(false),
     declaracaoNome: text("declaracao_nome"),
     declaracaoCargo: text("declaracao_cargo"),
+    /**
+     * The platform's privacy consent, granted by the person submitting on the
+     * final step, before the register goes through.
+     *
+     * Only the timestamp and the wording version are stored — the checkbox
+     * itself is a `z.literal(true)` in the step schema, so a `false` can never
+     * be recorded as data. `versao` is what the person saw: the consent is
+     * only valid for the exact privacy policy and terms of use of that
+     * version (same evidence rule as D3). Null until the final step is saved.
+     */
+    consentimentoPrivacidadeEm: timestamp("consentimento_privacidade_em", {
+      withTimezone: true,
+    }),
+    consentimentoPrivacidadeVersao: text("consentimento_privacidade_versao"),
     extra: extra(),
     ...timestamps(),
     ...softDelete(),

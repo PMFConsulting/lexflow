@@ -58,6 +58,7 @@ export default async function PassoSociedade({
         declaracaoNome: onboarding.declaracaoNome,
         declaracaoCargo: onboarding.declaracaoCargo,
         declaracaoVinculo: onboarding.declaracaoVinculo,
+        consentimentoPrivacidade: Boolean(onboarding.consentimentoPrivacidadeEm),
         logotipoNome: org.logotipoNome,
       }}
       anexos={documentos.map((d) => ({
