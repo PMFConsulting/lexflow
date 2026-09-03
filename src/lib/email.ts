@@ -175,16 +175,31 @@ type Mensagem = Pick<ParametrosEmail, "para" | "assunto" | "html" | "anexos"> & 
 };
 
 /**
+ * O estado em que o fornecedor dá um domínio por verificado. Espelho do
+ * `status` da Resend, gravado em `organizacao.dominio_estado` por
+ * `features/plataforma/dominios.ts` — nenhuma outra palavra conta como
+ * verificado, incluindo `pending` e `failed`.
+ */
+const DOMINIO_VERIFICADO = "verified";
+
+/**
  * Em nome de quem esta mensagem sai: da sociedade quando tem remetente
- * configurado, da instalação caso contrário. `organizacao.email_remetente`
- * fica `null` até ser configurado, o que torna o whitelabel aditivo.
+ * configurado **e o domínio desse remetente está verificado**, da instalação em
+ * qualquer outro caso. `organizacao.email_remetente` fica `null` até ser
+ * configurado, o que torna o whitelabel aditivo.
+ *
+ * A verificação do domínio é a condição e não um detalhe: o remetente resolve-se
+ * uma vez e segue igual para todos os canais do recuo, e a verificação de
+ * domínio vive na conta da Resend — o Mailjet, o Brevo, o SendGrid e o SMTP
+ * próprio não sabem nada dela. Sem esta porta, um domínio por verificar dava um
+ * 403 legível na Resend (D43) e, no canal seguinte, um envio **aceite** com um
+ * `From` que o destinatário não consegue autenticar: SPF e DKIM falham, a
+ * mensagem cai em spam ou é recusada em silêncio, e o `email_log` diz «Aceite».
+ * Sair do remetente global é menos exato e chega; sair de um domínio alheio não
+ * verificado não chega de todo.
  *
  * A consulta nunca lança — uma linha ilegível não pode deixar o cliente sem
  * link, recua para o remetente global e diz porquê na consola.
- *
- * Não depende do domínio estar verificado: um remetente contra domínio não
- * verificado dá 403 com o remetente à frente (D43), resolvido à primeira
- * leitura — enviar em silêncio pelo domínio da plataforma seria pior.
  */
 async function remetenteDaOrganizacao(
   organizacaoId: string | null | undefined,
@@ -194,13 +209,27 @@ async function remetenteDaOrganizacao(
 
   try {
     const [linha] = await db()
-      .select({ de: organizacao.emailRemetente })
+      .select({ de: organizacao.emailRemetente, estado: organizacao.dominioEstado })
       .from(organizacao)
       .where(eq(organizacao.id, organizacaoId))
       .limit(1);
 
     const de = linha?.de?.trim();
-    return de ? de : global;
+    if (!de) return global;
+
+    if (linha?.estado !== DOMINIO_VERIFICADO) {
+      // Dito alto: uma sociedade que configurou o endereço e nunca acabou a
+      // verificação continua a receber emails enviados, só que assinados pela
+      // plataforma — sem esta linha, a diferença não aparece em lado nenhum.
+      console.warn(
+        `[email] organisation ${organizacaoId} has sender ${de} but its domain is ` +
+          `"${linha?.estado ?? "(por configurar)"}" and not "${DOMINIO_VERIFICADO}" — ` +
+          `falling back to ${global}.`,
+      );
+      return global;
+    }
+
+    return de;
   } catch (e) {
     console.warn(
       `[email] could not read the sender of organisation ${organizacaoId} — ` +

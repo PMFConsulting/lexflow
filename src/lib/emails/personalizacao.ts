@@ -103,6 +103,48 @@ export function aplicarPlaceholders(
 }
 
 /**
+ * O mesmo que `aplicarPlaceholders`, mas para texto que **não é HTML** — hoje,
+ * o assunto do email.
+ *
+ * O assunto vai para um cabeçalho MIME, não para o corpo: escapá-lo como HTML
+ * fazia o cliente ver literalmente `Processo &amp; Anexos` ou
+ * `Sociedade Andrade &#39;Costa` na lista da caixa de correio, porque nenhum
+ * leitor de email interpreta entidades HTML num `Subject`. Um apóstrofo num
+ * nome de sociedade bastava.
+ *
+ * O que se faz em vez disso é o que o cabeçalho exige: tirar os fins de linha.
+ * Um `\r\n` num assunto não é uma questão de aparência — é o que separa um
+ * cabeçalho do seguinte, e deixá-lo passar seria trocar um escape a mais por
+ * uma injeção de cabeçalhos.
+ */
+export function aplicarPlaceholdersTexto(
+  texto: string | null | undefined,
+  variaveis: Record<string, string | null | undefined>,
+): string {
+  if (!texto || typeof texto !== "string") return "";
+
+  const substituido = texto.replace(
+    /{{\s*([a-zA-Z0-9_-]+)\s*}}/g,
+    (correspondenciaOriginal, chave: string) => {
+      if (Object.prototype.hasOwnProperty.call(variaveis, chave)) {
+        const valor = variaveis[chave];
+        if (valor === undefined) {
+          return correspondenciaOriginal;
+        }
+        if (valor === null) {
+          return "";
+        }
+        return String(valor);
+      }
+      return correspondenciaOriginal;
+    },
+  );
+
+  // Fins de linha e caracteres de controlo fora: um cabeçalho é uma linha só.
+  return substituido.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+}
+
+/**
  * Sanitizador de HTML baseado em lista branca de tags para corpos de email.
  *
  * Aproximação por expressões regulares para o ambiente da POC sem introduzir
