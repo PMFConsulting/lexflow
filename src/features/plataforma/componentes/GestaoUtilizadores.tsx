@@ -72,6 +72,20 @@ export function GestaoUtilizadores({
   const base = useId();
 
   const gestores = contas.filter((c) => c.papel === "gestor" && c.ativo);
+  const semGestores = gestores.length === 0;
+
+  /**
+   * A hierarquia era a parte que o ecrã menos explicava: o campo dizia
+   * «Gestor» e não dizia nem o que a ligação faz nem quem lhe pode mexer — e
+   * quem não lhe pode mexer (o `super_admin`, em `/admin/sociedades/[id]`)
+   * via o mesmo campo, também sem uma palavra que explicasse porquê.
+   *
+   * O texto vive aqui, uma vez, para os dois ecrãs não divergirem como
+   * diverge sempre o que se escreve duas vezes.
+   */
+  const explicacaoDaHierarquia = podeGerirGestores
+    ? "Só a administração da sociedade define a quem cada utilizador reporta. O gestor escolhido passa a acompanhar esta pessoa em «A minha equipa»."
+    : "A hierarquia é definida pela administração da sociedade — a plataforma vê-a, não a escolhe.";
 
   const criar = (ev: React.FormEvent<HTMLFormElement>) => {
     ev.preventDefault();
@@ -182,6 +196,32 @@ export function GestaoUtilizadores({
           </span>
         </div>
 
+        {/* A explicação fica ao lado da lista, e não numa ajuda escondida:
+            quem abre este ecrã para mexer na hierarquia é exatamente quem
+            ainda não sabe o que ela é. */}
+        {contas.length > 0 && (
+          <p className="border-linha border-b px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+            <span className="text-tinta font-medium">Hierarquia — quem reporta a quem.</span>{" "}
+            {podeGerirGestores ? (
+              <>
+                <span className="text-tinta">Só a administração da sociedade a define:</span> nem
+                a plataforma nem o próprio utilizador a escolhem. Cada conta com o papel
+                «Utilizador» pode reportar a um gestor — o colega com o papel «Gestor» —, que
+                passa a vê-la em «A minha equipa». Escolha-o em «Reporta a:», na linha da pessoa;
+                fica gravado de imediato.{" "}
+                {semGestores &&
+                  "Ainda não há nenhuma conta com o papel «Gestor»: crie uma abaixo e ela passa a poder ser escolhida aqui."}
+              </>
+            ) : (
+              <>
+                Quem a define é{" "}
+                <span className="text-tinta">a administração desta sociedade</span>, no ecrã de
+                utilizadores dela. A administração da plataforma vê a hierarquia, não lhe mexe.
+              </>
+            )}
+          </p>
+        )}
+
         {contas.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">
             Esta sociedade ainda não tem contas. Sem pelo menos um administrador, ninguém entra
@@ -202,15 +242,32 @@ export function GestaoUtilizadores({
                 </span>
                 {c.papel === "utilizador" && podeGerirGestores && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-2xs text-muted-foreground">Gestor:</span>
+                    <span className="text-2xs text-muted-foreground">Reporta a:</span>
                     <select
                       value={c.gestorId ?? ""}
                       onChange={(e) => mudarGestor(c.id, e.target.value)}
-                      disabled={aGravar}
+                      disabled={aGravar || (semGestores && !c.gestorId)}
                       className={cn(classeSelect, "h-7 w-auto py-0 text-2xs")}
-                      aria-label={`Associar gestor a ${c.nome}`}
+                      aria-label={`Gestor a quem ${c.nome} reporta`}
+                      title={
+                        semGestores && !c.gestorId
+                          ? "Não há nenhuma conta com o papel «Gestor» nesta sociedade — crie uma para a poder escolher aqui."
+                          : explicacaoDaHierarquia
+                      }
                     >
-                      <option value="">Sem gestor</option>
+                      <option value="">
+                        {semGestores && !c.gestorId
+                          ? "Sem gestores criados"
+                          : "Não reporta a ninguém"}
+                      </option>
+                      {/* Desativar um gestor tira-o desta lista mas não desfaz
+                          as ligações que ele já tinha: sem esta opção o select
+                          dizia «Não reporta a ninguém» a quem reporta a
+                          alguém — e a administração ficava sem forma de o
+                          corrigir. */}
+                      {c.gestorId && !gestores.some((g) => g.id === c.gestorId) && (
+                        <option value={c.gestorId}>{c.gestorNome ?? "Gestor"} (desativado)</option>
+                      )}
                       {gestores.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.nome}
@@ -222,9 +279,9 @@ export function GestaoUtilizadores({
                 {c.papel === "utilizador" && !podeGerirGestores && c.gestorNome && (
                   <span
                     className="text-2xs border-linha text-muted-foreground rounded-sm border px-2 py-0.5"
-                    title={`Gestor: ${c.gestorNome}`}
+                    title={`Reporta a ${c.gestorNome}. ${explicacaoDaHierarquia}`}
                   >
-                    Gestor: {c.gestorNome}
+                    Reporta a: {c.gestorNome}
                   </span>
                 )}
                 {c.aprovadoEm === null && c.papel !== "super_admin" && (
@@ -310,20 +367,29 @@ export function GestaoUtilizadores({
 
             {podeGerirGestores && papelEscolhido === "utilizador" && (
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`${base}-gestor`}>Gestor associado (opcional)</Label>
+                <Label htmlFor={`${base}-gestor`}>Reporta a (opcional)</Label>
                 <select
                   id={`${base}-gestor`}
                   name="gestorId"
                   defaultValue=""
+                  disabled={semGestores}
                   className={cn(classeSelect, "w-full")}
+                  title={explicacaoDaHierarquia}
                 >
-                  <option value="">Nenhum (sem gestor)</option>
+                  <option value="">
+                    {semGestores ? "Sem gestores criados" : "Ninguém (sem gestor)"}
+                  </option>
                   {gestores.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.nome} ({g.email})
                     </option>
                   ))}
                 </select>
+                <p className="text-2xs text-muted-foreground">
+                  {semGestores
+                    ? "Ainda não há contas com o papel «Gestor» nesta sociedade. Crie primeiro o gestor e a ligação passa a poder fazer-se — aqui ou na lista de contas."
+                    : "O gestor que passa a acompanhar esta pessoa em «A minha equipa». Pode ficar em branco: a ligação também se faz depois, na lista de contas."}
+                </p>
                 <Erro erros={erros} campo="gestorId" />
               </div>
             )}

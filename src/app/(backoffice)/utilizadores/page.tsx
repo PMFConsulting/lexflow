@@ -28,7 +28,9 @@ export default async function UtilizadoresDaSociedade() {
         <h1 className="text-2xl">Utilizadores</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           As contas da sua sociedade. Um administrador gere contas, emails e configuração; um
-          utilizador trabalha os processos.
+          gestor coordena um grupo de utilizadores; um utilizador trabalha os processos. A
+          hierarquia — quem reporta a que gestor — define-se aqui, e só a administração da
+          sociedade lhe pode mexer.
         </p>
       </div>
 
