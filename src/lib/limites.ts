@@ -78,3 +78,20 @@ export function esquecer(chave: string) {
 export function limparLimites() {
   baldes.clear();
 }
+
+/**
+ * Política de início de sessão, num só sítio.
+ *
+ * Dois limitadores cobrem `/api/auth/sign-in/email`: o `middleware` (Edge) e o
+ * limitador interno do Better Auth. Enquanto os números viviam em ficheiros
+ * diferentes, o mais apertado ganhava sem aparecer em lado nenhum — subir o do
+ * `middleware` de 10 para 200 não mudou nada, porque quem recusava ao 4.º
+ * pedido era a regra por omissão do Better Auth (`/sign-in*`, 3 pedidos por
+ * 10 s, ativa só em produção). Daqui em diante os dois leem estas constantes.
+ */
+
+/** Tentativas de início de sessão por IP dentro da janela. Generoso para não travar testes reais (POC). */
+export const LOGIN_MAX_TENTATIVAS = 200;
+
+/** A janela do limite de início de sessão, em milissegundos. */
+export const LOGIN_JANELA_MS = 15 * 60_000;

@@ -22,6 +22,14 @@ export default function Entrar() {
       });
 
       if (r.error) {
+        // Um 429 não é uma credencial errada, e dizer que é manda a pessoa
+        // corrigir uma palavra-passe que está certa — que foi como este
+        // defeito se apresentou: login "intermitente". Não revela nada sobre
+        // a conta, porque o limite é por IP e não por email.
+        if (r.error.status === 429) {
+          setErro("Demasiadas tentativas seguidas. Aguarde alguns segundos e tente de novo.");
+          return;
+        }
         // Mensagem única de propósito: dizer "este email não existe" confirma
         // a quem tenta que os outros existem.
         setErro("Email ou palavra-passe incorretos.");

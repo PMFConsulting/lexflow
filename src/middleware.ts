@@ -1,14 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { consumir } from "@/lib/limites";
+import { consumir, LOGIN_JANELA_MS, LOGIN_MAX_TENTATIVAS } from "@/lib/limites";
 
 /**
  * Limite de ritmo no início de sessão.
  *
  * Sem MFA e sem isto, o login é um dicionário à solta: o
  * `minPasswordLength: 12` (D23) trava força bruta cega, não listas de
- * palavras-passe reutilizadas. 10 tentativas / 15 min, por IP e não por
+ * palavras-passe reutilizadas. Por IP e não por
  * conta — por email dava a qualquer um um botão para trancar a conta de
- * outra pessoa.
+ * outra pessoa. Os números estão em `lib/limites.ts`, partilhados com a
+ * configuração do Better Auth: dois limitadores com números diferentes no
+ * mesmo caminho recusam sem que nenhum dos dois o explique.
  *
  * Balde em memória (`lib/limites.ts`): reinício zera, várias instâncias não
  * partilham contagem. Suficiente para a POC.
@@ -18,11 +20,6 @@ import { consumir } from "@/lib/limites";
  * falhados.
  */
 
-/** Tentativas por IP dentro da janela. Generoso para não travar testes reais (POC). */
-const MAX_TENTATIVAS = 200;
-
-/** A janela, em milissegundos. */
-const JANELA_MS = 15 * 60_000;
 
 /**
  * IP de quem faz o pedido. `x-forwarded-for` vem do proxy do Coolify —
@@ -38,7 +35,7 @@ export function middleware(pedido: NextRequest) {
   // Só o POST interessa — o Better Auth serve estas rotas por POST.
   if (pedido.method !== "POST") return NextResponse.next();
 
-  const veredicto = consumir(`entrar:${origemDoPedido(pedido)}`, MAX_TENTATIVAS, JANELA_MS);
+  const veredicto = consumir(`entrar:${origemDoPedido(pedido)}`, LOGIN_MAX_TENTATIVAS, LOGIN_JANELA_MS);
 
   if (!veredicto.permitido) {
     console.warn(
