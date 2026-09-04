@@ -2,6 +2,7 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db, schema } from "@/db";
+import { LOGIN_JANELA_MS, LOGIN_MAX_TENTATIVAS } from "@/lib/limites";
 
 /**
  * Email + password with database-backed sessions.
@@ -35,6 +36,21 @@ function criar() {
       // API route kept accepting anyone calling it by hand.
       disableSignUp: true,
       minPasswordLength: 12,
+    },
+    rateLimit: {
+      // O Better Auth traz uma regra por omissão para `/sign-in*` — 3 pedidos
+      // por 10 segundos — que só se liga em produção. É ela que recusava ao
+      // 4.º pedido, com um 429 em inglês e `X-Retry-After: 10`, enquanto o
+      // limite do `middleware` (10, depois 200) nunca chegava a ser o que
+      // travava. Em desenvolvimento não existe, e por isso o defeito só
+      // aparecia no servidor.
+      //
+      // A regra passa a ser a mesma que o `middleware` declara, vinda das
+      // mesmas constantes: uma política, não duas a competir. O `middleware`
+      // continua a ser a camada visível, com a mensagem em português.
+      customRules: {
+        "/sign-in/email": { window: LOGIN_JANELA_MS / 1000, max: LOGIN_MAX_TENTATIVAS },
+      },
     },
     session: {
       // 30-day session with renewal: deliberate client decision for the POC, trading
