@@ -72,6 +72,20 @@ export function GestaoUtilizadores({
   const base = useId();
 
   const gestores = contas.filter((c) => c.papel === "gestor" && c.ativo);
+  const semGestores = gestores.length === 0;
+
+  /**
+   * A hierarquia era a parte que o ecrã menos explicava: o campo dizia
+   * «Gestor» e não dizia nem o que a ligação faz nem quem lhe pode mexer — e
+   * quem não lhe pode mexer (o `super_admin`, em `/admin/sociedades/[id]`)
+   * via o mesmo campo, também sem uma palavra que explicasse porquê.
+   *
+   * O texto vive aqui, uma vez, para os dois ecrãs não divergirem como
+   * diverge sempre o que se escreve duas vezes.
+   */
+  const explicacaoDaHierarquia = podeGerirGestores
+    ? "Só a administração da sociedade define a quem cada utilizador reporta. O gestor escolhido passa a acompanhar esta pessoa em «A minha equipa»."
+    : "A hierarquia é definida pela administração da sociedade — a plataforma vê-a, não a escolhe.";
 
   const criar = (ev: React.FormEvent<HTMLFormElement>) => {
     ev.preventDefault();
@@ -182,6 +196,27 @@ export function GestaoUtilizadores({
           </span>
         </div>
 
+        {/* A explicação fica ao lado da lista, e não numa ajuda escondida:
+            quem abre este ecrã para mexer na hierarquia é exatamente quem
+            ainda não sabe o que ela é. */}
+        {contas.length > 0 && (
+          <p className="border-linha text-2xs text-muted-foreground border-b px-3 py-2 leading-relaxed">
+            <span className="text-tinta font-medium">Hierarquia.</span>{" "}
+            {podeGerirGestores ? (
+              <>
+                Cada utilizador pode reportar a um gestor — o colega com o papel «Gestor», que
+                passa a acompanhá-lo em «A minha equipa». A ligação escolhe-se em «Reporta a:»,
+                aqui na lista, e fica logo gravada.{" "}
+                {semGestores
+                  ? "Ainda não há nenhuma conta com o papel «Gestor»: crie uma e ela passa a poder ser escolhida."
+                  : "Só a administração da sociedade a pode definir ou alterar."}
+              </>
+            ) : (
+              "Quem define a quem cada utilizador reporta é a administração desta sociedade, no ecrã de utilizadores dela. A plataforma vê a hierarquia, não a escolhe."
+            )}
+          </p>
+        )}
+
         {contas.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">
             Esta sociedade ainda não tem contas. Sem pelo menos um administrador, ninguém entra
@@ -202,15 +237,22 @@ export function GestaoUtilizadores({
                 </span>
                 {c.papel === "utilizador" && podeGerirGestores && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-2xs text-muted-foreground">Gestor:</span>
+                    <span className="text-2xs text-muted-foreground">Reporta a:</span>
                     <select
                       value={c.gestorId ?? ""}
                       onChange={(e) => mudarGestor(c.id, e.target.value)}
-                      disabled={aGravar}
+                      disabled={aGravar || semGestores}
                       className={cn(classeSelect, "h-7 w-auto py-0 text-2xs")}
-                      aria-label={`Associar gestor a ${c.nome}`}
+                      aria-label={`Gestor a quem ${c.nome} reporta`}
+                      title={
+                        semGestores
+                          ? "Não há nenhuma conta com o papel «Gestor» nesta sociedade — crie uma para a poder escolher aqui."
+                          : explicacaoDaHierarquia
+                      }
                     >
-                      <option value="">Sem gestor</option>
+                      <option value="">
+                        {semGestores ? "Sem gestores criados" : "Não reporta a ninguém"}
+                      </option>
                       {gestores.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.nome}
@@ -222,9 +264,9 @@ export function GestaoUtilizadores({
                 {c.papel === "utilizador" && !podeGerirGestores && c.gestorNome && (
                   <span
                     className="text-2xs border-linha text-muted-foreground rounded-sm border px-2 py-0.5"
-                    title={`Gestor: ${c.gestorNome}`}
+                    title={`Reporta a ${c.gestorNome}. ${explicacaoDaHierarquia}`}
                   >
-                    Gestor: {c.gestorNome}
+                    Reporta a: {c.gestorNome}
                   </span>
                 )}
                 {c.aprovadoEm === null && c.papel !== "super_admin" && (
@@ -310,20 +352,29 @@ export function GestaoUtilizadores({
 
             {podeGerirGestores && papelEscolhido === "utilizador" && (
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`${base}-gestor`}>Gestor associado (opcional)</Label>
+                <Label htmlFor={`${base}-gestor`}>Reporta a (opcional)</Label>
                 <select
                   id={`${base}-gestor`}
                   name="gestorId"
                   defaultValue=""
+                  disabled={semGestores}
                   className={cn(classeSelect, "w-full")}
+                  title={explicacaoDaHierarquia}
                 >
-                  <option value="">Nenhum (sem gestor)</option>
+                  <option value="">
+                    {semGestores ? "Sem gestores criados" : "Ninguém (sem gestor)"}
+                  </option>
                   {gestores.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.nome} ({g.email})
                     </option>
                   ))}
                 </select>
+                <p className="text-2xs text-muted-foreground">
+                  {semGestores
+                    ? "Ainda não há contas com o papel «Gestor». Crie primeiro um gestor e depois escolha-o aqui, ou na lista de contas."
+                    : "O gestor a quem esta pessoa passa a reportar — vê-a em «A minha equipa». Pode ficar em branco e ser escolhido mais tarde, na lista de contas."}
+                </p>
                 <Erro erros={erros} campo="gestorId" />
               </div>
             )}
