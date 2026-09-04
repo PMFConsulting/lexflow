@@ -18,8 +18,8 @@ import { consumir } from "@/lib/limites";
  * falhados.
  */
 
-/** Tentativas por IP dentro da janela. */
-const MAX_TENTATIVAS = 10;
+/** Tentativas por IP dentro da janela. Generoso para não travar testes reais (POC). */
+const MAX_TENTATIVAS = 200;
 
 /** A janela, em milissegundos. */
 const JANELA_MS = 15 * 60_000;
