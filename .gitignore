@@ -54,3 +54,11 @@ pnpm-debug.log*
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# AI tooling (nao faz parte da app)
+.claude/
+CLAUDE.md
+
+# logs/temp
+claude_login_*.txt
+claude_*.md
